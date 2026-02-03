@@ -1,0 +1,44 @@
+name: ffmpeg_kit_flutter_example
+description: "Demonstrates how to use the ffmpeg_kit_flutter plugin."
+publish_to: 'none'
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  ffmpeg_kit_flutter:
+    path: ../
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  integration_test:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+ffmpeg_kit_config:
+  bundle: audio
+  # bundle: audio-ai
+  # bundle: video
+  # bundle: video-ai-cpu
+  # bundle: video-ai-gpu-cuda
+  # bundle: video-ai-gpu-rocm
+  # bundle: video-hw
+  # bundle: video-hw-ai-gpu-cuda
+  # bundle: video-hw-ai-gpu-rocm
+  # bundle: streaming
+  # OR
+  # path: "/workspaces/ffmpeg-kit-builders/prebuilt/linux-x86_64/bundle-audio-linux-x86_64-static"
+  # OR
+  # path: "/workspaces/ffmpeg-kit-builders/prebuilt/linux-x86_64/bundle-audio-linux-x86_64-static.zip"
+  # OR
+  # path: "https://example.com/ffmpeg-kit-bundle.tar.gz"
