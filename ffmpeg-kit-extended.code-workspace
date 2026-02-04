@@ -1,7 +1,53 @@
 {
     "folders": [
         {
-            "path": "."
+            "path": ".",
+            "name": "repo"
+        },
+        {
+            "path": "flutter/lib",
+            "name": "plugin"
+        },
+        {
+            "path": "flutter/windows",
+            "name": "windows-native"
+        },
+        {
+            "path": "flutter/linux",
+            "name": "linux-native"
+        },
+        {
+            "path": "flutter/android",
+            "name": "android-native"
+        },
+        {
+            "path": "flutter_platform_interface",
+            "name": "flutter_platform_interface"
+        },
+        {
+            "path": "flutter/example",
+            "name": "example"
+        },
+        {
+            "path": "flutter/ios",
+            "name": "ios-native"
+        },
+        {
+            "path": "flutter/macos",
+            "name": "macos-native"
         }
-    ]
+    ],
+    "settings": {
+        "[dart]": {
+            "editor.tabSize": 2,
+            "editor.insertSpaces": true,
+            "editor.detectIndentation": false,
+            "editor.suggest.insertMode": "replace",
+            "editor.defaultFormatter": "Dart-Code.dart-code",
+            "editor.inlayHints.enabled": "offUnlessPressed",
+        },
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "always"
+        }
+    }
 }
