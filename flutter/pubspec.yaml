@@ -6,7 +6,7 @@ homepage: https://github.com/akashskypatel/ffmpeg-kit
 version: 6.0.3
 
 environment:
-  sdk: ">=2.12.0 <4.0.0"
+  sdk: ">=2.15.0 <4.0.0"
   flutter: ">=2.0.0"
 
 flutter:
@@ -25,7 +25,8 @@ flutter:
         pluginClass: FFmpegKitFlutterPlugin
 
 dependencies:
-  ffmpeg_kit_flutter_platform_interface: ^0.2.1
+  ffmpeg_kit_flutter_platform_interface:
+    path: ../flutter_platform_interface
   flutter:
     sdk: flutter
   yaml: ^3.1.2
