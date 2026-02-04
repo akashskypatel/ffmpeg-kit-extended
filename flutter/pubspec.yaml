@@ -1,8 +1,8 @@
-name: ffmpeg_kit_flutter
-description: FFmpeg Kit for Flutter. Supports Android, iOS and macOS platforms.
-repository: https://github.com/akashskypatel/ffmpeg-kit
-issue_tracker: https://github.com/akashskypatel/ffmpeg-kit/issues
-homepage: https://github.com/akashskypatel/ffmpeg-kit
+name: ffmpeg_kit_extended_flutter
+description: FFmpeg Kit Extended for Flutter. Supports Android, iOS and macOS platforms.
+repository: https://github.com/akashskypatel/ffmpeg-kit-extended
+issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
+homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
 version: 6.0.3
 
 environment:
@@ -13,7 +13,7 @@ flutter:
   plugin:
     platforms:
       android:
-        package: com.akashskypatel.ffmpegkit.flutter
+        package: com.akashskypatel.ffmpegkit.extended_flutter
         pluginClass: FFmpegKitFlutterPlugin
       ios:
         pluginClass: FFmpegKitFlutterPlugin
@@ -25,7 +25,7 @@ flutter:
         pluginClass: FFmpegKitFlutterPlugin
 
 dependencies:
-  ffmpeg_kit_flutter_platform_interface:
+  ffmpeg_kit_extended_flutter_platform_interface:
     path: ../flutter_platform_interface
   flutter:
     sdk: flutter
