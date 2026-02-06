@@ -20,7 +20,7 @@
 
 package com.akashskypatel.ffmpegkitextended.flutter;
 
-import static com.akashskypatel.ffmpegkitextended.flutter.FFmpegKitFlutterPlugin.LIBRARY_NAME;
+import static com.akashskypatel.ffmpegkitextended.flutter.FfmpegKitFlutterPlugin.LIBRARY_NAME;
 
 import android.os.Handler;
 import android.os.Looper;

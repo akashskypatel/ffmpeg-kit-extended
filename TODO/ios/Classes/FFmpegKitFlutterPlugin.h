@@ -20,5 +20,6 @@
 
 #import <Flutter/Flutter.h>
 
-@interface FFmpegKitFlutterPlugin : NSObject<FlutterPlugin,FlutterStreamHandler>
+@interface FfmpegKitFlutterPlugin
+    : NSObject <FlutterPlugin, FlutterStreamHandler>
 @end
