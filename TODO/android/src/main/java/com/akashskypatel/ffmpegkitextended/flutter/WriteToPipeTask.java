@@ -18,9 +18,9 @@
  * along with FFmpegKit.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.akashskypatel.ffmpegkit.flutter;
+package com.akashskypatel.ffmpegkitextended.flutter;
 
-import static com.akashskypatel.ffmpegkit.flutter.FFmpegKitFlutterPlugin.LIBRARY_NAME;
+import static com.akashskypatel.ffmpegkitextended.flutter.FFmpegKitFlutterPlugin.LIBRARY_NAME;
 
 import android.util.Log;
 

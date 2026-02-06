@@ -18,7 +18,7 @@
  * along with FFmpegKit.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.akashskypatel.ffmpegkit.flutter;
+package com.akashskypatel.ffmpegkitextended.flutter;
 
 import android.app.Activity;
 import android.content.Context;
@@ -30,24 +30,24 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import com.akashskypatel.ffmpegkit.AbiDetect;
-import com.akashskypatel.ffmpegkit.AbstractSession;
-import com.akashskypatel.ffmpegkit.FFmpegKit;
-import com.akashskypatel.ffmpegkit.FFmpegKitConfig;
-import com.akashskypatel.ffmpegkit.FFmpegSession;
-import com.akashskypatel.ffmpegkit.FFprobeKit;
-import com.akashskypatel.ffmpegkit.FFprobeSession;
-import com.akashskypatel.ffmpegkit.Level;
-import com.akashskypatel.ffmpegkit.LogRedirectionStrategy;
-import com.akashskypatel.ffmpegkit.MediaInformation;
-import com.akashskypatel.ffmpegkit.MediaInformationJsonParser;
-import com.akashskypatel.ffmpegkit.MediaInformationSession;
-import com.akashskypatel.ffmpegkit.Packages;
-import com.akashskypatel.ffmpegkit.ReturnCode;
-import com.akashskypatel.ffmpegkit.Session;
-import com.akashskypatel.ffmpegkit.SessionState;
-import com.akashskypatel.ffmpegkit.Signal;
-import com.akashskypatel.ffmpegkit.Statistics;
+import com.akashskypatel.ffmpegkitextended.AbiDetect;
+import com.akashskypatel.ffmpegkitextended.AbstractSession;
+import com.akashskypatel.ffmpegkitextended.FFmpegKit;
+import com.akashskypatel.ffmpegkitextended.FFmpegKitConfig;
+import com.akashskypatel.ffmpegkitextended.FFmpegSession;
+import com.akashskypatel.ffmpegkitextended.FFprobeKit;
+import com.akashskypatel.ffmpegkitextended.FFprobeSession;
+import com.akashskypatel.ffmpegkitextended.Level;
+import com.akashskypatel.ffmpegkitextended.LogRedirectionStrategy;
+import com.akashskypatel.ffmpegkitextended.MediaInformation;
+import com.akashskypatel.ffmpegkitextended.MediaInformationJsonParser;
+import com.akashskypatel.ffmpegkitextended.MediaInformationSession;
+import com.akashskypatel.ffmpegkitextended.Packages;
+import com.akashskypatel.ffmpegkitextended.ReturnCode;
+import com.akashskypatel.ffmpegkitextended.Session;
+import com.akashskypatel.ffmpegkitextended.SessionState;
+import com.akashskypatel.ffmpegkitextended.Signal;
+import com.akashskypatel.ffmpegkitextended.Statistics;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -78,7 +78,7 @@ import io.flutter.plugin.common.PluginRegistry;
 
 public class FFmpegKitFlutterPlugin implements FlutterPlugin, ActivityAware, MethodCallHandler, EventChannel.StreamHandler, PluginRegistry.ActivityResultListener {
 
-    public static final String LIBRARY_NAME = "ffmpeg-kit-flutter";
+    public static final String LIBRARY_NAME = "ffmpeg-kit-extended-flutter";
     public static final String PLATFORM_NAME = "android";
 
     private static final String METHOD_CHANNEL = "flutter.akashskypatel.com/ffmpeg_kit";

@@ -7,7 +7,7 @@ Pod::Spec.new do |s|
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'ARTHENICA' => 'open-source@akashskypatel.com' }
 
-  s.platform            = :ios
+  s.platform            = :osx
   s.requires_arc        = true
   s.static_framework    = true
 
@@ -15,121 +15,127 @@ Pod::Spec.new do |s|
   s.source_files        = 'Classes/**/*'
   s.public_header_files = 'Classes/**/*.h'
 
+  s.script_phase = {
+    :name => 'Run Configure Script',
+    :script => 'cd "$PODS_TARGET_SRCROOT/.." && dart bin/configure.dart macos',
+    :execution_position => :before_compile
+  }
+
   s.default_subspec     = 'https'
 
-  s.dependency          'Flutter'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
+  s.dependency          'FlutterMacOS'
+  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
 
   s.subspec 'min' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-min', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-min', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'min-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-min', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-min', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'min-gpl' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-min-gpl', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-min-gpl', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'min-gpl-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-min-gpl', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-min-gpl', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'https' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-https', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-https', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'https-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-https', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-https', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'https-gpl' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-https-gpl', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-https-gpl', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'https-gpl-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-https-gpl', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-https-gpl', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'audio' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-audio', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-audio', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'audio-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-audio', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-audio', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'video' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-video', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-video', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'video-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-video', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-video', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'full' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-full', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-full', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'full-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-full', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-full', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
   s.subspec 'full-gpl' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-full-gpl', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.dependency 'ffmpeg-kit-macos-full-gpl', "6.0"
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'full-gpl-lts' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-ios-full-gpl', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.dependency 'ffmpeg-kit-macos-full-gpl', "6.0.LTS"
+    ss.osx.deployment_target = '10.12'
   end
 
 end

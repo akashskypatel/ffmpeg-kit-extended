@@ -7,3 +7,4 @@ local.properties
 /build
 /captures
 gradle
+ffmpeg_kit_bundle/

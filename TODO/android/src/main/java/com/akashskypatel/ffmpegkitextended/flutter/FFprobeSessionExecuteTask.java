@@ -18,12 +18,12 @@
  * along with FFmpegKit.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.akashskypatel.ffmpegkit.flutter;
+package com.akashskypatel.ffmpegkitextended.flutter;
 
 import androidx.annotation.NonNull;
 
-import com.akashskypatel.ffmpegkit.FFmpegKitConfig;
-import com.akashskypatel.ffmpegkit.FFprobeSession;
+import com.akashskypatel.ffmpegkitextended.FFmpegKitConfig;
+import com.akashskypatel.ffmpegkitextended.FFprobeSession;
 
 import io.flutter.plugin.common.MethodChannel;
 

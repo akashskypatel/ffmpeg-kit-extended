@@ -18,9 +18,9 @@
  * along with FFmpegKit.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package com.akashskypatel.ffmpegkit.flutter;
+package com.akashskypatel.ffmpegkitextended.flutter;
 
-import static com.akashskypatel.ffmpegkit.flutter.FFmpegKitFlutterPlugin.LIBRARY_NAME;
+import static com.akashskypatel.ffmpegkitextended.flutter.FFmpegKitFlutterPlugin.LIBRARY_NAME;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -41,7 +41,8 @@ public class FFmpegKitFlutterMethodResultHandler {
             if (result != null) {
                 result.success(object);
             } else {
-                Log.w(LIBRARY_NAME, String.format("ResultHandler can not send successful response %s on a null method call result.", object));
+                Log.w(LIBRARY_NAME, String.format(
+                        "ResultHandler can not send successful response %s on a null method call result.", object));
             }
         });
     }
@@ -60,12 +61,15 @@ public class FFmpegKitFlutterMethodResultHandler {
         errorAsync(result, errorCode, errorMessage, null);
     }
 
-    void errorAsync(final MethodChannel.Result result, final String errorCode, final String errorMessage, final Object errorDetails) {
+    void errorAsync(final MethodChannel.Result result, final String errorCode, final String errorMessage,
+            final Object errorDetails) {
         handler.post(() -> {
             if (result != null) {
                 result.error(errorCode, errorMessage, errorDetails);
             } else {
-                Log.w(LIBRARY_NAME, String.format("ResultHandler can not send failure response %s:%s on a null method call result.", errorCode, errorMessage));
+                Log.w(LIBRARY_NAME,
+                        String.format("ResultHandler can not send failure response %s:%s on a null method call result.",
+                                errorCode, errorMessage));
             }
         });
     }
@@ -75,7 +79,8 @@ public class FFmpegKitFlutterMethodResultHandler {
             if (result != null) {
                 result.notImplemented();
             } else {
-                Log.w(LIBRARY_NAME, "ResultHandler can not send not implemented response on a null method call result.");
+                Log.w(LIBRARY_NAME,
+                        "ResultHandler can not send not implemented response on a null method call result.");
             }
         });
     }
