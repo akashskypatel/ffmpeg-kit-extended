@@ -10,7 +10,7 @@
 
 #include "ffmpeg_kit_flutter_plugin.h"
 
-namespace ffmpeg_kit_flutter {
+namespace ffmpeg_kit_extended_flutter {
 namespace test {
 
 namespace {
@@ -20,24 +20,23 @@ using flutter::EncodableValue;
 using flutter::MethodCall;
 using flutter::MethodResultFunctions;
 
-}  // namespace
+} // namespace
 
-TEST(FfmpegKitFlutterPlugin, GetPlatformVersion) {
-  FfmpegKitFlutterPlugin plugin;
+TEST(FfmpegKitFlutterPlugin, GetPlatform) {
+  FfmpegKitFlutterPlugin plugin(nullptr);
   // Save the reply value from the success callback.
   std::string result_string;
   plugin.HandleMethodCall(
-      MethodCall("getPlatformVersion", std::make_unique<EncodableValue>()),
+      MethodCall("getPlatform", std::make_unique<EncodableValue>()),
       std::make_unique<MethodResultFunctions<>>(
-          [&result_string](const EncodableValue* result) {
+          [&result_string](const EncodableValue *result) {
             result_string = std::get<std::string>(*result);
           },
           nullptr, nullptr));
 
-  // Since the exact string varies by host, just ensure that it's a string
-  // with the expected format.
-  EXPECT_TRUE(result_string.rfind("Windows ", 0) == 0);
+  // The implementation returns "windows"
+  EXPECT_EQ(result_string, "windows");
 }
 
-}  // namespace test
-}  // namespace ffmpeg_kit_flutter
+} // namespace test
+} // namespace ffmpeg_kit_extended_flutter
