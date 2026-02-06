@@ -4,38 +4,38 @@
             "path": ".",
             "name": "repo"
         },
-        {
-            "path": "flutter/lib",
-            "name": "plugin"
-        },
-        {
-            "path": "flutter/windows",
-            "name": "windows-native"
-        },
-        {
-            "path": "flutter/linux",
-            "name": "linux-native"
-        },
-        {
-            "path": "flutter/android",
-            "name": "android-native"
-        },
-        {
-            "path": "flutter_platform_interface",
-            "name": "flutter_platform_interface"
-        },
-        {
-            "path": "flutter/example",
-            "name": "example"
-        },
-        {
-            "path": "flutter/ios",
-            "name": "ios-native"
-        },
-        {
-            "path": "flutter/macos",
-            "name": "macos-native"
-        }
+        // {
+        //     "path": "flutter/lib",
+        //     "name": "plugin"
+        // },
+        // {
+        //     "path": "flutter/windows",
+        //     "name": "windows-native"
+        // },
+        // {
+        //     "path": "flutter/linux",
+        //     "name": "linux-native"
+        // },
+        // {
+        //     "path": "flutter_platform_interface",
+        //     "name": "flutter_platform_interface"
+        // },
+        // {
+        //     "path": "flutter/example",
+        //     "name": "example"
+        // },
+        // {
+        //     "path": "flutter/android",
+        //     "name": "android-native"
+        // },
+        // {
+        //     "path": "flutter/ios",
+        //     "name": "ios-native"
+        // },
+        // {
+        //     "path": "flutter/macos",
+        //     "name": "macos-native"
+        // }
     ],
     "settings": {
         "[dart]": {
