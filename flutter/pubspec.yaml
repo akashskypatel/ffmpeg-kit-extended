@@ -3,35 +3,52 @@ description: FFmpeg Kit Extended for Flutter. Supports Android, iOS and macOS pl
 repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
-version: 6.0.3
+version: 1.0.0
+publish_to: none
 
 environment:
-  sdk: ">=2.15.0 <4.0.0"
-  flutter: ">=2.0.0"
+  sdk: ">=3.2.0 <4.0.0"
+  flutter: ">=3.2.0"
+
+executables:
+  configure: configure
 
 flutter:
   plugin:
     platforms:
       android:
-        package: com.akashskypatel.ffmpegkit.extended_flutter
-        pluginClass: FFmpegKitFlutterPlugin
+        package: com.akashskypatel.ffmpegkitextended.flutter
+        pluginClass: FfmpegKitFlutterPlugin
       ios:
-        pluginClass: FFmpegKitFlutterPlugin
+        pluginClass: FfmpegKitFlutterPlugin
       macos:
-        pluginClass: FFmpegKitFlutterPlugin
+        pluginClass: FfmpegKitFlutterPlugin
       linux:
-        pluginClass: FFmpegKitFlutterPlugin
+        pluginClass: FfmpegKitFlutterPlugin
       windows:
-        pluginClass: FFmpegKitFlutterPlugin
+        pluginClass: FfmpegKitFlutterPlugin
 
 dependencies:
-  ffmpeg_kit_extended_flutter_platform_interface:
-    path: ../flutter_platform_interface
+  ffi: ^2.2.0
   flutter:
     sdk: flutter
+  path_provider: ^2.1.5
   yaml: ^3.1.2
 
+  path: any
 dev_dependencies:
+  ffigen: ^20.1.1
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   plugin_platform_interface: ^2.1.5
+  test: ^1.26.3
+
+ffmpeg_kit_extended_config:
+  version: "1.0.0"
+  type: "base"
+  gpl: true
+  small: true
+  windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-base-windows-x86_64-shared-gpl.zip"
+  linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-base-linux-x86_64-shared-gpl.zip"

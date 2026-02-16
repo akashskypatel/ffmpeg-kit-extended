@@ -2,8 +2,6 @@
 
 #include <flutter/plugin_registrar_windows.h>
 
-#include "ffmpeg_kit_flutter_plugin.h"
-
 void FfmpegKitFlutterPluginRegisterWithRegistrar(
     FlutterDesktopPluginRegistrarRef registrar) {
   ffmpeg_kit_extended_flutter::FfmpegKitFlutterPlugin::RegisterWithRegistrar(

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +17,6 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
-  final _ffmpegKitFlutterPlugin = FfmpegKitFlutter();
 
   @override
   void initState() {
@@ -28,11 +27,16 @@ class _MyAppState extends State<MyApp> {
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
     String platformVersion;
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    // We also handle the message potentially returning null.
     try {
-      platformVersion =
-          await _ffmpegKitFlutterPlugin.getPlatformVersion() ?? 'Unknown platform version';
+      final session = FFmpegKit.execute("-version");
+      final logs = session.getLogs();
+      // getLogs returns String?
+      platformVersion = logs ?? "Version info not found";
+
+      // Truncate if too long for UI
+      if (platformVersion.length > 200) {
+        platformVersion = "${platformVersion.substring(0, 200)}...";
+      }
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }
@@ -51,12 +55,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
-        body: Center(
-          child: Text('Running on: $_platformVersion\n'),
-        ),
+        appBar: AppBar(title: const Text('Plugin example app')),
+        body: Center(child: Text('Running on: $_platformVersion\n')),
       ),
     );
   }

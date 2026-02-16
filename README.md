@@ -4,327 +4,114 @@
 
 </center>
 
-# FFmpegKit for Flutter
+# FFmpegKit Extended for Flutter
+
+`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing FFmpeg and FFprobe commands on Android, iOS, macOS, Windows, and Linux. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance and flexibility.
 
 ### 1. Features
 
-- Includes both `FFmpeg` and `FFprobe`
-- Supports
-    - FFmpeg `v8.0`
-    - Platforms: `Windows`, `Linux`, `Android`, `iOS` and `macOS`
-    - Architectures:
-      - `Android`: `arm64-v8a`, `armeabi-v7a`, `x86_64`
-      - `Linux`, `macOS`, and `iOS`: `x86_64`, `arm64`
-      - `Windows`: `x86_64`
-    - `Android API Level 24` or later
-    - `armv7`, `armv7s`, `arm64`, `arm64-simulator`, `i386`, `x86_64`, `x86_64-mac-catalyst` and `arm64-mac-catalyst`
-      architectures on iOS
-    - `iOS SDK 12.1` or later
-    - `arm64` and `x86_64` architectures on macOS
-    - `macOS SDK 10.15` or later
-    - Can process Storage Access Framework (SAF) Uris on Android
-    - 155 external libraries including below. See [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) for a full list
-
-      `dav1d`, `fontconfig`, `freetype`, `fribidi`, `gmp`, `gnutls`, `kvazaar`, `lame`, `libass`, `libiconv`, `libilbc`, `libtheora`, `libvorbis`, `libvpx`, `libwebp`, `libxml2`, `opencore-amr`, `opus`, `shine`, `snappy`, `soxr`, `speex`, `twolame`, `vo-amrwbenc`, `zimg`, `vid.stab`, `x264`, `x265`, `xvidcore` and many more.
-    - Deploy your own custom ffmpeg-kit using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders)
-- Licensed under `LGPL 3.0` by default, some packages licensed by `GPL v3.0` effectively
+- **Cross-Platform Support**: Works on Android, iOS, macOS, Windows, and Linux.
+- **FFmpeg & FFprobe**: Full support for media manipulation and information retrieval.
+- **Dart FFI**: Direct native bindings for optimal performance.
+- **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.
+- **Callback Support**: detailed hooks for logs, statistics, and session completion.
+- **Session Management**: Full control over execution lifecycle (start, cancel, list).
+- **Extensible**: Designed to allow custom native library loading and configuration.
 
 ### 2. Installation
 
-Add `ffmpeg_kit_extended_flutter` as a dependency in your `pubspec.yaml file`.
+Add `ffmpeg_kit_extended_flutter` as a dependency in your `pubspec.yaml` file.
 
 ```yaml
 dependencies:
-  ffmpeg_kit_extended_flutter: 1.0.0
+  ffmpeg_kit_extended_flutter: ^1.0.0
 ```
 
-#### 2.1 Packages
+### 3. Usage
 
-`FFmpeg` includes built-in encoders for some popular formats. However, there are certain external libraries that needs
-to be enabled in order to encode specific formats/codecs. For example, to encode an `mp3` file you need `lame` or
-`shine` library enabled. You have to install a `ffmpeg_kit_extended_flutter` package that has at least one of them inside. To
-encode an `h264` video, you need to install a package with `x264` inside. To encode `vp8` or `vp9` videos, you need
-a `ffmpeg_kit_extended_flutter` package with `libvpx` inside.
+#### 3.1 Basic Command Execution
 
-`ffmpeg-kit` provides eight packages that include different sets of external libraries. These packages are named
-according to the external libraries included.
-You can deploy your own version of `ffmpeg-kit` using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) with your own set of external libraries.
+Execute an FFmpeg command asynchronously:
 
-##### Pre-built Bundles
+```dart
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_extended_flutter/session.dart';
 
-See [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) for a full list of libraries for each feature
-
-|Feature  |Audio   |Video   |Streaming|Video+Hardware
-|---------|--------|--------|-------- |--------
-|Video    ||x|x|
-|Audio    |x|x|x|
-|Streaming|||x|
-|Hardware ||||x|
-|AI       |||||
-|HTTPS    |x|x|x|x|x|x|
-
-#### 2.2 Installing Packages
-
-Installing `ffmpeg_kit_extended_flutter` enables the `https` package by default. You can install the other packages
-using the following config in pubspec.yaml file.
-
-```yaml
-ffmpeg_kit_extended_config:
-  version: "1.0.0"
-  type: "full"         # full, audio, video, video_hw, or streaming
-  gpl: false           # true/false
-  small: false         # true/false
-  # Optional: Custom paths or URLs for specific platforms
-  # android: "https://example.com/custom_android_bundle.zip"
-  # ios: "/path/to/local/ios_bundle.zip"
-  # windows: "C:/path/to/windows_bundle.zip"
-  # macos: "../macos_bundle.zip"
-  # linux: "/tmp/linux_bundle.zip"
+FFmpegKit.executeAsync('-i input.mp4 -c:v libx264 output.mp4', (session) async {
+  final returnCode = session.getReturnCode();
+  
+  if (ReturnCode.isSuccess(returnCode)) {
+    print("Command success");
+  } else if (ReturnCode.isCancel(returnCode)) {
+    print("Command cancelled");
+  } else {
+    print("Command failed with state ${session.getState()}");
+    final failStackTrace = session.getFailStackTrace();
+    print("Stack trace: $failStackTrace");
+  }
+});
 ```
 
-Note that hyphens in the package name must be replaced with underscores. Additionally, do not forget to use the package
-name in the import statements if you install a package.
+#### 3.2 Retrieving Media Information
 
-#### 2.5 Platform Support
+Use `FFprobeKit` to get detailed metadata about a media file:
 
-The following table shows Android API level, iOS deployment target and macOS deployment target requirements in
-`ffmpeg_kit_flutter` releases.
+```dart
+import 'package:ffmpeg_kit_extended_flutter/ffprobe_kit.dart';
 
-<table>
-<thead>
-<tr>
-<th align="center">Android<br>API Level</th>
-<th align="center">iOS Minimum<br>Deployment Target</th>
-<th align="center">macOS Minimum<br>Deployment Target</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td align="center">24</td>
-<td align="center">12.1</td>
-<td align="center">10.15</td>
-</tr>
-</tbody>
-</table>
-
-### 3. Using
-
-1. Execute FFmpeg commands.
-
-    ```dart
-    import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit.dart';
-
-    FFmpegKit.execute('-i file1.mp4 -c:v mpeg4 file2.mp4').then((session) async {
-      final returnCode = await session.getReturnCode();
-
-      if (ReturnCode.isSuccess(returnCode)) {
-
-        // SUCCESS
-
-      } else if (ReturnCode.isCancel(returnCode)) {
-
-        // CANCEL
-
-      } else {
-
-        // ERROR
-
+FFprobeKit.getMediaInformationAsync('path/to/video.mp4', onComplete: (session) {
+  final info = session.getMediaInformation();
+  if (info != null) {
+      print("Duration: ${info.duration}");
+      print("Format: ${info.format}");
+      for (var stream in info.streams) {
+          print("Stream type: ${stream.type}, codec: ${stream.codec}");
       }
-    });
-    ```
+  }
+});
+```
 
-2. Each `execute` call creates a new session. Access every detail about your execution from the session created.
+#### 3.3 Handling Logs and Statistics
 
-    ```dart
-    FFmpegKit.execute('-i file1.mp4 -c:v mpeg4 file2.mp4').then((session) async {
+You can register logs and statistics callbacks for improved monitoring:
 
-      // Unique session id created for this execution
-      final sessionId = session.getSessionId();
+```dart
+FFmpegKit.executeAsync(
+  '-i input.mp4 output.mkv',
+  (session) { /* Complete Callback */ },
+  (log) {
+    print("Log: ${log.message}");
+  },
+  (statistics) {
+    print("Progress: ${statistics.time} ms, size: ${statistics.size}");
+  },
+);
+```
 
-      // Command arguments as a single string
-      final command = session.getCommand();
+#### 3.4 Session Management
 
-      // Command arguments
-      final commandArguments = session.getArguments();
+All executions return a `Session` object which can be used to control the task:
 
-      // State of the execution. Shows whether it is still running or completed
-      final state = await session.getState();
+```dart
+// Cancel a specific session
+FFmpegKit.cancelSession(sessionId);
 
-      // Return code for completed sessions. Will be undefined if session is still running or FFmpegKit fails to run it
-      final returnCode = await session.getReturnCode();
+// Cancel all active sessions
+FFmpegKit.cancel();
 
-      final startTime = session.getStartTime();
-      final endTime = await session.getEndTime();
-      final duration = await session.getDuration();
+// List all sessions
+final sessions = FFmpegKit.getSessions();
+```
 
-      // Console output generated for this execution
-      final output = await session.getOutput();
+### 4. Architecture
 
-      // The stack trace if FFmpegKit fails to run a command
-      final failStackTrace = await session.getFailStackTrace();
+This plugin uses a modular architecture:
 
-      // The list of logs generated for this execution
-      final logs = await session.getLogs();
+- **`ffmpeg_kit_extended.dart`**: The core FFI wrapper that interfaces with the native C library.
+- **`ffmpeg_kit_config.dart`**: Manages global configurations (log levels, font directories, etc.).
+- **`session.dart`**: Abstract base class for all session types (`FFmpegSession`, `FFprobeSession`, `FFplaySession`).
+- **`callback_manager.dart`**: Handles the mapping between native function pointers and Dart callbacks.
 
-      // The list of statistics generated for this execution (only available on FFmpegSession)
-      final statistics = await (session as FFmpegSession).getStatistics();
+### 5. License
 
-    });
-    ```
-
-3. Execute `FFmpeg` commands by providing session specific `execute`/`log`/`session` callbacks.
-
-    ```dart
-    FFmpegKit.executeAsync('-i file1.mp4 -c:v mpeg4 file2.mp4', (Session session) async {
-
-      // CALLED WHEN SESSION IS EXECUTED
-
-    }, (Log log) {
-
-      // CALLED WHEN SESSION PRINTS LOGS
-
-    }, (Statistics statistics) {
-
-      // CALLED WHEN SESSION GENERATES STATISTICS
-
-    });
-    ```
-
-4. Execute `FFprobe` commands.
-
-    ```dart
-    FFprobeKit.execute(ffprobeCommand).then((session) async {
-
-      // CALLED WHEN SESSION IS EXECUTED
-
-    });
-    ```
-
-5. Get media information for a file/url.
-
-    ```dart
-    FFprobeKit.getMediaInformation('<file path or url>').then((session) async {
-      final information = await session.getMediaInformation();
-
-      if (information == null) {
-
-        // CHECK THE FOLLOWING ATTRIBUTES ON ERROR
-        final state = FFmpegKitConfig.sessionStateToString(await session.getState());
-        final returnCode = await session.getReturnCode();
-        final failStackTrace = await session.getFailStackTrace();
-        final duration = await session.getDuration();
-        final output = await session.getOutput();
-      }
-    });
-    ```
-
-6. Stop ongoing FFmpeg operations.
-
-- Stop all sessions
-  ```dart
-  FFmpegKit.cancel();
-  ```
-- Stop a specific session
-  ```dart
-  FFmpegKit.cancel(sessionId);
-  ```
-
-7. (Android) Convert Storage Access Framework (SAF) Uris into paths that can be read or written by
-   `FFmpegKit` and `FFprobeKit`.
-
-- Reading a file:
-  ```dart
-  FFmpegKitConfig.selectDocumentForRead('*/*').then((uri) {
-    FFmpegKitConfig.getSafParameterForRead(uri!).then((safUrl) {
-      FFmpegKit.executeAsync("-i ${safUrl!} -c:v mpeg4 file2.mp4");
-    });
-  });
-  ```
-
-- Writing to a file:
-  ```dart
-  FFmpegKitConfig.selectDocumentForWrite('video.mp4', 'video/*').then((uri) {
-    FFmpegKitConfig.getSafParameterForWrite(uri!).then((safUrl) {
-      FFmpegKit.executeAsync("-i file1.mp4 -c:v mpeg4 ${safUrl}");
-    });
-  });
-  ```
-
-8. Get previous `FFmpeg`, `FFprobe` and `MediaInformation` sessions from the session history.
-
-    ```dart
-    FFmpegKit.listSessions().then((sessionList) {
-      sessionList.forEach((session) {
-        final sessionId = session.getSessionId();
-      });
-    });
-
-    FFprobeKit.listFFprobeSessions().then((sessionList) {
-      sessionList.forEach((session) {
-        final sessionId = session.getSessionId();
-      });
-    });
-
-    FFprobeKit.listMediaInformationSessions().then((sessionList) {
-      sessionList.forEach((session) {
-        final sessionId = session.getSessionId();
-      });
-    });
-    ```
-
-9. Enable global callbacks.
-
-- Session type specific Complete Callbacks, called when an async session has been completed
-
-  ```dart
-  FFmpegKitConfig.enableFFmpegSessionCompleteCallback((session) {
-    final sessionId = session.getSessionId();
-  });
-
-  FFmpegKitConfig.enableFFprobeSessionCompleteCallback((session) {
-    final sessionId = session.getSessionId();
-  });
-
-  FFmpegKitConfig.enableMediaInformationSessionCompleteCallback((session) {
-    final sessionId = session.getSessionId();
-  });
-  ```
-
-- Log Callback, called when a session generates logs
-
-  ```dart
-  FFmpegKitConfig.enableLogCallback((log) {
-    final message = log.getMessage();
-  });
-  ```
-
-- Statistics Callback, called when a session generates statistics
-
-  ```dart
-  FFmpegKitConfig.enableStatisticsCallback((statistics) {
-    final size = statistics.getSize();
-  });
-  ```
-
-10. Register system fonts and custom font directories.
-
-    ```dart
-    FFmpegKitConfig.setFontDirectoryList(["/system/fonts", "/System/Library/Fonts", "<folder with fonts>"]);
-    ```
-
-### 4. Test Application
-
-You can see how `FFmpegKit` is used inside an application by running `flutter` test applications developed under
-the [FFmpegKit Test](https://github.com/akashskypatel/ffmpeg-kit-test) project.
-
-### 5. Tips
-
-See [Tips](https://github.com/akashskypatel/ffmpeg-kit/wiki/Tips) wiki page.
-
-### 6. License
-
-See [License](https://github.com/akashskypatel/ffmpeg-kit/wiki/License) wiki page.
-
-### 7. Patents
-
-See [Patents](https://github.com/akashskypatel/ffmpeg-kit/wiki/Patents) wiki page.
+This project is licensed under the LGPL v3.0 by default. However, depending on the underlying FFmpeg build configuration and external libraries used, the effective license may be GPL v3.0. Please review the licenses of the included libraries.

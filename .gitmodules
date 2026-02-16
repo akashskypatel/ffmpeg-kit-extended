@@ -1,0 +1,6 @@
+[submodule "flutter/libs/libffmpegkit"]
+	path = flutter/libs/libffmpegkit
+	url = https://github.com/akashskypatel/ffmpeg-kit-builders
+[submodule "libs/libffmpegkit"]
+	path = libs/libffmpegkit
+	url = https://github.com/akashskypatel/ffmpeg-kit-builders

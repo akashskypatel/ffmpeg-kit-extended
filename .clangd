@@ -1,0 +1,122 @@
+CompileFlags:
+  Add: [-std=c++17]
+  CompileFlags: ["-std=c++17"]
+
+---
+
+If:
+  PathMatch: .*/windows/.*
+CompileFlags:
+  Add:
+    - "/std:c++17"           # MSVC style flag
+    - "--driver-mode=cl"     # Tells clangd to expect MSVC-style arguments (/I, /D)
+    - "-fms-compatibility"
+    - "-fms-extensions"
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\public
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include\flutter
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include\testing
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\public
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\windows\client_wrapper\include\flutter
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\windows\client_wrapper\include
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\windows\client_wrapper
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\windows
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\windows\public
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\example\windows\ffmpeg_kit_bundle\bundle-base-windows-x86_64-shared-gpl\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\example\build\windows\x64\_deps\googletest-src\googletest\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\example\build\windows\x64\_deps\googletest-src\googlemock\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\windows
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\windows\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\windows\test
+    - -DDEBUG
+    - -D__STDC_CONSTANT_MACROS
+  CompilationDatabase: "build/windows"
+
+---
+
+If:
+  PathMatch: .*[\/\\]linux[\/\\].*
+CompileFlags:
+  Remove:
+    - "-fms-extensions"
+    - "-fms-compatibility"
+    - "--driver-mode=cl"
+    - "/std:*"
+    - "/I*"
+    - "-I*"
+  Add:
+    - "--driver-mode=g++"
+    - "-D_GLIBCXX_USE_CXX11_ABI=1"
+    - "-Wno-unknown-attributes"
+    - "-fno-ms-compatibility"
+    - "-fno-delayed-template-parsing"
+    - -xc++
+    - -std=c++17
+    - "--target=x86_64-linux-gnu"
+    - "-std=c++17"
+    - "-D__linux__"
+    - "-nostdinc"
+    - "-IC:/Users/Akash/AppData/Roaming/Antigravity/User/globalStorage/llvm-vs-code-extensions.vscode-clangd/install/21.1.8/clangd_21.1.8/lib/clang/21/include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\opt\\rh\\gcc-toolset-14\\root\\usr\\include\\c++\\14"
+    - "-I\\\\wsl.localhost\\ManyLinux\\opt\\rh\\gcc-toolset-14\\root\\usr\\include\\c++\\14\\x86_64-redhat-linux"
+    - "-I\\\\wsl.localhost\\ManyLinux\\opt\\rh\\gcc-toolset-14\\root\\usr\\include\\c++\\14\\backward"
+    - "-I\\\\wsl.localhost\\ManyLinux\\opt\\rh\\gcc-toolset-14\\root\\usr\\lib\\gcc\\x86_64-redhat-linux\\14\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\opt\\rh\\gcc-toolset-14\\root\\usr\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\c++\\11"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\x86_64-linux-gnu\\c++\\11"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\x86_64-linux-gnu"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\lib\\x86_64-linux-gnu\\glib-2.0\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\glib-2.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\gtk-3.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\pango-1.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\cairo"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\gdk-pixbuf-2.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\atk-1.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\lib64\\glib-2.0\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\lib\\x86_64-linux-gnu\\glib-2.0\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\c++\\11"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\c++\\11\\x86_64-redhat-linux"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\glib-2.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\local\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\gtk-3.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\glib-2.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\lib64\\glib-2.0\\include"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\pango-1.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\cairo"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\gdk-pixbuf-2.0"
+    - "-I\\\\wsl.localhost\\ManyLinux\\usr\\include\\atk-1.0"
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\public
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include\flutter
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper\include\testing
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\client_wrapper
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\common\public
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\linux\client_wrapper\include\flutter
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\linux\client_wrapper\include
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\linux\client_wrapper
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\linux
+    - -ID:\Projects\flutter\flutter\engine\src\flutter\shell\platform\linux\public
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\example\linux\ffmpeg_kit_bundle\bundle-base-linux-x86_64-shared-gpl\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\example\build\linux\x64\_deps\googletest-src\googletest\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\example\build\linux\x64\_deps\googletest-src\googlemock\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\linux
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\linux\include
+    - -ID:\Projects\ffmpeg-kit-extended\flutter\linux\test
+    - -DDEBUG
+    - -D__STDC_CONSTANT_MACROS
+  

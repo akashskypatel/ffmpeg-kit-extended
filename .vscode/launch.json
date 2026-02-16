@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug (Windows)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "windows",
+            "args": [
+                "--verbose"
+            ],
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+        },
+        {
+            "name": "Debug Configure",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "windows",
+            "args": [
+                "--verbose"
+            ],
+            "program": "${workspaceFolder}/flutter/bin/configure.dart"
+        },
+    ]
+}

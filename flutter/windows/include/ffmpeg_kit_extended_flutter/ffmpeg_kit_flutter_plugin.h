@@ -20,4 +20,22 @@ FLUTTER_PLUGIN_EXPORT void FfmpegKitFlutterPluginRegisterWithRegistrar(
 }
 #endif
 
+
+namespace ffmpeg_kit_extended_flutter {
+
+class FfmpegKitFlutterPlugin : public flutter::Plugin {
+ public:
+  static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
+
+  FfmpegKitFlutterPlugin();
+
+  virtual ~FfmpegKitFlutterPlugin();
+
+  // Disallow copy and assign.
+  FfmpegKitFlutterPlugin(const FfmpegKitFlutterPlugin&) = delete;
+  FfmpegKitFlutterPlugin& operator=(const FfmpegKitFlutterPlugin&) = delete;
+};
+
+}  // namespace ffmpeg_kit_extended_flutter
+
 #endif // FFMPEG_KIT_FLUTTER_PLUGIN_H_

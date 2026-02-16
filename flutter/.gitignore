@@ -4,3 +4,5 @@
 .pub/
 build/
 pubspec.lock
+**/ffmpegkit_wrapper.cpp
+**/ffmpegkit_wrapper.h

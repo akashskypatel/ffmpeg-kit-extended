@@ -1,0 +1,19 @@
+{
+    "cmake.sourceDirectory": "/home/vscode/ffmpeg-kit-builders/desktop",
+    "[c]": {
+        "editor.formatOnSave": false
+    },
+    "[cpp]": {
+        "editor.formatOnSave": false
+    },
+    "clangd.arguments": [
+        // Allow clangd to query MSVC and MinGW compilers
+        "--query-driver=C:\\msys64\\mingw64\\bin\\g++.exe,C:\\Program Files\\Microsoft Visual Studio\\**\\cl.exe",
+        "--log=verbose"
+    ],
+    "cmake.ignoreCMakeListsMissing": true,
+    "cmake.generator": "Ninja",
+    "cmake.configureArgs": [
+        "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+    ]
+}

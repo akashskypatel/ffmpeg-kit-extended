@@ -1,0 +1,42 @@
+name: 'FFmpegKitBindings'
+description: 'Dart bindings for FFmpegKit C Wrapper'
+output: 'lib/src/generated/ffmpeg_kit_bindings.dart'
+
+headers:
+  entry-points:
+    - '.dart_tool/ffmpeg_kit_extended_flutter/include/ffmpegkit_wrapper.h'
+
+compiler-opts:
+  - '-I.dart_tool/ffmpeg_kit_extended_flutter/include'
+  # Set the macro to empty so Clang ignores the __declspec parts
+  - '-DFFMPEG_KIT_C_EXPORT=' 
+  # Tell Clang NOT to error out on macro redefinitions
+  - '-Wno-macro-redefined'
+  # Basic C compatibility
+  - '-std=c11'
+  - '-D__STDC_CONSTANT_MACROS'
+
+functions:
+  include:
+    - '.*'
+  exclude:
+    - '^__.*'
+
+enums:
+  include:
+    - '.*'
+
+typedefs:
+  include:
+    - '.*'
+
+globals:
+  exclude:
+    - '^__.*'
+
+silence-enum-warning: true
+
+preamble: |
+  // ignore_for_file: type=lint
+  // ignore_for_file: unused_element, unused_field
+  // ignore_for_file: non_constant_identifier_names, camel_case_types

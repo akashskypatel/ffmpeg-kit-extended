@@ -3,42 +3,33 @@ description: "Demonstrates how to use the ffmpeg_kit_flutter plugin."
 publish_to: 'none'
 
 environment:
-  sdk: ^3.10.4
+  sdk: ">=3.2.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  ffmpeg_kit_flutter:
+  ffmpeg_kit_extended_flutter:
     path: ../
 
   cupertino_icons: ^1.0.8
+  path: ^1.9.1
 
 dev_dependencies:
   integration_test:
     sdk: flutter
-  flutter_test:
-    sdk: flutter
 
   flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
 
-ffmpeg_kit_config:
-  bundle: audio
-  # bundle: audio-ai
-  # bundle: video
-  # bundle: video-ai-cpu
-  # bundle: video-ai-gpu-cuda
-  # bundle: video-ai-gpu-rocm
-  # bundle: video-hw
-  # bundle: video-hw-ai-gpu-cuda
-  # bundle: video-hw-ai-gpu-rocm
-  # bundle: streaming
-  # OR
-  # path: "/workspaces/ffmpeg-kit-builders/prebuilt/linux-x86_64/bundle-audio-linux-x86_64-static"
-  # OR
-  # path: "/workspaces/ffmpeg-kit-builders/prebuilt/linux-x86_64/bundle-audio-linux-x86_64-static.zip"
-  # OR
-  # path: "https://example.com/ffmpeg-kit-bundle.tar.gz"
+ffmpeg_kit_extended_config:
+  windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-base-windows-x86_64-shared-gpl.zip"
+  linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-base-linux-x86_64-shared-gpl.zip"
+  version: "1.1.2"
+  type: "base"
+  gpl: true
+  small: true
