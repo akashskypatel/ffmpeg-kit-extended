@@ -109,7 +109,10 @@ class MediaInformationSession extends FFprobeSession {
     }
   }
 
-  /// Creates a [MediaInformationSession] from a native [handle] and the [command].
+  /// Creates a [MediaInformationSession] from a native session [handle] and the [command].
+  ///
+  /// This is used for sessions that are managed by the native layer or retrieved
+  /// from the session history.
   MediaInformationSession.fromHandle(Pointer<Void> handle, String command)
       : super.fromHandle(handle, command);
 

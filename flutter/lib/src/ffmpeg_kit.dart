@@ -34,7 +34,11 @@ class FFmpegKit {
 
   /// Executes an FFmpeg [command] asynchronously.
   ///
-  /// [strategy] determines how to handle concurrent sessions.
+  /// - [command]: The FFmpeg command to execute.
+  /// - [onComplete]: Optional callback invoked when execution completes.
+  /// - [onLog]: Optional callback invoked for each log message.
+  /// - [onStatistics]: Optional callback invoked for each statistics update.
+  /// - [strategy]: Determines how to handle concurrent sessions.
   static Future<FFmpegSession> executeAsync(String command,
           {callback_manager.FFmpegSessionCompleteCallback? onComplete,
           callback_manager.FFmpegLogCallback? onLog,

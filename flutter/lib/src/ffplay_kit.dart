@@ -197,14 +197,17 @@ class FFplayKit {
     }
   }
 
-  /// Starts or resumes playback for the active session.
+  /// Starts or resumes playback for the active global session.
+  ///
+  /// This method only has an effect if there is an active session
+  /// that was created but not yet executed, or was paused.
   static void start() {
     if (_activeFFplaySession != null) {
       _activeFFplaySession!.executeAsync();
     }
   }
 
-  /// Pauses playback if there is an active session.
+  /// Pauses playback if there is an active global session.
   static void pause() {
     if (_activeFFplaySession != null) {
       _activeFFplaySession!.pause();
@@ -218,7 +221,7 @@ class FFplayKit {
     }
   }
 
-  /// Stops playback for the active session.
+  /// Stops playback for the active global session.
   static void stop() {
     if (_activeFFplaySession != null) {
       _activeFFplaySession!.stop();

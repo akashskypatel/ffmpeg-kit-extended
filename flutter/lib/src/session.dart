@@ -212,11 +212,15 @@ abstract class Session implements Finalizable {
     _isCancelled = true;
   }
 
+  /// Returns true if this is an [FFmpegSession].
   bool isFFmpegSession() => false;
 
+  /// Returns true if this is an [FFplaySession].
   bool isFFplaySession() => false;
 
+  /// Returns true if this is an [FFprobeSession].
   bool isFFprobeSession() => false;
 
+  /// Returns true if this is a [MediaInformationSession].
   bool isMediaInformationSession() => false;
 }

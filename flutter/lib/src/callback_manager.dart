@@ -73,11 +73,22 @@ typedef FFmpegKitStatisticsCallbackFunction = Void Function(FFmpegSessionHandle,
     Int, Int64, Double, Double, Int, Float, Float, Pointer<Void>);
 
 // --- Callback Types (Dart side) ---
+/// Callback for session completion.
 typedef FFmpegSessionCompleteCallback = void Function(FFmpegSession session);
+
+/// Callback for processing log messages.
 typedef FFmpegLogCallback = void Function(Log log);
+
+/// Callback for session statistics updates.
 typedef FFmpegStatisticsCallback = void Function(Statistics statistics);
+
+/// Callback for FFprobe session completion.
 typedef FFprobeSessionCompleteCallback = void Function(FFprobeSession session);
+
+/// Callback for FFplay session completion.
 typedef FFplaySessionCompleteCallback = void Function(FFplaySession session);
+
+/// Callback for MediaInformation session completion.
 typedef MediaInformationSessionCompleteCallback = void Function(
     MediaInformationSession session);
 

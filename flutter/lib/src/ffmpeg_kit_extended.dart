@@ -40,8 +40,10 @@ import 'signal.dart';
 class FFmpegKitExtended {
   /// Creates a new [FFmpegSession] to execute an FFmpeg [command].
   ///
-  /// Optional [completeCallback], [logCallback], and [statisticsCallback]
-  /// can be provided to handle session events.
+  /// - [command]: The FFmpeg command to execute.
+  /// - [completeCallback]: Optional callback invoked when execution completes.
+  /// - [logCallback]: Optional callback invoked for each log message.
+  /// - [statisticsCallback]: Optional callback invoked for each statistics update.
   static FFmpegSession createFFmpegSession(String command,
       {callback_manager.FFmpegSessionCompleteCallback? completeCallback,
       callback_manager.FFmpegLogCallback? logCallback,
@@ -57,7 +59,8 @@ class FFmpegKitExtended {
 
   /// Creates a new [FFprobeSession] to execute an FFprobe [command].
   ///
-  /// Optional [completeCallback] can be provided to handle session completion.
+  /// - [command]: The FFprobe command to execute.
+  /// - [completeCallback]: Optional callback invoked when execution completes.
   static FFprobeSession createFFprobeSession(String command,
       {callback_manager.FFprobeSessionCompleteCallback? completeCallback}) {
     if (command.trim().isEmpty) {
@@ -486,7 +489,10 @@ class FFmpegKitExtended {
     }
   }
 
-  /// Sets the list of font directories.
+  /// Sets the list of font directories and optional font mappings.
+  ///
+  /// - [fontDirectoryList]: A list of directory paths containing font files.
+  /// - [fontMappings]: Optional map of font family aliases.
   static void setFontDirectoryList(List<String> fontDirectoryList,
       [Map<String, String>? fontMappings]) {
     final count = fontDirectoryList.length;
