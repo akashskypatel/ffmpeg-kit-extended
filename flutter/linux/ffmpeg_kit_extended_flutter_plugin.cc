@@ -1,4 +1,4 @@
-#include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter_plugin.h"
+#include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
 
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
@@ -8,19 +8,19 @@
 
 
 
-#define FFMPEG_KIT_FLUTTER_PLUGIN(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), ffmpeg_kit_flutter_plugin_get_type(), \
-                              FfmpegKitFlutterPlugin))
+#define FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), ffmpeg_kit_extended_flutter_plugin_get_type(), \
+                              FfmpegKitExtendedFlutterPlugin))
 
-struct _FfmpegKitFlutterPlugin {
+struct _FfmpegKitExtendedFlutterPlugin {
   GObject parent_instance;
 };
 
-G_DEFINE_TYPE(FfmpegKitFlutterPlugin, ffmpeg_kit_flutter_plugin, g_object_get_type())
+G_DEFINE_TYPE(FfmpegKitExtendedFlutterPlugin, ffmpeg_kit_extended_flutter_plugin, g_object_get_type())
 
 // Called when a method call is received from Flutter.
-static void ffmpeg_kit_flutter_plugin_handle_method_call(
-    FfmpegKitFlutterPlugin* self,
+static void ffmpeg_kit_extended_flutter_plugin_handle_method_call(
+    FfmpegKitExtendedFlutterPlugin* self,
     FlMethodCall* method_call) {
   g_autoptr(FlMethodResponse) response = nullptr;
 
@@ -43,25 +43,25 @@ static void ffmpeg_kit_flutter_plugin_handle_method_call(
   fl_method_call_respond(method_call, response, nullptr);
 }
 
-static void ffmpeg_kit_flutter_plugin_dispose(GObject* object) {
-  G_OBJECT_CLASS(ffmpeg_kit_flutter_plugin_parent_class)->dispose(object);
+static void ffmpeg_kit_extended_flutter_plugin_dispose(GObject* object) {
+  G_OBJECT_CLASS(ffmpeg_kit_extended_flutter_plugin_parent_class)->dispose(object);
 }
 
-static void ffmpeg_kit_flutter_plugin_class_init(FfmpegKitFlutterPluginClass* klass) {
-  G_OBJECT_CLASS(klass)->dispose = ffmpeg_kit_flutter_plugin_dispose;
+static void ffmpeg_kit_extended_flutter_plugin_class_init(FfmpegKitExtendedFlutterPluginClass* klass) {
+  G_OBJECT_CLASS(klass)->dispose = ffmpeg_kit_extended_flutter_plugin_dispose;
 }
 
-static void ffmpeg_kit_flutter_plugin_init(FfmpegKitFlutterPlugin* self) {}
+static void ffmpeg_kit_extended_flutter_plugin_init(FfmpegKitExtendedFlutterPlugin* self) {}
 
 static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call,
                            gpointer user_data) {
-  FfmpegKitFlutterPlugin* plugin = FFMPEG_KIT_FLUTTER_PLUGIN(user_data);
-  ffmpeg_kit_flutter_plugin_handle_method_call(plugin, method_call);
+  FfmpegKitExtendedFlutterPlugin* plugin = FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(user_data);
+  ffmpeg_kit_extended_flutter_plugin_handle_method_call(plugin, method_call);
 }
 
-void ffmpeg_kit_flutter_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
-  FfmpegKitFlutterPlugin* plugin = FFMPEG_KIT_FLUTTER_PLUGIN(
-      g_object_new(ffmpeg_kit_flutter_plugin_get_type(), nullptr));
+void ffmpeg_kit_extended_flutter_plugin_register_with_registrar(FlPluginRegistrar* registrar) {
+  FfmpegKitExtendedFlutterPlugin* plugin = FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(
+      g_object_new(ffmpeg_kit_extended_flutter_plugin_get_type(), nullptr));
 
   // MethodChannel registration code (commented out for FFI)
 

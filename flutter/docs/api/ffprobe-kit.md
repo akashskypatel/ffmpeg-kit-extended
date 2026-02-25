@@ -15,7 +15,7 @@ The `FFprobeKit` class provides a convenient interface for extracting media info
 
 ### getMediaInformation
 
-Retrieves comprehensive media information for a file synchronously.
+Retrieves comprehensive media information for a file synchronously (blocking).
 
 ```dart
 static MediaInformationSession getMediaInformation(String path)
@@ -51,7 +51,7 @@ if (session is MediaInformationSession) {
 
 ### getMediaInformationAsync
 
-Retrieves media information asynchronously.
+Retrieves media information asynchronously. Execution is managed by the [SessionQueueManager](../guides/session-queue-management.md), which enforces global concurrency limits.
 
 ```dart
 static Future<FFprobeSession> getMediaInformationAsync(
@@ -87,19 +87,15 @@ await FFprobeKit.getMediaInformationAsync(
 
 ### execute
 
-Executes a custom FFprobe command synchronously.
+Executes a custom FFprobe command synchronously (blocking). The result and any output are captured within the returned [FFprobeSession](sessions.md) object.
 
 ```dart
-static FFprobeSession execute(
-  String command, {
-  SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
-})
+static FFprobeSession execute(String command)
 ```
 
 **Parameters:**
 
 - `command` (String): The FFprobe command to execute (without the `ffprobe` prefix)
-- `strategy` (SessionExecutionStrategy, optional): Concurrent execution strategy (default: queue)
 
 **Returns:**
 
@@ -127,7 +123,6 @@ Executes a custom FFprobe command asynchronously.
 static Future<FFprobeSession> executeAsync(
   String command, {
   FFprobeSessionCompleteCallback? onComplete,
-  SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
 })
 ```
 
@@ -135,7 +130,6 @@ static Future<FFprobeSession> executeAsync(
 
 - `command` (String): The FFprobe command to execute
 - `onComplete` (FFprobeSessionCompleteCallback?, optional): Callback invoked when complete
-- `strategy` (SessionExecutionStrategy, optional): Concurrent execution strategy (default: queue)
 
 **Returns:**
 
@@ -452,41 +446,6 @@ if (session is MediaInformationSession) {
 }
 ```
 
-### Get Video Codec Information
-
-```dart
-final session = FFprobeKit.getMediaInformation('video.mp4');
-
-if (session is MediaInformationSession) {
-  final info = session.getMediaInformation();
-  final videoStream = info?.streams.firstWhere(
-    (s) => s.type == 'video',
-    orElse: () => throw Exception('No video stream'),
-  );
-  
-  print('Codec: ${videoStream.codec}');
-  print('Description: ${videoStream.codecLong}');
-  print('Pixel format: ${videoStream.format}');
-  print('Bitrate: ${videoStream.bitrate} bps');
-}
-```
-
-### Calculate Video Bitrate
-
-```dart
-final session = FFprobeKit.getMediaInformation('video.mp4');
-
-if (session is MediaInformationSession) {
-  final info = session.getMediaInformation();
-  
-  final bitrate = int.tryParse(info?.bitrate ?? '0') ?? 0;
-  final bitrateKbps = (bitrate / 1000).round();
-  final bitrateMbps = (bitrate / 1000000).toStringAsFixed(2);
-  
-  print('Bitrate: $bitrateKbps kbps ($bitrateMbps Mbps)');
-}
-```
-
 ### Custom FFprobe Command (JSON Output)
 
 ```dart
@@ -532,33 +491,13 @@ if (ReturnCode.isSuccess(session.getReturnCode())) {
 
 1. **Check Return Codes**: Always verify the session completed successfully before accessing media information.
 
-2. **Handle Null Values**: Media information fields can be null, so use null-aware operators:
+2. **Handle Null Values**: Media information fields can be null, so use null-aware operators.
 
-   ```dart
-   final duration = info?.duration ?? '0';
-   final format = info?.format ?? 'unknown';
-   ```
+3. **Use Type Checks**: When working with sessions, check if it's a `MediaInformationSession`.
 
-3. **Use Type Checks**: When working with sessions, check if it's a `MediaInformationSession`:
+4. **Parse Numeric Values Safely**: Use `tryParse` for converting string values.
 
-   ```dart
-   if (session is MediaInformationSession) {
-     final info = session.getMediaInformation();
-   }
-   ```
-
-4. **Parse Numeric Values Safely**: Use `tryParse` for converting string values:
-
-   ```dart
-   final duration = double.tryParse(info?.duration ?? '0') ?? 0.0;
-   final bitrate = int.tryParse(info?.bitrate ?? '0') ?? 0;
-   ```
-
-5. **Filter Streams by Type**: Use `where` to filter streams:
-
-   ```dart
-   final videoStreams = info?.streams.where((s) => s.type == 'video').toList();
-   ```
+5. **Filter Streams by Type**: Use `where` to filter streams.
 
 ## See Also
 
@@ -566,3 +505,4 @@ if (ReturnCode.isSuccess(session.getReturnCode())) {
 - [Data Models](data-models.md) - MediaInformation, StreamInformation, etc.
 - [Media Information Guide](../guides/media-information.md) - Comprehensive guide
 - [Error Handling Guide](../guides/error-handling.md) - Error handling strategies
+- [Session Queue Management](../guides/session-queue-management.md) - Concurrency control

@@ -5,9 +5,11 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/callback_manager.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/generated/ffmpeg_kit_bindings.dart'
     as gen;
+
 import 'mock_data.dart';
 
 class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
@@ -21,8 +23,9 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     try {
       if (Platform.isWindows) return DynamicLibrary.open('kernel32.dll');
       if (Platform.isLinux) return DynamicLibrary.open('libc.so.6');
-      if (Platform.isMacOS)
+      if (Platform.isMacOS) {
         return DynamicLibrary.open('/usr/lib/libSystem.dylib');
+      }
     } catch (e) {}
     return DynamicLibrary.process();
   }
@@ -35,10 +38,9 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
 
   // FFplay global state
   bool _ffplayGlobalPaused = false;
-  double _ffplayGlobalPosition = 0.0;
+  double _ffplayGlobalVolume = 128.0;
 
   // Config state
-  final Map<String, String> _environmentVariables = {};
   final Set<int> _ignoredSignals = {};
   final Set<String> _ffmpegPipes = {};
 
@@ -76,8 +78,9 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
       _sessions.putIfAbsent(id, () => MockSessionData(id));
 
   MockSessionData? getSessionByHandle(Pointer<Void> handle) {
-    if (handle == nullptr || !_sessions.containsKey(handle.address))
+    if (handle == nullptr || !_sessions.containsKey(handle.address)) {
       return null;
+    }
     return _sessions[handle.address];
   }
 
@@ -165,22 +168,10 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
       gen.FFmpegKitLogLevel.FFMPEG_KIT_LOG_LEVEL_INFO.value;
 
   @override
-  int ffmpeg_kit_session_get_statistics_count(Pointer<Void> handle) => 0;
-
-  @override
-  Pointer<Void> ffmpeg_kit_session_get_statistics_at(
-          Pointer<Void> handle, int index) =>
-      nullptr;
-
-  @override
   Pointer<Char> ffmpeg_kit_session_get_logs_as_string(Pointer<Void> handle) {
     final logs = getSessionByHandle(handle)?.logs.join("\n") ?? "";
     return logs.toNativeUtf8().cast();
   }
-
-  @override
-  Pointer<Char> ffmpeg_kit_session_get_fail_stack_trace(Pointer<Void> handle) =>
-      nullptr;
 
   @override
   void ffmpeg_kit_handle_release(Pointer<Void> handle) {}
@@ -200,41 +191,9 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
       if (session.state == SessionState.running.value) {
         session.state = SessionState.completed.value;
         session.returnCode = ReturnCode.cancel.value;
-        session.endTime = DateTime.now().millisecondsSinceEpoch;
-        _triggerFFmpegComplete(Pointer.fromAddress(session.id), nullptr);
       }
     }
   }
-
-  void _triggerFFmpegComplete(Pointer<Void> handle, Pointer<Void> userData) {
-    if (userData == nullptr) {
-      userData = globalFFmpegCompleteUserData;
-      if (globalFFmpegCompleteCb != nullptr) {
-        final dartCb = globalFFmpegCompleteCb
-            .asFunction<gen.DartFFmpegKitCompleteCallbackFunction>();
-        dartCb(handle, userData);
-      }
-    } else {
-      // Per-session callback (if any was passed to execute_async_full handled elsewhere)
-    }
-  }
-
-  @override
-  void ffmpeg_kit_clear_sessions() {
-    _sessions.clear();
-    _sessionHistory.clear();
-  }
-
-  gen.FFmpegKitLogLevel _logLevel =
-      gen.FFmpegKitLogLevel.FFMPEG_KIT_LOG_LEVEL_DEBUG;
-
-  @override
-  void ffmpeg_kit_config_set_log_level(gen.FFmpegKitLogLevel level) {
-    _logLevel = level;
-  }
-
-  @override
-  gen.FFmpegKitLogLevel ffmpeg_kit_config_get_log_level() => _logLevel;
 
   @override
   void ffmpeg_kit_config_enable_log_callback(
@@ -279,14 +238,11 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     globalMediaInfoCompleteUserData = user_data;
   }
 
-  // --- Creation & Execution ---
-
-  Pointer<Void> _createSession(String command, {bool isFFmpeg = true}) {
+  Pointer<Void> _createSession(String command) {
     final id = _nextSessionId++;
     final session = MockSessionData(id);
     session.command = command;
     session.createTime = DateTime.now().millisecondsSinceEpoch;
-    session.startTime = DateTime.now().millisecondsSinceEpoch;
     session.state = SessionState.created.value;
     _sessions[id] = session;
     _sessionHistory.add(id);
@@ -308,7 +264,6 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
       s.state = SessionState.completed.value;
       s.returnCode = ReturnCode.success.value;
       s.endTime = DateTime.now().millisecondsSinceEpoch;
-      s.logs.add("Executed synchronously");
     }
   }
 
@@ -317,30 +272,21 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     final s = getSessionByHandle(session);
     if (s != null) {
       s.state = SessionState.running.value;
-      Future.microtask(() {
+      Future.delayed(const Duration(milliseconds: 100), () {
         if (globalLogCb != nullptr) {
           final dartCb =
               globalLogCb.asFunction<gen.DartFFmpegKitLogCallbackFunction>();
           final msg = "Mock Session Log".toNativeUtf8();
           dartCb(session, msg.cast(), globalLogUserData);
         }
-        if (globalStatsCb != nullptr) {
-          final dartCb = globalStatsCb
-              .asFunction<gen.DartFFmpegKitStatisticsCallbackFunction>();
-          dartCb(session, 100, 100, 1.0, 1.0, 1, 1.0, 1.0, globalStatsUserData);
-        }
-
         s.state = SessionState.completed.value;
         s.returnCode = ReturnCode.success.value;
-        s.endTime = DateTime.now().millisecondsSinceEpoch;
-
         if (globalFFmpegCompleteCb != nullptr) {
           final dartCb = globalFFmpegCompleteCb
               .asFunction<gen.DartFFmpegKitCompleteCallbackFunction>();
           dartCb(session, globalFFmpegCompleteUserData);
         }
       });
-    } else {
     }
   }
 
@@ -352,11 +298,6 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
   }
 
   @override
-  gen.FFmpegSessionHandle ffmpeg_kit_execute_async(Pointer<Char> command,
-      gen.FFmpegKitCompleteCallback complete_cb, Pointer<Void> user_data) => ffmpeg_kit_execute_async_full(
-        command, complete_cb, nullptr, nullptr, user_data, 0);
-
-  @override
   gen.FFmpegSessionHandle ffmpeg_kit_execute_async_full(
       Pointer<Char> command,
       gen.FFmpegKitCompleteCallback completeCb,
@@ -365,121 +306,31 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
       Pointer<Void> userData,
       int waitTimeout) {
     final handle = ffmpeg_kit_create_session(command);
-    final id = handle.address;
-    final s = getSessionData(id);
-
+    final s = getSessionData(handle.address);
     s.state = SessionState.running.value;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final callbackId = userData.address;
+      final session = CallbackManager().getFFmpegSession(callbackId);
 
-    Future.microtask(() {
-      if (logCb != nullptr) {
-        final dartLogCallback =
-            logCb.asFunction<gen.DartFFmpegKitLogCallbackFunction>();
-        final logMsg = "Mock Log Message".toNativeUtf8();
-        dartLogCallback(handle, logMsg.cast(), userData);
-        // Do not free logMsg here as NativeCallable.listener is async
-      }
+      if (session != null) {
+        // Trigger log callback if session is valid
+        // We create a Log object manually or if logCallback is exposed...
+        // Session.logCallback is exposed.
+        session.logCallback?.call(
+            Log(handle.address, LogLevel.info.value, "Mock Log Message"));
 
-      if (statsCb != nullptr) {
-        final dartStatsCallback =
-            statsCb.asFunction<gen.DartFFmpegKitStatisticsCallbackFunction>();
-        dartStatsCallback(
-            handle, 1000, 500, 128.0, 1.0, 30, 30.0, 1.0, userData);
-      }
+        s.state = SessionState.completed.value;
+        s.returnCode = ReturnCode.success.value;
 
-      s.state = SessionState.completed.value;
-      s.returnCode = ReturnCode.success.value;
-      s.endTime = DateTime.now().millisecondsSinceEpoch;
-      if (s.command.contains("-version")) {
-        s.output = "ffmpeg version mock async";
-      }
-
-      if (completeCb != nullptr) {
-        final dartCallback =
-            completeCb.asFunction<gen.DartFFmpegKitCompleteCallbackFunction>();
-        dartCallback(handle, userData);
+        session.completeCallback?.call(session);
       }
     });
-
     return handle;
   }
 
   @override
-  int ffmpeg_kit_config_messages_in_transmit(int sessionId) => 0;
-
-  // --- Session History ---
-  @override
-  void ffmpeg_kit_set_session_history_size(int size) {
-    _sessionHistorySize = size;
-  }
-
-  @override
-  int ffmpeg_kit_get_session_history_size() => _sessionHistorySize;
-
-  @override
-  Pointer<gen.FFmpegSessionHandle> ffmpeg_kit_get_sessions() {
-    final list = _sessions.keys.toList();
-    final ptr = calloc<gen.FFmpegSessionHandle>(list.length + 1);
-    for (int i = 0; i < list.length; i++) {
-      ptr[i] = Pointer.fromAddress(list[i]);
-    }
-    ptr[list.length] = nullptr;
-    return ptr;
-  }
-
-  @override
-  Pointer<gen.FFmpegSessionHandle> ffmpeg_kit_get_ffmpeg_sessions() =>
-      ffmpeg_kit_get_sessions();
-
-  @override
-  Pointer<gen.FFprobeSessionHandle> ffmpeg_kit_get_ffprobe_sessions() =>
-      nullptr;
-
-  @override
-  Pointer<gen.FFplaySessionHandle> ffmpeg_kit_get_ffplay_sessions() => nullptr;
-
-  @override
-  Pointer<gen.MediaInformationSessionHandle>
-      ffmpeg_kit_get_media_information_sessions() => nullptr;
-
-  @override
-  gen.FFmpegSessionHandle ffmpeg_kit_get_session(int sessionId) {
-    if (_sessions.containsKey(sessionId)) {
-      return Pointer.fromAddress(sessionId);
-    }
-    return nullptr;
-  }
-
-  @override
-  gen.FFmpegSessionHandle ffmpeg_kit_get_last_session() =>
-      _sessionHistory.isNotEmpty
-          ? Pointer.fromAddress(_sessionHistory.last)
-          : nullptr;
-
-  @override
-  gen.FFmpegSessionHandle ffmpeg_kit_get_last_completed_session() {
-    for (final id in _sessionHistory.reversed) {
-      if (_sessions[id]?.state == SessionState.completed.value) {
-        return Pointer.fromAddress(id);
-      }
-    }
-    return nullptr;
-  }
-
-  @override
-  gen.FFmpegSessionHandle ffmpeg_kit_get_last_ffmpeg_session() =>
-      ffmpeg_kit_get_last_session();
-  @override
-  gen.FFprobeSessionHandle ffmpeg_kit_get_last_ffprobe_session() => nullptr;
-  @override
-  gen.FFplaySessionHandle ffmpeg_kit_get_last_ffplay_session() => nullptr;
-  @override
-  gen.MediaInformationSessionHandle
-      ffmpeg_kit_get_last_media_information_session() => nullptr;
-
-  // --- FFprobe ---
-  @override
   gen.FFprobeSessionHandle ffprobe_kit_create_session(Pointer<Char> command) =>
-      _createSession(command.cast<Utf8>().toDartString(), isFFmpeg: false);
+      _createSession(command.cast<Utf8>().toDartString());
 
   @override
   void ffprobe_kit_session_execute(gen.FFprobeSessionHandle session) {
@@ -487,7 +338,6 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     if (s != null) {
       s.state = SessionState.completed.value;
       s.returnCode = ReturnCode.success.value;
-      s.endTime = DateTime.now().millisecondsSinceEpoch;
     }
   }
 
@@ -496,11 +346,9 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     final s = getSessionByHandle(session);
     if (s != null) {
       s.state = SessionState.running.value;
-      Future.microtask(() {
+      Future.delayed(const Duration(milliseconds: 100), () {
         s.state = SessionState.completed.value;
         s.returnCode = ReturnCode.success.value;
-        s.endTime = DateTime.now().millisecondsSinceEpoch;
-
         if (globalFFprobeCompleteCb != nullptr) {
           final dartCb = globalFFprobeCompleteCb
               .asFunction<gen.DartFFmpegKitCompleteCallbackFunction>();
@@ -511,34 +359,56 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
   }
 
   @override
-  void ffprobe_kit_cancel_session(int sessionId) {
-    ffmpeg_kit_cancel_session(sessionId);
-  }
-
-  @override
-  gen.FFprobeSessionHandle ffprobe_kit_execute(Pointer<Char> command) {
+  gen.FFprobeSessionHandle ffprobe_kit_execute_async(Pointer<Char> command,
+      gen.FFprobeKitCompleteCallback complete_cb, Pointer<Void> user_data) {
     final handle = ffprobe_kit_create_session(command);
-    ffprobe_kit_session_execute(handle);
+    final s = getSessionData(handle.address);
+    s.state = SessionState.running.value;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      s.state = SessionState.completed.value;
+      s.returnCode = ReturnCode.success.value;
+
+      final callbackId = user_data.address;
+      final session = CallbackManager().getFFprobeSession(callbackId);
+      if (session != null) {
+        session.completeCallback?.call(session);
+      }
+    });
     return handle;
   }
 
   @override
   gen.MediaInformationSessionHandle ffprobe_kit_get_media_information(
-      Pointer<Char> path) {
-    final pathStr = path.cast<Utf8>().toDartString();
-    final handle =
-        _createSession("get_media_information $pathStr", isFFmpeg: false);
-    final s = getSessionData(handle.address);
-    s.state = SessionState.completed.value;
-    s.returnCode = ReturnCode.success.value;
-    s.endTime = DateTime.now().millisecondsSinceEpoch;
+          Pointer<Char> path) =>
+      _createSession(
+          "get_media_information ${path.cast<Utf8>().toDartString()}");
+
+  @override
+  gen.MediaInformationSessionHandle ffprobe_kit_get_media_information_async(
+      Pointer<Char> path,
+      gen.MediaInformationSessionCompleteCallback completeCb,
+      Pointer<Void> userData) {
+    final handle = ffprobe_kit_get_media_information(path);
+    Future.delayed(const Duration(milliseconds: 50), () {
+      final callbackId = userData.address;
+      // MediaInfo sessions are registered as FFprobe sessions in CallbackManager
+      final session = CallbackManager().getFFprobeSession(callbackId);
+      if (session != null) {
+        if (session is MediaInformationSession) {
+          (session.completeCallback as MediaInformationSessionCompleteCallback?)
+              ?.call(session);
+        } else {
+          session.completeCallback?.call(session);
+        }
+      }
+    });
     return handle;
   }
 
   @override
   gen.MediaInformationSessionHandle media_information_create_session(
           Pointer<Char> command) =>
-      _createSession(command.cast<Utf8>().toDartString(), isFFmpeg: false);
+      _createSession(command.cast<Utf8>().toDartString());
 
   @override
   void media_information_session_execute(
@@ -547,52 +417,7 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     if (s != null) {
       s.state = SessionState.completed.value;
       s.returnCode = ReturnCode.success.value;
-      s.endTime = DateTime.now().millisecondsSinceEpoch;
     }
-  }
-
-  @override
-  gen.MediaInformationSessionHandle ffprobe_kit_get_media_information_async(
-      Pointer<Char> path,
-      gen.MediaInformationSessionCompleteCallback completeCb,
-      Pointer<Void> userData) {
-    final handle = ffprobe_kit_get_media_information(path);
-
-    Future.microtask(() {
-      if (completeCb != nullptr) {
-        final dartCallback = completeCb.asFunction<
-            gen.DartMediaInformationSessionCompleteCallbackFunction>();
-        dartCallback(handle, userData);
-      }
-    });
-
-    return handle;
-  }
-
-  @override
-  void media_information_session_execute_async(
-      gen.MediaInformationSessionHandle session, int timeout) {
-    final s = getSessionByHandle(session);
-    if (s != null) {
-      s.state = SessionState.running.value;
-      Future.microtask(() {
-        s.state = SessionState.completed.value;
-        s.returnCode = ReturnCode.success.value;
-        s.endTime = DateTime.now().millisecondsSinceEpoch;
-
-        if (globalMediaInfoCompleteCb != nullptr) {
-          final dartCb = globalMediaInfoCompleteCb.asFunction<
-              gen.DartMediaInformationSessionCompleteCallbackFunction>();
-          dartCb(session, globalMediaInfoCompleteUserData);
-        }
-      });
-    }
-  }
-
-  MockMediaInformation? _getMockMediaInfoFromHandle(
-      gen.MediaInformationHandle handle) {
-    if (handle == nullptr) return null;
-    return _mediaInfoMap[handle.address];
   }
 
   @override
@@ -601,17 +426,14 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     final s = getSessionByHandle(session);
     if (s == null) return nullptr;
     final parts = s.command.split(" ");
-    if (parts.length < 2) return nullptr;
-    final path = parts.sublist(1).join(" ");
-
+    final path = parts.last;
     final handle = _pathToMediaInfoHandle[path];
-    if (handle != null) {
-      return Pointer.fromAddress(handle);
-    }
-    return nullptr;
+    return handle != null ? Pointer.fromAddress(handle) : nullptr;
   }
 
-  // MediaInfo Getters
+  MockMediaInformation? _getMockMediaInfoFromHandle(
+          gen.MediaInformationHandle handle) =>
+      handle != nullptr ? _mediaInfoMap[handle.address] : null;
 
   Pointer<Char> _str(String? s) => (s ?? "").toNativeUtf8().cast();
 
@@ -619,47 +441,22 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
   Pointer<Char> media_information_get_filename(
           gen.MediaInformationHandle handle) =>
       _str(_getMockMediaInfoFromHandle(handle)?.filename);
-
   @override
   Pointer<Char> media_information_get_format(
           gen.MediaInformationHandle handle) =>
       _str(_getMockMediaInfoFromHandle(handle)?.format);
-
-  @override
-  Pointer<Char> media_information_get_long_format(
-          gen.MediaInformationHandle handle) =>
-      _str(_getMockMediaInfoFromHandle(handle)?.longFormat);
-
   @override
   Pointer<Char> media_information_get_duration(
           gen.MediaInformationHandle handle) =>
       _str(_getMockMediaInfoFromHandle(handle)?.duration);
-
-  @override
-  Pointer<Char> media_information_get_start_time(
-          gen.MediaInformationHandle handle) =>
-      _str(_getMockMediaInfoFromHandle(handle)?.startTime);
-
   @override
   Pointer<Char> media_information_get_bitrate(
           gen.MediaInformationHandle handle) =>
       _str(_getMockMediaInfoFromHandle(handle)?.bitrate);
-
   @override
   Pointer<Char> media_information_get_size(gen.MediaInformationHandle handle) =>
       _str(_getMockMediaInfoFromHandle(handle)?.size);
 
-  @override
-  Pointer<Char> media_information_get_tags_json(
-          gen.MediaInformationHandle handle) =>
-      _str(_getMockMediaInfoFromHandle(handle)?.tagsJson);
-
-  @override
-  Pointer<Char> media_information_get_all_properties_json(
-          gen.MediaInformationHandle handle) =>
-      _str(_getMockMediaInfoFromHandle(handle)?.allPropertiesJson);
-
-  // Streams
   @override
   int media_information_get_streams_count(gen.MediaInformationHandle handle) =>
       _getMockMediaInfoFromHandle(handle)?.streams.length ?? 0;
@@ -676,102 +473,6 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     return Pointer.fromAddress(streamHandle);
   }
 
-  MockStreamInformation? _getStream(gen.StreamInformationHandle handle) =>
-      _streamHandles[handle.address];
-
-  @override
-  int stream_information_get_index(gen.StreamInformationHandle handle) =>
-      _getStream(handle)?.index ?? 0;
-
-  @override
-  Pointer<Char> stream_information_get_type(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.type);
-
-  @override
-  Pointer<Char> stream_information_get_codec(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.codec);
-
-  @override
-  Pointer<Char> stream_information_get_codec_long(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.codecLong);
-
-  @override
-  Pointer<Char> stream_information_get_format(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.format);
-
-  @override
-  int stream_information_get_width(gen.StreamInformationHandle handle) =>
-      _getStream(handle)?.width ?? 0;
-
-  @override
-  int stream_information_get_height(gen.StreamInformationHandle handle) =>
-      _getStream(handle)?.height ?? 0;
-
-  @override
-  Pointer<Char> stream_information_get_bitrate(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.bitrate);
-
-  @override
-  Pointer<Char> stream_information_get_sample_rate(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.sampleRate);
-
-  @override
-  Pointer<Char> stream_information_get_sample_format(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.sampleFormat);
-
-  @override
-  Pointer<Char> stream_information_get_channel_layout(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.channelLayout);
-
-  @override
-  Pointer<Char> stream_information_get_sample_aspect_ratio(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.sampleAspectRatio);
-
-  @override
-  Pointer<Char> stream_information_get_display_aspect_ratio(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.displayAspectRatio);
-
-  @override
-  Pointer<Char> stream_information_get_average_frame_rate(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.averageFrameRate);
-
-  @override
-  Pointer<Char> stream_information_get_real_frame_rate(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.realFrameRate);
-
-  @override
-  Pointer<Char> stream_information_get_time_base(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.timeBase);
-
-  @override
-  Pointer<Char> stream_information_get_codec_time_base(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.codecTimeBase);
-
-  @override
-  Pointer<Char> stream_information_get_tags_json(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.tagsJson);
-
-  @override
-  Pointer<Char> stream_information_get_all_properties_json(
-          gen.StreamInformationHandle handle) =>
-      _str(_getStream(handle)?.allPropertiesJson);
-
-  // Chapters
   @override
   int media_information_get_chapters_count(gen.MediaInformationHandle handle) =>
       _getMockMediaInfoFromHandle(handle)?.chapters.length ?? 0;
@@ -788,82 +489,42 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
     return Pointer.fromAddress(chapterHandle);
   }
 
-  MockChapterInformation? _getChapter(gen.ChapterHandle handle) =>
-      _chapterHandles[handle.address];
+  MockStreamInformation? _getStream(gen.StreamInformationHandle handle) =>
+      _streamHandles[handle.address];
 
   @override
-  int chapter_get_id(gen.ChapterHandle handle) => _getChapter(handle)?.id ?? 0;
+  int stream_information_get_index(gen.StreamInformationHandle handle) =>
+      _getStream(handle)?.index ?? 0;
+  @override
+  Pointer<Char> stream_information_get_type(
+          gen.StreamInformationHandle handle) =>
+      _str(_getStream(handle)?.type);
+  @override
+  Pointer<Char> stream_information_get_codec(
+          gen.StreamInformationHandle handle) =>
+      _str(_getStream(handle)?.codec);
+  @override
+  int stream_information_get_width(gen.StreamInformationHandle handle) =>
+      _getStream(handle)?.width ?? 0;
+  @override
+  int stream_information_get_height(gen.StreamInformationHandle handle) =>
+      _getStream(handle)?.height ?? 0;
+  @override
+  Pointer<Char> stream_information_get_sample_rate(
+          gen.StreamInformationHandle handle) =>
+      _str(_getStream(handle)?.sampleRate);
 
   @override
-  Pointer<Char> chapter_get_time_base(gen.ChapterHandle handle) =>
-      _str(_getChapter(handle)?.timeBase);
-
-  @override
-  int chapter_get_start(gen.ChapterHandle handle) =>
-      _getChapter(handle)?.start ?? 0;
-
+  int chapter_get_id(gen.ChapterHandle handle) =>
+      _chapterHandles[handle.address]?.id ?? 0;
   @override
   Pointer<Char> chapter_get_start_time(gen.ChapterHandle handle) =>
-      _str(_getChapter(handle)?.startTime);
-
-  @override
-  int chapter_get_end(gen.ChapterHandle handle) =>
-      _getChapter(handle)?.end ?? 0;
-
-  @override
-  Pointer<Char> chapter_get_end_time(gen.ChapterHandle handle) =>
-      _str(_getChapter(handle)?.endTime);
-
-  @override
-  Pointer<Char> chapter_get_tags_json(gen.ChapterHandle handle) =>
-      _str(_getChapter(handle)?.tagsJson);
-
-  @override
-  Pointer<Char> chapter_get_all_properties_json(gen.ChapterHandle handle) =>
-      _str(_getChapter(handle)?.allPropertiesJson);
+      _str(_chapterHandles[handle.address]?.startTime);
 
   // --- FFplay ---
-
   @override
   gen.FFplaySessionHandle ffplay_kit_create_session(Pointer<Char> command) =>
-      _createSession(command.cast<Utf8>().toDartString(), isFFmpeg: false);
-
-  @override
-  gen.FFplaySessionHandle ffplay_kit_execute(
-      Pointer<Char> command, int timeout) {
-    final handle = ffplay_kit_create_session(command);
-    ffplay_kit_session_execute(handle, timeout);
-    return handle;
-  }
-
-  @override
-  gen.FFplaySessionHandle ffplay_kit_execute_async(
-      Pointer<Char> command,
-      gen.FFplayKitCompleteCallback cb,
-      Pointer<Void> userData,
-      int waitTimeout) {
-    final handle = ffplay_kit_create_session(command);
-    final s = getSessionData(handle.address);
-    s.state = SessionState.running.value;
-    s.isPlaying = true;
-
-    for (var other in _sessions.values) {
-      if (other.id != s.id && other.isPlaying) {
-        other.isPlaying = false;
-        other.isPaused = false;
-      }
-    }
-
-    Future.microtask(() {
-      if (cb != nullptr) {
-        final dartCallback =
-            cb.asFunction<gen.DartFFplayKitCompleteCallbackFunction>();
-        dartCallback(handle, userData);
-      }
-    });
-
-    return handle;
-  }
+      _createSession(command.cast<Utf8>().toDartString());
 
   @override
   void ffplay_kit_session_execute(
@@ -876,30 +537,49 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
   }
 
   @override
-  int ffplay_kit_session_is_playing(gen.FFplaySessionHandle session) =>
-      (getSessionByHandle(session)?.isPlaying ?? false) ? 1 : 0;
-
-  @override
-  int ffplay_kit_session_is_paused(gen.FFplaySessionHandle session) =>
-      (getSessionByHandle(session)?.isPaused ?? false) ? 1 : 0;
-
-  @override
-  void ffplay_kit_session_pause(gen.FFplaySessionHandle session) {
-    getSessionByHandle(session)?.isPaused = true;
+  gen.FFplaySessionHandle ffplay_kit_execute(
+      Pointer<Char> command, int timeout) {
+    final handle = ffplay_kit_create_session(command);
+    ffplay_kit_session_execute(handle, timeout);
+    return handle;
   }
 
   @override
-  void ffplay_kit_session_resume(gen.FFplaySessionHandle session) {
-    getSessionByHandle(session)?.isPaused = false;
+  gen.FFplaySessionHandle ffplay_kit_execute_async(
+      Pointer<Char> command,
+      gen.FFplayKitCompleteCallback complete_cb,
+      Pointer<Void> user_data,
+      int timeout) {
+    final handle = ffplay_kit_create_session(command);
+    final s = getSessionData(handle.address);
+    s.state = SessionState.running.value;
+    s.isPlaying = true;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (complete_cb != nullptr) {
+        final dartCb =
+            complete_cb.asFunction<gen.DartFFplayKitCompleteCallbackFunction>();
+        dartCb(handle, user_data);
+      }
+    });
+    return handle;
   }
 
+  @override
+  double ffplay_kit_session_get_duration(gen.FFplaySessionHandle session) =>
+      60.0;
+  @override
+  double ffplay_kit_session_get_position(gen.FFplaySessionHandle session) =>
+      getSessionByHandle(session)?.position ?? 0.0;
+  @override
+  void ffplay_kit_session_pause(gen.FFplaySessionHandle session) =>
+      _ffplayGlobalPaused = true;
+  @override
+  void ffplay_kit_session_resume(gen.FFplaySessionHandle session) =>
+      _ffplayGlobalPaused = false;
   @override
   void ffplay_kit_session_stop(gen.FFplaySessionHandle session) {
     final s = getSessionByHandle(session);
-    if (s != null) {
-      s.isPlaying = false;
-      s.state = SessionState.completed.value;
-    }
+    if (s != null) s.isPlaying = false;
   }
 
   @override
@@ -910,150 +590,113 @@ class MockFFmpegKitBindings extends gen.FFmpegKitBindings {
   }
 
   @override
-  double ffplay_kit_session_get_position(gen.FFplaySessionHandle session) =>
-      getSessionByHandle(session)?.position ?? 0.0;
-
+  bool ffplay_kit_session_is_playing(gen.FFplaySessionHandle session) =>
+      getSessionByHandle(session)?.isPlaying ?? false;
   @override
-  double ffplay_kit_session_get_duration(gen.FFplaySessionHandle session) =>
-      10.0;
-
+  bool ffplay_kit_session_is_paused(gen.FFplaySessionHandle session) =>
+      _ffplayGlobalPaused;
   @override
-  void ffplay_kit_pause() {
-    _ffplayGlobalPaused = true;
-  }
-
-  @override
-  void ffplay_kit_resume() {
-    _ffplayGlobalPaused = false;
-  }
-
-  @override
-  void ffplay_kit_stop() {
-    for (var s in _sessions.values) {
-      if (s.isPlaying) {
-        s.isPlaying = false;
-        s.state = SessionState.completed.value;
-      }
-    }
-  }
-
-  @override
-  int ffplay_kit_is_paused() => _ffplayGlobalPaused ? 1 : 0;
-
-  @override
-  void ffplay_kit_set_position(double position) {
-    _ffplayGlobalPosition = position;
-  }
-
-  @override
-  double ffplay_kit_get_position() => _ffplayGlobalPosition;
-
-  @override
-  double ffplay_kit_get_duration() => 10.0;
-
-  @override
-  void ffplay_kit_session_execute_async(
-      gen.FFplaySessionHandle session, int timeout) {
-    final s = getSessionByHandle(session);
-    if (s != null) {
-      s.state = SessionState.running.value;
-      s.isPlaying = true;
-
-      Future.microtask(() {
-        if (globalFFplayCompleteCb != nullptr) {
-          final dartCb = globalFFplayCompleteCb
-              .asFunction<gen.DartFFplayKitCompleteCallbackFunction>();
-          dartCb(session, globalFFplayCompleteUserData);
-        }
-      });
-    }
-  }
-
-  @override
-  void ffplay_kit_session_set_position(
-      gen.FFplaySessionHandle session, double seconds) {
-    final s = getSessionByHandle(session);
-    if (s != null) s.position = seconds;
-  }
-
-  @override
-  double ffplay_kit_session_get_volume(gen.FFplaySessionHandle session) => 1.0;
-
+  double ffplay_kit_session_get_volume(gen.FFplaySessionHandle session) =>
+      _ffplayGlobalVolume;
   @override
   void ffplay_kit_session_set_volume(
-      gen.FFplaySessionHandle session, double volume) {}
+          gen.FFplaySessionHandle session, double volume) =>
+      _ffplayGlobalVolume = volume;
 
   @override
   void ffplay_kit_session_start(gen.FFplaySessionHandle session) {
     final s = getSessionByHandle(session);
-    if (s != null) {
-      s.isPaused = false;
-      s.isPlaying = true;
-    }
+    if (s != null) s.isPlaying = true;
   }
 
   @override
   void ffplay_kit_session_close(gen.FFplaySessionHandle session) {
     final s = getSessionByHandle(session);
     if (s != null) {
+      s.isPlaying = false;
       s.state = SessionState.completed.value;
     }
   }
 
   @override
-  gen.FFplaySessionHandle ffplay_kit_get_current_session() {
-    if (_sessionHistory.isNotEmpty) {
-      return Pointer.fromAddress(_sessionHistory.last);
-    }
-    return nullptr;
+  void ffplay_kit_pause() => _ffplayGlobalPaused = true;
+  @override
+  void ffplay_kit_resume() => _ffplayGlobalPaused = false;
+  @override
+  void ffplay_kit_stop() {
+    for (var s in _sessions.values) s.isPlaying = false;
   }
 
-  // --- config redirection / fonts / env ---
   @override
-  void ffmpeg_kit_config_enable_redirection() {}
+  void ffmpeg_kit_free(Pointer<Void> ptr) {
+    if (ptr != nullptr) calloc.free(ptr);
+  }
+
+  // session size history
+  @override
+  void ffmpeg_kit_set_session_history_size(int size) {
+    _sessionHistorySize = size;
+  }
 
   @override
-  void ffmpeg_kit_config_disable_redirection() {}
+  int ffmpeg_kit_get_session_history_size() => _sessionHistorySize;
 
+  // signals and pipes
   @override
-  void ffmpeg_kit_config_set_font_directory(
-      Pointer<Char> path, Pointer<Char> mapping) {}
-
-  @override
-  void ffmpeg_kit_config_set_font_directory_list(
-      Pointer<Pointer<Char>> fontDirectoryList,
-      int fontDirectoryListCount,
-      Pointer<Char> mapping) {}
-
+  void ffmpeg_kit_config_ignore_signal(gen.FFmpegKitSignal signal) =>
+      _ignoredSignals.add(signal.value);
   @override
   Pointer<Char> ffmpeg_kit_config_register_new_ffmpeg_pipe() {
-    final pipe = "\\\\.\\pipe\\ffmpegkit_${_ffmpegPipes.length}";
+    final pipe = "pipe:${_ffmpegPipes.length}";
     _ffmpegPipes.add(pipe);
     return pipe.toNativeUtf8().cast();
   }
 
   @override
-  void ffmpeg_kit_config_close_ffmpeg_pipe(Pointer<Char> ffmpegPipePath) {}
+  void ffmpeg_kit_clear_sessions() {
+    _sessions.clear();
+    _sessionHistory.clear();
+  }
 
-  @override
-  int ffmpeg_kit_config_set_environment_variable(
-      Pointer<Char> name, Pointer<Char> value) {
-    final n = name.cast<Utf8>().toDartString();
-    final v = value.cast<Utf8>().toDartString();
-    _environmentVariables[n] = v;
-    return 0; // Success
+  Pointer<gen.FFmpegSessionHandle> _toHandleArray(
+      Iterable<MockSessionData> sessions) {
+    final list = sessions.toList();
+    final count = list.length;
+    // Allocate array of pointers (count + 1 for null terminator)
+    final array = calloc<gen.FFmpegSessionHandle>(count + 1);
+
+    for (int i = 0; i < count; i++) {
+      array[i] = Pointer.fromAddress(list[i].id);
+    }
+    array[count] = nullptr;
+
+    return array;
   }
 
   @override
-  void ffmpeg_kit_config_ignore_signal(gen.FFmpegKitSignal signal) {
-    _ignoredSignals.add(signal.value);
-  }
+  Pointer<gen.FFmpegSessionHandle> ffmpeg_kit_get_sessions() =>
+      _toHandleArray(_sessions.values);
 
   @override
-  Pointer<Char> ffmpeg_kit_config_log_level_to_string(
-      gen.FFmpegKitLogLevel level) => "DEBUG".toNativeUtf8().cast();
+  Pointer<gen.FFmpegSessionHandle> ffmpeg_kit_get_ffmpeg_sessions() =>
+      _toHandleArray(_sessions.values.where((s) =>
+          !s.command.contains("ffprobe") &&
+          !s.command.contains("get_media_information") &&
+          !s.isPlaying));
 
   @override
-  Pointer<Char> ffmpeg_kit_config_session_state_to_string(
-      gen.FFmpegKitSessionState state) => "CREATED".toNativeUtf8().cast();
+  Pointer<gen.FFprobeSessionHandle> ffmpeg_kit_get_ffprobe_sessions() =>
+      _toHandleArray(_sessions.values.where((s) =>
+          s.command.contains("ffprobe") ||
+          s.command.contains("get_media_information")));
+
+  @override
+  Pointer<gen.FFplaySessionHandle> ffmpeg_kit_get_ffplay_sessions() =>
+      _toHandleArray(_sessions.values.where((s) => s.isPlaying));
+
+  @override
+  Pointer<gen.MediaInformationSessionHandle>
+      ffmpeg_kit_get_media_information_sessions() =>
+          _toHandleArray(_sessions.values
+              .where((s) => s.command.contains("get_media_information")));
 }

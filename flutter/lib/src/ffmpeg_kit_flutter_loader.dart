@@ -19,6 +19,10 @@
 
 import 'dart:ffi';
 import 'dart:io';
+
+import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as path;
+
 import 'generated/ffmpeg_kit_bindings.dart';
 
 DynamicLibrary? _cachedLibrary;
@@ -43,17 +47,19 @@ DynamicLibrary _loadLibrary() {
     }
     return _cachedLibrary!;
   } catch (e) {
+    final sep = Platform.isWindows ? '\\' : '/';
     // If not found, try to locate in .dart_tool cache (Common for 'flutter test')
     final cacheRoot = Platform.packageConfig != null
-        ? Directory.fromUri(Uri.parse(Platform.packageConfig!).resolve('../..'))
+        ? Directory.fromUri(
+            Uri.parse(Platform.packageConfig!).resolve("..$sep.."))
         : Directory.current;
 
     String platformName = Platform.operatingSystem;
     if (Platform.isMacOS) platformName = 'macos';
 
     print('DEBUG: cacheRoot: ${cacheRoot.path}');
-    final pathFile = File(
-        '${cacheRoot.path}/.dart_tool/ffmpeg_kit_extended_flutter/$platformName/current_path.txt');
+    final pathFile = File(path.join(cacheRoot.path, '.dart_tool',
+        'ffmpeg_kit_extended_flutter', platformName, 'current_path.txt'));
     print('DEBUG: pathFile: ${pathFile.path}');
 
     if (pathFile.existsSync()) {
@@ -63,39 +69,86 @@ DynamicLibrary _loadLibrary() {
 
       if (Platform.isWindows) {
         // Binaries often in 'bin' or 'lib' depending on bundle
-        if (File('$cachedPath/bin/libffmpegkit.dll').existsSync()) {
-          libPath = '$cachedPath/bin/libffmpegkit.dll';
-        } else if (File('$cachedPath/lib/libffmpegkit.dll').existsSync()) {
-          libPath = '$cachedPath/lib/libffmpegkit.dll';
+        if (File(path.join(cachedPath, 'bin', 'libffmpegkit.dll'))
+            .existsSync()) {
+          libPath = path.join(cachedPath, 'bin', 'libffmpegkit.dll');
+        } else if (File(path.join(cachedPath, 'lib', 'libffmpegkit.dll'))
+            .existsSync()) {
+          libPath = path.join(cachedPath, 'lib', 'libffmpegkit.dll');
         } else {
-          libPath = '$cachedPath/libffmpegkit.dll';
+          libPath = path.join(cachedPath, 'libffmpegkit.dll');
         }
       } else if (Platform.isLinux) {
-        if (File('$cachedPath/lib/libffmpegkit.so').existsSync()) {
-          libPath = '$cachedPath/lib/libffmpegkit.so';
+        if (File(path.join(cachedPath, 'lib', 'libffmpegkit.so'))
+            .existsSync()) {
+          libPath = path.join(cachedPath, 'lib', 'libffmpegkit.so');
         } else {
-          libPath = '$cachedPath/libffmpegkit.so';
+          libPath = path.join(cachedPath, 'libffmpegkit.so');
         }
       } else if (Platform.isMacOS) {
         // Usually via Framework or dylib, assume loading by path works
-        libPath = '$cachedPath/lib/libffmpegkit.dylib';
+        libPath = path.join(cachedPath, 'lib', 'libffmpegkit.dylib');
       }
 
-      print('DEBUG: Resolved libPath: $libPath');
-      print('DEBUG: libPath exists: ${File(libPath).existsSync()}');
+      final absoluteLibPath = File(libPath).absolute.path;
+      print('DEBUG: Resolved libPath (absolute): $absoluteLibPath');
+      print('DEBUG: libPath exists: ${File(absoluteLibPath).existsSync()}');
       print('DEBUG: CWD: ${Directory.current.path}');
 
+      if (Platform.isWindows) {
+        final libDir = path.dirname(absoluteLibPath);
+        _addDllDirectory(libDir);
+      }
+
       try {
-        _cachedLibrary = DynamicLibrary.open(libPath);
+        _cachedLibrary = DynamicLibrary.open(absoluteLibPath);
         return _cachedLibrary!;
       } catch (inner) {
-        print('DEBUG: Failed to open library: $inner');
-        // Fallback error
+        print('DEBUG: Failed to open library from parsed path: $inner');
+        // Try one last fallback with just the name
+        try {
+          _cachedLibrary = DynamicLibrary.open(path.basename(absoluteLibPath));
+          return _cachedLibrary!;
+        } catch (_) {}
       }
     } else {
       print('DEBUG: pathFile does not exist');
     }
     throw e;
+  }
+}
+
+/// Helper for Windows to add DLL search directory.
+/// This ensures that dependencies in the same folder (or MSYS2) are found.
+void _addDllDirectory(String dirPath) {
+  if (!Platform.isWindows) return;
+  try {
+    final kernel32 = DynamicLibrary.open('kernel32.dll');
+
+    // AddDllDirectory is preferred over SetDllDirectoryW
+    final addDllDirectory = kernel32.lookupFunction<
+        Pointer Function(Pointer<Utf16>),
+        Pointer Function(Pointer<Utf16>)>('AddDllDirectory');
+
+    // SetDefaultDllDirectories tells the OS to actually look at the paths we add
+    final setDefaultDllDirectories =
+        kernel32.lookupFunction<Int32 Function(Uint32), int Function(int)>(
+            'SetDefaultDllDirectories');
+
+    const loadLibrarySearchDefaultDirs = 0x00001000;
+    const loadLibrarySearchUserDirs = 0x00000400;
+
+    setDefaultDllDirectories(
+        loadLibrarySearchDefaultDirs | loadLibrarySearchUserDirs);
+
+    final pPath = dirPath.toNativeUtf16();
+    addDllDirectory(pPath);
+    malloc.free(pPath);
+    print('DEBUG: Added to DLL Search Path: $dirPath');
+  } catch (e) {
+    // Fallback to your existing SetDllDirectoryW if AddDllDirectory isn't available
+    print(
+        'DEBUG: AddDllDirectory failed, check if Windows 7/8 without KB2533623: $e');
   }
 }
 

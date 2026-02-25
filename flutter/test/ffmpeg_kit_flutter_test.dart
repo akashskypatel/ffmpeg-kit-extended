@@ -1,4 +1,4 @@
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_flutter_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
 

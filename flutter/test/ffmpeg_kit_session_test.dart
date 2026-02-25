@@ -1,4 +1,4 @@
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_flutter_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,6 +12,9 @@ void main() {
     setFFmpegKitBindings(mockBindings);
     setFFmpegLibrary(mockBindings.dynamicLibrary);
     Session.skipFinalizer = true;
+    SessionQueueManager().cancelAll();
+    SessionQueueManager().maxConcurrentSessions = 8;
+    FFmpegKitConfig.clearSessions();
 
     // Enable global callbacks so session-specific callbacks work
     FFmpegKitExtended.enableLogCallback();
@@ -64,8 +67,16 @@ void main() {
     });
 
     test('cancel should abort running sessions', () async {
-      // In our mock, execute is sync, so we check cancel separately
-      final session = await FFmpegKit.executeAsync('-i input.mp4 output.mp4');
+      // Create session manually to avoid awaiting the future from executeAsync
+      final session =
+          FFmpegKitExtended.createFFmpegSession('-i input.mp4 output.mp4');
+
+      // Execute without awaiting the valid completion immediately
+      session.executeAsync();
+
+      // Let it start (mock needs a moment to set state to running)
+      await Future.delayed(const Duration(milliseconds: 10));
+
       session.cancel();
 
       await Future.delayed(const Duration(milliseconds: 50));

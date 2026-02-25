@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
@@ -24,8 +25,8 @@ import 'package:ffi/ffi.dart';
 import 'callback_manager.dart';
 import 'ffmpeg_kit_flutter_loader.dart';
 import 'ffplay_kit.dart';
-import 'generated/ffmpeg_kit_bindings.dart';
 import 'session.dart';
+import 'session_queue_manager.dart';
 
 /// A session for playing media using FFplay.
 ///
@@ -40,7 +41,6 @@ class FFplaySession extends Session {
   FFplaySession.fromHandle(Pointer<Void> handle, String command) {
     this.handle = handle;
     this.command = command;
-    this.startTime = DateTime.now();
     this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
     this.registerFinalizer();
   }
@@ -66,7 +66,6 @@ class FFplaySession extends Session {
     try {
       this.handle = ffmpeg.ffplay_kit_create_session(cmdPtr.cast());
       this.command = command;
-      this.startTime = DateTime.now();
       this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
       this.registerFinalizer();
     } finally {
@@ -164,6 +163,12 @@ class FFplaySession extends Session {
     ffmpeg.ffplay_kit_session_close(handle);
   }
 
+  @override
+  void cancel() {
+    stop();
+    super.cancel();
+  }
+
   /// Seeks to the specified position in [seconds].
   void seek(double seconds) {
     print("FFplaySession.seek handle=$handle seconds=$seconds");
@@ -173,7 +178,14 @@ class FFplaySession extends Session {
   /// Executes this session synchronously.
   FFplaySession execute() {
     print("FFplaySession.execute handle=$handle");
-    ffmpeg.ffplay_kit_session_execute(handle, timeout);
+    final completer = Completer<void>();
+    SessionQueueManager().executeSession(
+      this,
+      () async {
+        ffmpeg.ffplay_kit_session_execute(handle, timeout);
+        completer.complete();
+      },
+    ).catchError(completer.completeError);
     return this;
   }
 
@@ -216,43 +228,63 @@ class FFplaySession extends Session {
   /// - [timeout]: Connection timeout in milliseconds.
   /// - [completeCallback]: Optional callback when playback ends.
   Future<FFplaySession> executeAsync(
-      [int timeout = 500,
-      FFplaySessionCompleteCallback? completeCallback]) async {
+      {int timeout = 500,
+      FFplaySessionCompleteCallback? completeCallback}) async {
     if (completeCallback != null) this._completeCallback = completeCallback;
     setTimeout(timeout);
 
-    final cmdPtr = command.toNativeUtf8();
-    final int callbackId = CallbackManager().nextCallbackId++;
-    CallbackManager().callbackIdToFFplaySession[callbackId] = this;
+    final startedCompleter = Completer<void>();
 
-    CallbackManager().ffplaySessions.remove(sessionId);
+    final executionFuture = SessionQueueManager().executeSession(
+      this,
+      () async {
+        final sessionCompleter = Completer<void>();
 
-    FFplaySessionHandle newHandle;
-    try {
-      newHandle = ffmpeg.ffplay_kit_execute_async(
-          cmdPtr.cast(),
-          nativeFFplayComplete.nativeFunction,
-          Pointer<Void>.fromAddress(callbackId),
-          _timeout);
-      print("FFplaySession.executeAsync newHandle=$newHandle (prev=$handle)");
-    } finally {
-      calloc.free(cmdPtr);
-    }
+        // Store the original callback
+        final originalCallback = this._completeCallback;
 
-    this.handle = newHandle;
-    this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-    this.registerFinalizer();
+        // Wrap the callback to complete our completer
+        this._completeCallback = (session) {
+          originalCallback?.call(session);
+          if (!sessionCompleter.isCompleted) {
+            sessionCompleter.complete();
+          }
+        };
 
-    CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
-    CallbackManager().ffplaySessions[sessionId] = this;
+        ffmpeg.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+            nativeFFplayComplete.nativeFunction, nullptr);
+        CallbackManager().ffplaySessions[sessionId] = this;
 
+        try {
+          ffmpeg.ffplay_kit_session_execute_async(handle, _timeout);
+        } catch (e) {
+          if (!startedCompleter.isCompleted) startedCompleter.completeError(e);
+          rethrow;
+        }
+
+        // Signal that the session has started and handle is valid
+        if (!startedCompleter.isCompleted) {
+          startedCompleter.complete();
+        }
+
+        // Wait for the session to complete (this keeps the queue blocked)
+        await sessionCompleter.future;
+      },
+    );
+
+    // Handle initialization errors or rejection
+    executionFuture.catchError((e) {
+      if (!startedCompleter.isCompleted) startedCompleter.completeError(e);
+    });
+
+    await startedCompleter.future;
     return this;
   }
 
   /// Gets the total duration of the media in seconds.
-  double getDuration() {
+  double getMediaDuration() {
     final d = ffmpeg.ffplay_kit_session_get_duration(handle);
-    print("FFplaySession.getDuration handle=$handle val=$d");
+    print("FFplaySession.getMediaDuration handle=$handle val=$d");
     return d;
   }
 
@@ -278,14 +310,14 @@ class FFplaySession extends Session {
 
   /// Returns true if the media is currently playing.
   bool isPlaying() {
-    final playing = ffmpeg.ffplay_kit_session_is_playing(handle) != 0;
+    final playing = ffmpeg.ffplay_kit_session_is_playing(handle);
     print("FFplaySession.isPlaying handle=$handle val=$playing");
     return playing;
   }
 
   /// Returns true if the media is current paused.
   bool isPaused() {
-    final paused = ffmpeg.ffplay_kit_session_is_paused(handle) != 0;
+    final paused = ffmpeg.ffplay_kit_session_is_paused(handle);
     print("FFplaySession.isPaused handle=$handle val=$paused");
     return paused;
   }

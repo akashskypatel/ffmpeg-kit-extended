@@ -20,17 +20,12 @@
 import 'callback_manager.dart' as callback_manager;
 import 'ffmpeg_kit_extended.dart';
 import 'ffmpeg_session.dart';
-import 'session_queue_manager.dart';
 
 /// A convenience class for executing FFmpeg commands.
 class FFmpegKit {
   /// Executes an FFmpeg [command] synchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
-  static FFmpegSession execute(String command,
-          {SessionExecutionStrategy strategy =
-              SessionExecutionStrategy.queue}) =>
-      FFmpegSession.executeCommand(command, strategy: strategy);
+  static FFmpegSession execute(String command) =>
+      FFmpegSession.executeCommand(command);
 
   /// Executes an FFmpeg [command] asynchronously.
   ///
@@ -38,18 +33,14 @@ class FFmpegKit {
   /// - [onComplete]: Optional callback invoked when execution completes.
   /// - [onLog]: Optional callback invoked for each log message.
   /// - [onStatistics]: Optional callback invoked for each statistics update.
-  /// - [strategy]: Determines how to handle concurrent sessions.
   static Future<FFmpegSession> executeAsync(String command,
           {callback_manager.FFmpegSessionCompleteCallback? onComplete,
           callback_manager.FFmpegLogCallback? onLog,
-          callback_manager.FFmpegStatisticsCallback? onStatistics,
-          SessionExecutionStrategy strategy =
-              SessionExecutionStrategy.queue}) =>
+          callback_manager.FFmpegStatisticsCallback? onStatistics}) =>
       FFmpegSession.executeCommandAsync(command,
           completeCallback: onComplete,
           logCallback: onLog,
-          statisticsCallback: onStatistics,
-          strategy: strategy);
+          statisticsCallback: onStatistics);
 
   /// Cancels a [session] if it is currently running.
   static void cancel(FFmpegSession session) => session.cancel();

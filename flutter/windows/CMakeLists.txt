@@ -77,14 +77,14 @@ set(PLUGIN_NAME "ffmpeg_kit_extended_flutter_plugin")
 
 # Any new source files that you add to the plugin should be added here.
 list(APPEND PLUGIN_SOURCES
-  "ffmpeg_kit_flutter_plugin.cpp"
+  "ffmpeg_kit_extended_flutter_plugin.cpp"
 )
 
 # Define the plugin library target. Its name must not be changed (see comment
 # on PLUGIN_NAME above).
 add_library(${PLUGIN_NAME} SHARED
-  "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter_plugin.h"
-  "ffmpeg_kit_flutter_plugin_c_api.cpp"
+  "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
+  "ffmpeg_kit_extended_flutter_plugin_c_api.cpp"
   ${PLUGIN_SOURCES}
 )
 
@@ -144,12 +144,6 @@ if (FFMPEG_KIT_LIB_FILE)
       "${FFMPEG_KIT_LIB_FILE}"
       PARENT_SCOPE
     )
-else()
-     message(WARNING "FFmpegKit DLL not found in ${FFMPEG_KIT_PATH}/bin. Runtime might fail.")
-     set(${PROJECT_NAME}_bundled_libraries
-       ""
-       PARENT_SCOPE
-     )
 endif()
 
 # === Tests ===
@@ -177,7 +171,7 @@ if (${include_${PROJECT_NAME}_tests})
   # The plugin's C API is not very useful for unit testing, so build the sources
   # directly into the test binary rather than using the DLL.
   add_executable(${TEST_RUNNER}
-    test/ffmpeg_kit_flutter_plugin_test.cpp
+    test/ffmpeg_kit_extended_flutter_plugin_test.cpp
     ${PLUGIN_SOURCES}
   )
   apply_standard_settings(${TEST_RUNNER})
@@ -197,7 +191,8 @@ if (${include_${PROJECT_NAME}_tests})
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${FLUTTER_LIBRARY}" $<TARGET_FILE_DIR:${TEST_RUNNER}>
   )
-
+  # add debug cflags to test runner -fno-omit-frame-pointer
+  target_compile_options(${TEST_RUNNER} PRIVATE "-fno-omit-frame-pointer")
   # Enable automatic test discovery.
   include(GoogleTest)
   gtest_discover_tests(${TEST_RUNNER})

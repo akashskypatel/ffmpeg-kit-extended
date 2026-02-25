@@ -17,9 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-import '../ffmpeg_kit_flutter.dart';
+import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart' as callback_manager;
-import 'session_queue_manager.dart';
 
 /// A convenience class for executing FFprobe commands.
 class FFprobeKit {
@@ -38,22 +37,13 @@ class FFprobeKit {
           .executeAsync();
 
   /// Executes an FFprobe [command] synchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
-  static FFprobeSession execute(String command,
-          {SessionExecutionStrategy strategy =
-              SessionExecutionStrategy.queue}) =>
-      FFprobeSession.executeCommand(command, strategy: strategy);
+  static FFprobeSession execute(String command) =>
+      FFprobeSession.executeCommand(command);
 
   /// Executes an FFprobe [command] asynchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
   static Future<FFprobeSession> executeAsync(String command,
-          {callback_manager.FFprobeSessionCompleteCallback? onComplete,
-          SessionExecutionStrategy strategy =
-              SessionExecutionStrategy.queue}) =>
-      FFprobeSession.executeCommandAsync(command,
-          completeCallback: onComplete, strategy: strategy);
+          {callback_manager.FFprobeSessionCompleteCallback? onComplete}) =>
+      FFprobeSession.executeCommandAsync(command, completeCallback: onComplete);
 
   /// Creates a new [FFprobeSession] without executing it.
   /// Use [execute] or [executeAsync] to execute the session.

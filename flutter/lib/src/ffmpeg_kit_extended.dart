@@ -31,6 +31,7 @@ import 'generated/ffmpeg_kit_bindings.dart';
 import 'log.dart';
 import 'media_information_session.dart';
 import 'session.dart';
+import 'session_queue_manager.dart';
 import 'signal.dart';
 
 /// The main entry point for the FFmpegKit Extended plugin.
@@ -108,12 +109,9 @@ class FFmpegKitExtended {
   /// Returns a list of all active or cached sessions.
   static List<Session> listSessions() => FFmpegKitExtended.getSessions();
 
-  /// Cancels all currently running sessions.
+  /// Cancels all currently running and queued sessions.
   static void cancelAllSessions() {
-    final sessions = listSessions();
-    for (final session in sessions) {
-      session.cancel();
-    }
+    SessionQueueManager().cancelAll();
   }
 
   /// Sets the global [LogLevel] for FFmpeg output.
@@ -145,6 +143,25 @@ class FFmpegKitExtended {
       malloc.free(pathPtr);
       if (mappingPtr != nullptr) malloc.free(mappingPtr);
     }
+  }
+
+  /// Sets the audio output device.
+  static void setAudioOutputDevice(String deviceName) {
+    final deviceNamePtr = deviceName.toNativeUtf8();
+    try {
+      ffmpeg.ffmpeg_kit_config_set_audio_output_device(deviceNamePtr.cast());
+    } finally {
+      malloc.free(deviceNamePtr);
+    }
+  }
+
+  /// Returns a semi-colon separated list of audio output devices.
+  static String listAudioOutputDevices() {
+    final ptr = ffmpeg.ffmpeg_kit_config_list_audio_output_devices();
+    if (ptr == nullptr) return "";
+    final res = ptr.cast<Utf8>().toDartString();
+    ffmpeg.ffmpeg_kit_free(ptr.cast());
+    return res;
   }
 
   /// Sets an environment variable.
@@ -623,6 +640,41 @@ class FFmpegKitExtended {
 
     // Fallback to generic Session based on command guessing or default
     final cmd = _getSessionCommand(handle);
+    if (ffmpeg.session_is_ffmpeg_session(handle)) {
+      return FFmpegSession.fromHandle(handle, cmd);
+    } else if (ffmpeg.session_is_media_information_session(handle)) {
+      return MediaInformationSession.fromHandle(handle, cmd);
+    } else if (ffmpeg.session_is_ffprobe_session(handle)) {
+      return FFprobeSession.fromHandle(handle, cmd);
+    } else if (ffmpeg.session_is_ffplay_session(handle)) {
+      return FFplaySession.fromHandle(handle, cmd);
+    }
+
     return FFmpegSession.fromHandle(handle, cmd);
   }
+
+  /// Enables the debug log.
+  static void enableDebugLog(Session session) =>
+      ffmpeg.ffmpeg_kit_config_enable_debug_log(session.handle);
+
+  /// Disables the debug log.
+  static void disableDebugLog(Session session) =>
+      ffmpeg.ffmpeg_kit_config_disable_debug_log(session.handle);
+
+  /// Checks if the debug log is enabled.
+  static bool isDebugLogEnabled(Session session) =>
+      ffmpeg.ffmpeg_kit_config_is_debug_log_enabled(session.handle) == 1;
+
+  /// Gets the debug log.
+  static String getDebugLog(Session session) {
+    final ptr = ffmpeg.ffmpeg_kit_config_get_debug_log(session.handle);
+    if (ptr == nullptr) return "";
+    final res = ptr.cast<Utf8>().toDartString();
+    ffmpeg.ffmpeg_kit_free(ptr.cast());
+    return res;
+  }
+
+  /// Clears the debug log.
+  static void clearDebugLog(Session session) =>
+      ffmpeg.ffmpeg_kit_config_clear_debug_log(session.handle);
 }

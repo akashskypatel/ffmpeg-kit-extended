@@ -19,12 +19,12 @@
 
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
 import 'callback_manager.dart';
 import 'ffmpeg_kit_flutter_loader.dart';
-import 'generated/ffmpeg_kit_bindings.dart';
 import 'media_information.dart';
 import 'media_information_session.dart';
 import 'session.dart';
@@ -48,7 +48,6 @@ class FFprobeSession extends Session {
     try {
       this.handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
       this.command = command;
-      this.startTime = DateTime.now();
       this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
       this.registerFinalizer();
     } finally {
@@ -89,7 +88,6 @@ class FFprobeSession extends Session {
   FFprobeSession.fromHandle(Pointer<Void> handle, String command) {
     this.handle = handle;
     this.command = command;
-    this.startTime = DateTime.now();
     this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
     this.registerFinalizer();
   }
@@ -103,14 +101,7 @@ class FFprobeSession extends Session {
       FFprobeSession(command, completeCallback: completeCallback);
 
   /// Executes this session synchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions:
-  /// - [SessionExecutionStrategy.queue]: Queue this session (default)
-  /// - [SessionExecutionStrategy.cancelAndReplace]: Cancel current and execute immediately
-  /// - [SessionExecutionStrategy.rejectIfBusy]: Throw exception if busy
-  FFprobeSession execute({
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
-  }) {
+  FFprobeSession execute() {
     final completer = Completer<void>();
 
     SessionQueueManager().executeSession(
@@ -119,45 +110,30 @@ class FFprobeSession extends Session {
         ffmpeg.ffprobe_kit_session_execute(handle);
         completer.complete();
       },
-      strategy: strategy,
     ).catchError(completer.completeError);
 
     return this;
   }
 
   /// Creates and executes a [FFprobeSession] synchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
   static FFprobeSession executeCommand(String command,
-      {FFprobeSessionCompleteCallback? completeCallback,
-      SessionExecutionStrategy strategy = SessionExecutionStrategy.queue}) {
+      {FFprobeSessionCompleteCallback? completeCallback}) {
     final session =
         FFprobeSession.create(command, completeCallback: completeCallback);
-    return session.execute(strategy: strategy);
+    return session.execute();
   }
 
   /// Creates and executes a [FFprobeSession] asynchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
   static Future<FFprobeSession> executeCommandAsync(String command,
-      {FFprobeSessionCompleteCallback? completeCallback,
-      SessionExecutionStrategy strategy =
-          SessionExecutionStrategy.queue}) async {
+      {FFprobeSessionCompleteCallback? completeCallback}) async {
     final session =
         FFprobeSession.create(command, completeCallback: completeCallback);
-    return await session.executeAsync(strategy: strategy);
+    return await session.executeAsync();
   }
 
   /// Executes this session asynchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions:
-  /// - [SessionExecutionStrategy.queue]: Queue this session (default)
-  /// - [SessionExecutionStrategy.cancelAndReplace]: Cancel current and execute immediately
-  /// - [SessionExecutionStrategy.rejectIfBusy]: Throw exception if busy
   Future<FFprobeSession> executeAsync(
-      {FFprobeSessionCompleteCallback? completeCallback,
-      SessionExecutionStrategy strategy =
-          SessionExecutionStrategy.queue}) async {
+      {FFprobeSessionCompleteCallback? completeCallback}) async {
     if (completeCallback != null) this._completeCallback = completeCallback;
 
     // Start execution through queue manager
@@ -177,33 +153,25 @@ class FFprobeSession extends Session {
           }
         };
 
-        final cmdPtr = command.toNativeUtf8();
-        final int callbackId = CallbackManager().nextCallbackId++;
-        CallbackManager().callbackIdToFFprobeSession[callbackId] = this;
-
-        CallbackManager().ffprobeSessions.remove(sessionId);
-
-        FFprobeSessionHandle newHandle;
-        try {
-          newHandle = ffmpeg.ffprobe_kit_execute_async(
-              cmdPtr.cast(),
-              nativeFFprobeComplete.nativeFunction,
-              Pointer<Void>.fromAddress(callbackId));
-        } finally {
-          calloc.free(cmdPtr);
-        }
-
-        this.handle = newHandle;
-        this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-        this.registerFinalizer();
-
-        CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
+        ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+            nativeFFprobeComplete.nativeFunction, nullptr);
         CallbackManager().ffprobeSessions[sessionId] = this;
 
-        // Wait for the session to complete
-        await sessionCompleter.future;
+        try {
+          ffmpeg.ffprobe_kit_session_execute_async(handle);
+        } catch (e, stack) {
+          print("FFprobeSession: Error executing async session: $e\n$stack");
+          if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          rethrow;
+        }
+
+        try {
+          // Wait for the session to complete
+          await sessionCompleter.future;
+        } catch (e) {
+          print("FFprobeSession: Error waiting for session completion: $e");
+        }
       },
-      strategy: strategy,
     );
 
     return this;
@@ -216,14 +184,15 @@ class FFprobeSession extends Session {
 
   /// Convenience method to create a [MediaInformationSession] for the given [path].
   static MediaInformationSession createMediaInformationSession(String path) =>
-      MediaInformationSession(path);
+      MediaInformationSession.fromFile(File(path));
 
   /// Convenience method to create a [MediaInformationSession] for the given [path] asynchronously.
   static MediaInformationSession createMediaInformationSessionAsync(
     String path, {
     FFprobeSessionCompleteCallback? onComplete,
   }) {
-    final session = MediaInformationSession(path, completeCallback: onComplete);
+    final session = MediaInformationSession.fromFile(File(path),
+        completeCallback: onComplete);
     return session;
   }
 

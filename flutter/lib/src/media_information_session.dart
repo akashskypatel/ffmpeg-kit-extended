@@ -19,6 +19,7 @@
 
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
@@ -26,7 +27,6 @@ import 'callback_manager.dart';
 import 'chapter_information.dart';
 import 'ffmpeg_kit_flutter_loader.dart';
 import 'ffprobe_session.dart';
-import 'generated/ffmpeg_kit_bindings.dart';
 import 'media_information.dart';
 import 'session_queue_manager.dart';
 import 'stream_information.dart';
@@ -37,7 +37,6 @@ import 'stream_information.dart';
 /// from a media source path.
 class MediaInformationSession extends FFprobeSession {
   FFprobeSessionCompleteCallback? _completeCallback;
-  late String _path;
 
   /// The callback invoked when the session completes.
   @override
@@ -71,7 +70,10 @@ class MediaInformationSession extends FFprobeSession {
     _timeout = timeout;
   }
 
-  /// Creates a new [MediaInformationSession] for the given [command].
+  static const String _defaultCommand =
+      "-v error -hide_banner -print_format json -show_format -show_streams -show_chapters -i";
+
+  /// Creates a new [MediaInformationSession] for the given custom [command].
   ///
   /// - [command]: The media source or probe command.
   /// - [completeCallback]: Optional callback invoked when information retrieval ends.
@@ -82,19 +84,45 @@ class MediaInformationSession extends FFprobeSession {
     int timeout = 500,
   }) : super.internal() {
     this._timeout = timeout;
-    this._path = command;
 
-    String finalCommand = command;
-    if (!command.contains('-show_format') &&
-        !command.contains('-show_streams')) {
-      finalCommand = "-show_format -show_streams -print_format json $command";
-    }
+    final finalCommand = command;
     this.command = finalCommand;
 
     final cmdPtr = finalCommand.toNativeUtf8();
     try {
       this.handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      this.startTime = DateTime.now();
+      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      this.registerFinalizer();
+    } finally {
+      calloc.free(cmdPtr);
+    }
+
+    if (completeCallback != null) {
+      this._completeCallback = completeCallback;
+      final int callbackId = CallbackManager().nextCallbackId++;
+      CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
+      CallbackManager().ffprobeSessions[sessionId] = this;
+    }
+  }
+
+  /// Creates a new [MediaInformationSession] for the given [file].
+  ///
+  /// - [file]: The media source file.
+  /// - [completeCallback]: Optional callback invoked when information retrieval ends.
+  /// - [timeout]: Connection timeout in milliseconds.
+  MediaInformationSession.fromFile(
+    File file, {
+    FFprobeSessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) : super.internal() {
+    this._timeout = timeout;
+
+    final finalCommand = "$_defaultCommand ${file.path}";
+    this.command = finalCommand;
+
+    final cmdPtr = finalCommand.toNativeUtf8();
+    try {
+      this.handle = ffmpeg.media_information_create_session(cmdPtr.cast());
       this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
       this.registerFinalizer();
     } finally {
@@ -125,11 +153,16 @@ class MediaInformationSession extends FFprobeSession {
 
   /// Executes this session synchronously.
   @override
-  MediaInformationSession execute({
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
-  }) {
-    // Truly synchronous execution blocks the current isolate
-    ffmpeg.media_information_session_execute(handle, _timeout);
+  MediaInformationSession execute() {
+    // Synchronous execution must also be serialized
+    final completer = Completer<void>();
+    SessionQueueManager().executeSession(
+      this,
+      () async {
+        ffmpeg.media_information_session_execute(handle, _timeout);
+        completer.complete();
+      },
+    ).catchError(completer.completeError);
     return this;
   }
 
@@ -138,18 +171,16 @@ class MediaInformationSession extends FFprobeSession {
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
     int timeout = 500,
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
   }) {
     final session = MediaInformationSession.create(command,
         timeout: timeout, completeCallback: completeCallback);
-    return session.execute(strategy: strategy);
+    return session.execute();
   }
 
   /// Executes this session asynchronously.
   @override
   Future<MediaInformationSession> executeAsync({
     FFprobeSessionCompleteCallback? completeCallback,
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
   }) async {
     if (completeCallback != null) this._completeCallback = completeCallback;
 
@@ -170,33 +201,23 @@ class MediaInformationSession extends FFprobeSession {
           }
         };
 
-        final cmdPtr = _path.toNativeUtf8();
-        final int callbackId = CallbackManager().nextCallbackId++;
-        CallbackManager().callbackIdToFFprobeSession[callbackId] = this;
-
-        CallbackManager().ffprobeSessions.remove(sessionId);
-
-        MediaInformationSessionHandle newHandle;
-        try {
-          newHandle = ffmpeg.ffprobe_kit_get_media_information_async(
-              cmdPtr.cast(),
-              nativeMediaInfoComplete.nativeFunction,
-              Pointer<Void>.fromAddress(callbackId));
-        } finally {
-          calloc.free(cmdPtr);
-        }
-
-        this.handle = newHandle;
-        this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-        this.registerFinalizer();
-
-        CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
+        ffmpeg
+            .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+                nativeMediaInfoComplete.nativeFunction, nullptr);
         CallbackManager().ffprobeSessions[sessionId] = this;
+
+        try {
+          ffmpeg.media_information_session_execute_async(handle, _timeout);
+        } catch (e, stack) {
+          print(
+              "MediaInformationSession: Error executing async session: $e\n$stack");
+          if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          rethrow;
+        }
 
         // Wait for the session to complete
         await sessionCompleter.future;
       },
-      strategy: strategy,
     );
 
     return this;

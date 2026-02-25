@@ -1,4 +1,4 @@
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_flutter_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -31,7 +31,7 @@ void main() {
 
       session.stop();
       expect(session.isPlaying(), isFalse);
-    }, skip: 'Calls actual API instead of mock implementation');
+    });
 
     test('global controls should affect current session', () async {
       final session = await FFplayKit.execute('video.mp4');
@@ -44,6 +44,21 @@ void main() {
 
       FFplayKit.stop();
       expect(session.isPlaying(), isFalse);
-    }, skip: 'Calls actual API instead of mock implementation');
+    });
+
+    test('executeAsync should manage global session', () async {
+      final session1 = await FFplayKit.executeAsync('video1.mp4');
+      expect(session1.isPlaying(), isTrue);
+
+      // Starting a second session should continue as per SessionQueueManager logic
+      // In FFplayKit, we currently allow parallel if not specifically restricted,
+      // but FFplayKit.stop() usually stops everything or the last one.
+      final session2 = await FFplayKit.executeAsync('video2.mp4');
+      expect(session2.isPlaying(), isTrue);
+
+      FFplayKit.stop();
+      expect(session1.isPlaying(), isFalse);
+      expect(session2.isPlaying(), isFalse);
+    });
   });
 }

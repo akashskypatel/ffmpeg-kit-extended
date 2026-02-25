@@ -45,3 +45,4 @@ app.*.map.json
 /android/app/release
 ffmpeg_kit_bundle/
 .vscode/
+test_output/**

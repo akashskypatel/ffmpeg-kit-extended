@@ -19,6 +19,8 @@
 
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
+import '../ffmpeg_kit_extended_flutter.dart'
+    show FFmpegSession, FFplaySession, FFprobeSession, MediaInformationSession;
 import 'ffmpeg_kit_flutter_loader.dart';
 
 /// Return code for a session.
@@ -69,11 +71,8 @@ abstract class Session implements Finalizable {
   /// The FFmpeg command associated with this session.
   late String command;
 
-  /// The time when this session was created.
-  late DateTime startTime;
-
-  /// The time when this session finished execution.
-  DateTime? endTime;
+  /// Number of logs already processed by the callback manager
+  int logsProcessed = 0;
 
   /// Internal state: whether this session was cancelled.
   bool _isCancelled = false;
@@ -119,6 +118,30 @@ abstract class Session implements Finalizable {
   /// Returns the exit code of the process.
   int getReturnCode() => ffmpeg.ffmpeg_kit_session_get_return_code(handle);
 
+  /// Gets the unique session ID.
+  int getSessionId() => ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+
+  /// Gets the creation time of this session.
+  DateTime getCreateTime() => DateTime.fromMillisecondsSinceEpoch(
+      ffmpeg.ffmpeg_kit_session_get_create_time(handle));
+
+  /// Gets the start time of this session.
+  DateTime? getStartTime() {
+    final time = ffmpeg.ffmpeg_kit_session_get_start_time(handle);
+    if (time == 0) return null;
+    return DateTime.fromMillisecondsSinceEpoch(time);
+  }
+
+  /// Gets the end time of this session.
+  DateTime? getEndTime() {
+    final time = ffmpeg.ffmpeg_kit_session_get_end_time(handle);
+    if (time == 0) return null;
+    return DateTime.fromMillisecondsSinceEpoch(time);
+  }
+
+  /// Gets the duration of this session in milliseconds.
+  int getDuration() => ffmpeg.ffmpeg_kit_session_get_duration(handle);
+
   /// Gets the session output.
   ///
   /// Returns the full output of the session as a string, or null if not available.
@@ -128,32 +151,19 @@ abstract class Session implements Finalizable {
   }
 
   /// Gets the session logs as a single string.
-  ///
-  /// Returns the logs, or null if not available.
-  String? getLogs() {
+  String? getLogs() => getLogsAsString();
+
+  /// Gets all logs of this session as a single string.
+  String? getLogsAsString() {
     final ptr = ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle);
     return _toDartStringAndFree(ptr);
   }
 
-  /// Gets the stack trace if the session failed.
-  ///
-  /// Returns the stack trace as a string, or null if no failure occurred.
+  /// Gets the failure stack trace if the session failed.
   String? getFailStackTrace() {
     final ptr = ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle);
     return _toDartStringAndFree(ptr);
   }
-
-  /// Gets the time when the session was created in the native layer (timestamp).
-  int getCreateTime() => ffmpeg.ffmpeg_kit_session_get_create_time(handle);
-
-  /// Gets the time when the session execution started (timestamp).
-  int getStartTime() => ffmpeg.ffmpeg_kit_session_get_start_time(handle);
-
-  /// Gets the time when the session execution ended (timestamp).
-  int getEndTime() => ffmpeg.ffmpeg_kit_session_get_end_time(handle);
-
-  /// Gets the total duration of the session in milliseconds.
-  int getSessionDuration() => ffmpeg.ffmpeg_kit_session_get_duration(handle);
 
   /// Gets the command executed by this session.
   String getCommand() {
@@ -179,9 +189,6 @@ abstract class Session implements Finalizable {
       ffmpeg.ffmpeg_kit_session_get_statistics_count(handle);
 
   /// Gets the statistics entry at the specified [index] as a string.
-  ///
-  /// Note: This currently returns an empty string as the C API returns complex objects
-  /// that need further parsing, which is handled in specialized subclasses or methods.
   String getStatisticsAt(int index) {
     final handle =
         ffmpeg.ffmpeg_kit_session_get_statistics_at(this.handle, index);
@@ -190,9 +197,6 @@ abstract class Session implements Finalizable {
     }
     return "";
   }
-
-  /// Gets the unique session ID.
-  int getSessionId() => ffmpeg.ffmpeg_kit_session_get_session_id(handle);
 
   String? _toDartStringAndFree(Pointer<Char> ptr) {
     if (ptr == nullptr) return null;
@@ -213,14 +217,33 @@ abstract class Session implements Finalizable {
   }
 
   /// Returns true if this is an [FFmpegSession].
-  bool isFFmpegSession() => false;
+  bool isFFmpegSession() => ffmpeg.session_is_ffmpeg_session(handle);
 
   /// Returns true if this is an [FFplaySession].
-  bool isFFplaySession() => false;
+  bool isFFplaySession() => ffmpeg.session_is_ffplay_session(handle);
 
   /// Returns true if this is an [FFprobeSession].
-  bool isFFprobeSession() => false;
+  bool isFFprobeSession() => ffmpeg.session_is_ffprobe_session(handle);
 
   /// Returns true if this is a [MediaInformationSession].
-  bool isMediaInformationSession() => false;
+  bool isMediaInformationSession() =>
+      ffmpeg.session_is_media_information_session(handle);
+
+  /// Enables the debug log for this session.
+  void enableDebugLog() => ffmpeg.session_enable_debug_log(handle);
+
+  /// Disables the debug log for this session.
+  void disableDebugLog() => ffmpeg.session_disable_debug_log(handle);
+
+  /// Checks if the debug log is enabled for this session.
+  bool isDebugLogEnabled() => ffmpeg.session_is_debug_log_enabled(handle);
+
+  /// Gets the debug log for this session.
+  String getDebugLog() {
+    final ptr = ffmpeg.session_get_debug_log(handle);
+    return _toDartStringAndFree(ptr) ?? "";
+  }
+
+  /// Clears the debug log for this session.
+  void clearDebugLog() => ffmpeg.session_clear_debug_log(handle);
 }

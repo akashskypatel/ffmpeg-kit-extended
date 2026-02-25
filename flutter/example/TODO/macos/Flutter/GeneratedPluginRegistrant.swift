@@ -8,5 +8,5 @@ import Foundation
 import ffmpeg_kit_flutter
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
-  FfmpegKitFlutterPlugin.register(with: registry.registrar(forPlugin: "FfmpegKitFlutterPlugin"))
+  FfmpegKitExtendedFlutterPlugin.register(with: registry.registrar(forPlugin: "FfmpegKitExtendedFlutterPlugin"))
 }

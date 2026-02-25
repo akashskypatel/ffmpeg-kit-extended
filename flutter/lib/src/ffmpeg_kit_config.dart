@@ -23,6 +23,7 @@ import 'callback_manager.dart' as callback_manager;
 import 'ffmpeg_kit_extended.dart';
 import 'log.dart';
 import 'session.dart';
+import 'session_queue_manager.dart';
 import 'signal.dart';
 
 /// A convenience class for global FFmpegKit configuration.
@@ -144,4 +145,12 @@ class FFmpegKitConfig {
   /// Returns the number of messages in transmit for a session.
   static int messagesInTransmit(int sessionId) =>
       FFmpegKitExtended.messagesInTransmit(sessionId);
+
+  /// Gets the maximum number of concurrent sessions.
+  static int getMaxConcurrentSessions() =>
+      SessionQueueManager().maxConcurrentSessions;
+
+  /// Sets the maximum number of concurrent sessions.
+  static void setMaxConcurrentSessions(int value) =>
+      SessionQueueManager().maxConcurrentSessions = value;
 }

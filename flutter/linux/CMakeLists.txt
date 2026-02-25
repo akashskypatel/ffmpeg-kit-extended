@@ -74,7 +74,7 @@ set(PLUGIN_NAME "ffmpeg_kit_extended_flutter_plugin")
 
 # Any new source files that you add to the plugin should be added here.
 list(APPEND PLUGIN_SOURCES
-  "ffmpeg_kit_flutter_plugin.cc"
+  "ffmpeg_kit_extended_flutter_plugin.cc"
 )
 
 # 1. Setup PkgConfig correctly so PkgConfig::GTK exists
@@ -84,7 +84,7 @@ pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
 # Define the plugin library target. Its name must not be changed (see comment
 # on PLUGIN_NAME above).
 add_library(${PLUGIN_NAME} SHARED
-  "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter_plugin.h"
+  "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
   ${PLUGIN_SOURCES}
 )
 
@@ -168,7 +168,7 @@ if (${include_${PROJECT_NAME}_tests})
     FetchContent_MakeAvailable(googletest)
 
     add_executable(${TEST_RUNNER}
-      test/ffmpeg_kit_flutter_plugin_test.cc
+      test/ffmpeg_kit_extended_flutter_plugin_test.cc
       ${PLUGIN_SOURCES}
     )
     
@@ -190,7 +190,9 @@ if (${include_${PROJECT_NAME}_tests})
       COMMAND ${CMAKE_COMMAND} -E copy_if_different
       "${FLUTTER_LIBRARY}" $<TARGET_FILE_DIR:${TEST_RUNNER}>
     )
-
+    # add debug cflags to test runner -fsanitize=address -fno-omit-frame-pointer
+    target_compile_options(${TEST_RUNNER} PRIVATE "-fsanitize=address" "-fno-omit-frame-pointer")
+    target_link_options(${TEST_RUNNER} PRIVATE "-fsanitize=address")
     include(GoogleTest)
     gtest_discover_tests(${TEST_RUNNER})
   endif()

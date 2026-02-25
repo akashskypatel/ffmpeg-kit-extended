@@ -154,13 +154,13 @@ await FFmpegKit.executeAsync(
 
 ## Platform Support
 
-| Platform | Status      | Notes        |
-|----------|-------------|--------------|
+| Platform | Status        | Notes        |
+|----------|---------------|--------------|
 | Android  | Not Supported | API 21+      |
 | iOS      | Not Supported | iOS 12+      |
 | macOS    | Not Supported | macOS 10.13+ |
-| Linux    | ✅ Supported | x86_64       |
-| Windows  | ✅ Supported | x86_64       |
+| Linux    | ✅ Supported  | x86_64       |
+| Windows  | ✅ Supported  | x86_64       |
 
 ## Additional Resources
 

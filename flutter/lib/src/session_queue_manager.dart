@@ -21,23 +21,11 @@ import 'dart:async';
 import 'dart:collection';
 import 'session.dart';
 
-/// Strategy for handling concurrent session execution requests.
-enum SessionExecutionStrategy {
-  /// Cancel the currently running session and start the new one immediately.
-  cancelAndReplace,
-
-  /// Queue the new session to execute after the current one completes.
-  queue,
-
-  /// Reject the new session if one is already running.
-  rejectIfBusy,
-}
-
-/// Manages session execution to prevent concurrent C API calls.
+/// Manages session execution to limit concurrent system resource usage.
 ///
-/// The FFmpegKit C API uses mutex locking which prevents concurrent execution
-/// of FFmpeg, FFprobe, and FFplay sessions. This manager enforces serialization
-/// at the Dart layer to prevent blocking and provide better control.
+/// While FFmpegKit support parallel execution, running too many sessions
+/// simultaneously can over-allocate CPU and memory. This manager ensures
+/// that sessions are executed in parallel up to a specified limit.
 class SessionQueueManager {
   static final SessionQueueManager _instance = SessionQueueManager._internal();
 
@@ -45,168 +33,134 @@ class SessionQueueManager {
 
   SessionQueueManager._internal();
 
-  /// The currently executing session (if any).
-  Session? _currentSession;
+  /// The maximum number of sessions that can execute concurrently.
+  int _maxConcurrentSessions = 8;
+
+  /// The currently executing sessions.
+  final Set<Session> _activeSessions = <Session>{};
 
   /// Queue of pending sessions waiting to execute.
   final Queue<_QueuedSession> _queue = Queue<_QueuedSession>();
 
-  /// Completer that completes when the current session finishes.
-  Completer<void>? _currentSessionCompleter;
-
-  /// Lock to prevent concurrent modifications to the queue.
+  /// Lock to prevent concurrent modifications to the queue processing.
   bool _isProcessing = false;
 
-  /// Gets the currently executing session.
-  Session? get currentSession => _currentSession;
+  /// Gets the currently executing sessions.
+  List<Session> get activeSessions => _activeSessions.toList();
+
+  /// Gets the number of sessions currently executing.
+  int get activeSessionCount => _activeSessions.length;
 
   /// Gets the number of queued sessions waiting to execute.
   int get queueLength => _queue.length;
 
-  /// Returns true if a session is currently executing.
-  bool get isBusy => _currentSession != null;
+  /// Returns true if any session is currently executing.
+  bool get isBusy => _activeSessions.isNotEmpty;
 
-  /// Executes a session with the specified strategy.
+  /// Gets the maximum number of concurrent sessions.
+  int get maxConcurrentSessions => _maxConcurrentSessions;
+
+  /// Sets the maximum number of concurrent sessions.
+  set maxConcurrentSessions(int value) {
+    if (value < 1)
+      throw ArgumentError('maxConcurrentSessions must be at least 1');
+    _maxConcurrentSessions = value;
+    _processQueue();
+  }
+
+  /// Executes a session.
+  ///
+  /// The session will be added to the queue and executed as soon as
+  /// a concurrency slot becomes available.
   ///
   /// Returns a Future that completes when the session finishes execution.
-  /// Throws [SessionBusyException] if [strategy] is [SessionExecutionStrategy.rejectIfBusy]
-  /// and a session is already running.
   Future<void> executeSession(
-    Session session,
-    Future<void> Function() executor, {
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
-  }) {
-    switch (strategy) {
-      case SessionExecutionStrategy.cancelAndReplace:
-        return _cancelAndReplace(session, executor);
-
-      case SessionExecutionStrategy.queue:
-        return _queueSession(session, executor);
-
-      case SessionExecutionStrategy.rejectIfBusy:
-        if (isBusy) {
-          throw SessionBusyException(
-            'A session is already executing. Current session: ${_currentSession?.sessionId}',
-          );
-        }
-        return _queueSession(session, executor);
-    }
-  }
-
-  /// Cancels and replaces the current session.
-  Future<void> _cancelAndReplace(
-    Session session,
-    Future<void> Function() executor,
-  ) async {
-    // Cancel current session if running
-    if (_currentSession != null) {
-      _currentSession!.cancel();
-      // Clear the queue as well
-      _queue.clear();
-    }
-
-    // Execute immediately
-    return _executeImmediately(session, executor);
-  }
-
-  /// Queues a session for execution.
-  Future<void> _queueSession(
     Session session,
     Future<void> Function() executor,
   ) {
     final completer = Completer<void>();
     _queue.add(_QueuedSession(session, executor, completer));
 
-    // Start processing if not already doing so
-    if (!_isProcessing) {
-      _processQueue();
-    }
+    _processQueue();
 
     return completer.future;
   }
 
-  /// Executes a session immediately (used for cancel-and-replace).
-  Future<void> _executeImmediately(
-    Session session,
-    Future<void> Function() executor,
-  ) async {
-    _currentSession = session;
-    _currentSessionCompleter = Completer<void>();
-
-    try {
-      await executor();
-    } finally {
-      _currentSession = null;
-      _currentSessionCompleter?.complete();
-      _currentSessionCompleter = null;
-    }
-  }
-
-  /// Processes the session queue.
-  Future<void> _processQueue() async {
+  /// Processes the session queue, starting as many sessions as allowed.
+  void _processQueue() {
     if (_isProcessing) return;
-
     _isProcessing = true;
 
-    try {
-      while (_queue.isNotEmpty) {
-        final queued = _queue.removeFirst();
-        _currentSession = queued.session;
-        _currentSessionCompleter = Completer<void>();
+    while (
+        _queue.isNotEmpty && _activeSessions.length < _maxConcurrentSessions) {
+      final queued = _queue.removeFirst();
+      _executeQueuedSession(queued);
+    }
 
-        try {
-          await queued.executor();
-          queued.completer.complete();
-        } catch (error, stackTrace) {
-          queued.completer.completeError(error, stackTrace);
-        } finally {
-          _currentSession = null;
-          _currentSessionCompleter?.complete();
-          _currentSessionCompleter = null;
-        }
+    _isProcessing = false;
+  }
+
+  /// Internal helper to execute a queued session and manage its lifecycle.
+  Future<void> _executeQueuedSession(_QueuedSession queued) async {
+    _activeSessions.add(queued.session);
+
+    try {
+      await queued.executor();
+      if (!queued.completer.isCompleted) {
+        queued.completer.complete();
+      }
+    } catch (error, stackTrace) {
+      if (!queued.completer.isCompleted) {
+        queued.completer.completeError(error, stackTrace);
       }
     } finally {
-      _isProcessing = false;
+      _activeSessions.remove(queued.session);
+      // Trigger processing for the next session in queue
+      _processQueue();
     }
   }
 
-  /// Cancels the currently executing session.
+  /// Cancels all currently executing sessions.
   void cancelCurrent() {
-    if (_currentSession != null) {
-      _currentSession!.cancel();
+    // Collect sessions to cancel to avoid concurrent modification issues
+    final sessionsToCancel = _activeSessions.toList();
+    for (final session in sessionsToCancel) {
+      session.cancel();
     }
   }
 
   /// Clears all queued sessions without executing them.
   void clearQueue() {
-    for (final queued in _queue) {
+    final queuedToCancel = _queue.toList();
+    _queue.clear();
+    for (final queued in queuedToCancel) {
       queued.completer.completeError(
         SessionCancelledException('Session was removed from queue'),
       );
     }
-    _queue.clear();
   }
 
   /// Cancels all sessions (current and queued).
   void cancelAll() {
-    cancelCurrent();
     clearQueue();
-  }
-
-  /// Waits for the current session to complete.
-  Future<void> waitForCurrent() async {
-    if (_currentSessionCompleter != null) {
-      await _currentSessionCompleter!.future;
-    }
+    cancelCurrent();
   }
 
   /// Waits for all sessions (current and queued) to complete.
   Future<void> waitForAll() async {
-    while (isBusy || _queue.isNotEmpty) {
-      await waitForCurrent();
-      // Small delay to allow queue processing
-      await Future.delayed(const Duration(milliseconds: 10));
-    }
+    if (!isBusy && _queue.isEmpty) return;
+
+    final completer = Completer<void>();
+
+    // Check periodically if we are done
+    Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      if (!isBusy && _queue.isEmpty) {
+        timer.cancel();
+        completer.complete();
+      }
+    });
+
+    return completer.future;
   }
 }
 
@@ -217,16 +171,6 @@ class _QueuedSession {
   final Completer<void> completer;
 
   _QueuedSession(this.session, this.executor, this.completer);
-}
-
-/// Exception thrown when a session cannot execute because another is running.
-class SessionBusyException implements Exception {
-  final String message;
-
-  SessionBusyException(this.message);
-
-  @override
-  String toString() => 'SessionBusyException: $message';
 }
 
 /// Exception thrown when a session is cancelled.

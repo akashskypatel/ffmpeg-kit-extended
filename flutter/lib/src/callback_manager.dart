@@ -1,27 +1,5 @@
-/**
- * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
- * Copyright (C) 2026 Akash Patel
- * 
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation; either
- * version 2.1 of the License, or (at your option) any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- * 
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
- */
-
-import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
-
-import 'package:ffi/ffi.dart';
 
 import 'ffmpeg_kit_flutter_loader.dart';
 import 'ffmpeg_session.dart';
@@ -70,7 +48,7 @@ typedef FFmpegKitLogCallbackFunction = Void Function(
 //                                         float videoFps, float videoQuality,
 //                                         void *user_data);
 typedef FFmpegKitStatisticsCallbackFunction = Void Function(FFmpegSessionHandle,
-    Int, Int64, Double, Double, Int, Float, Float, Pointer<Void>);
+    Int64, Int64, Double, Double, Int64, Double, Double, Pointer<Void>);
 
 // --- Callback Types (Dart side) ---
 /// Callback for session completion.
@@ -102,20 +80,27 @@ typedef MediaInformationSessionCompleteCallback = void Function(
 void _onFFmpegComplete(
     FFmpegSessionHandle sessionHandle, Pointer<Void> userData) {
   final sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
+  print(
+      "CallbackManager: _onFFmpegComplete sessionId=$sessionId userData=${userData.address}");
 
   // If we have an existing session object, use it.
   FFmpegSession? session;
   if (userData != nullptr) {
     final callbackId = userData.address;
     session = CallbackManager().getFFmpegSession(callbackId);
+    print("CallbackManager: Resolved session from userData: $session");
   }
 
   // Fallback to searching by sessionId if userData not provided (unlikely for specialized sessions but possible for global)
   session ??= CallbackManager().ffmpegSessions[sessionId];
 
   if (session != null) {
-    session.endTime = DateTime.now();
-    session.completeCallback?.call(session);
+    print("CallbackManager: Invoking completeCallback for session $sessionId");
+    try {
+      session.completeCallback?.call(session);
+    } catch (e) {
+      print("CallbackManager: Error invoking completeCallback: $e");
+    }
   } else {
     stderr.writeln(
         "Warning: FFmpeg session complete callback for unknown session $sessionId (userData: ${userData.address})");
@@ -159,24 +144,6 @@ void _onFFmpegLog(FFmpegSessionHandle sessionHandle, Pointer<Char> logPtr,
     }
   }
 
-  String message;
-  try {
-    message = logPtr.cast<Utf8>().toDartString();
-  } on FormatException {
-    int length = 0;
-    while (logPtr.elementAt(length).value != 0) {
-      length++;
-    }
-    message = utf8.decode(logPtr.cast<Uint8>().asTypedList(length),
-        allowMalformed: true);
-  }
-
-  final log = Log(sessionId, LogLevel.info.value, message);
-
-  // Global callback
-  CallbackManager().globalLogCallback?.call(log);
-
-  // Session specific
   FFmpegSession? session;
   if (userData != nullptr && userData.address != 0) {
     final callbackId = userData.address;
@@ -189,7 +156,16 @@ void _onFFmpegLog(FFmpegSessionHandle sessionHandle, Pointer<Char> logPtr,
   }
 
   if (session != null) {
-    session.logCallback?.call(log);
+    final count = session.getLogsCount();
+    for (int i = session.logsProcessed; i < count; i++) {
+      final message = session.getLogAt(i);
+      final level = session.getLogLevelAt(i);
+      final logObj = Log(session.sessionId, level, message);
+
+      CallbackManager().globalLogCallback?.call(logObj);
+      session.logCallback?.call(logObj);
+    }
+    session.logsProcessed = count;
   } else {
     // Only print if not quiet
     if (CallbackManager().globalLogCallback == null) {
@@ -276,7 +252,6 @@ void _onFFprobeComplete(
   session ??= CallbackManager().ffprobeSessions[sessionId];
 
   if (session != null) {
-    session.endTime = DateTime.now();
     if (session is MediaInformationSession) {
       (session.completeCallback as MediaInformationSessionCompleteCallback?)
           ?.call(session);
@@ -315,7 +290,6 @@ void _onFFplayComplete(
   session ??= CallbackManager().ffplaySessions[sessionId];
 
   if (session != null) {
-    session.endTime = DateTime.now();
     session.completeCallback?.call(session);
     CallbackManager().globalFFplaySessionCompleteCallback?.call(session);
   }

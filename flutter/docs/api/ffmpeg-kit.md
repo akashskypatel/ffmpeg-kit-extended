@@ -15,19 +15,15 @@ The `FFmpegKit` class provides a convenient interface for executing FFmpeg comma
 
 ### execute
 
-Executes an FFmpeg command synchronously (blocking).
+Executes an FFmpeg command synchronously (blocking). The result and any output/logs are captured within the returned [FFmpegSession](sessions.md) object.
 
 ```dart
-static FFmpegSession execute(
-  String command, {
-  SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
-})
+static FFmpegSession execute(String command)
 ```
 
 **Parameters:**
 
 - `command` (String): The FFmpeg command to execute (without the `ffmpeg` prefix)
-- `strategy` (SessionExecutionStrategy, optional): Concurrent execution strategy (default: queue)
 
 **Returns:**
 
@@ -42,6 +38,7 @@ if (ReturnCode.isSuccess(session.getReturnCode())) {
   print('Success!');
 } else {
   print('Failed: ${session.getOutput()}');
+  print('Logs: ${session.getLogs()}');
 }
 ```
 
@@ -49,7 +46,7 @@ if (ReturnCode.isSuccess(session.getReturnCode())) {
 
 ### executeAsync
 
-Executes an FFmpeg command asynchronously (non-blocking).
+Executes an FFmpeg command asynchronously (non-blocking). Execution is managed by the [SessionQueueManager](../guides/session-queue-management.md), which enforces global concurrency limits.
 
 ```dart
 static Future<FFmpegSession> executeAsync(
@@ -57,7 +54,6 @@ static Future<FFmpegSession> executeAsync(
   FFmpegSessionCompleteCallback? onComplete,
   FFmpegLogCallback? onLog,
   FFmpegStatisticsCallback? onStatistics,
-  SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
 })
 ```
 
@@ -67,7 +63,6 @@ static Future<FFmpegSession> executeAsync(
 - `onComplete` (FFmpegSessionCompleteCallback?, optional): Callback invoked when execution completes
 - `onLog` (FFmpegLogCallback?, optional): Callback invoked for each log message
 - `onStatistics` (FFmpegStatisticsCallback?, optional): Callback invoked for statistics updates
-- `strategy` (SessionExecutionStrategy, optional): Concurrent execution strategy (default: queue)
 
 **Returns:**
 
@@ -397,3 +392,4 @@ if (ReturnCode.isSuccess(returnCode)) {
 - [Video Processing Guide](../guides/video-processing.md) - Common video operations
 - [Callbacks Guide](../guides/callbacks.md) - Working with callbacks
 - [Error Handling Guide](../guides/error-handling.md) - Comprehensive error handling
+- [Session Queue Management](../guides/session-queue-management.md) - Concurrency control

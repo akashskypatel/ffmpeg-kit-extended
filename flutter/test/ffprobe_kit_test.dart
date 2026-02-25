@@ -1,4 +1,4 @@
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_flutter_loader.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,12 +12,19 @@ void main() {
     mockBindings = MockFFmpegKitBindings();
     setFFmpegKitBindings(mockBindings);
     setFFmpegLibrary(mockBindings.dynamicLibrary);
+
+    // Ensure SessionQueueManager is clean
+    SessionQueueManager().cancelAll();
+    SessionQueueManager().maxConcurrentSessions = 8;
+    FFmpegKitConfig.clearSessions();
+
+    // Enable global callback to help with debugging if needed (though not strictly required for local callbacks)
+    FFmpegKitConfig.enableFFprobeSessionCompleteCallback();
   });
 
-  /// The next two tests are expected to fail because the method calls the actual FFmpegKit
-  /// and not the mock.
   group('FFprobeKit', () {
     test('getMediaInformation should return parsed media info', () async {
+      print("[TEST] setting mock info");
       final mockInfo = MockMediaInformation(
           filename: "video.mp4",
           format: "mp4",
@@ -36,9 +43,13 @@ void main() {
           chapters: [
             MockChapterInformation(id: 1, startTime: "0.000", endTime: "5.000"),
           ]);
+
       mockBindings.setMockMediaInformation("video.mp4", mockInfo);
 
+      print("[TEST] Getting media info...");
       final session = FFprobeKit.getMediaInformation("video.mp4");
+      print("[TEST] Session state: ${session.getState()}");
+
       expect(session, isNotNull);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
 
@@ -58,20 +69,38 @@ void main() {
       final chapters = info.chapters;
       expect(chapters.length, equals(1));
       expect(chapters[0].startTime, equals("0.000"));
-    }, skip: 'Calls actual API instead of mock implementation');
+    });
 
     test('getMediaInformationAsync should trigger callback', () async {
       final mockInfo = MockMediaInformation(filename: "async.mp4");
       mockBindings.setMockMediaInformation("async.mp4", mockInfo);
 
       bool completed = false;
-      await FFprobeKit.getMediaInformationAsync("async.mp4",
+
+      final sessionFuture = FFprobeKit.getMediaInformationAsync("async.mp4",
           onComplete: (session) {
         completed = true;
       });
 
-      await Future.delayed(const Duration(milliseconds: 100));
+      // We await the sessionFuture to ensure proper async flow test
+      await sessionFuture;
+
       expect(completed, isTrue);
-    }, skip: 'Calls actual API instead of mock implementation');
+    });
+
+    test('execute should return a session and complete eventually', () async {
+      final session = FFprobeKit.execute('-show_format video.mp4');
+      expect(session, isNotNull);
+
+      // Since execute is non-blocking but runs in background, we poll for completion
+      // In real app, use executeAsync to await directly.
+      int retries = 0;
+      while (session.getState() != SessionState.completed && retries < 20) {
+        await Future.delayed(const Duration(milliseconds: 50));
+        retries++;
+      }
+
+      expect(session.getState(), equals(SessionState.completed));
+    });
   });
 }

@@ -19,17 +19,7 @@
 
 import 'dart:async';
 
-import '../ffmpeg_kit_flutter.dart';
-
-/// Strategy for handling conflicts when creating a new FFplay session
-/// while another session is already active.
-enum SessionConflictStrategy {
-  /// Terminate the existing session immediately and start the new one
-  terminate,
-
-  /// Wait for the existing session to complete before starting the new one
-  waitForCompletion,
-}
+import '../ffmpeg_kit_extended_flutter.dart';
 
 // Only one FFplay session can be active at a time.
 FFplaySession? _activeFFplaySession;
@@ -44,29 +34,15 @@ Completer<void>? _sessionCompleter;
 /// the current active session.
 class FFplayKit {
   /// Executes an FFplay [command] and starts playback.
-  ///
-  /// [strategy] determines how to handle an existing active session:
-  /// - [SessionConflictStrategy.terminate]: Terminates the existing session immediately (default)
-  /// - [SessionConflictStrategy.waitForCompletion]: Waits for the existing session to complete
-  static Future<FFplaySession> execute(
-    String command, {
-    SessionConflictStrategy strategy = SessionConflictStrategy.terminate,
-  }) =>
-      executeAsync(command, strategy: strategy);
+  static Future<FFplaySession> execute(String command) => executeAsync(command);
 
   /// Executes an FFplay [command] asynchronously and starts playback.
   ///
   /// [onComplete] is called when playback ends.
-  /// [strategy] determines how to handle an existing active session:
-  /// - [SessionConflictStrategy.terminate]: Terminates the existing session immediately (default)
-  /// - [SessionConflictStrategy.waitForCompletion]: Waits for the existing session to complete
   static Future<FFplaySession> executeAsync(
     String command, {
     FFplaySessionCompleteCallback? onComplete,
-    SessionConflictStrategy strategy = SessionConflictStrategy.terminate,
   }) async {
-    await _handleExistingSession(strategy);
-
     // Create a new completer for this session
     _sessionCompleter = Completer<void>();
 
@@ -81,9 +57,6 @@ class FFplayKit {
         _activeFFplaySession = null;
         _sessionCompleter?.complete();
         _sessionCompleter = null;
-      } else {
-        // Just complete the secondary completer if it exists
-        // (though this shouldn't happen much with the check above)
       }
     }
 
@@ -96,19 +69,11 @@ class FFplayKit {
   }
 
   /// Creates a new [FFplaySession] without executing it.
-  ///
-  /// [strategy] determines how to handle an existing active session:
-  /// - [SessionConflictStrategy.terminate]: Terminates the existing session immediately (default)
-  /// - [SessionConflictStrategy.waitForCompletion]: Waits for the existing session to complete
-  ///
   /// Use [execute] or [executeAsync] to execute the session.
   static Future<FFplaySession> createSession(
     String command, {
     FFplaySessionCompleteCallback? onComplete,
-    SessionConflictStrategy strategy = SessionConflictStrategy.terminate,
   }) async {
-    await _handleExistingSession(strategy);
-
     // Create a new completer for this session
     _sessionCompleter = Completer<void>();
 
@@ -133,42 +98,13 @@ class FFplayKit {
     return _activeFFplaySession!;
   }
 
-  /// Internal method to handle existing sessions based on the conflict strategy.
-  static Future<void> _handleExistingSession(
-      SessionConflictStrategy strategy) async {
-    if (_activeFFplaySession == null) {
-      return;
-    }
-
-    switch (strategy) {
-      case SessionConflictStrategy.terminate:
-        final sessionToStop = _activeFFplaySession;
-        _activeFFplaySession = null;
-        _sessionCompleter = null;
-
-        if (sessionToStop != null) {
-          sessionToStop.stop();
-        }
-        break;
-
-      case SessionConflictStrategy.waitForCompletion:
-        if (_sessionCompleter != null && !_sessionCompleter!.isCompleted) {
-          await _sessionCompleter!.future;
-        }
-        _activeFFplaySession = null;
-        _sessionCompleter = null;
-        break;
-    }
-  }
-
   /// Cancels a [session] if it is currently running.
   static void cancel(FFplaySession session) => session.cancel();
 
   /// Returns the current active [FFplaySession], if any.
   static FFplaySession? getCurrentSession() => _activeFFplaySession;
 
-  /// Returns all active FFplay sessions. Always returns single element
-  /// since FFplay can only have one active session.
+  /// Returns all active FFplay sessions.
   static List<FFplaySession> getFFplaySessions() =>
       FFmpegKitExtended.getFFplaySessions();
 
@@ -182,10 +118,10 @@ class FFplayKit {
   static bool get paused => _activeFFplaySession?.isPaused() ?? false;
 
   /// Returns the current playback position in seconds.
-  static double get position => _activeFFplaySession?.getPosition() ?? 0;
+  static double get position => _activeFFplaySession?.getPosition() ?? 0.0;
 
   /// Returns the total duration of the media in seconds.
-  static double get duration => _activeFFplaySession?.getDuration() ?? 0;
+  static double get duration => _activeFFplaySession?.getMediaDuration() ?? 0.0;
 
   /// Returns true if there is no active playback session.
   static bool get closed => _activeFFplaySession == null;
@@ -272,8 +208,8 @@ class FFplayKit {
   /// Gets the total duration of the media in seconds.
   static double getDuration() {
     if (_activeFFplaySession != null) {
-      return _activeFFplaySession!.getDuration();
+      return _activeFFplaySession!.getMediaDuration();
     }
-    return 0;
+    return 0.0;
   }
 }

@@ -8,7 +8,7 @@
 #include <string>
 #include <variant>
 
-#include "ffmpeg_kit_flutter_plugin.h"
+#include "ffmpeg_kit_extended_flutter_plugin.h"
 
 namespace ffmpeg_kit_extended_flutter {
 namespace test {
@@ -22,8 +22,8 @@ using flutter::MethodResultFunctions;
 
 } // namespace
 
-TEST(FfmpegKitFlutterPlugin, GetPlatform) {
-  FfmpegKitFlutterPlugin plugin(nullptr);
+TEST(FfmpegKitExtendedFlutterPlugin, GetPlatform) {
+  FfmpegKitExtendedFlutterPlugin plugin(nullptr);
   // Save the reply value from the success callback.
   std::string result_string;
   plugin.HandleMethodCall(

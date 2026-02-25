@@ -24,7 +24,7 @@ import 'package:ffi/ffi.dart';
 
 import 'callback_manager.dart';
 import 'ffmpeg_kit_flutter_loader.dart';
-import 'generated/ffmpeg_kit_bindings.dart';
+import 'log.dart';
 import 'session.dart';
 import 'session_queue_manager.dart';
 
@@ -42,7 +42,6 @@ class FFmpegSession extends Session {
   FFmpegSession.fromHandle(Pointer<Void> handle, String command) {
     this.handle = handle;
     this.command = command;
-    this.startTime = DateTime.now();
     this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
     this.registerFinalizer();
   }
@@ -63,7 +62,6 @@ class FFmpegSession extends Session {
     try {
       this.handle = ffmpeg.ffmpeg_kit_create_session(cmdPtr.cast());
       this.command = command;
-      this.startTime = DateTime.now();
       this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
       this.registerFinalizer();
     } finally {
@@ -163,67 +161,55 @@ class FFmpegSession extends Session {
 
   /// Executes this session synchronously.
   ///
-  /// [strategy] determines how to handle concurrent sessions:
-  /// - [SessionExecutionStrategy.queue]: Queue this session (default)
-  /// - [SessionExecutionStrategy.cancelAndReplace]: Cancel current and execute immediately
-  /// - [SessionExecutionStrategy.rejectIfBusy]: Throw exception if busy
-  ///
   /// Returns the current session object.
-  FFmpegSession execute({
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
-  }) {
-    // Truly synchronous execution blocks the current isolate
-    ffmpeg.ffmpeg_kit_session_execute(handle);
+  FFmpegSession execute() {
+    // Synchronous execution must also be serialized
+    final completer = Completer<void>();
+    SessionQueueManager().executeSession(
+      this,
+      () async {
+        ffmpeg.ffmpeg_kit_session_execute(handle);
+        completer.complete();
+      },
+    ).catchError(completer.completeError);
     return this;
   }
 
   /// Creates and executes a [FFmpegSession] synchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
   static FFmpegSession executeCommand(
     String command, {
     FFmpegSessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
     FFmpegStatisticsCallback? statisticsCallback,
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
   }) {
     final session = FFmpegSession.create(command,
         completeCallback: completeCallback,
         logCallback: logCallback,
         statisticsCallback: statisticsCallback);
-    return session.execute(strategy: strategy);
+    return session.execute();
   }
 
   /// Creates and executes a [FFmpegSession] asynchronously.
-  ///
-  /// [strategy] determines how to handle concurrent sessions.
   static Future<FFmpegSession> executeCommandAsync(
     String command, {
     FFmpegSessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
     FFmpegStatisticsCallback? statisticsCallback,
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
   }) async {
     final session = FFmpegSession.create(command,
         completeCallback: completeCallback,
         logCallback: logCallback,
         statisticsCallback: statisticsCallback);
-    return await session.executeAsync(strategy: strategy);
+    return await session.executeAsync();
   }
 
   /// Executes this session asynchronously.
   ///
   /// Callbacks can be optionally overridden here.
-  ///
-  /// [strategy] determines how to handle concurrent sessions:
-  /// - [SessionExecutionStrategy.queue]: Queue this session (default)
-  /// - [SessionExecutionStrategy.cancelAndReplace]: Cancel current and execute immediately
-  /// - [SessionExecutionStrategy.rejectIfBusy]: Throw exception if busy
   Future<FFmpegSession> executeAsync({
     FFmpegSessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
     FFmpegStatisticsCallback? statisticsCallback,
-    SessionExecutionStrategy strategy = SessionExecutionStrategy.queue,
   }) async {
     if (completeCallback != null) this._completeCallback = completeCallback;
     if (logCallback != null) this._logCallback = logCallback;
@@ -231,7 +217,6 @@ class FFmpegSession extends Session {
       this._statisticsCallback = statisticsCallback;
 
     // Start execution through queue manager
-    // The queue manager needs to wait for the session to complete
     await SessionQueueManager().executeSession(
       this,
       () async {
@@ -240,8 +225,23 @@ class FFmpegSession extends Session {
         // Store the original callback
         final originalCallback = this._completeCallback;
 
+        Timer? logPoller;
+
         // Wrap the callback to complete our completer
         this._completeCallback = (session) {
+          if (logPoller != null) {
+            logPoller.cancel();
+            final count = this.getLogsCount();
+            for (int i = this.logsProcessed; i < count; i++) {
+              final message = this.getLogAt(i);
+              final level = this.getLogLevelAt(i);
+              final logObj = Log(this.sessionId, level, message);
+              CallbackManager().globalLogCallback?.call(logObj);
+              this._logCallback?.call(logObj);
+            }
+            this.logsProcessed = count;
+          }
+
           // Call the original callback if it exists
           originalCallback?.call(session);
           // Complete our completer to signal the queue manager
@@ -250,37 +250,52 @@ class FFmpegSession extends Session {
           }
         };
 
-        final cmdPtr = command.toNativeUtf8(allocator: calloc);
-        final int callbackId = CallbackManager().nextCallbackId++;
-        CallbackManager().callbackIdToFFmpegSession[callbackId] = this;
+        if (this._logCallback != null ||
+            CallbackManager().globalLogCallback != null) {
+          logPoller =
+              Timer.periodic(const Duration(milliseconds: 100), (timer) {
+            final count = this.getLogsCount();
+            for (int i = this.logsProcessed; i < count; i++) {
+              final message = this.getLogAt(i);
+              final level = this.getLogLevelAt(i);
+              final logObj = Log(this.sessionId, level, message);
+              CallbackManager().globalLogCallback?.call(logObj);
+              this._logCallback?.call(logObj);
+            }
+            this.logsProcessed = count;
 
-        // Remove old session mapping
-        CallbackManager().ffmpegSessions.remove(sessionId);
-
-        FFmpegSessionHandle newHandle;
-        try {
-          newHandle = ffmpeg.ffmpeg_kit_execute_async_full(
-              cmdPtr.cast(),
-              nativeFFmpegComplete.nativeFunction,
-              nativeFFmpegLog.nativeFunction,
-              nativeFFmpegStatistics.nativeFunction,
-              Pointer<Void>.fromAddress(callbackId),
-              0);
-        } finally {
-          calloc.free(cmdPtr);
+            final state = this.getState();
+            if (state == SessionState.completed ||
+                state == SessionState.failed ||
+                this.isCancelled) {
+              timer.cancel();
+            }
+          });
         }
 
-        this.handle = newHandle;
-        this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-        this.registerFinalizer();
+        // Enable global native callbacks to ensure Dart receives completion, log, and stats events
+        ffmpeg.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+            nativeFFmpegComplete.nativeFunction, nullptr);
+        ffmpeg.ffmpeg_kit_config_enable_statistics_callback(
+            nativeFFmpegStatistics.nativeFunction, nullptr);
 
-        CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
         CallbackManager().ffmpegSessions[sessionId] = this;
 
-        // Wait for the session to complete
-        await sessionCompleter.future;
+        try {
+          ffmpeg.ffmpeg_kit_session_execute_async(handle);
+        } catch (e, stack) {
+          print("FFmpegSession: Error executing async session: $e\n$stack");
+          if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          rethrow;
+        }
+
+        try {
+          // Wait for the session to complete
+          await sessionCompleter.future;
+        } catch (e) {
+          print("FFmpegSession: Error waiting for session completion: $e");
+        }
       },
-      strategy: strategy,
     );
 
     return this;

@@ -37,10 +37,6 @@ export 'src/media_information.dart';
 export 'src/media_information_session.dart';
 export 'src/session.dart';
 export 'src/session_queue_manager.dart'
-    show
-        SessionExecutionStrategy,
-        SessionQueueManager,
-        SessionBusyException,
-        SessionCancelledException;
+    show SessionQueueManager, SessionCancelledException;
 export 'src/signal.dart';
 export 'src/statistics.dart';

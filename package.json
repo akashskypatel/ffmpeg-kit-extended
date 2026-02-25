@@ -1,0 +1,16 @@
+{
+    "name": "ffmpeg-kit-extended",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "native_test": "flutter test test/native_test.dart -d windows",
+        "test": "flutter test test -d windows"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "LGPL-3.0-or-later",
+    "dependencies": {
+        "ffmpeg_kit_extended_flutter": "file:./flutter"
+    }
+}

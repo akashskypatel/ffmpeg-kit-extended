@@ -112,7 +112,7 @@ class FFmpegKitBindings {
               FFmpegKitLogCallback,
               FFmpegKitStatisticsCallback,
               ffi.Pointer<ffi.Void>,
-              ffi.Int)>>('ffmpeg_kit_execute_async_full');
+              ffi.Int64)>>('ffmpeg_kit_execute_async_full');
   late final _ffmpeg_kit_execute_async_full =
       _ffmpeg_kit_execute_async_fullPtr.asFunction<
           FFmpegSessionHandle Function(
@@ -145,23 +145,10 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_cancel_sessionPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Long)>>(
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
           'ffmpeg_kit_cancel_session');
   late final _ffmpeg_kit_cancel_session =
       _ffmpeg_kit_cancel_sessionPtr.asFunction<void Function(int)>();
-
-  /// Returns a list of all running FFmpeg sessions.
-  ///
-  /// @return a list of all running FFmpeg sessions
-  FFmpegSessionHandle ffmpeg_kit_list_sessions() {
-    return _ffmpeg_kit_list_sessions();
-  }
-
-  late final _ffmpeg_kit_list_sessionsPtr =
-      _lookup<ffi.NativeFunction<FFmpegSessionHandle Function()>>(
-          'ffmpeg_kit_list_sessions');
-  late final _ffmpeg_kit_list_sessions =
-      _ffmpeg_kit_list_sessionsPtr.asFunction<FFmpegSessionHandle Function()>();
 
   /// Creates a new FFmpeg session with the given command.
   ///
@@ -181,6 +168,160 @@ class FFmpegKitBindings {
       'ffmpeg_kit_create_session');
   late final _ffmpeg_kit_create_session = _ffmpeg_kit_create_sessionPtr
       .asFunction<FFmpegSessionHandle Function(ffi.Pointer<ffi.Char>)>();
+
+  /// Creates a new FFmpeg session with the given command.
+  ///
+  /// @param command the FFmpeg command to execute
+  /// @return the FFmpeg session handle
+  FFmpegSessionHandle ffmpeg_kit_create_session_with_callbacks(
+    ffi.Pointer<ffi.Char> command,
+    FFmpegKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    FFmpegKitStatisticsCallback stats_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffmpeg_kit_create_session_with_callbacks(
+      command,
+      complete_cb,
+      log_cb,
+      stats_cb,
+      user_data,
+    );
+  }
+
+  late final _ffmpeg_kit_create_session_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              FFmpegSessionHandle Function(
+                  ffi.Pointer<ffi.Char>,
+                  FFmpegKitCompleteCallback,
+                  FFmpegKitLogCallback,
+                  FFmpegKitStatisticsCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'ffmpeg_kit_create_session_with_callbacks');
+  late final _ffmpeg_kit_create_session_with_callbacks =
+      _ffmpeg_kit_create_session_with_callbacksPtr.asFunction<
+          FFmpegSessionHandle Function(
+              ffi.Pointer<ffi.Char>,
+              FFmpegKitCompleteCallback,
+              FFmpegKitLogCallback,
+              FFmpegKitStatisticsCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the log callback for all FFmpeg sessions.
+  ///
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callback
+  void ffmpeg_kit_set_log_callback(
+    FFmpegSessionHandle session,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffmpeg_kit_set_log_callback(
+      session,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffmpeg_kit_set_log_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFmpegSessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>>('ffmpeg_kit_set_log_callback');
+  late final _ffmpeg_kit_set_log_callback =
+      _ffmpeg_kit_set_log_callbackPtr.asFunction<
+          void Function(FFmpegSessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the statistics callback for all FFmpeg sessions.
+  ///
+  /// @param stats_cb the callback to be called when statistics are generated
+  /// @param user_data the user data to be passed to the callback
+  void ffmpeg_kit_set_statistics_callback(
+    FFmpegSessionHandle session,
+    FFmpegKitStatisticsCallback stats_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffmpeg_kit_set_statistics_callback(
+      session,
+      stats_cb,
+      user_data,
+    );
+  }
+
+  late final _ffmpeg_kit_set_statistics_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFmpegSessionHandle, FFmpegKitStatisticsCallback,
+              ffi.Pointer<ffi.Void>)>>('ffmpeg_kit_set_statistics_callback');
+  late final _ffmpeg_kit_set_statistics_callback =
+      _ffmpeg_kit_set_statistics_callbackPtr.asFunction<
+          void Function(FFmpegSessionHandle, FFmpegKitStatisticsCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback for all FFmpeg sessions.
+  ///
+  /// @param complete_cb the callback to be called when the FFmpeg session is
+  /// completed
+  /// @param user_data the user data to be passed to the callback
+  void ffmpeg_kit_set_complete_callback(
+    FFmpegSessionHandle session,
+    FFmpegKitCompleteCallback complete_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffmpeg_kit_set_complete_callback(
+      session,
+      complete_cb,
+      user_data,
+    );
+  }
+
+  late final _ffmpeg_kit_set_complete_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFmpegSessionHandle, FFmpegKitCompleteCallback,
+              ffi.Pointer<ffi.Void>)>>('ffmpeg_kit_set_complete_callback');
+  late final _ffmpeg_kit_set_complete_callback =
+      _ffmpeg_kit_set_complete_callbackPtr.asFunction<
+          void Function(FFmpegSessionHandle, FFmpegKitCompleteCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback, log callback, statistics callback, and user data for all FFmpeg sessions.
+  ///
+  /// @param complete_cb the callback to be called when the FFmpeg session is
+  /// completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param stats_cb the callback to be called when statistics are generated
+  /// @param user_data the user data to be passed to the callbacks
+  void ffmpeg_kit_set_callbacks(
+    FFmpegSessionHandle session,
+    FFmpegKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    FFmpegKitStatisticsCallback stats_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffmpeg_kit_set_callbacks(
+      session,
+      complete_cb,
+      log_cb,
+      stats_cb,
+      user_data,
+    );
+  }
+
+  late final _ffmpeg_kit_set_callbacksPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              FFmpegSessionHandle,
+              FFmpegKitCompleteCallback,
+              FFmpegKitLogCallback,
+              FFmpegKitStatisticsCallback,
+              ffi.Pointer<ffi.Void>)>>('ffmpeg_kit_set_callbacks');
+  late final _ffmpeg_kit_set_callbacks =
+      _ffmpeg_kit_set_callbacksPtr.asFunction<
+          void Function(
+              FFmpegSessionHandle,
+              FFmpegKitCompleteCallback,
+              FFmpegKitLogCallback,
+              FFmpegKitStatisticsCallback,
+              ffi.Pointer<ffi.Void>)>();
 
   /// Executes the FFmpeg session.
   ///
@@ -290,23 +431,10 @@ class FFmpegKitBindings {
   }
 
   late final _ffprobe_kit_cancel_sessionPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Long)>>(
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
           'ffprobe_kit_cancel_session');
   late final _ffprobe_kit_cancel_session =
       _ffprobe_kit_cancel_sessionPtr.asFunction<void Function(int)>();
-
-  /// Returns a list of all running FFprobe sessions.
-  ///
-  /// @return a list of all running FFprobe sessions
-  FFprobeSessionHandle ffprobe_kit_list_sessions() {
-    return _ffprobe_kit_list_sessions();
-  }
-
-  late final _ffprobe_kit_list_sessionsPtr =
-      _lookup<ffi.NativeFunction<FFprobeSessionHandle Function()>>(
-          'ffprobe_kit_list_sessions');
-  late final _ffprobe_kit_list_sessions = _ffprobe_kit_list_sessionsPtr
-      .asFunction<FFprobeSessionHandle Function()>();
 
   /// Creates a new FFprobe session with the given command.
   ///
@@ -326,6 +454,123 @@ class FFmpegKitBindings {
               ffi.Pointer<ffi.Char>)>>('ffprobe_kit_create_session');
   late final _ffprobe_kit_create_session = _ffprobe_kit_create_sessionPtr
       .asFunction<FFprobeSessionHandle Function(ffi.Pointer<ffi.Char>)>();
+
+  /// Creates a new FFprobe session with the given command.
+  ///
+  /// @param command the FFprobe command to execute
+  /// @return the FFprobe session handle
+  FFprobeSessionHandle ffprobe_kit_create_session_with_callbacks(
+    ffi.Pointer<ffi.Char> command,
+    FFprobeKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffprobe_kit_create_session_with_callbacks(
+      command,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffprobe_kit_create_session_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              FFprobeSessionHandle Function(
+                  ffi.Pointer<ffi.Char>,
+                  FFprobeKitCompleteCallback,
+                  FFmpegKitLogCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'ffprobe_kit_create_session_with_callbacks');
+  late final _ffprobe_kit_create_session_with_callbacks =
+      _ffprobe_kit_create_session_with_callbacksPtr.asFunction<
+          FFprobeSessionHandle Function(
+              ffi.Pointer<ffi.Char>,
+              FFprobeKitCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the log callback for all FFprobe sessions.
+  ///
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callback
+  void ffprobe_kit_set_log_callback(
+    FFprobeSessionHandle session,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffprobe_kit_set_log_callback(
+      session,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffprobe_kit_set_log_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFprobeSessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>>('ffprobe_kit_set_log_callback');
+  late final _ffprobe_kit_set_log_callback =
+      _ffprobe_kit_set_log_callbackPtr.asFunction<
+          void Function(FFprobeSessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback for all FFprobe sessions.
+  ///
+  /// @param complete_cb the callback to be called when the FFprobe session is
+  /// completed
+  /// @param user_data the user data to be passed to the callback
+  void ffprobe_kit_set_complete_callback(
+    FFprobeSessionHandle session,
+    FFprobeKitCompleteCallback complete_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffprobe_kit_set_complete_callback(
+      session,
+      complete_cb,
+      user_data,
+    );
+  }
+
+  late final _ffprobe_kit_set_complete_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFprobeSessionHandle, FFprobeKitCompleteCallback,
+              ffi.Pointer<ffi.Void>)>>('ffprobe_kit_set_complete_callback');
+  late final _ffprobe_kit_set_complete_callback =
+      _ffprobe_kit_set_complete_callbackPtr.asFunction<
+          void Function(FFprobeSessionHandle, FFprobeKitCompleteCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback, log callback, and user data for all FFprobe sessions.
+  ///
+  /// @param complete_cb the callback to be called when the FFprobe session is
+  /// completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callbacks
+  void ffprobe_kit_set_callbacks(
+    FFprobeSessionHandle session,
+    FFprobeKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffprobe_kit_set_callbacks(
+      session,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffprobe_kit_set_callbacksPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              FFprobeSessionHandle,
+              FFprobeKitCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>>('ffprobe_kit_set_callbacks');
+  late final _ffprobe_kit_set_callbacks =
+      _ffprobe_kit_set_callbacksPtr.asFunction<
+          void Function(FFprobeSessionHandle, FFprobeKitCompleteCallback,
+              FFmpegKitLogCallback, ffi.Pointer<ffi.Void>)>();
 
   /// Executes the FFprobe session.
   ///
@@ -385,8 +630,8 @@ class FFmpegKitBindings {
   /// Gets the media information for the given path asynchronously.
   ///
   /// @param path the path of the media file
-  /// @param complete_cb the callback to be called when the media information session is
-  /// completed
+  /// @param complete_cb the callback to be called when the media information
+  /// session is completed
   /// @param user_data the user data to be passed to the callback
   /// @return the media information session handle
   /// @note The user data is owned by the callback and should be freed by the
@@ -435,7 +680,7 @@ class FFmpegKitBindings {
   late final _ffplay_kit_executePtr = _lookup<
       ffi.NativeFunction<
           FFplaySessionHandle Function(
-              ffi.Pointer<ffi.Char>, ffi.Int)>>('ffplay_kit_execute');
+              ffi.Pointer<ffi.Char>, ffi.Int64)>>('ffplay_kit_execute');
   late final _ffplay_kit_execute = _ffplay_kit_executePtr
       .asFunction<FFplaySessionHandle Function(ffi.Pointer<ffi.Char>, int)>();
 
@@ -469,7 +714,7 @@ class FFmpegKitBindings {
               ffi.Pointer<ffi.Char>,
               FFplayKitCompleteCallback,
               ffi.Pointer<ffi.Void>,
-              ffi.Int)>>('ffplay_kit_execute_async');
+              ffi.Int64)>>('ffplay_kit_execute_async');
   late final _ffplay_kit_execute_async =
       _ffplay_kit_execute_asyncPtr.asFunction<
           FFplaySessionHandle Function(ffi.Pointer<ffi.Char>,
@@ -494,6 +739,123 @@ class FFmpegKitBindings {
   late final _ffplay_kit_create_session = _ffplay_kit_create_sessionPtr
       .asFunction<FFplaySessionHandle Function(ffi.Pointer<ffi.Char>)>();
 
+  /// Creates a new FFplay session with the given command.
+  ///
+  /// @param command the FFplay command to execute
+  /// @return the FFplay session handle
+  FFplaySessionHandle ffplay_kit_create_session_with_callbacks(
+    ffi.Pointer<ffi.Char> command,
+    FFplayKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffplay_kit_create_session_with_callbacks(
+      command,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffplay_kit_create_session_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              FFplaySessionHandle Function(
+                  ffi.Pointer<ffi.Char>,
+                  FFplayKitCompleteCallback,
+                  FFmpegKitLogCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'ffplay_kit_create_session_with_callbacks');
+  late final _ffplay_kit_create_session_with_callbacks =
+      _ffplay_kit_create_session_with_callbacksPtr.asFunction<
+          FFplaySessionHandle Function(
+              ffi.Pointer<ffi.Char>,
+              FFplayKitCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the log callback for all FFplay sessions.
+  ///
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callback
+  void ffplay_kit_set_log_callback(
+    FFplaySessionHandle session,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffplay_kit_set_log_callback(
+      session,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffplay_kit_set_log_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFplaySessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>>('ffplay_kit_set_log_callback');
+  late final _ffplay_kit_set_log_callback =
+      _ffplay_kit_set_log_callbackPtr.asFunction<
+          void Function(FFplaySessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback for all FFplay sessions.
+  ///
+  /// @param complete_cb the callback to be called when the FFplay session is
+  /// completed
+  /// @param user_data the user data to be passed to the callback
+  void ffplay_kit_set_complete_callback(
+    FFplaySessionHandle session,
+    FFplayKitCompleteCallback complete_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffplay_kit_set_complete_callback(
+      session,
+      complete_cb,
+      user_data,
+    );
+  }
+
+  late final _ffplay_kit_set_complete_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFplaySessionHandle, FFplayKitCompleteCallback,
+              ffi.Pointer<ffi.Void>)>>('ffplay_kit_set_complete_callback');
+  late final _ffplay_kit_set_complete_callback =
+      _ffplay_kit_set_complete_callbackPtr.asFunction<
+          void Function(FFplaySessionHandle, FFplayKitCompleteCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback, log callback, and user data for all FFplay sessions.
+  ///
+  /// @param complete_cb the callback to be called when the FFplay session is
+  /// completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callbacks
+  void ffplay_kit_set_callbacks(
+    FFplaySessionHandle session,
+    FFplayKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffplay_kit_set_callbacks(
+      session,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffplay_kit_set_callbacksPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              FFplaySessionHandle,
+              FFplayKitCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>>('ffplay_kit_set_callbacks');
+  late final _ffplay_kit_set_callbacks =
+      _ffplay_kit_set_callbacksPtr.asFunction<
+          void Function(FFplaySessionHandle, FFplayKitCompleteCallback,
+              FFmpegKitLogCallback, ffi.Pointer<ffi.Void>)>();
+
   /// Executes the FFplay session.
   ///
   /// @param session the FFplay session to execute
@@ -509,7 +871,8 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_session_executePtr = _lookup<
-          ffi.NativeFunction<ffi.Void Function(FFplaySessionHandle, ffi.Int)>>(
+          ffi
+          .NativeFunction<ffi.Void Function(FFplaySessionHandle, ffi.Int64)>>(
       'ffplay_kit_session_execute');
   late final _ffplay_kit_session_execute = _ffplay_kit_session_executePtr
       .asFunction<void Function(FFplaySessionHandle, int)>();
@@ -543,7 +906,8 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_session_execute_asyncPtr = _lookup<
-          ffi.NativeFunction<ffi.Void Function(FFplaySessionHandle, ffi.Int)>>(
+          ffi
+          .NativeFunction<ffi.Void Function(FFplaySessionHandle, ffi.Int64)>>(
       'ffplay_kit_session_execute_async');
   late final _ffplay_kit_session_execute_async =
       _ffplay_kit_session_execute_asyncPtr
@@ -718,8 +1082,8 @@ class FFmpegKitBindings {
   /// Checks if the FFplay session is playing.
   ///
   /// @param session the FFplay session to check
-  /// @return 1 if the FFplay session is playing, 0 otherwise
-  int ffplay_kit_session_is_playing(
+  /// @return true if the FFplay session is playing, false otherwise
+  bool ffplay_kit_session_is_playing(
     FFplaySessionHandle session,
   ) {
     return _ffplay_kit_session_is_playing(
@@ -728,16 +1092,16 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_session_is_playingPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(FFplaySessionHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Bool Function(FFplaySessionHandle)>>(
           'ffplay_kit_session_is_playing');
   late final _ffplay_kit_session_is_playing = _ffplay_kit_session_is_playingPtr
-      .asFunction<int Function(FFplaySessionHandle)>();
+      .asFunction<bool Function(FFplaySessionHandle)>();
 
   /// Checks if the FFplay session is paused.
   ///
   /// @param session the FFplay session to check
-  /// @return 1 if the FFplay session is paused, 0 otherwise
-  int ffplay_kit_session_is_paused(
+  /// @return true if the FFplay session is paused, false otherwise
+  bool ffplay_kit_session_is_paused(
     FFplaySessionHandle session,
   ) {
     return _ffplay_kit_session_is_paused(
@@ -746,10 +1110,10 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_session_is_pausedPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(FFplaySessionHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Bool Function(FFplaySessionHandle)>>(
           'ffplay_kit_session_is_paused');
   late final _ffplay_kit_session_is_paused = _ffplay_kit_session_is_pausedPtr
-      .asFunction<int Function(FFplaySessionHandle)>();
+      .asFunction<bool Function(FFplaySessionHandle)>();
 
   /// Sets the volume of the FFplay session.
   ///
@@ -767,7 +1131,7 @@ class FFmpegKitBindings {
 
   late final _ffplay_kit_session_set_volumePtr = _lookup<
           ffi
-          .NativeFunction<ffi.Void Function(FFplaySessionHandle, ffi.Float)>>(
+          .NativeFunction<ffi.Void Function(FFplaySessionHandle, ffi.Double)>>(
       'ffplay_kit_session_set_volume');
   late final _ffplay_kit_session_set_volume = _ffplay_kit_session_set_volumePtr
       .asFunction<void Function(FFplaySessionHandle, double)>();
@@ -785,7 +1149,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_session_get_volumePtr =
-      _lookup<ffi.NativeFunction<ffi.Float Function(FFplaySessionHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Double Function(FFplaySessionHandle)>>(
           'ffplay_kit_session_get_volume');
   late final _ffplay_kit_session_get_volume = _ffplay_kit_session_get_volumePtr
       .asFunction<double Function(FFplaySessionHandle)>();
@@ -902,27 +1266,27 @@ class FFmpegKitBindings {
 
   /// Checks if the current FFplay session is playing.
   ///
-  /// @return 1 if playing, 0 otherwise
-  int ffplay_kit_is_playing() {
+  /// @return true if playing, false otherwise
+  bool ffplay_kit_is_playing() {
     return _ffplay_kit_is_playing();
   }
 
   late final _ffplay_kit_is_playingPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function()>>('ffplay_kit_is_playing');
+      _lookup<ffi.NativeFunction<ffi.Bool Function()>>('ffplay_kit_is_playing');
   late final _ffplay_kit_is_playing =
-      _ffplay_kit_is_playingPtr.asFunction<int Function()>();
+      _ffplay_kit_is_playingPtr.asFunction<bool Function()>();
 
   /// Checks if the current FFplay session is paused.
   ///
-  /// @return 1 if paused, 0 otherwise
-  int ffplay_kit_is_paused() {
+  /// @return true if paused, false otherwise
+  bool ffplay_kit_is_paused() {
     return _ffplay_kit_is_paused();
   }
 
   late final _ffplay_kit_is_pausedPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function()>>('ffplay_kit_is_paused');
+      _lookup<ffi.NativeFunction<ffi.Bool Function()>>('ffplay_kit_is_paused');
   late final _ffplay_kit_is_paused =
-      _ffplay_kit_is_pausedPtr.asFunction<int Function()>();
+      _ffplay_kit_is_pausedPtr.asFunction<bool Function()>();
 
   /// Sets the volume of the current FFplay session.
   ///
@@ -936,7 +1300,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_set_volumePtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Float)>>(
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Double)>>(
           'ffplay_kit_set_volume');
   late final _ffplay_kit_set_volume =
       _ffplay_kit_set_volumePtr.asFunction<void Function(double)>();
@@ -949,7 +1313,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffplay_kit_get_volumePtr =
-      _lookup<ffi.NativeFunction<ffi.Float Function()>>(
+      _lookup<ffi.NativeFunction<ffi.Double Function()>>(
           'ffplay_kit_get_volume');
   late final _ffplay_kit_get_volume =
       _ffplay_kit_get_volumePtr.asFunction<double Function()>();
@@ -1063,7 +1427,8 @@ class FFmpegKitBindings {
 
   late final _ffmpeg_kit_config_set_environment_variablePtr = _lookup<
           ffi.NativeFunction<
-              ffi.Int Function(ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>>(
+              ffi.Int64 Function(
+                  ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Char>)>>(
       'ffmpeg_kit_config_set_environment_variable');
   late final _ffmpeg_kit_config_set_environment_variable =
       _ffmpeg_kit_config_set_environment_variablePtr.asFunction<
@@ -1200,7 +1565,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_session_idPtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_session_id');
   late final _ffmpeg_kit_session_get_session_id =
       _ffmpeg_kit_session_get_session_idPtr
@@ -1237,7 +1602,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_return_codePtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_return_code');
   late final _ffmpeg_kit_session_get_return_code =
       _ffmpeg_kit_session_get_return_codePtr
@@ -1319,6 +1684,17 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_handle_release = _ffmpeg_kit_handle_releasePtr
       .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
+  /// Clears all active and history sessions.
+  void ffmpeg_kit_config_clear_sessions() {
+    return _ffmpeg_kit_config_clear_sessions();
+  }
+
+  late final _ffmpeg_kit_config_clear_sessionsPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>(
+          'ffmpeg_kit_config_clear_sessions');
+  late final _ffmpeg_kit_config_clear_sessions =
+      _ffmpeg_kit_config_clear_sessionsPtr.asFunction<void Function()>();
+
   /// Creates a new MediaInformation session with the given command.
   ///
   /// @param command the MediaInformation command to execute
@@ -1339,6 +1715,132 @@ class FFmpegKitBindings {
       _media_information_create_sessionPtr.asFunction<
           MediaInformationSessionHandle Function(ffi.Pointer<ffi.Char>)>();
 
+  /// Creates a new MediaInformation session with the given command.
+  ///
+  /// @param command the MediaInformation command to execute
+  /// @return the MediaInformation session handle
+  MediaInformationSessionHandle media_information_create_session_with_callbacks(
+    ffi.Pointer<ffi.Char> command,
+    MediaInformationSessionCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _media_information_create_session_with_callbacks(
+      command,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _media_information_create_session_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              MediaInformationSessionHandle Function(
+                  ffi.Pointer<ffi.Char>,
+                  MediaInformationSessionCompleteCallback,
+                  FFmpegKitLogCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'media_information_create_session_with_callbacks');
+  late final _media_information_create_session_with_callbacks =
+      _media_information_create_session_with_callbacksPtr.asFunction<
+          MediaInformationSessionHandle Function(
+              ffi.Pointer<ffi.Char>,
+              MediaInformationSessionCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the log callback for all MediaInformation sessions.
+  ///
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callback
+  void media_information_kit_set_log_callback(
+    MediaInformationSessionHandle session,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _media_information_kit_set_log_callback(
+      session,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _media_information_kit_set_log_callbackPtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Void Function(MediaInformationSessionHandle,
+                  FFmpegKitLogCallback, ffi.Pointer<ffi.Void>)>>(
+      'media_information_kit_set_log_callback');
+  late final _media_information_kit_set_log_callback =
+      _media_information_kit_set_log_callbackPtr.asFunction<
+          void Function(MediaInformationSessionHandle, FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback for all MediaInformation sessions.
+  ///
+  /// @param complete_cb the callback to be called when the MediaInformation session is
+  /// completed
+  /// @param user_data the user data to be passed to the callback
+  void media_information_kit_set_complete_callback(
+    MediaInformationSessionHandle session,
+    MediaInformationSessionCompleteCallback complete_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _media_information_kit_set_complete_callback(
+      session,
+      complete_cb,
+      user_data,
+    );
+  }
+
+  late final _media_information_kit_set_complete_callbackPtr = _lookup<
+          ffi.NativeFunction<
+              ffi.Void Function(
+                  MediaInformationSessionHandle,
+                  MediaInformationSessionCompleteCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'media_information_kit_set_complete_callback');
+  late final _media_information_kit_set_complete_callback =
+      _media_information_kit_set_complete_callbackPtr.asFunction<
+          void Function(
+              MediaInformationSessionHandle,
+              MediaInformationSessionCompleteCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Sets the complete callback, log callback, and user data for all MediaInformation sessions.
+  ///
+  /// @param complete_cb the callback to be called when the MediaInformation session is
+  /// completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callbacks
+  void media_information_kit_set_callbacks(
+    MediaInformationSessionHandle session,
+    MediaInformationSessionCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _media_information_kit_set_callbacks(
+      session,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _media_information_kit_set_callbacksPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              MediaInformationSessionHandle,
+              MediaInformationSessionCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>>('media_information_kit_set_callbacks');
+  late final _media_information_kit_set_callbacks =
+      _media_information_kit_set_callbacksPtr.asFunction<
+          void Function(
+              MediaInformationSessionHandle,
+              MediaInformationSessionCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
   /// Executes the MediaInformation session.
   ///
   /// @param session the MediaInformation session to execute
@@ -1356,7 +1858,7 @@ class FFmpegKitBindings {
   late final _media_information_session_executePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(MediaInformationSessionHandle,
-              ffi.Int)>>('media_information_session_execute');
+              ffi.Int64)>>('media_information_session_execute');
   late final _media_information_session_execute =
       _media_information_session_executePtr
           .asFunction<void Function(MediaInformationSessionHandle, int)>();
@@ -1378,7 +1880,7 @@ class FFmpegKitBindings {
   late final _media_information_session_execute_asyncPtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(MediaInformationSessionHandle,
-              ffi.Int)>>('media_information_session_execute_async');
+              ffi.Int64)>>('media_information_session_execute_async');
   late final _media_information_session_execute_async =
       _media_information_session_execute_asyncPtr
           .asFunction<void Function(MediaInformationSessionHandle, int)>();
@@ -1442,10 +1944,10 @@ class FFmpegKitBindings {
   late final _media_information_get_format = _media_information_get_formatPtr
       .asFunction<ffi.Pointer<ffi.Char> Function(MediaInformationHandle)>();
 
-  /// Gets the long format of the media information.
+  /// Gets the int64_t format of the media information.
   ///
   /// @param handle the media information handle
-  /// @return the long format of the media information
+  /// @return the int64_t format of the media information
   ffi.Pointer<ffi.Char> media_information_get_long_format(
     MediaInformationHandle handle,
   ) {
@@ -1553,7 +2055,7 @@ class FFmpegKitBindings {
   }
 
   late final _media_information_get_streams_countPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(MediaInformationHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(MediaInformationHandle)>>(
           'media_information_get_streams_count');
   late final _media_information_get_streams_count =
       _media_information_get_streams_countPtr
@@ -1577,7 +2079,7 @@ class FFmpegKitBindings {
   late final _media_information_get_stream_atPtr = _lookup<
       ffi.NativeFunction<
           StreamInformationHandle Function(MediaInformationHandle,
-              ffi.Int)>>('media_information_get_stream_at');
+              ffi.Int64)>>('media_information_get_stream_at');
   late final _media_information_get_stream_at =
       _media_information_get_stream_atPtr.asFunction<
           StreamInformationHandle Function(MediaInformationHandle, int)>();
@@ -1595,7 +2097,7 @@ class FFmpegKitBindings {
   }
 
   late final _media_information_get_chapters_countPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(MediaInformationHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(MediaInformationHandle)>>(
           'media_information_get_chapters_count');
   late final _media_information_get_chapters_count =
       _media_information_get_chapters_countPtr
@@ -1619,7 +2121,7 @@ class FFmpegKitBindings {
   late final _media_information_get_chapter_atPtr = _lookup<
       ffi.NativeFunction<
           ChapterHandle Function(MediaInformationHandle,
-              ffi.Int)>>('media_information_get_chapter_at');
+              ffi.Int64)>>('media_information_get_chapter_at');
   late final _media_information_get_chapter_at =
       _media_information_get_chapter_atPtr
           .asFunction<ChapterHandle Function(MediaInformationHandle, int)>();
@@ -1637,7 +2139,7 @@ class FFmpegKitBindings {
   }
 
   late final _stream_information_get_indexPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(StreamInformationHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(StreamInformationHandle)>>(
           'stream_information_get_index');
   late final _stream_information_get_index = _stream_information_get_indexPtr
       .asFunction<int Function(StreamInformationHandle)>();
@@ -1680,10 +2182,10 @@ class FFmpegKitBindings {
   late final _stream_information_get_codec = _stream_information_get_codecPtr
       .asFunction<ffi.Pointer<ffi.Char> Function(StreamInformationHandle)>();
 
-  /// Gets the long codec of the stream information.
+  /// Gets the int64_t codec of the stream information.
   ///
   /// @param handle the stream information handle
-  /// @return the long codec of the stream information
+  /// @return the int64_t codec of the stream information
   ffi.Pointer<ffi.Char> stream_information_get_codec_long(
     StreamInformationHandle handle,
   ) {
@@ -1732,7 +2234,7 @@ class FFmpegKitBindings {
   }
 
   late final _stream_information_get_widthPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(StreamInformationHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(StreamInformationHandle)>>(
           'stream_information_get_width');
   late final _stream_information_get_width = _stream_information_get_widthPtr
       .asFunction<int Function(StreamInformationHandle)>();
@@ -1750,7 +2252,7 @@ class FFmpegKitBindings {
   }
 
   late final _stream_information_get_heightPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(StreamInformationHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(StreamInformationHandle)>>(
           'stream_information_get_height');
   late final _stream_information_get_height = _stream_information_get_heightPtr
       .asFunction<int Function(StreamInformationHandle)>();
@@ -1928,7 +2430,7 @@ class FFmpegKitBindings {
   }
 
   late final _chapter_get_idPtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ChapterHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ChapterHandle)>>(
           'chapter_get_id');
   late final _chapter_get_id =
       _chapter_get_idPtr.asFunction<int Function(ChapterHandle)>();
@@ -1964,7 +2466,7 @@ class FFmpegKitBindings {
   }
 
   late final _chapter_get_startPtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ChapterHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ChapterHandle)>>(
           'chapter_get_start');
   late final _chapter_get_start =
       _chapter_get_startPtr.asFunction<int Function(ChapterHandle)>();
@@ -2000,7 +2502,7 @@ class FFmpegKitBindings {
   }
 
   late final _chapter_get_endPtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ChapterHandle)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ChapterHandle)>>(
           'chapter_get_end');
   late final _chapter_get_end =
       _chapter_get_endPtr.asFunction<int Function(ChapterHandle)>();
@@ -2054,6 +2556,19 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_get_sessions = _ffmpeg_kit_get_sessionsPtr
       .asFunction<ffi.Pointer<FFmpegSessionHandle> Function()>();
 
+  /// Gets the sessions.
+  ///
+  /// @return the sessions
+  ffi.Pointer<FFmpegSessionHandle> ffmpeg_kit_list_sessions() {
+    return _ffmpeg_kit_list_sessions();
+  }
+
+  late final _ffmpeg_kit_list_sessionsPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<FFmpegSessionHandle> Function()>>(
+          'ffmpeg_kit_list_sessions');
+  late final _ffmpeg_kit_list_sessions = _ffmpeg_kit_list_sessionsPtr
+      .asFunction<ffi.Pointer<FFmpegSessionHandle> Function()>();
+
   /// Gets the FFmpeg sessions.
   ///
   /// @return the FFmpeg sessions
@@ -2081,6 +2596,19 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_get_ffprobe_sessions =
       _ffmpeg_kit_get_ffprobe_sessionsPtr
           .asFunction<ffi.Pointer<FFprobeSessionHandle> Function()>();
+
+  /// Gets the FFprobe sessions.
+  ///
+  /// @return the FFprobe sessions
+  ffi.Pointer<FFprobeSessionHandle> ffprobe_kit_list_sessions() {
+    return _ffprobe_kit_list_sessions();
+  }
+
+  late final _ffprobe_kit_list_sessionsPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<FFprobeSessionHandle> Function()>>(
+          'ffprobe_kit_list_sessions');
+  late final _ffprobe_kit_list_sessions = _ffprobe_kit_list_sessionsPtr
+      .asFunction<ffi.Pointer<FFprobeSessionHandle> Function()>();
 
   /// Gets the FFplay sessions.
   ///
@@ -2112,6 +2640,22 @@ class FFmpegKitBindings {
       _ffmpeg_kit_get_media_information_sessionsPtr
           .asFunction<ffi.Pointer<MediaInformationSessionHandle> Function()>();
 
+  /// Gets the media information sessions.
+  ///
+  /// @return the media information sessions
+  ffi.Pointer<MediaInformationSessionHandle>
+      media_information_kit_list_sessions() {
+    return _media_information_kit_list_sessions();
+  }
+
+  late final _media_information_kit_list_sessionsPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<MediaInformationSessionHandle>
+              Function()>>('media_information_kit_list_sessions');
+  late final _media_information_kit_list_sessions =
+      _media_information_kit_list_sessionsPtr
+          .asFunction<ffi.Pointer<MediaInformationSessionHandle> Function()>();
+
   /// Gets the session.
   ///
   /// @param session_id the session ID
@@ -2125,7 +2669,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_get_sessionPtr =
-      _lookup<ffi.NativeFunction<FFmpegSessionHandle Function(ffi.Long)>>(
+      _lookup<ffi.NativeFunction<FFmpegSessionHandle Function(ffi.Int64)>>(
           'ffmpeg_kit_get_session');
   late final _ffmpeg_kit_get_session = _ffmpeg_kit_get_sessionPtr
       .asFunction<FFmpegSessionHandle Function(int)>();
@@ -2169,6 +2713,33 @@ class FFmpegKitBindings {
           'ffmpeg_kit_get_last_ffprobe_session');
   late final _ffmpeg_kit_get_last_ffprobe_session =
       _ffmpeg_kit_get_last_ffprobe_sessionPtr
+          .asFunction<FFprobeSessionHandle Function()>();
+
+  /// Gets the last FFprobe session.
+  ///
+  /// @return the last FFprobe session
+  FFprobeSessionHandle ffprobe_kit_get_last_session() {
+    return _ffprobe_kit_get_last_session();
+  }
+
+  late final _ffprobe_kit_get_last_sessionPtr =
+      _lookup<ffi.NativeFunction<FFprobeSessionHandle Function()>>(
+          'ffprobe_kit_get_last_session');
+  late final _ffprobe_kit_get_last_session = _ffprobe_kit_get_last_sessionPtr
+      .asFunction<FFprobeSessionHandle Function()>();
+
+  /// Gets the last completed FFprobe session.
+  ///
+  /// @return the last completed FFprobe session
+  FFprobeSessionHandle ffprobe_kit_get_last_completed_session() {
+    return _ffprobe_kit_get_last_completed_session();
+  }
+
+  late final _ffprobe_kit_get_last_completed_sessionPtr =
+      _lookup<ffi.NativeFunction<FFprobeSessionHandle Function()>>(
+          'ffprobe_kit_get_last_completed_session');
+  late final _ffprobe_kit_get_last_completed_session =
+      _ffprobe_kit_get_last_completed_sessionPtr
           .asFunction<FFprobeSessionHandle Function()>();
 
   /// Gets the last FFplay session.
@@ -2222,7 +2793,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_get_session_history_sizePtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function()>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function()>>(
           'ffmpeg_kit_get_session_history_size');
   late final _ffmpeg_kit_get_session_history_size =
       _ffmpeg_kit_get_session_history_sizePtr.asFunction<int Function()>();
@@ -2239,7 +2810,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_set_session_history_sizePtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int)>>(
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
           'ffmpeg_kit_set_session_history_size');
   late final _ffmpeg_kit_set_session_history_size =
       _ffmpeg_kit_set_session_history_sizePtr.asFunction<void Function(int)>();
@@ -2459,7 +3030,7 @@ class FFmpegKitBindings {
 
   late final _ffmpeg_kit_config_set_font_directory_listPtr = _lookup<
           ffi.NativeFunction<
-              ffi.Void Function(ffi.Pointer<ffi.Pointer<ffi.Char>>, ffi.Int,
+              ffi.Void Function(ffi.Pointer<ffi.Pointer<ffi.Char>>, ffi.Int64,
                   ffi.Pointer<ffi.Char>)>>(
       'ffmpeg_kit_config_set_font_directory_list');
   late final _ffmpeg_kit_config_set_font_directory_list =
@@ -2507,7 +3078,7 @@ class FFmpegKitBindings {
   /// @return the parsed arguments
   ffi.Pointer<ffi.Pointer<ffi.Char>> ffmpeg_kit_config_parse_arguments(
     ffi.Pointer<ffi.Char> command,
-    ffi.Pointer<ffi.Int> arg_count,
+    ffi.Pointer<ffi.Int64> arg_count,
   ) {
     return _ffmpeg_kit_config_parse_arguments(
       command,
@@ -2518,11 +3089,11 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_config_parse_argumentsPtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<ffi.Pointer<ffi.Char>> Function(ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Int>)>>('ffmpeg_kit_config_parse_arguments');
+              ffi.Pointer<ffi.Int64>)>>('ffmpeg_kit_config_parse_arguments');
   late final _ffmpeg_kit_config_parse_arguments =
       _ffmpeg_kit_config_parse_argumentsPtr.asFunction<
           ffi.Pointer<ffi.Pointer<ffi.Char>> Function(
-              ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Int>)>();
+              ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Int64>)>();
 
   /// Converts the arguments to string.
   ///
@@ -2542,7 +3113,7 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_config_arguments_to_stringPtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Pointer<ffi.Char>>,
-              ffi.Int)>>('ffmpeg_kit_config_arguments_to_string');
+              ffi.Int64)>>('ffmpeg_kit_config_arguments_to_string');
   late final _ffmpeg_kit_config_arguments_to_string =
       _ffmpeg_kit_config_arguments_to_stringPtr.asFunction<
           ffi.Pointer<ffi.Char> Function(
@@ -2561,7 +3132,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_config_messages_in_transmitPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Long)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Int64)>>(
           'ffmpeg_kit_config_messages_in_transmit');
   late final _ffmpeg_kit_config_messages_in_transmit =
       _ffmpeg_kit_config_messages_in_transmitPtr
@@ -2580,7 +3151,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_create_timePtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_create_time');
   late final _ffmpeg_kit_session_get_create_time =
       _ffmpeg_kit_session_get_create_timePtr
@@ -2599,7 +3170,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_start_timePtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_start_time');
   late final _ffmpeg_kit_session_get_start_time =
       _ffmpeg_kit_session_get_start_timePtr
@@ -2618,7 +3189,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_end_timePtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_end_time');
   late final _ffmpeg_kit_session_get_end_time =
       _ffmpeg_kit_session_get_end_timePtr
@@ -2637,7 +3208,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_durationPtr =
-      _lookup<ffi.NativeFunction<ffi.Long Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_duration');
   late final _ffmpeg_kit_session_get_duration =
       _ffmpeg_kit_session_get_durationPtr
@@ -2676,7 +3247,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_logs_countPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_logs_count');
   late final _ffmpeg_kit_session_get_logs_count =
       _ffmpeg_kit_session_get_logs_countPtr
@@ -2700,7 +3271,7 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_session_get_log_atPtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>,
-              ffi.Int)>>('ffmpeg_kit_session_get_log_at');
+              ffi.Int64)>>('ffmpeg_kit_session_get_log_at');
   late final _ffmpeg_kit_session_get_log_at = _ffmpeg_kit_session_get_log_atPtr
       .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>, int)>();
 
@@ -2720,8 +3291,9 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_log_level_atPtr = _lookup<
-          ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>, ffi.Int)>>(
-      'ffmpeg_kit_session_get_log_level_at');
+      ffi.NativeFunction<
+          ffi.Int64 Function(ffi.Pointer<ffi.Void>,
+              ffi.Int64)>>('ffmpeg_kit_session_get_log_level_at');
   late final _ffmpeg_kit_session_get_log_level_at =
       _ffmpeg_kit_session_get_log_level_atPtr
           .asFunction<int Function(ffi.Pointer<ffi.Void>, int)>();
@@ -2739,7 +3311,7 @@ class FFmpegKitBindings {
   }
 
   late final _ffmpeg_kit_session_get_statistics_countPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(ffi.Pointer<ffi.Void>)>>(
           'ffmpeg_kit_session_get_statistics_count');
   late final _ffmpeg_kit_session_get_statistics_count =
       _ffmpeg_kit_session_get_statistics_countPtr
@@ -2763,10 +3335,143 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_session_get_statistics_atPtr = _lookup<
       ffi.NativeFunction<
           StatisticsHandle Function(ffi.Pointer<ffi.Void>,
-              ffi.Int)>>('ffmpeg_kit_session_get_statistics_at');
+              ffi.Int64)>>('ffmpeg_kit_session_get_statistics_at');
   late final _ffmpeg_kit_session_get_statistics_at =
       _ffmpeg_kit_session_get_statistics_atPtr
           .asFunction<StatisticsHandle Function(ffi.Pointer<ffi.Void>, int)>();
+
+  /// Gets the video frame number.
+  ///
+  /// @param handle the statistics handle
+  /// @return the video frame number
+  int ffmpeg_kit_statistics_get_video_frame_number(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_video_frame_number(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_video_frame_numberPtr =
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_video_frame_number');
+  late final _ffmpeg_kit_statistics_get_video_frame_number =
+      _ffmpeg_kit_statistics_get_video_frame_numberPtr
+          .asFunction<int Function(StatisticsHandle)>();
+
+  /// Gets the video FPS.
+  ///
+  /// @param handle the statistics handle
+  /// @return the video FPS
+  double ffmpeg_kit_statistics_get_video_fps(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_video_fps(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_video_fpsPtr =
+      _lookup<ffi.NativeFunction<ffi.Double Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_video_fps');
+  late final _ffmpeg_kit_statistics_get_video_fps =
+      _ffmpeg_kit_statistics_get_video_fpsPtr
+          .asFunction<double Function(StatisticsHandle)>();
+
+  /// Gets the video quality.
+  ///
+  /// @param handle the statistics handle
+  /// @return the video quality
+  double ffmpeg_kit_statistics_get_video_quality(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_video_quality(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_video_qualityPtr =
+      _lookup<ffi.NativeFunction<ffi.Double Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_video_quality');
+  late final _ffmpeg_kit_statistics_get_video_quality =
+      _ffmpeg_kit_statistics_get_video_qualityPtr
+          .asFunction<double Function(StatisticsHandle)>();
+
+  /// Gets the size.
+  ///
+  /// @param handle the statistics handle
+  /// @return the size
+  int ffmpeg_kit_statistics_get_size(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_size(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_sizePtr =
+      _lookup<ffi.NativeFunction<ffi.Int64 Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_size');
+  late final _ffmpeg_kit_statistics_get_size =
+      _ffmpeg_kit_statistics_get_sizePtr
+          .asFunction<int Function(StatisticsHandle)>();
+
+  /// Gets the time.
+  ///
+  /// @param handle the statistics handle
+  /// @return the time
+  double ffmpeg_kit_statistics_get_time(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_time(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_timePtr =
+      _lookup<ffi.NativeFunction<ffi.Double Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_time');
+  late final _ffmpeg_kit_statistics_get_time =
+      _ffmpeg_kit_statistics_get_timePtr
+          .asFunction<double Function(StatisticsHandle)>();
+
+  /// Gets the bitrate.
+  ///
+  /// @param handle the statistics handle
+  /// @return the bitrate
+  double ffmpeg_kit_statistics_get_bitrate(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_bitrate(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_bitratePtr =
+      _lookup<ffi.NativeFunction<ffi.Double Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_bitrate');
+  late final _ffmpeg_kit_statistics_get_bitrate =
+      _ffmpeg_kit_statistics_get_bitratePtr
+          .asFunction<double Function(StatisticsHandle)>();
+
+  /// Gets the speed.
+  ///
+  /// @param handle the statistics handle
+  /// @return the speed
+  double ffmpeg_kit_statistics_get_speed(
+    StatisticsHandle handle,
+  ) {
+    return _ffmpeg_kit_statistics_get_speed(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_statistics_get_speedPtr =
+      _lookup<ffi.NativeFunction<ffi.Double Function(StatisticsHandle)>>(
+          'ffmpeg_kit_statistics_get_speed');
+  late final _ffmpeg_kit_statistics_get_speed =
+      _ffmpeg_kit_statistics_get_speedPtr
+          .asFunction<double Function(StatisticsHandle)>();
 
   /// Gets the start time.
   ///
@@ -2829,7 +3534,7 @@ class FFmpegKitBindings {
 
   late final _media_information_get_number_propertyPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Long Function(MediaInformationHandle,
+          ffi.Int64 Function(MediaInformationHandle,
               ffi.Pointer<ffi.Char>)>>('media_information_get_number_property');
   late final _media_information_get_number_property =
       _media_information_get_number_propertyPtr.asFunction<
@@ -2957,7 +3662,7 @@ class FFmpegKitBindings {
 
   late final _stream_information_get_number_propertyPtr = _lookup<
           ffi.NativeFunction<
-              ffi.Long Function(
+              ffi.Int64 Function(
                   StreamInformationHandle, ffi.Pointer<ffi.Char>)>>(
       'stream_information_get_number_property');
   late final _stream_information_get_number_property =
@@ -3025,7 +3730,7 @@ class FFmpegKitBindings {
 
   late final _chapter_get_number_propertyPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Long Function(ChapterHandle,
+          ffi.Int64 Function(ChapterHandle,
               ffi.Pointer<ffi.Char>)>>('chapter_get_number_property');
   late final _chapter_get_number_property = _chapter_get_number_propertyPtr
       .asFunction<int Function(ChapterHandle, ffi.Pointer<ffi.Char>)>();
@@ -3052,8 +3757,8 @@ class FFmpegKitBindings {
   /// Checks if the session is a FFmpeg session.
   ///
   /// @param session the session to check
-  /// @return 1 if the session is a FFmpeg session, 0 otherwise
-  int session_is_ffmpeg_session(
+  /// @return true if the session is a FFmpeg session, false otherwise
+  bool session_is_ffmpeg_session(
     ffi.Pointer<ffi.Void> session,
   ) {
     return _session_is_ffmpeg_session(
@@ -3062,16 +3767,16 @@ class FFmpegKitBindings {
   }
 
   late final _session_is_ffmpeg_sessionPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>>(
           'session_is_ffmpeg_session');
   late final _session_is_ffmpeg_session = _session_is_ffmpeg_sessionPtr
-      .asFunction<int Function(ffi.Pointer<ffi.Void>)>();
+      .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
 
   /// Checks if the session is a FFprobe session.
   ///
   /// @param session the session to check
-  /// @return 1 if the session is a FFprobe session, 0 otherwise
-  int session_is_ffprobe_session(
+  /// @return true if the session is a FFprobe session, false otherwise
+  bool session_is_ffprobe_session(
     ffi.Pointer<ffi.Void> session,
   ) {
     return _session_is_ffprobe_session(
@@ -3080,16 +3785,16 @@ class FFmpegKitBindings {
   }
 
   late final _session_is_ffprobe_sessionPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>>(
           'session_is_ffprobe_session');
   late final _session_is_ffprobe_session = _session_is_ffprobe_sessionPtr
-      .asFunction<int Function(ffi.Pointer<ffi.Void>)>();
+      .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
 
   /// Checks if the session is a FFplay session.
   ///
   /// @param session the session to check
-  /// @return 1 if the session is a FFplay session, 0 otherwise
-  int session_is_ffplay_session(
+  /// @return true if the session is a FFplay session, false otherwise
+  bool session_is_ffplay_session(
     ffi.Pointer<ffi.Void> session,
   ) {
     return _session_is_ffplay_session(
@@ -3098,16 +3803,16 @@ class FFmpegKitBindings {
   }
 
   late final _session_is_ffplay_sessionPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>>(
           'session_is_ffplay_session');
   late final _session_is_ffplay_session = _session_is_ffplay_sessionPtr
-      .asFunction<int Function(ffi.Pointer<ffi.Void>)>();
+      .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
 
   /// Checks if the session is a FFmpegKit session.
   ///
   /// @param session the session to check
-  /// @return 1 if the session is a MediaInformation session, 0 otherwise
-  int session_is_media_information_session(
+  /// @return true if the session is a MediaInformation session, false otherwise
+  bool session_is_media_information_session(
     ffi.Pointer<ffi.Void> session,
   ) {
     return _session_is_media_information_session(
@@ -3116,11 +3821,99 @@ class FFmpegKitBindings {
   }
 
   late final _session_is_media_information_sessionPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>(
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>>(
           'session_is_media_information_session');
   late final _session_is_media_information_session =
       _session_is_media_information_sessionPtr
-          .asFunction<int Function(ffi.Pointer<ffi.Void>)>();
+          .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Enables the debug log.
+  ///
+  /// @param session the session to enable the debug log for
+  void session_enable_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _session_enable_debug_log(
+      session,
+    );
+  }
+
+  late final _session_enable_debug_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'session_enable_debug_log');
+  late final _session_enable_debug_log = _session_enable_debug_logPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Disables the debug log.
+  ///
+  /// @param session the session to disable the debug log for
+  void session_disable_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _session_disable_debug_log(
+      session,
+    );
+  }
+
+  late final _session_disable_debug_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'session_disable_debug_log');
+  late final _session_disable_debug_log = _session_disable_debug_logPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Checks if the debug log is enabled.
+  ///
+  /// @param session the session to check
+  /// @return true if the debug log is enabled, false otherwise
+  bool session_is_debug_log_enabled(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _session_is_debug_log_enabled(
+      session,
+    );
+  }
+
+  late final _session_is_debug_log_enabledPtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>>(
+          'session_is_debug_log_enabled');
+  late final _session_is_debug_log_enabled = _session_is_debug_log_enabledPtr
+      .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Gets the debug log.
+  ///
+  /// @param session the session to get the debug log for
+  /// @return the debug log
+  ffi.Pointer<ffi.Char> session_get_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _session_get_debug_log(
+      session,
+    );
+  }
+
+  late final _session_get_debug_logPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('session_get_debug_log');
+  late final _session_get_debug_log = _session_get_debug_logPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Clears the debug log.
+  ///
+  /// @param session the session to clear the debug log for
+  void session_clear_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _session_clear_debug_log(
+      session,
+    );
+  }
+
+  late final _session_clear_debug_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'session_clear_debug_log');
+  late final _session_clear_debug_log = _session_clear_debug_logPtr
+      .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 
   /// Frees the memory allocated for the pointer.
   ///
@@ -3138,6 +3931,91 @@ class FFmpegKitBindings {
           'ffmpeg_kit_free');
   late final _ffmpeg_kit_free =
       _ffmpeg_kit_freePtr.asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Enables the debug log for the session.
+  void ffmpeg_kit_config_enable_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _ffmpeg_kit_config_enable_debug_log(
+      session,
+    );
+  }
+
+  late final _ffmpeg_kit_config_enable_debug_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'ffmpeg_kit_config_enable_debug_log');
+  late final _ffmpeg_kit_config_enable_debug_log =
+      _ffmpeg_kit_config_enable_debug_logPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Disables the debug log for the session.
+  void ffmpeg_kit_config_disable_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _ffmpeg_kit_config_disable_debug_log(
+      session,
+    );
+  }
+
+  late final _ffmpeg_kit_config_disable_debug_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'ffmpeg_kit_config_disable_debug_log');
+  late final _ffmpeg_kit_config_disable_debug_log =
+      _ffmpeg_kit_config_disable_debug_logPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Checks if the debug log is enabled for the session.
+  ///
+  /// @return true if the debug log is enabled, false otherwise
+  bool ffmpeg_kit_config_is_debug_log_enabled(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _ffmpeg_kit_config_is_debug_log_enabled(
+      session,
+    );
+  }
+
+  late final _ffmpeg_kit_config_is_debug_log_enabledPtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function(ffi.Pointer<ffi.Void>)>>(
+          'ffmpeg_kit_config_is_debug_log_enabled');
+  late final _ffmpeg_kit_config_is_debug_log_enabled =
+      _ffmpeg_kit_config_is_debug_log_enabledPtr
+          .asFunction<bool Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Gets the debug log for the session.
+  ///
+  /// @return the debug log
+  ffi.Pointer<ffi.Char> ffmpeg_kit_config_get_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _ffmpeg_kit_config_get_debug_log(
+      session,
+    );
+  }
+
+  late final _ffmpeg_kit_config_get_debug_logPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<ffi.Char> Function(
+              ffi.Pointer<ffi.Void>)>>('ffmpeg_kit_config_get_debug_log');
+  late final _ffmpeg_kit_config_get_debug_log =
+      _ffmpeg_kit_config_get_debug_logPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Void>)>();
+
+  /// Clears the debug log for the session.
+  void ffmpeg_kit_config_clear_debug_log(
+    ffi.Pointer<ffi.Void> session,
+  ) {
+    return _ffmpeg_kit_config_clear_debug_log(
+      session,
+    );
+  }
+
+  late final _ffmpeg_kit_config_clear_debug_logPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>(
+          'ffmpeg_kit_config_clear_debug_log');
+  late final _ffmpeg_kit_config_clear_debug_log =
+      _ffmpeg_kit_config_clear_debug_logPtr
+          .asFunction<void Function(ffi.Pointer<ffi.Void>)>();
 }
 
 typedef va_list = ffi.Pointer<ffi.Char>;
@@ -3205,13 +4083,13 @@ typedef FFmpegKitLogCallback
     = ffi.Pointer<ffi.NativeFunction<FFmpegKitLogCallbackFunction>>;
 typedef FFmpegKitStatisticsCallbackFunction = ffi.Void Function(
     FFmpegSessionHandle session,
-    ffi.Int time,
+    ffi.Int64 time,
     ffi.Int64 size,
     ffi.Double bitrate,
     ffi.Double speed,
-    ffi.Int videoFrameNumber,
-    ffi.Float videoFps,
-    ffi.Float videoQuality,
+    ffi.Int64 videoFrameNumber,
+    ffi.Double videoFps,
+    ffi.Double videoQuality,
     ffi.Pointer<ffi.Void> user_data);
 typedef DartFFmpegKitStatisticsCallbackFunction = void Function(
     FFmpegSessionHandle session,

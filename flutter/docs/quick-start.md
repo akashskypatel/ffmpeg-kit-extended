@@ -31,6 +31,7 @@ Let's convert a video file:
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
 
 void convertVideo() {
+  // Synchronous execution (blocking)
   final session = FFmpegKit.execute(
     '-i input.mp4 -c:v libx264 -crf 23 output.mp4'
   );
@@ -39,9 +40,40 @@ void convertVideo() {
     print('✅ Video converted successfully!');
   } else {
     print('❌ Conversion failed');
-    print('Error: ${session.getOutput()}');
+    // Get full terminal output
+    print('Output: ${session.getOutput()}');
+    // Get all logs
+    print('Logs: ${session.getLogs()}');
   }
 }
+```
+
+## Synchronous vs Asynchronous
+
+FFmpeg Kit Extended provides two primary ways to run commands:
+
+### 1. Synchronous Execution (`execute`)
+
+This call **blocks** the current thread until the command finishes. It is simple to use but will freeze your UI if called on the main thread.
+
+**Capturing Output:** Even though it's synchronous, you can retrieve the terminal output and logs from the returned `Session` object.
+
+```dart
+final session = FFmpegKit.execute("-version");
+print(session.getOutput()); // Prints standard output
+```
+
+### 2. Asynchronous Execution (`executeAsync`)
+
+This call returns a `Future` immediately and handles the process in the background. It is ideal for long-running operations like video encoding.
+
+**Capturing Output:** You can monitor logs in real-time or retrieve the full output once the future completes.
+
+```dart
+await FFmpegKit.executeAsync("-i input.mp4 output.mp4", 
+  onLog: (log) => print(log.message),
+  onComplete: (session) => print("Finished!")
+);
 ```
 
 ## Common Tasks
