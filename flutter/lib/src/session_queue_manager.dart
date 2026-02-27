@@ -91,19 +91,20 @@ class SessionQueueManager {
     if (_isProcessing) return;
     _isProcessing = true;
 
-    while (
-        _queue.isNotEmpty && _activeSessions.length < _maxConcurrentSessions) {
-      final queued = _queue.removeFirst();
-      _executeQueuedSession(queued);
+    try {
+      while (_queue.isNotEmpty &&
+          _activeSessions.length < _maxConcurrentSessions) {
+        final queued = _queue.removeFirst();
+        _activeSessions.add(queued.session);
+        _executeQueuedSession(queued);
+      }
+    } finally {
+      _isProcessing = false;
     }
-
-    _isProcessing = false;
   }
 
   /// Internal helper to execute a queued session and manage its lifecycle.
   Future<void> _executeQueuedSession(_QueuedSession queued) async {
-    _activeSessions.add(queued.session);
-
     try {
       await queued.executor();
       if (!queued.completer.isCompleted) {
@@ -134,9 +135,11 @@ class SessionQueueManager {
     final queuedToCancel = _queue.toList();
     _queue.clear();
     for (final queued in queuedToCancel) {
-      queued.completer.completeError(
-        SessionCancelledException('Session was removed from queue'),
-      );
+      if (!queued.completer.isCompleted) {
+        queued.completer.completeError(
+          SessionCancelledException('Session was removed from queue'),
+        );
+      }
     }
   }
 

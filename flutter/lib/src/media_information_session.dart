@@ -70,6 +70,8 @@ class MediaInformationSession extends FFprobeSession {
     _timeout = timeout;
   }
 
+  static const String _defaultCommandPrefix = "-v error -hide_banner";
+
   static const String _defaultCommand =
       "-v error -hide_banner -print_format json -show_format -show_streams -show_chapters -i";
 
@@ -85,7 +87,7 @@ class MediaInformationSession extends FFprobeSession {
   }) : super.internal() {
     this._timeout = timeout;
 
-    final finalCommand = command;
+    final finalCommand = "$_defaultCommandPrefix $command";
     this.command = finalCommand;
 
     final cmdPtr = finalCommand.toNativeUtf8();
