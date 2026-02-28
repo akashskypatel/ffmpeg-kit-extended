@@ -72,7 +72,7 @@ void startTimer() {
   _timer = Timer.periodic(Duration(milliseconds: 500), (timer) {
     setState(() {
       _position = FFplayKit.getPosition() ?? 0.0;
-      _duration = FFplayKit.getDuration() ?? 1.0;
+      _duration = FFplayKit.getMediaDuration() ?? 1.0;
     });
   });
 }
@@ -111,7 +111,7 @@ FFplayKit.executeAsync(
 ## Tips for a Better UX
 
 1. **Handle Window Closing**: On desktop platforms, users might close the FFplay window manually. Monitor `FFplayKit.isClosed()` to update your UI accordingly.
-2. **Handle Null Values**: `getPosition()` and `getDuration()` return `null` if no session is active or if metadata hasn't been loaded yet.
+2. **Handle Null Values**: `getPosition()` and `getMediaDuration()` return `null` if no session is active or if metadata hasn't been loaded yet.
 3. **Volume and Audio**: You can pass additional FFplay flags during execution for audio control:
 
    ```dart

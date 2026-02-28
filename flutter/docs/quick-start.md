@@ -4,31 +4,59 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
 
 ## Installation
 
-1. Add the dependency to your `pubspec.yaml`:
-
-```yaml
-dependencies:
-  ffmpeg_kit_extended_flutter: ^1.0.0
-```
-
 1. Install the package:
 
-```bash
-flutter pub get
-```
+    ```bash
+    flutter pub add ffmpeg_kit_extended_flutter
+    ```
 
-1. Import the package in your Dart code:
+2. Add the dependency to your `pubspec.yaml` then add `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
 
-```dart
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
-```
+    ```yaml
+    dependencies:
+      ffmpeg_kit_extended_flutter: ^0.1.0
+
+    ffmpeg_kit_extended_config:
+      version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
+      type: "base" # pre-bundled builds: base, full, audio, video, streaming, video_hw
+      gpl: true # enable to include GPL libraries
+      small: true # enable to use smaller builds
+      # == OR ==
+      # -------------------------------------------------------------
+      # You can specify remote or local path to libffmpegkit libraries for each platform
+      # This allows you to deploy custom builds of libffmpegkit.
+      # See: https://github.com/akashskypatel/ffmpeg-kit-builders
+      # Note: This will override all above options.
+      # -------------------------------------------------------------
+      # windows: "path/to/ffmpeg-kit/libraries"
+      # linux: "https://path/to/ffmpeg-kit/libraries"
+    ```
+
+3. Import the package in your Dart code:
+
+    ```dart
+    import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+    ```
+
+4. Run `dart run ffmpeg_kit_extended_flutter:configure` to generate the native libraries.
+
+    ```bash
+    dart run ffmpeg_kit_extended_flutter:configure
+    ```
+
+    **Configure Options**
+    - `--help`: Show this help message.
+    - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
+    - `--verbose`: Enable verbose output.
+    - `--debug`: Enable debug mode. (Fetches remote bundles with debug symbols. Only base bundle is published with debug symbols. You can deploy your own using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders))
+    - `--app-root=<path>`: Specify the path to the app root.
 
 ## Your First FFmpeg Command
 
 Let's convert a video file:
 
 ```dart
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 
 void convertVideo() {
   // Synchronous execution (blocking)
@@ -259,7 +287,7 @@ Here's a complete example of a simple video converter:
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:file_picker/file_picker.dart';
 
 class VideoConverterPage extends StatefulWidget {

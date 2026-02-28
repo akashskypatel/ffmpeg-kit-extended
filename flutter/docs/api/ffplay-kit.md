@@ -272,12 +272,12 @@ FFplayKit.setPosition(45.0);
 
 ---
 
-#### getDuration
+#### getMediaDuration
 
 Gets the total duration of the media in seconds.
 
 ```dart
-static double? getDuration()
+static double? getMediaDuration()
 ```
 
 **Returns:**
@@ -287,7 +287,7 @@ static double? getDuration()
 **Example:**
 
 ```dart
-final duration = FFplayKit.getDuration();
+final duration = FFplayKit.getMediaDuration();
 if (duration != null) {
   print('Total duration: ${duration.toStringAsFixed(1)}s');
 }
@@ -500,7 +500,7 @@ FFplayKit.execute('video.mp4');
 // Poll for position updates
 Timer.periodic(Duration(milliseconds: 500), (timer) {
   final position = FFplayKit.getPosition();
-  final duration = FFplayKit.getDuration();
+  final duration = FFplayKit.getMediaDuration();
   
   if (position != null && duration != null) {
     final progress = (position / duration) * 100;
@@ -627,7 +627,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     _positionTimer = Timer.periodic(Duration(milliseconds: 500), (_) {
       setState(() {
         _position = FFplayKit.getPosition() ?? 0.0;
-        _duration = FFplayKit.getDuration() ?? 0.0;
+        _duration = FFplayKit.getMediaDuration() ?? 0.0;
         _isPlaying = FFplayKit.isPlaying();
       });
     });

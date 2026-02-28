@@ -126,7 +126,7 @@ dependencies:
 ```
 
 ```dart
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_flutter.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 ```
 
 ### Basic Usage
