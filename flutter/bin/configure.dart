@@ -15,23 +15,70 @@ const String _baseUrlTemplate =
 // =============================================================================
 
 Future<void> main(List<String> args) async {
-  String? platform;
+  final platforms = [];
   String? appRootPath;
   bool generateBindings = false;
   bool verbose = false;
+  bool debug = false;
+
+  final supportedPlatforms = [
+    'windows',
+    'linux'
+  ]; // TODO: add 'macos', 'android', 'ios'
 
   // Simple Argument Parser
   for (int i = 0; i < args.length; i++) {
     final arg = args[i];
-    if (arg == '--generate-bindings') {
+    if (arg == '--help' || arg == '-h') {
+      print('''
+Usage: dart run ffmpeg_kit_extended_flutter:configure [platforms] [options]
+
+Platforms:
+  Comma-separated list of platforms (e.g., windows,linux) or positional arguments.
+  If omitted, the script will auto-detect supported platforms in the project root.
+
+Options:
+  --platform=<list>    Specify platforms to configure (e.g., windows,linux).
+  --verbose            Enable verbose output.
+  --debug              Enable debug mode. Fetches remote bundles with debug symbols.
+                       Note: Only "base" bundle is published with debug symbols.
+  --generate-bindings  Generate Dart FFI bindings using ffigen.
+  --app-root=<path>    Specify the path to the app root (defaults to CWD).
+  --help, -h           Show this help message.
+
+Configuration (pubspec.yaml):
+  Add the following section to your pubspec.yaml:
+
+  ffmpeg_kit_extended_config:
+    version: "1.0.0"   # Version of pre-bundled libraries
+    type: "full"       # base, full, audio, video, streaming, video_hw
+    gpl: true          # Include GPL libraries
+    small: false       # Use smaller builds
+    # Optional: overrides for specific platforms
+    # windows: "C:\\\\path\\\\to\\\\bundle.zip"
+    # linux: "https://example.com/bundle.zip"
+''');
+      exit(0);
+    } else if (arg == '--generate-bindings') {
       generateBindings = true;
     } else if (arg == '--verbose') {
       verbose = true;
+    } else if (arg == '--debug') {
+      debug = true;
     } else if (arg.startsWith('--app-root=')) {
       appRootPath = arg.substring('--app-root='.length);
+    } else if (arg.startsWith('--platform=')) {
+      platforms.addAll(arg
+          .substring('--platform='.length)
+          .split(',')
+          .map((e) => e.trim().toLowerCase())
+          .where((e) => e.isNotEmpty));
     } else {
       if (!arg.startsWith('-')) {
-        platform = arg.toLowerCase();
+        platforms.addAll(arg
+            .split(',')
+            .map((e) => e.trim().toLowerCase())
+            .where((e) => e.isNotEmpty));
       }
     }
   }
@@ -50,9 +97,20 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
+  // Auto-detect Supported Platforms
+  if (platforms.isEmpty) {
+    if (verbose) print('FFmpegKit: Auto-detecting supported platforms...');
+    for (final pform in supportedPlatforms) {
+      if (Directory(p.join(projectRoot.path, pform)).existsSync()) {
+        platforms.add(pform);
+      }
+    }
+  }
+
   if (verbose) {
     print('FFmpegKit: Project Root -> ${projectRoot.path}');
-    print('FFmpegKit: Platform -> $platform');
+    print('FFmpegKit: Platforms -> ${platforms.join(', ')}');
+    if (debug) print('FFmpegKit: Mode -> DEBUG (Fetching remote bundles)');
   }
 
   // Load Pubspec Configuration
@@ -79,33 +137,45 @@ Future<void> main(List<String> args) async {
     exit(1);
   }
 
-  // Platform Detection / Validation
-  if (platform == null) {
-    _logError('No platform specified. Usage: configure <platform> [options]');
+  // Platform Validation
+  if (platforms.isEmpty) {
+    _logError(
+        'No platform specified and none detected. Usage: configure <platform1,platform2> [options]');
     exit(1);
   }
 
-  final supportedPlatforms = ['windows', 'linux', 'macos', 'android', 'ios'];
-  if (!supportedPlatforms.contains(platform)) {
-    _logError('Unsupported platform: $platform');
-    exit(1);
+  for (final platform in platforms) {
+    if (!supportedPlatforms.contains(platform)) {
+      _logError('Unsupported platform: $platform');
+      exit(1);
+    }
   }
 
   // Execute Configuration
   try {
-    final binaryPath =
-        await _configurePlatform(config, platform, projectRoot, verbose);
-    if (binaryPath != null) {
-      // Success output for CMake/Scripts to verify
-      print('FFMPEG_KIT_PATH=$binaryPath');
-
-      if (generateBindings) {
-        await _runFfigen(projectRoot, verbose);
+    final Map<String, String> configuredPaths = {};
+    for (final platform in platforms) {
+      if (verbose) print('FFmpegKit: Configuring for $platform...');
+      final binaryPath = await _configurePlatform(
+          config, platform, projectRoot, verbose, debug);
+      if (binaryPath != null) {
+        configuredPaths[platform] = binaryPath;
+        // Success output for CMake/Scripts to verify (Legacy support)
+        print('FFMPEG_KIT_PATH_$platform=$binaryPath');
+      } else {
+        _logError('Configuration failed for $platform');
+        exit(1);
       }
-      exit(0);
-    } else {
-      exit(1);
     }
+
+    if (configuredPaths.isNotEmpty) {
+      await _writeCmakeConfig(projectRoot, configuredPaths, verbose);
+    }
+
+    if (generateBindings) {
+      await _runFfigen(projectRoot, verbose);
+    }
+    exit(0);
   } catch (e) {
     _logError('Configuration failed: $e');
     exit(1);
@@ -117,7 +187,7 @@ Future<void> main(List<String> args) async {
 // =============================================================================
 
 Future<String?> _configurePlatform(dynamic config, String platform,
-    Directory projectRoot, bool verbose) async {
+    Directory projectRoot, bool verbose, bool debug) async {
   // Parse Config values
   final version = config['version']?.toString() ?? "1.0.0";
   final type = config['type']?.toString() ?? "full";
@@ -144,20 +214,26 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       final hostArch = res.stdout.toString().trim();
       if (hostArch == 'aarch64') arch = 'arm64';
     } catch (_) {}
-  } else if (platform == 'macos') {
-    // Universal binary usually provided or we pick one.
-    // For simplicity assuming x86_64 or universal.
-    // Actually our builders might provide specific archs.
-    // Let's assume standard 'x86_64' for now or 'universal' if available.
-    // If bundles are separate, we might need to download both and lipo?
-    // For this example, let's stick to simple single-arch logic or the provided pattern.
   }
 
   // Filename Construction
   String filename;
   String url;
 
-  if (overrideUrl != null) {
+  if (debug) {
+    // Debug mode: ignore small/type, ignore local override, fetch specific remote bundle
+    final parts = [
+      'bundle',
+      'base',
+      platform,
+      arch,
+      'shared',
+      gpl ? 'gpl' : 'lgpl'
+    ];
+    filename = "${parts.join('-')}.zip";
+    final tag = "v$version-$platform";
+    url = "$_baseUrlTemplate/$tag/$filename";
+  } else if (overrideUrl != null) {
     if (overrideUrl.startsWith('http')) {
       url = overrideUrl;
       filename = p.basename(Uri.parse(url).path);
@@ -308,6 +384,32 @@ Future<void> _copyDirectory(Directory source, Directory destination) async {
       await entity.copy(p.join(destination.path, p.basename(entity.path)));
     }
   }
+}
+
+/// Writes a `config.cmake` file for CMake consumption.
+Future<void> _writeCmakeConfig(Directory projectRoot,
+    Map<String, String> configuredPaths, bool verbose) async {
+  final configDir = Directory(
+      p.join(projectRoot.path, '.dart_tool', 'ffmpeg_kit_extended_flutter'));
+  if (!configDir.existsSync()) {
+    configDir.createSync(recursive: true);
+  }
+
+  final configFile = File(p.join(configDir.path, 'config.cmake'));
+  final buffer = StringBuffer();
+  buffer.writeln('# Generated by ffmpeg-kit-extended configure.dart');
+  buffer.writeln('# DO NOT EDIT MANUALLY');
+  buffer.writeln();
+
+  configuredPaths.forEach((platform, path) {
+    // Normalize path for CMake
+    final cmakePath = path.replaceAll('\\', '/');
+    buffer.writeln(
+        'set(FFMPEG_KIT_PATH_${platform.toUpperCase()} "$cmakePath" CACHE INTERNAL "")');
+  });
+
+  configFile.writeAsStringSync(buffer.toString());
+  if (verbose) print('FFmpegKit: Generated CMake config at ${configFile.path}');
 }
 
 // =============================================================================

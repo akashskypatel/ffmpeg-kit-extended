@@ -19,7 +19,6 @@
 
 import 'dart:async';
 import 'dart:ffi';
-import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
@@ -184,15 +183,15 @@ class FFprobeSession extends Session {
 
   /// Convenience method to create a [MediaInformationSession] for the given [path].
   static MediaInformationSession createMediaInformationSession(String path) =>
-      MediaInformationSession.fromFile(File(path));
+      MediaInformationSession.fromPath(path);
 
   /// Convenience method to create a [MediaInformationSession] for the given [path] asynchronously.
   static MediaInformationSession createMediaInformationSessionAsync(
     String path, {
     FFprobeSessionCompleteCallback? onComplete,
   }) {
-    final session = MediaInformationSession.fromFile(File(path),
-        completeCallback: onComplete);
+    final session =
+        MediaInformationSession.fromPath(path, completeCallback: onComplete);
     return session;
   }
 

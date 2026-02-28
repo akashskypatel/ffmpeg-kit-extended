@@ -107,6 +107,53 @@ class MediaInformationSession extends FFprobeSession {
     }
   }
 
+  static bool _isUri(String path) {
+    try {
+      Uri.parse(path);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  static bool _isFile(String path) {
+    try {
+      File(path);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Creates a new [MediaInformationSession] for the given [path].
+  ///
+  /// - [path]: The media source path.
+  /// - [completeCallback]: Optional callback invoked when information retrieval ends.
+  /// - [timeout]: Connection timeout in milliseconds.
+  static MediaInformationSession fromPath(
+    String path, {
+    FFprobeSessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) {
+    try {
+      if (_isFile(path)) {
+        MediaInformationSession.fromFile(File(path),
+            completeCallback: completeCallback, timeout: timeout);
+      } else if (_isUri(path)) {
+        MediaInformationSession.fromUri(Uri.parse(path),
+            completeCallback: completeCallback, timeout: timeout);
+      } else {
+        MediaInformationSession.fromPath(path,
+            completeCallback: completeCallback, timeout: timeout);
+      }
+    } catch (e) {
+      throw FormatException(
+          "Failed to create media information session. Invalid path: $path");
+    }
+    throw FormatException(
+        "Failed to create media information session. Invalid path: $path");
+  }
+
   /// Creates a new [MediaInformationSession] for the given [file].
   ///
   /// - [file]: The media source file.
@@ -120,6 +167,38 @@ class MediaInformationSession extends FFprobeSession {
     this._timeout = timeout;
 
     final finalCommand = "$_defaultCommand ${file.path}";
+    this.command = finalCommand;
+
+    final cmdPtr = finalCommand.toNativeUtf8();
+    try {
+      this.handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      this.registerFinalizer();
+    } finally {
+      calloc.free(cmdPtr);
+    }
+
+    if (completeCallback != null) {
+      this._completeCallback = completeCallback;
+      final int callbackId = CallbackManager().nextCallbackId++;
+      CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
+      CallbackManager().ffprobeSessions[sessionId] = this;
+    }
+  }
+
+  /// Creates a new [MediaInformationSession] for the given [uri].
+  ///
+  /// - [uri]: The media source uri.
+  /// - [completeCallback]: Optional callback invoked when information retrieval ends.
+  /// - [timeout]: Connection timeout in milliseconds.
+  MediaInformationSession.fromUri(
+    Uri uri, {
+    FFprobeSessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) : super.internal() {
+    this._timeout = timeout;
+
+    final finalCommand = "$_defaultCommand ${uri.toString()}";
     this.command = finalCommand;
 
     final cmdPtr = finalCommand.toNativeUtf8();

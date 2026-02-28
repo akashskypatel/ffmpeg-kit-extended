@@ -114,7 +114,7 @@ DynamicLibrary _loadLibrary() {
     } else {
       print('DEBUG: pathFile does not exist');
     }
-    throw e;
+    throw Exception(e);
   }
 }
 

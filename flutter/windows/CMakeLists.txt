@@ -38,17 +38,17 @@ function(run_configure)
       message(WARNING "Error: ${configure_error}")
       message(FATAL_ERROR "FFmpegKit: Failed to configure binaries. Please check your pubspec.yaml configuration.")
   else()
-      # Parse FFMPEG_KIT_PATH from output
-      string(REGEX MATCH "FFMPEG_KIT_PATH=([^\r\n]+)" MATCHED "${configure_output}")
-      if(MATCHED)
-          set(FFMPEG_KIT_PATH_FOUND ${CMAKE_MATCH_1})
-          string(STRIP "${FFMPEG_KIT_PATH_FOUND}" FFMPEG_KIT_PATH_FOUND)
-          
-          # Export to parent scope
-          set(FFMPEG_KIT_PATH "${FFMPEG_KIT_PATH_FOUND}" PARENT_SCOPE)
-          message(STATUS "FFmpegKit: Configured at ${FFMPEG_KIT_PATH_FOUND}")
+      # Load generated config
+      set(CONFIG_FILE "${APP_ROOT}/.dart_tool/ffmpeg_kit_extended_flutter/config.cmake")
+      if(EXISTS "${CONFIG_FILE}")
+          include("${CONFIG_FILE}")
+      endif()
+
+      if(DEFINED FFMPEG_KIT_PATH_WINDOWS)
+          set(FFMPEG_KIT_PATH "${FFMPEG_KIT_PATH_WINDOWS}" PARENT_SCOPE)
+          message(STATUS "FFmpegKit: Configured at ${FFMPEG_KIT_PATH_WINDOWS}")
       else()
-          message(WARNING "FFmpegKit: configure.dart did not output path.")
+          message(WARNING "FFmpegKit: config.cmake missing FFMPEG_KIT_PATH_WINDOWS.")
           message(WARNING "Output: ${configure_output}")
       endif()
   endif()
