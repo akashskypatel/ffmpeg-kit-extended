@@ -241,8 +241,9 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       // Local path override - just return it directly if valid
       final localFile = File(overrideUrl);
       if (localFile.existsSync()) {
-        if (verbose)
+        if (verbose) {
           print('FFmpegKit: Using local override -> ${localFile.path}');
+        }
         // If it's a zip, extract it to cache. If it's a folder, use it.
         if (FileSystemEntity.isDirectorySync(localFile.path)) {
           final finalDir = Directory(localFile.path);
@@ -361,8 +362,9 @@ Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
 
   final sourceIncludeDir = Directory(p.join(finalDir.path, 'include'));
   if (sourceIncludeDir.existsSync()) {
-    if (verbose)
+    if (verbose) {
       print('FFmpegKit: Updating generic include path for ffigen...');
+    }
     await _copyDirectory(sourceIncludeDir, fixedIncludeDir);
   } else {
     // If we can't find 'include' directly, maybe it's nested?

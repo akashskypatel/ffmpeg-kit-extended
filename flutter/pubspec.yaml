@@ -3,7 +3,7 @@ description: FFmpeg Kit Extended for Flutter. Supports Windows and Linux.
 repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
-version: 0.1.0
+version: 0.1.1
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -15,17 +15,18 @@ executables:
 flutter:
   plugin:
     platforms:
-      android:
-        package: com.akashskypatel.ffmpegkitextended.flutter
-        pluginClass: FfmpegKitExtendedFlutterPlugin
-      ios:
-        pluginClass: FfmpegKitExtendedFlutterPlugin
-      macos:
-        pluginClass: FfmpegKitExtendedFlutterPlugin
       linux:
         pluginClass: FfmpegKitExtendedFlutterPlugin
       windows:
         pluginClass: FfmpegKitExtendedFlutterPlugin
+      # android:
+      #   package: com.akashskypatel.ffmpegkitextended.flutter
+      #   pluginClass: FfmpegKitExtendedFlutterPlugin
+      # ios:
+      #   pluginClass: FfmpegKitExtendedFlutterPlugin
+      # macos:
+      #   pluginClass: FfmpegKitExtendedFlutterPlugin
+      
 
 dependencies:
   ffi: ^2.2.0
