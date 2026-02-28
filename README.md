@@ -186,37 +186,37 @@ Callbacks can be set globally or per-session.
 
 ## Documentation
 
-Comprehensive guides are available in the `flutter/docs/` directory:
+Comprehensive guides are available in the `flutter/doc/` directory:
 
 ### Getting Started
 
-- [Installation Guide](flutter/docs/installation.md) - Detailed setup instructions *(Coming soon)*
-- [Quick Start Guide](flutter/docs/quick-start.md) - Get up and running quickly
-- [Core Concepts](flutter/docs/core-concepts.md) - Understanding sessions, callbacks, and execution modes
+- [Installation Guide](flutter/doc/installation.md) - Detailed setup instructions *(Coming soon)*
+- [Quick Start Guide](flutter/doc/quick-start.md) - Get up and running quickly
+- [Core Concepts](flutter/doc/core-concepts.md) - Understanding sessions, callbacks, and execution modes
 
 ### API Reference
 
-- [FFmpegKit API](flutter/docs/api/ffmpeg-kit.md) - Video and audio processing
-- [FFprobeKit API](flutter/docs/api/ffprobe-kit.md) - Media information extraction
-- [FFplayKit API](flutter/docs/api/ffplay-kit.md) - Media playback
-- [FFmpegKitConfig API](flutter/docs/api/config.md) - Global configuration *(Coming soon)*
-- [Session API](flutter/docs/api/sessions.md) - Session management and control *(Coming soon)*
-- [Data Models](flutter/docs/api/data-models.md) - MediaInformation, Log, Statistics, etc. *(Coming soon)*
+- [FFmpegKit API](flutter/doc/api/ffmpeg-kit.md) - Video and audio processing
+- [FFprobeKit API](flutter/doc/api/ffprobe-kit.md) - Media information extraction
+- [FFplayKit API](flutter/doc/api/ffplay-kit.md) - Media playback
+- [FFmpegKitConfig API](flutter/doc/api/config.md) - Global configuration *(Coming soon)*
+- [Session API](flutter/doc/api/sessions.md) - Session management and control *(Coming soon)*
+- [Data Models](flutter/doc/api/data-models.md) - MediaInformation, Log, Statistics, etc. *(Coming soon)*
 
 ### Guides
 
-- [Video Processing](flutter/docs/guides/video-processing.md) - Common video operations *(Coming soon)*
-- [Audio Processing](flutter/docs/guides/audio-processing.md) - Audio conversion and manipulation *(Coming soon)*
-- [Media Information](flutter/docs/guides/media-information.md) - Extracting and using media metadata *(Coming soon)*
-- [Playback Control](flutter/docs/guides/playback-control.md) - Using FFplay for media playback *(Coming soon)*
-- [Callbacks and Monitoring](flutter/docs/guides/callbacks.md) - Real-time progress tracking
-- [Error Handling](flutter/docs/guides/error-handling.md) - Handling failures and edge cases *(Coming soon)*
-- [Advanced Usage](flutter/docs/guides/advanced.md) - Pipes, fonts, environment variables *(Coming soon)*
+- [Video Processing](flutter/doc/guides/video-processing.md) - Common video operations *(Coming soon)*
+- [Audio Processing](flutter/doc/guides/audio-processing.md) - Audio conversion and manipulation *(Coming soon)*
+- [Media Information](flutter/doc/guides/media-information.md) - Extracting and using media metadata *(Coming soon)*
+- [Playback Control](flutter/doc/guides/playback-control.md) - Using FFplay for media playback *(Coming soon)*
+- [Callbacks and Monitoring](flutter/doc/guides/callbacks.md) - Real-time progress tracking
+- [Error Handling](flutter/doc/guides/error-handling.md) - Handling failures and edge cases *(Coming soon)*
+- [Advanced Usage](flutter/doc/guides/advanced.md) - Pipes, fonts, environment variables *(Coming soon)*
 
 ### Examples
 
-- [Common Use Cases](flutter/docs/examples/common-use-cases.md) - Practical examples
-- [Complete Applications](flutter/docs/examples/complete-apps.md) - Full app examples
+- [Common Use Cases](flutter/doc/examples/common-use-cases.md) - Practical examples
+- [Complete Applications](flutter/doc/examples/complete-apps.md) - Full app examples
 
 ## Examples
 

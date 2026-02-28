@@ -4,6 +4,6 @@ body:
   - type: markdown
     attributes:
       value: |
-        - **Documentation:** Check our [Quick Start](https://github.com/akashskypatel/ffmpeg-kit-extended/blob/main/flutter/docs/quick-start.md) guide.
+        - **Documentation:** Check our [Quick Start](https://github.com/akashskypatel/ffmpeg-kit-extended/blob/main/flutter/doc/quick-start.md) guide.
         - **Search:** Use the GitHub search bar to see if your question has already been answered.
         - **Discussions:** Use [GitHub Discussions](https://github.com/akashskypatel/ffmpeg-kit-extended/discussions) for general questions.
