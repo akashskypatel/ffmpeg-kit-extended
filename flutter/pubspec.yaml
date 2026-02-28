@@ -4,7 +4,6 @@ repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
 version: 0.1.0
-publish_to: none
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
