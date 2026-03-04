@@ -1,3 +1,22 @@
+/*
+ * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
+ * Copyright (C) 2026 Akash Patel
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
 // This is a comprehensive Flutter integration test for ffmpeg_kit_extended.
 //
 // Since integration tests run in a full Flutter application, they can interact
@@ -8,6 +27,7 @@
 
 // ignore_for_file: avoid_print
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -45,7 +65,7 @@ void main() {
     }
 
     if (!File(videoPath).existsSync()) {
-      print("Creating test video at: $videoPath");
+      if (kDebugMode) print("Creating test video at: $videoPath");
       FFmpegKit.execute("$dummyVideoCommand -y $videoPath");
       await SessionQueueManager().waitForAll();
       expect(File(videoPath).existsSync(), isTrue);
@@ -62,7 +82,7 @@ void main() {
     }
 
     if (!File(audioPath).existsSync()) {
-      print("Creating test audio at: $audioPath");
+      if (kDebugMode) print("Creating test audio at: $audioPath");
       FFmpegKit.execute("$dummyAudioCommand -y $audioPath");
       await SessionQueueManager().waitForAll();
       expect(File(audioPath).existsSync(), isTrue);
@@ -92,28 +112,28 @@ void main() {
   group('FFmpegKitConfig Tests', () {
     testWidgets('Get FFmpeg Version', (WidgetTester tester) async {
       final version = FFmpegKitConfig.getFFmpegVersion();
-      print("FFmpeg Version: $version");
+      if (kDebugMode) print("FFmpeg Version: $version");
       expect(version, isNotNull);
       expect(version, isNotEmpty);
     });
 
     testWidgets('Get Package Name', (WidgetTester tester) async {
       final packageName = FFmpegKitConfig.getPackageName();
-      print("Package Name: $packageName");
+      if (kDebugMode) print("Package Name: $packageName");
       expect(packageName, isNotNull);
       expect(packageName, isNotEmpty);
     });
 
     testWidgets('Get FFmpegKit Version', (WidgetTester tester) async {
       final version = FFmpegKitConfig.getVersion();
-      print("FFmpegKit Version: $version");
+      if (kDebugMode) print("FFmpegKit Version: $version");
       expect(version, isNotNull);
       expect(version, isNotEmpty);
     });
 
     testWidgets('Get Build Date', (WidgetTester tester) async {
       final buildDate = FFmpegKitConfig.getBuildDate();
-      print("Build Date: $buildDate");
+      if (kDebugMode) print("Build Date: $buildDate");
       expect(buildDate, isNotNull);
       expect(buildDate, isNotEmpty);
     });
@@ -140,7 +160,7 @@ void main() {
     testWidgets('Parse Arguments', (WidgetTester tester) async {
       final args = FFmpegKitConfig.parseArguments(
           "-i input.mp4 -c:v libx264 output.mp4");
-      print("Parsed Arguments: $args");
+      if (kDebugMode) print("Parsed Arguments: $args");
       expect(args, isNotNull);
       expect(args.length, greaterThan(0));
       expect(args, contains("-i"));
@@ -150,7 +170,7 @@ void main() {
     testWidgets('Arguments To String', (WidgetTester tester) async {
       final args = ["-i", "input.mp4", "-c:v", "libx264", "output.mp4"];
       final command = FFmpegKitConfig.argumentsToString(args);
-      print("Command String: $command");
+      if (kDebugMode) print("Command String: $command");
       expect(command, isNotNull);
       expect(command, contains("-i"));
       expect(command, contains("input.mp4"));
@@ -159,7 +179,7 @@ void main() {
     testWidgets('Log Level To String', (WidgetTester tester) async {
       final quietStr = FFmpegKitConfig.logLevelToString(LogLevel.quiet);
       final infoStr = FFmpegKitConfig.logLevelToString(LogLevel.info);
-      print("Quiet: $quietStr, Info: $infoStr");
+      if (kDebugMode) print("Quiet: $quietStr, Info: $infoStr");
       expect(quietStr, isNotNull);
       expect(infoStr, isNotNull);
     });
@@ -171,7 +191,7 @@ void main() {
           FFmpegKitConfig.sessionStateToString(SessionState.running);
       final completedStr =
           FFmpegKitConfig.sessionStateToString(SessionState.completed);
-      print("States: $createdStr, $runningStr, $completedStr");
+      if (kDebugMode) print("States: $createdStr, $runningStr, $completedStr");
       expect(createdStr, isNotNull);
       expect(runningStr, isNotNull);
       expect(completedStr, isNotNull);
@@ -198,11 +218,11 @@ void main() {
       session.enableDebugLog();
       session.execute();
       await SessionQueueManager().waitForAll();
-      print("Session ID: ${session.sessionId}");
-      print("Debug enabled: ${session.isDebugLogEnabled()}");
-      print("Return Code: ${session.getReturnCode()}");
-      print("State: ${session.getState()}");
-      print("Logs length: ${session.getDebugLog().length}");
+      if (kDebugMode) print("Session ID: ${session.sessionId}");
+      if (kDebugMode) print("Debug enabled: ${session.isDebugLogEnabled()}");
+      if (kDebugMode) print("Return Code: ${session.getReturnCode()}");
+      if (kDebugMode) print("State: ${session.getState()}");
+      if (kDebugMode) print("Logs length: ${session.getDebugLog().length}");
 
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
@@ -213,30 +233,32 @@ void main() {
       expect(session.isDebugLogEnabled(), isFalse);
       session.clearDebugLog();
       expect(session.getDebugLog().length, 0);
-      print(session.getDebugLog());
+      if (kDebugMode) print(session.getDebugLog());
     });
 
     testWidgets('Execute Async - Version Command', (WidgetTester tester) async {
       final completer = Completer<FFmpegSession>();
 
       FFmpegKit.executeAsync('-version', onComplete: (session) {
-        print("Async execution completed for Session: ${session.sessionId}");
+        if (kDebugMode) {
+          print("Async execution completed for Session: ${session.sessionId}");
+        }
         completer.complete(session);
       });
 
       final session = await completer.future;
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Create Session Without Execution',
         (WidgetTester tester) async {
       final session = FFmpegKit.createSession("-version");
-      print("Created Session ID: ${session.sessionId}");
+      if (kDebugMode) print("Created Session ID: ${session.sessionId}");
       expect(session.getState(), SessionState.created);
       expect(session.getCommand(), contains("-version"));
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Session History Management', (WidgetTester tester) async {
@@ -245,19 +267,19 @@ void main() {
       // Create multiple sessions
       for (int i = 0; i < 3; i++) {
         final s = FFmpegKit.execute("-version");
-        print("History Session ID: ${s.sessionId}");
-        print(s.getOutput());
+        if (kDebugMode) print("History Session ID: ${s.sessionId}");
+        if (kDebugMode) print(s.getOutput());
       }
       await SessionQueueManager().waitForAll();
 
       final sessions = FFmpegKit.getFFmpegSessions();
-      print("Sessions count: ${sessions.length}");
+      if (kDebugMode) print("Sessions count: ${sessions.length}");
       expect(sessions.length, greaterThanOrEqualTo(3));
 
       final lastSession = FFmpegKit.getLastFFmpegSession();
-      print("Last Session ID: ${lastSession?.sessionId}");
+      if (kDebugMode) print("Last Session ID: ${lastSession?.sessionId}");
       expect(lastSession, isNotNull);
-      print(lastSession?.getOutput());
+      if (kDebugMode) print(lastSession?.getOutput());
     });
 
     testWidgets('Session Cancel', (WidgetTester tester) async {
@@ -275,26 +297,30 @@ void main() {
       // Session should be cancelled or completed
       expect(session.getState(),
           isIn([SessionState.completed, SessionState.failed]));
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Session Output and Logs', (WidgetTester tester) async {
       final session = FFmpegKit.execute("-version");
       await SessionQueueManager().waitForAll();
-      print("Test 6 Session ID: ${session.sessionId}");
+      if (kDebugMode) print("Test 6 Session ID: ${session.sessionId}");
 
       final output = session.getOutput();
       final logs = session.getLogs();
 
-      print("Output length: ${output?.length}");
-      print("Logs length: ${logs?.length}");
+      if (kDebugMode) print("Output length: ${output?.length}");
+      if (kDebugMode) print("Logs length: ${logs?.length}");
       if ((output?.length ?? 0) > 0) {
-        print(
-            "Output sample: ${output!.substring(0, output.length > 100 ? 100 : output.length)}");
+        if (kDebugMode) {
+          print(
+              "Output sample: ${output!.substring(0, output.length > 100 ? 100 : output.length)}");
+        }
       }
       if ((logs?.length ?? 0) > 0) {
-        print(
-            "Logs sample: ${logs!.substring(0, logs.length > 100 ? 100 : logs.length)}");
+        if (kDebugMode) {
+          print(
+              "Logs sample: ${logs!.substring(0, logs.length > 100 ? 100 : logs.length)}");
+        }
       }
 
       expect(output, isNotNull);
@@ -310,14 +336,16 @@ void main() {
       final endTime = session.getEndTime();
       final duration = session.getDuration();
 
-      print(
-          "Create: $createTime, Start: $startTime, End: $endTime, Duration: $duration");
+      if (kDebugMode) {
+        print(
+            "Create: $createTime, Start: $startTime, End: $endTime, Duration: $duration");
+      }
 
       expect(createTime.millisecondsSinceEpoch, greaterThan(0));
       expect(startTime, isNotNull);
       expect(endTime, isNotNull);
       expect(duration, greaterThanOrEqualTo(0));
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Session Log Entries', (WidgetTester tester) async {
@@ -326,16 +354,16 @@ void main() {
       await SessionQueueManager().waitForAll();
 
       final logsCount = session.getLogsCount();
-      print("Logs count: $logsCount");
+      if (kDebugMode) print("Logs count: $logsCount");
 
       if (logsCount > 0) {
         final firstLog = session.getLogAt(0);
         final firstLogLevel = session.getLogLevelAt(0);
-        print("First log: $firstLog");
-        print("First log level: $firstLogLevel");
+        if (kDebugMode) print("First log: $firstLog");
+        if (kDebugMode) print("First log level: $firstLogLevel");
         expect(firstLog, isNotNull);
       }
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Session Type Checks', (WidgetTester tester) async {
@@ -345,7 +373,7 @@ void main() {
       expect(session.isFFplaySession(), isFalse);
       expect(session.isFFprobeSession(), isFalse);
       expect(session.isMediaInformationSession(), isFalse);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Video Transcoding', (WidgetTester tester) async {
@@ -355,10 +383,10 @@ void main() {
           FFmpegKit.execute("-i $videoPath -c:v mpeg4 -q:v 5 -y $outputPath");
       await SessionQueueManager().waitForAll();
 
-      print("Transcoding result: ${session.getReturnCode()}");
+      if (kDebugMode) print("Transcoding result: ${session.getReturnCode()}");
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
       expect(File(outputPath).existsSync(), isTrue);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Callbacks - Log and Statistics', (WidgetTester tester) async {
@@ -387,13 +415,16 @@ void main() {
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
 
       if (logs.isEmpty) {
-        print("Callback Logs were empty. Session Logs: \n${session.getLogs()}");
-        print("Session Output: \n${session.getOutput()}");
+        if (kDebugMode) {
+          print(
+              "Callback Logs were empty. Session Logs: \n${session.getLogs()}");
+        }
+        if (kDebugMode) print("Session Output: \n${session.getOutput()}");
       }
       expect(logs.length, greaterThan(0));
-      print(logs);
+      if (kDebugMode) print(logs);
       expect(stats.length, greaterThan(0));
-      print(stats);
+      if (kDebugMode) print(stats);
     });
   });
 
@@ -410,8 +441,10 @@ void main() {
       await SessionQueueManager().waitForAll();
 
       final output = session.getOutput();
-      print("Sync FFmpeg -version output: \n$output");
-      print("Sync FFmpeg -version logs count: ${session.getLogsCount()}");
+      if (kDebugMode) print("Sync FFmpeg -version output: \n$output");
+      if (kDebugMode) {
+        print("Sync FFmpeg -version logs count: ${session.getLogsCount()}");
+      }
 
       expect(output, isNotNull);
       expect(output,
@@ -429,7 +462,7 @@ void main() {
 
       final session = await completer.future;
       final output = session.getOutput();
-      print("Async FFmpeg -version output: \n$output");
+      if (kDebugMode) print("Async FFmpeg -version output: \n$output");
 
       expect(output, isNotNull);
       expect(output,
@@ -443,9 +476,11 @@ void main() {
       //await SessionQueueManager().waitForAll();
 
       final output = session.getOutput();
-      print(
-          "Sync FFmpeg -h output (partial): \n${output?.substring(0, output.length > 500 ? 500 : output.length)}");
-      print("Sync FFmpeg -h output: \n$output");
+      if (kDebugMode) {
+        print(
+            "Sync FFmpeg -h output (partial): \n${output?.substring(0, output.length > 500 ? 500 : output.length)}");
+      }
+      if (kDebugMode) print("Sync FFmpeg -h output: \n$output");
 
       expect(output, isNotNull);
       // Banner should always be there
@@ -470,7 +505,7 @@ void main() {
       await SessionQueueManager().waitForAll();
 
       final output = session.getOutput();
-      print("Sync FFprobe -version output: \n$output");
+      if (kDebugMode) print("Sync FFprobe -version output: \n$output");
 
       expect(output, isNotNull);
       expect(
@@ -478,7 +513,7 @@ void main() {
           anyOf(contains("ffprobe version"), contains("ffmpeg-kit version"),
               contains("ffmpeg version")));
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
-      print(output);
+      if (kDebugMode) print(output);
     });
   });
 
@@ -494,7 +529,7 @@ void main() {
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
       expect(session.isFFprobeSession(), isTrue);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Execute Async - Version', (WidgetTester tester) async {
@@ -507,30 +542,30 @@ void main() {
       final session = await completer.future;
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Get Media Information - Video', (WidgetTester tester) async {
       final session = FFprobeKit.getMediaInformation(videoPath);
       await SessionQueueManager().waitForAll();
 
-      print("FFprobe result: ${session.getReturnCode()}");
-      print("FFprobe output: ${session.getOutput()}");
+      if (kDebugMode) print("FFprobe result: ${session.getReturnCode()}");
+      if (kDebugMode) print("FFprobe output: ${session.getOutput()}");
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
 
       final mediaInfo = session.getMediaInformation();
       expect(mediaInfo, isNotNull);
 
-      print("Filename: ${mediaInfo!.filename}");
-      print("Format: ${mediaInfo.format}");
-      print("Duration: ${mediaInfo.duration}");
-      print("Streams: ${mediaInfo.streams.length}");
+      if (kDebugMode) print("Filename: ${mediaInfo!.filename}");
+      if (kDebugMode) print("Format: ${mediaInfo!.format}");
+      if (kDebugMode) print("Duration: ${mediaInfo!.duration}");
+      if (kDebugMode) print("Streams: ${mediaInfo!.streams.length}");
 
-      expect(mediaInfo.filename, isNotNull);
+      expect(mediaInfo!.filename, isNotNull);
       expect(mediaInfo.format, isNotNull);
       expect(mediaInfo.streams.length, greaterThan(0));
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Get Media Information Async', (WidgetTester tester) async {
@@ -541,20 +576,24 @@ void main() {
       });
 
       final session = await completer.future;
-      print("Return Code: ${session.getReturnCode()}");
+      if (kDebugMode) print("Return Code: ${session.getReturnCode()}");
       // Add more detailed check or print
       if (!ReturnCode.isSuccess(session.getReturnCode())) {
-        print("FFprobe failed with return code: ${session.getReturnCode()}");
-        print("FFprobe Logs: \n${session.getLogs()}");
-        print("FFprobe Output: \n${session.getOutput()}");
-        print("FFprobe StackTrace: \n${session.getFailStackTrace()}");
+        if (kDebugMode) {
+          print("FFprobe failed with return code: ${session.getReturnCode()}");
+        }
+        if (kDebugMode) print("FFprobe Logs: \n${session.getLogs()}");
+        if (kDebugMode) print("FFprobe Output: \n${session.getOutput()}");
+        if (kDebugMode) {
+          print("FFprobe StackTrace: \n${session.getFailStackTrace()}");
+        }
       }
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
 
       final mediaInfo = session.getMediaInformation();
       expect(mediaInfo, isNotNull);
-      print("Audio format: ${mediaInfo!.format}");
-      print("Audio streams: ${mediaInfo.streams.length}");
+      if (kDebugMode) print("Audio format: ${mediaInfo!.format}");
+      if (kDebugMode) print("Audio streams: ${mediaInfo!.streams.length}");
     });
 
     testWidgets('Stream Information Details', (WidgetTester tester) async {
@@ -566,14 +605,14 @@ void main() {
       expect(mediaInfo!.streams.length, greaterThan(0));
 
       final stream = mediaInfo.streams.first;
-      print("Stream type: ${stream.type}");
-      print("Stream codec: ${stream.codec}");
-      print("Stream width: ${stream.width}");
-      print("Stream height: ${stream.height}");
+      if (kDebugMode) print("Stream type: ${stream.type}");
+      if (kDebugMode) print("Stream codec: ${stream.codec}");
+      if (kDebugMode) print("Stream width: ${stream.width}");
+      if (kDebugMode) print("Stream height: ${stream.height}");
 
       expect(stream.type, isNotNull);
       expect(stream.codec, isNotNull);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Create Session Without Execution',
@@ -589,7 +628,7 @@ void main() {
 
       final sessions = FFprobeKit.getFFprobeSessions();
       for (var session in sessions) {
-        print(session.getOutput());
+        if (kDebugMode) print(session.getOutput());
       }
       expect(sessions.length, greaterThanOrEqualTo(2));
     });
@@ -601,7 +640,7 @@ void main() {
       expect(session.isFFplaySession(), isFalse);
       expect(session.isFFprobeSession(), isTrue);
       expect(session.isMediaInformationSession(), isFalse);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
   });
 
@@ -619,7 +658,7 @@ void main() {
       expect(session.isFFplaySession(), isFalse);
       expect(session.isFFprobeSession(), isFalse);
       expect(session.isMediaInformationSession(), isTrue);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Media Information Properties', (WidgetTester tester) async {
@@ -630,21 +669,21 @@ void main() {
       expect(mediaInfo, isNotNull);
 
       // Test all properties
-      print("Filename: ${mediaInfo!.filename}");
-      print("Format: ${mediaInfo.format}");
-      print("Long Format: ${mediaInfo.longFormat}");
-      print("Duration: ${mediaInfo.duration}");
-      print("Start Time: ${mediaInfo.startTime}");
-      print("Bitrate: ${mediaInfo.bitrate}");
-      print("Size: ${mediaInfo.size}");
+      if (kDebugMode) print("Filename: ${mediaInfo!.filename}");
+      if (kDebugMode) print("Format: ${mediaInfo!.format}");
+      if (kDebugMode) print("Long Format: ${mediaInfo!.longFormat}");
+      if (kDebugMode) print("Duration: ${mediaInfo!.duration}");
+      if (kDebugMode) print("Start Time: ${mediaInfo!.startTime}");
+      if (kDebugMode) print("Bitrate: ${mediaInfo!.bitrate}");
+      if (kDebugMode) print("Size: ${mediaInfo!.size}");
 
       // Test parsed properties
-      final tags = mediaInfo.tags;
+      final tags = mediaInfo!.tags;
       final allProps = mediaInfo.allProperties;
 
-      print("Tags: $tags");
-      print("All Properties keys: ${allProps?.keys}");
-      print(session.getOutput());
+      if (kDebugMode) print("Tags: $tags");
+      if (kDebugMode) print("All Properties keys: ${allProps?.keys}");
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Stream Information Properties', (WidgetTester tester) async {
@@ -654,20 +693,20 @@ void main() {
 
       expect(mediaInfo, isNotNull);
       expect(mediaInfo!.streams.length, greaterThan(0));
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       for (var stream in mediaInfo.streams) {
-        print("\n--- Stream ${stream.index} ---");
-        print("Type: ${stream.type}");
-        print("Codec: ${stream.codec}");
+        if (kDebugMode) print("\n--- Stream ${stream.index} ---");
+        if (kDebugMode) print("Type: ${stream.type}");
+        if (kDebugMode) print("Codec: ${stream.codec}");
 
-        print("Codec Long: ${stream.codecLong}");
-        print("Format: ${stream.format}");
-        print("Width: ${stream.width}");
-        print("Height: ${stream.height}");
-        print("Bitrate: ${stream.bitrate}");
-        print("Sample Rate: ${stream.sampleRate}");
-        print("Channel Layout: ${stream.channelLayout}");
-        print("Frame Rate: ${stream.averageFrameRate}");
+        if (kDebugMode) print("Codec Long: ${stream.codecLong}");
+        if (kDebugMode) print("Format: ${stream.format}");
+        if (kDebugMode) print("Width: ${stream.width}");
+        if (kDebugMode) print("Height: ${stream.height}");
+        if (kDebugMode) print("Bitrate: ${stream.bitrate}");
+        if (kDebugMode) print("Sample Rate: ${stream.sampleRate}");
+        if (kDebugMode) print("Channel Layout: ${stream.channelLayout}");
+        if (kDebugMode) print("Frame Rate: ${stream.averageFrameRate}");
       }
     });
   });
@@ -688,7 +727,7 @@ void main() {
       await wait(1);
 
       expect(session.getState(), SessionState.completed);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
     });
 
     testWidgets('Pause and Resume', (WidgetTester tester) async {
@@ -708,7 +747,7 @@ void main() {
 
       session.stop();
       await wait(1);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       session.close();
     });
 
@@ -720,12 +759,12 @@ void main() {
       await wait(1);
 
       final pos = session.getPosition();
-      print("Position after seek: $pos");
+      if (kDebugMode) print("Position after seek: $pos");
       expect(pos, greaterThanOrEqualTo(2.0));
 
       session.stop();
       await wait(1);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       session.close();
     });
 
@@ -736,14 +775,14 @@ void main() {
       final duration = session.getMediaDuration();
       final position = session.getPosition();
 
-      print("Duration: $duration, Position: $position");
+      if (kDebugMode) print("Duration: $duration, Position: $position");
 
       expect(duration, greaterThan(0));
       expect(position, greaterThanOrEqualTo(0));
 
       session.stop();
       await wait(1);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       session.close();
     });
 
@@ -754,13 +793,13 @@ void main() {
       session.setVolume(0.5);
       final volume = session.getVolume();
 
-      print("Volume: $volume");
+      if (kDebugMode) print("Volume: $volume");
       expect(volume, greaterThanOrEqualTo(0.0));
       expect(volume, lessThanOrEqualTo(1.0));
 
       session.stop();
       await wait(1);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       session.close();
     });
 
@@ -778,7 +817,7 @@ void main() {
 
       FFplayKit.stop();
       await wait(1);
-      print(FFplayKit.getCurrentSession()?.getOutput());
+      if (kDebugMode) print(FFplayKit.getCurrentSession()?.getOutput());
       FFplayKit.close();
     });
 
@@ -799,7 +838,7 @@ void main() {
 
       session2.stop();
       await wait(1);
-      print(session2.getOutput());
+      if (kDebugMode) print(session2.getOutput());
       session2.close();
     });
 
@@ -813,7 +852,7 @@ void main() {
 
       session.stop();
       await wait(1);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       session.close();
     });
 
@@ -827,7 +866,7 @@ void main() {
 
       session.stop();
       await wait(1);
-      print(session.getOutput());
+      if (kDebugMode) print(session.getOutput());
       session.close();
     });
 
@@ -872,7 +911,9 @@ void main() {
       try {
         SessionQueueManager().cancelAll();
       } catch (e) {
-        print("DEBUG: Suppressed error during tearDown cancelAll: $e");
+        if (kDebugMode) {
+          print("DEBUG: Suppressed error during tearDown cancelAll: $e");
+        }
       }
       await SessionQueueManager().waitForAll();
     });
@@ -927,16 +968,18 @@ void main() {
       final output =
           path.join(outputDir, 'cancel_current.mp4').replaceAll(r'\', '/');
 
-      print("DEBUG: Starting Cancel Current session...");
+      if (kDebugMode) print("DEBUG: Starting Cancel Current session...");
       FFmpegKit.executeAsync("-re $dummyVideoCommand -t 10 -y $output",
           onComplete: (s) => completer.complete(s));
 
       await Future.delayed(const Duration(milliseconds: 1000));
-      print(
-          "DEBUG: isBusy=${queueManager.isBusy}, activeSessionCount=${queueManager.activeSessionCount}");
+      if (kDebugMode) {
+        print(
+            "DEBUG: isBusy=${queueManager.isBusy}, activeSessionCount=${queueManager.activeSessionCount}");
+      }
       expect(queueManager.isBusy, isTrue);
 
-      print("DEBUG: Cancelling current...");
+      if (kDebugMode) print("DEBUG: Cancelling current...");
       queueManager.cancelCurrent();
 
       int attempts = 0;
@@ -944,16 +987,20 @@ void main() {
       while (attempts < 5 && !cancelled) {
         final session = await completer.future;
         final rc = session.getReturnCode();
-        print(
-            "DEBUG: Attempt $attempts, Session ID: ${session.sessionId}, RC: $rc");
+        if (kDebugMode) {
+          print(
+              "DEBUG: Attempt $attempts, Session ID: ${session.sessionId}, RC: $rc");
+        }
         if (ReturnCode.isCancel(rc)) {
           cancelled = true;
           break;
         }
 
         if (session.getState() == SessionState.completed) {
-          print(
-              "DEBUG: Session completed before cancel. OK for concurrency check.");
+          if (kDebugMode) {
+            print(
+                "DEBUG: Session completed before cancel. OK for concurrency check.");
+          }
           cancelled = true;
         }
 
@@ -965,8 +1012,10 @@ void main() {
 
       int cleanupAttempts = 0;
       while (cleanupAttempts < 5 && queueManager.isBusy) {
-        print(
-            "DEBUG: Cleanup attempt $cleanupAttempts, isBusy=${queueManager.isBusy}");
+        if (kDebugMode) {
+          print(
+              "DEBUG: Cleanup attempt $cleanupAttempts, isBusy=${queueManager.isBusy}");
+        }
         await Future.delayed(const Duration(milliseconds: 1000));
         cleanupAttempts++;
       }
@@ -979,14 +1028,14 @@ void main() {
       final cancelCompleter = Completer<void>();
 
       // Start one session and queue others
-      print("DEBUG: Starting first session for Clear Queue...");
+      if (kDebugMode) print("DEBUG: Starting first session for Clear Queue...");
       FFmpegKit.executeAsync(
           "-re $dummyVideoCommand -t 5 -y ${path.join(outputDir, 'q1.mp4')}");
 
-      print("DEBUG: Queueing second session...");
+      if (kDebugMode) print("DEBUG: Queueing second session...");
       bool caughtCancelled = false;
       FFmpegKit.executeAsync("-version").catchError((e) {
-        print("DEBUG: Caught expected error: $e");
+        if (kDebugMode) print("DEBUG: Caught expected error: $e");
         if (e is SessionCancelledException) {
           caughtCancelled = true;
           cancelCompleter.complete();
@@ -995,16 +1044,16 @@ void main() {
       });
 
       await Future.delayed(const Duration(milliseconds: 1000));
-      print("DEBUG: queueLength=${queueManager.queueLength}");
+      if (kDebugMode) print("DEBUG: queueLength=${queueManager.queueLength}");
       expect(queueManager.queueLength, greaterThan(0));
 
-      print("DEBUG: Clearing queue...");
+      if (kDebugMode) print("DEBUG: Clearing queue...");
       queueManager.clearQueue();
       expect(queueManager.queueLength, 0);
 
       await cancelCompleter.future.timeout(const Duration(seconds: 2),
           onTimeout: () {
-        print("DEBUG: Timeout waiting for cancel exception");
+        if (kDebugMode) print("DEBUG: Timeout waiting for cancel exception");
       });
       expect(caughtCancelled, isTrue);
 
@@ -1016,34 +1065,40 @@ void main() {
       final queueManager = SessionQueueManager();
       queueManager.maxConcurrentSessions = 1;
 
-      print("DEBUG: Starting session 1 for Cancel All...");
+      if (kDebugMode) print("DEBUG: Starting session 1 for Cancel All...");
       FFmpegKit.executeAsync(
           "-re $dummyVideoCommand -t 5 -y ${path.join(outputDir, 'a1.mp4')}");
 
-      print("DEBUG: Queueing session 2 for Cancel All...");
+      if (kDebugMode) print("DEBUG: Queueing session 2 for Cancel All...");
       FFmpegKit.executeAsync("-version").catchError((e) {
-        print("DEBUG: Session 2 caught expected error: $e");
+        if (kDebugMode) print("DEBUG: Session 2 caught expected error: $e");
         return FFmpegSession.create("-version"); // satisfy lint
       });
 
       await Future.delayed(const Duration(milliseconds: 1000));
-      print(
-          "DEBUG: isBusy=${queueManager.isBusy}, queueLength=${queueManager.queueLength}");
+      if (kDebugMode) {
+        print(
+            "DEBUG: isBusy=${queueManager.isBusy}, queueLength=${queueManager.queueLength}");
+      }
       expect(queueManager.isBusy, isTrue);
       expect(queueManager.queueLength, 1);
 
-      print("DEBUG: Cancelling all...");
+      if (kDebugMode) print("DEBUG: Cancelling all...");
       try {
         queueManager.cancelAll();
       } catch (e) {
-        print("DEBUG: Caught expected exception during cancelAll: $e");
+        if (kDebugMode) {
+          print("DEBUG: Caught expected exception during cancelAll: $e");
+        }
       }
       await Future.delayed(const Duration(milliseconds: 3000));
 
       int cleanupAttempts = 0;
       while (cleanupAttempts < 5 && queueManager.isBusy) {
-        print(
-            "DEBUG: Cleanup attempt $cleanupAttempts, isBusy=${queueManager.isBusy}");
+        if (kDebugMode) {
+          print(
+              "DEBUG: Cleanup attempt $cleanupAttempts, isBusy=${queueManager.isBusy}");
+        }
         await Future.delayed(const Duration(milliseconds: 1000));
         cleanupAttempts++;
       }
@@ -1069,7 +1124,7 @@ void main() {
       expect(log.message, "Test message");
       expect(log.logLevel, LogLevel.info);
 
-      print(log.toString());
+      if (kDebugMode) print(log.toString());
     });
 
     testWidgets('Statistics Object', (WidgetTester tester) async {
@@ -1084,7 +1139,7 @@ void main() {
       expect(stats.videoFps, 29.97);
       expect(stats.videoQuality, 23.0);
 
-      print(stats.toString());
+      if (kDebugMode) print(stats.toString());
     });
   });
 
@@ -1094,20 +1149,22 @@ void main() {
       await createDummyAudio();
     });
     testWidgets('Stress Test - Version Strings', (WidgetTester tester) async {
-      print("Starting Version Strings Stress Test...");
+      if (kDebugMode) print("Starting Version Strings Stress Test...");
       // Repeatedly calling a function that returns a string allocated by MinGW
       // and freed by Dart via ffmpeg_kit_free.
       for (int i = 0; i < 500; i++) {
         final version = FFmpegKitConfig.getFFmpegVersion();
         expect(version, isNotNull);
         expect(version, isNotEmpty);
-        if (i % 100 == 0) print("  Iterated $i times...");
+        if (i % 100 == 0) if (kDebugMode) print("  Iterated $i times...");
       }
-      print("Version Strings Stress Test completed successfully.");
+      if (kDebugMode) {
+        print("Version Strings Stress Test completed successfully.");
+      }
     });
 
     testWidgets('Stress Test - Session Lists', (WidgetTester tester) async {
-      print("Starting Session Lists Stress Test...");
+      if (kDebugMode) print("Starting Session Lists Stress Test...");
       // getSessions allocates an array of pointers and then each command string.
       // Both the array and the strings must be freed correctly.
       for (int i = 0; i < 200; i++) {
@@ -1116,13 +1173,15 @@ void main() {
         FFmpegKit.execute("-version");
         final list = FFmpegKitExtended.getSessions();
         expect(list, isNotEmpty);
-        if (i % 50 == 0) print("  Iterated $i times...");
+        if (i % 50 == 0) if (kDebugMode) print("  Iterated $i times...");
       }
-      print("Session Lists Stress Test completed successfully.");
+      if (kDebugMode) {
+        print("Session Lists Stress Test completed successfully.");
+      }
     });
 
     testWidgets('Stress Test - Media Information', (WidgetTester tester) async {
-      print("Starting Media Information Stress Test...");
+      if (kDebugMode) print("Starting Media Information Stress Test...");
       // This is a heavy test because it involves many small string allocations
       // for all media properties, streams, and chapters.
       for (int i = 0; i < 50; i++) {
@@ -1130,13 +1189,15 @@ void main() {
         final mediaInfo = session.getMediaInformation();
         expect(mediaInfo, isNotNull);
         expect(mediaInfo!.filename, isNotNull);
-        if (i % 10 == 0) print("  Iterated $i times...");
+        if (i % 10 == 0) if (kDebugMode) print("  Iterated $i times...");
       }
-      print("Media Information Stress Test completed successfully.");
+      if (kDebugMode) {
+        print("Media Information Stress Test completed successfully.");
+      }
     });
 
     testWidgets('Stress Test - Argument Parsing', (WidgetTester tester) async {
-      print("Starting Argument Parsing Stress Test...");
+      if (kDebugMode) print("Starting Argument Parsing Stress Test...");
       const cmd =
           "-i input.mp4 -c:v libx264 -preset fast -crf 23 -f mp4 output.mp4";
       for (int i = 0; i < 300; i++) {
@@ -1144,9 +1205,11 @@ void main() {
         expect(args.length, greaterThan(5));
         final backToCmd = FFmpegKitConfig.argumentsToString(args);
         expect(backToCmd, contains("-i"));
-        if (i % 100 == 0) print("  Iterated $i times...");
+        if (i % 100 == 0) if (kDebugMode) print("  Iterated $i times...");
       }
-      print("Argument Parsing Stress Test completed successfully.");
+      if (kDebugMode) {
+        print("Argument Parsing Stress Test completed successfully.");
+      }
     });
   });
 
@@ -1159,18 +1222,18 @@ void main() {
 
       // Sessions should be cleared
       final sessions = FFmpegKit.getFFmpegSessions();
-      print("Sessions after clear: ${sessions.length}");
-      print(session1.getOutput());
-      print(session2.getOutput());
+      if (kDebugMode) print("Sessions after clear: ${sessions.length}");
+      if (kDebugMode) print(session1.getOutput());
+      if (kDebugMode) print(session2.getOutput());
     });
 
     testWidgets('Cleanup Test Files', (WidgetTester tester) async {
       if (outputDir.isNotEmpty && Directory(outputDir).existsSync()) {
-        print("Cleaning up test output directory: $outputDir");
+        if (kDebugMode) print("Cleaning up test output directory: $outputDir");
         try {
           await Directory(outputDir).delete(recursive: true);
         } catch (e) {
-          print("Warning: Could not delete test directory: $e");
+          if (kDebugMode) print("Warning: Could not delete test directory: $e");
         }
       }
     });

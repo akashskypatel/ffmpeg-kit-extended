@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -16,6 +16,12 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
+/// ffmpeg_kit_extended_flutter is a comprehensive Flutter plugin for executing
+/// FFmpeg FFprobe, and FFplay commands on Windows, and Linux. It leverages Dart
+/// FFI to interact directly with native FFmpeg libraries, providing high
+/// performance and flexibility.
+library;
 
 export 'src/callback_manager.dart'
     show

@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -16,6 +16,7 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
 import 'ffmpeg_session.dart';
 
 /// Represents encoding/decoding statistics for an active [FFmpegSession].

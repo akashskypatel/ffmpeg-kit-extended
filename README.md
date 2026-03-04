@@ -21,6 +21,16 @@
 - **Extensible**: Designed to allow custom native library loading and configuration.
 - **Deploy Custom Builds**: You can deploy custom builds of ffmpeg-kit-extended. See: <https://github.com/akashskypatel/ffmpeg-kit-builders>
 
+### Platform Support
+
+| Platform | Status         | Architecture         |
+|----------|----------------|----------------------|
+| Android  | 🚧 Planned     |armv7, arm64, x86_64  |
+| iOS      | Not Supported  |                      |
+| macOS    | Not Supported  |                      |
+| Linux    | ✅ Supported   | x86_64               |
+| Windows  | ✅ Supported   | x86_64               |
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -46,7 +56,7 @@
 
     ffmpeg_kit_extended_config:
       version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
-      type: "base" # pre-bundled builds: base, full, audio, video, streaming, video_hw
+      type: "base" # pre-bundled builds: base, full, audio, video, video_hw
       gpl: true # enable to include GPL libraries
       small: true # enable to use smaller builds
       # == OR ==

@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -18,6 +18,7 @@
  */
 
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -54,6 +55,7 @@ class MediaInformationSession extends FFprobeSession {
   }
 
   /// Removes the [completeCallback] for this session.
+  @override
   void removeCompleteCallback() {
     _completeCallback = null;
     CallbackManager().callbackIdToSessionId.remove(sessionId);
@@ -85,22 +87,22 @@ class MediaInformationSession extends FFprobeSession {
     FFprobeSessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) : super.internal() {
-    this._timeout = timeout;
+    _timeout = timeout;
 
     final finalCommand = "$_defaultCommandPrefix $command";
     this.command = finalCommand;
 
     final cmdPtr = finalCommand.toNativeUtf8();
     try {
-      this.handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      this.registerFinalizer();
+      handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
     }
 
     if (completeCallback != null) {
-      this._completeCallback = completeCallback;
+      _completeCallback = completeCallback;
       final int callbackId = CallbackManager().nextCallbackId++;
       CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
       CallbackManager().ffprobeSessions[sessionId] = this;
@@ -164,22 +166,22 @@ class MediaInformationSession extends FFprobeSession {
     FFprobeSessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) : super.internal() {
-    this._timeout = timeout;
+    _timeout = timeout;
 
     final finalCommand = "$_defaultCommand ${file.path}";
-    this.command = finalCommand;
+    command = finalCommand;
 
     final cmdPtr = finalCommand.toNativeUtf8();
     try {
-      this.handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      this.registerFinalizer();
+      handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
     }
 
     if (completeCallback != null) {
-      this._completeCallback = completeCallback;
+      _completeCallback = completeCallback;
       final int callbackId = CallbackManager().nextCallbackId++;
       CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
       CallbackManager().ffprobeSessions[sessionId] = this;
@@ -196,22 +198,22 @@ class MediaInformationSession extends FFprobeSession {
     FFprobeSessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) : super.internal() {
-    this._timeout = timeout;
+    _timeout = timeout;
 
     final finalCommand = "$_defaultCommand ${uri.toString()}";
-    this.command = finalCommand;
+    command = finalCommand;
 
     final cmdPtr = finalCommand.toNativeUtf8();
     try {
-      this.handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      this.registerFinalizer();
+      handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
     }
 
     if (completeCallback != null) {
-      this._completeCallback = completeCallback;
+      _completeCallback = completeCallback;
       final int callbackId = CallbackManager().nextCallbackId++;
       CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
       CallbackManager().ffprobeSessions[sessionId] = this;
@@ -222,8 +224,8 @@ class MediaInformationSession extends FFprobeSession {
   ///
   /// This is used for sessions that are managed by the native layer or retrieved
   /// from the session history.
-  MediaInformationSession.fromHandle(Pointer<Void> handle, String command)
-      : super.fromHandle(handle, command);
+  MediaInformationSession.fromHandle(super.handle, super.command)
+      : super.fromHandle();
 
   /// Facilitates creating a new [MediaInformationSession].
   static MediaInformationSession create(String command,
@@ -263,7 +265,7 @@ class MediaInformationSession extends FFprobeSession {
   Future<MediaInformationSession> executeAsync({
     FFprobeSessionCompleteCallback? completeCallback,
   }) async {
-    if (completeCallback != null) this._completeCallback = completeCallback;
+    if (completeCallback != null) _completeCallback = completeCallback;
 
     // Start execution through queue manager
     await SessionQueueManager().executeSession(
@@ -272,10 +274,10 @@ class MediaInformationSession extends FFprobeSession {
         final sessionCompleter = Completer<void>();
 
         // Store the original callback
-        final originalCallback = this._completeCallback;
+        final originalCallback = _completeCallback;
 
         // Wrap the callback to complete our completer
-        this._completeCallback = (session) {
+        _completeCallback = (session) {
           originalCallback?.call(session);
           if (!sessionCompleter.isCompleted) {
             sessionCompleter.complete();
@@ -290,8 +292,7 @@ class MediaInformationSession extends FFprobeSession {
         try {
           ffmpeg.media_information_session_execute_async(handle, _timeout);
         } catch (e, stack) {
-          print(
-              "MediaInformationSession: Error executing async session: $e\n$stack");
+          log("MediaInformationSession: Error executing async session: $e\n$stack");
           if (!sessionCompleter.isCompleted) sessionCompleter.complete();
           rethrow;
         }
@@ -307,6 +308,7 @@ class MediaInformationSession extends FFprobeSession {
   /// Retrieves the collected [MediaInformation] from the session results.
   ///
   /// Returns null if the information is not yet available or retrieval failed.
+  @override
   MediaInformation? getMediaInformation() {
     final mediaInfoHandle =
         ffmpeg.media_information_session_get_media_information(handle);

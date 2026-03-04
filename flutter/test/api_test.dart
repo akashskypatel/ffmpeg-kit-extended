@@ -1,3 +1,22 @@
+/*
+ * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
+ * Copyright (C) 2026 Akash Patel
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
@@ -6,6 +25,7 @@ import 'package:ffi/ffi.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_flutter_loader.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/generated/ffmpeg_kit_bindings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
 
@@ -103,13 +123,15 @@ void main() {
       bindings = ffmpeg;
       libraryLoaded = true;
     } catch (e) {
-      print('Warning: Failed to load FFmpegKit library: $e');
+      if (kDebugMode) {
+        print('Warning: Failed to load FFmpegKit library: $e');
+      }
     }
   });
 
   void checkLibraryLoaded() {
     if (!libraryLoaded) {
-      print('Native library not loaded');
+      if (kDebugMode) print('Native library not loaded');
       throw Exception('Native library not loaded');
     }
   }
@@ -148,7 +170,9 @@ void main() {
               .ffmpeg_kit_config_enable_media_information_session_complete_callback(
                   nullptr, nullptr);
         } catch (e) {
-          print('Warning: Failed to load FFmpegKit library: $e');
+          if (kDebugMode) {
+            print('Warning: Failed to load FFmpegKit library: $e');
+          }
         }
       }));
 
@@ -235,7 +259,7 @@ void main() {
         expect(version, isNotNull);
         expect(version, isNotEmpty);
 
-        print("FFmpeg Version: $version");
+        if (kDebugMode) print("FFmpeg Version: $version");
 
         // free(version);
         // Ensure library-allocated memory is freed using the library's free function
@@ -266,19 +290,21 @@ void main() {
         if (state != FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED) {
           final returnCode =
               bindings.ffmpeg_kit_session_get_return_code(session);
-          print("Return Code: $returnCode");
+          if (kDebugMode) print("Return Code: $returnCode");
 
           final logsPtr =
               bindings.ffmpeg_kit_session_get_logs_as_string(session);
           if (logsPtr != nullptr) {
-            print("Logs:\n${_fromNative(logsPtr)}");
+            if (kDebugMode) print("Logs:\n${_fromNative(logsPtr)}");
             bindings.ffmpeg_kit_free(logsPtr.cast());
           }
 
           final failStackTracePtr =
               bindings.ffmpeg_kit_session_get_fail_stack_trace(session);
           if (failStackTracePtr != nullptr) {
-            print("Fail Stack Trace:\n${_fromNative(failStackTracePtr)}");
+            if (kDebugMode) {
+              print("Fail Stack Trace:\n${_fromNative(failStackTracePtr)}");
+            }
             bindings.ffmpeg_kit_free(failStackTracePtr.cast());
           }
         }
@@ -319,12 +345,12 @@ void main() {
         if (state != FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED) {
           final returnCode =
               bindings.ffmpeg_kit_session_get_return_code(session);
-          print("Return Code: $returnCode");
+          if (kDebugMode) print("Return Code: $returnCode");
 
           final logsPtr =
               bindings.ffmpeg_kit_session_get_logs_as_string(session);
           if (logsPtr != nullptr) {
-            print("Logs:\n${_fromNative(logsPtr)}");
+            if (kDebugMode) print("Logs:\n${_fromNative(logsPtr)}");
             bindings.ffmpeg_kit_free(logsPtr.cast());
           }
         }
@@ -332,7 +358,7 @@ void main() {
         // char *debugLog = ffmpeg_kit_config_get_debug_log(session);
         final debugLogPtr = bindings.ffmpeg_kit_config_get_debug_log(session);
         expect(debugLogPtr, isNot(nullptr));
-        print("Debug Log:\n${_fromNative(debugLogPtr)}");
+        if (kDebugMode) print("Debug Log:\n${_fromNative(debugLogPtr)}");
         bindings.ffmpeg_kit_free(debugLogPtr.cast());
 
         // ffmpeg_kit_config_disable_debug_log(session);
@@ -373,7 +399,7 @@ void main() {
 
         // int history_size = ffmpeg_kit_get_session_history_size();
         final historySize = bindings.ffmpeg_kit_get_session_history_size();
-        print("History size: $historySize");
+        if (kDebugMode) print("History size: $historySize");
         expect(historySize, equals(10));
 
         // Get initial count to compare later
@@ -415,7 +441,7 @@ void main() {
         // free(sessions);
         bindings.ffmpeg_kit_free(sessionsPtr.cast());
 
-        print("Count: $count, Initial Count: $initialCount");
+        if (kDebugMode) print("Count: $count, Initial Count: $initialCount");
         // EXPECT_GT(count, initial_count);
         expect(count, greaterThan(initialCount));
       });
@@ -447,7 +473,7 @@ void main() {
 
         // EXPECT_TRUE(access(TEST_VIDEO_FILE, F_OK) == 0);
         final fileExists = await File(testVideoFile).exists();
-        print("File exists: $fileExists");
+        if (kDebugMode) print("File exists: $fileExists");
         expect(fileExists, isTrue);
       });
     });
@@ -478,7 +504,7 @@ void main() {
 
         // EXPECT_TRUE(access(TEST_AUDIO_FILE, F_OK) == 0);
         final fileExists = await File(testAudioFile).exists();
-        print("File exists: $fileExists");
+        if (kDebugMode) print("File exists: $fileExists");
         expect(fileExists, isTrue);
       });
     });
@@ -492,7 +518,7 @@ void main() {
         final pathPtr = toNative(getTestVideoFile(), arena);
         final mediaSession =
             bindings.ffprobe_kit_get_media_information(pathPtr);
-        print("Media Session: $mediaSession");
+        if (kDebugMode) print("Media Session: $mediaSession");
         expect(mediaSession, isNot(nullptr));
 
         // FFmpegKitSessionState state = ffmpeg_kit_session_get_state(media_session);
@@ -502,7 +528,7 @@ void main() {
           final logsPtr =
               bindings.ffmpeg_kit_session_get_logs_as_string(mediaSession);
           if (logsPtr != nullptr) {
-            print("Logs:\n${_fromNative(logsPtr)}");
+            if (kDebugMode) print("Logs:\n${_fromNative(logsPtr)}");
             bindings.ffmpeg_kit_free(logsPtr.cast());
           }
         }
@@ -570,20 +596,23 @@ void main() {
 
           final codecLongPtr =
               bindings.stream_information_get_codec_long(stream);
-          if (codecLongPtr != nullptr)
+          if (codecLongPtr != nullptr) {
             bindings.ffmpeg_kit_free(codecLongPtr.cast());
+          }
 
           final formatPtr = bindings.stream_information_get_format(stream);
           if (formatPtr != nullptr) bindings.ffmpeg_kit_free(formatPtr.cast());
 
           final bitrateSPtr = bindings.stream_information_get_bitrate(stream);
-          if (bitrateSPtr != nullptr)
+          if (bitrateSPtr != nullptr) {
             bindings.ffmpeg_kit_free(bitrateSPtr.cast());
+          }
 
           final sampleRatePtr =
               bindings.stream_information_get_sample_rate(stream);
-          if (sampleRatePtr != nullptr)
+          if (sampleRatePtr != nullptr) {
             bindings.ffmpeg_kit_free(sampleRatePtr.cast());
+          }
 
           expect(bindings.stream_information_get_width(stream),
               greaterThanOrEqualTo(0));
@@ -595,8 +624,9 @@ void main() {
 
           final sampleFormatPtr =
               bindings.stream_information_get_sample_format(stream);
-          if (sampleFormatPtr != nullptr)
+          if (sampleFormatPtr != nullptr) {
             bindings.ffmpeg_kit_free(sampleFormatPtr.cast());
+          }
 
           final darPtr =
               bindings.stream_information_get_display_aspect_ratio(stream);
@@ -626,8 +656,9 @@ void main() {
 
           final stringPropPtr = bindings.stream_information_get_string_property(
               stream, toNative("codec_name", arena));
-          if (stringPropPtr != nullptr)
+          if (stringPropPtr != nullptr) {
             bindings.ffmpeg_kit_free(stringPropPtr.cast());
+          }
 
           expect(
               bindings.stream_information_get_number_property(
@@ -636,8 +667,9 @@ void main() {
 
           final allStreamPropsPtr =
               bindings.stream_information_get_all_properties_json(stream);
-          if (allStreamPropsPtr != nullptr)
+          if (allStreamPropsPtr != nullptr) {
             bindings.ffmpeg_kit_free(allStreamPropsPtr.cast());
+          }
 
           bindings.ffmpeg_kit_handle_release(stream);
         }
@@ -652,12 +684,14 @@ void main() {
           expect(bindings.chapter_get_id(chapter), greaterThanOrEqualTo(0));
 
           final startTimePtr = bindings.chapter_get_start_time(chapter);
-          if (startTimePtr != nullptr)
+          if (startTimePtr != nullptr) {
             bindings.ffmpeg_kit_free(startTimePtr.cast());
+          }
 
           final endTimePtr = bindings.chapter_get_end_time(chapter);
-          if (endTimePtr != nullptr)
+          if (endTimePtr != nullptr) {
             bindings.ffmpeg_kit_free(endTimePtr.cast());
+          }
 
           bindings.ffmpeg_kit_handle_release(chapter);
         }
@@ -682,7 +716,7 @@ void main() {
 
         // MediaInformationSessionHandle session = media_information_create_session(command);
         final session = bindings.media_information_create_session(cmd);
-        print("Media Information Session: $session");
+        if (kDebugMode) print("Media Information Session: $session");
         expect(session, isNot(nullptr));
 
         // media_information_session_execute_async(session, 1000);
@@ -693,7 +727,7 @@ void main() {
 
         // EXPECT_EQ(ffmpeg_kit_session_get_state(session), FFMPEG_KIT_SESSION_STATE_COMPLETED);
         final state = bindings.ffmpeg_kit_session_get_state(session);
-        print("Media Information Session State: $state");
+        if (kDebugMode) print("Media Information Session State: $state");
         expect(state,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
         final info =
@@ -703,7 +737,7 @@ void main() {
             bindings.media_information_get_all_properties_json(info);
         expect(allInfoPropsPtr, isNot(nullptr));
         final allInfoProps = _fromNative(allInfoPropsPtr);
-        print("All Info Props: $allInfoProps");
+        if (kDebugMode) print("All Info Props: $allInfoProps");
         bindings.ffmpeg_kit_free(allInfoPropsPtr.cast());
         bindings.ffmpeg_kit_handle_release(info);
         // ffmpeg_kit_handle_release(session);
@@ -729,29 +763,29 @@ void main() {
 
         // FFplaySessionHandle play_session = ffplay_kit_execute(command, 1000);
         final playSession = bindings.ffplay_kit_execute(cmd, 1000);
-        print("FFplay Session: $playSession");
+        if (kDebugMode) print("FFplay Session: $playSession");
         expect(playSession, isNot(nullptr));
 
         // FFmpegKitSessionState state = ffmpeg_kit_session_get_state(play_session);
         final state = bindings.ffmpeg_kit_session_get_state(playSession);
 
         if (state != FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED) {
-          print("FFplay Session failed with state: $state");
+          if (kDebugMode) print("FFplay Session failed with state: $state");
           final logsPtr =
               bindings.ffmpeg_kit_session_get_logs_as_string(playSession);
           if (logsPtr != nullptr) {
-            print("Logs:\n${_fromNative(logsPtr)}");
+            if (kDebugMode) print("Logs:\n${_fromNative(logsPtr)}");
             bindings.ffmpeg_kit_free(logsPtr.cast());
           }
         }
 
-        print("State: $state");
+        if (kDebugMode) print("State: $state");
         expect(state,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
 
         final returnCode =
             bindings.ffmpeg_kit_session_get_return_code(playSession);
-        print("Return Code: $returnCode");
+        if (kDebugMode) print("Return Code: $returnCode");
         expect(returnCode, equals(0));
 
         // Cleanup
@@ -779,7 +813,7 @@ void main() {
         // FFplaySessionHandle session = ffplay_kit_execute_async(command, nullptr, nullptr, 1000);
         final session =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("FFplay Session: $session");
+        if (kDebugMode) print("FFplay Session: $session");
         expect(session, isNot(nullptr));
 
         // WaitForSeconds(2);
@@ -787,7 +821,7 @@ void main() {
 
         // EXPECT_EQ(ffplay_kit_session_is_playing(session), 1);
         final isPlaying = bindings.ffplay_kit_session_is_playing(session);
-        print("Is Playing: $isPlaying");
+        if (kDebugMode) print("Is Playing: $isPlaying");
         expect(isPlaying, isTrue);
 
         // ffplay_kit_session_pause(session);
@@ -796,7 +830,7 @@ void main() {
 
         // EXPECT_EQ(ffplay_kit_session_is_paused(session), 1);
         final isPaused = bindings.ffplay_kit_session_is_paused(session);
-        print("Is Paused: $isPaused");
+        if (kDebugMode) print("Is Paused: $isPaused");
         expect(isPaused, isTrue);
 
         // ffplay_kit_session_resume(session);
@@ -840,7 +874,7 @@ void main() {
         await Future.delayed(const Duration(seconds: 1));
 
         final double pos = bindings.ffplay_kit_session_get_position(session);
-        print("Position: $pos");
+        if (kDebugMode) print("Position: $pos");
         expect(pos, greaterThanOrEqualTo(5.0));
 
         // Seek Relative Backward
@@ -848,7 +882,7 @@ void main() {
         await Future.delayed(const Duration(seconds: 1));
 
         final double newPos = bindings.ffplay_kit_session_get_position(session);
-        print("New Position: $newPos");
+        if (kDebugMode) print("New Position: $newPos");
         expect(newPos, lessThan(pos));
 
         bindings.ffmpeg_kit_handle_release(session.cast<Void>());
@@ -875,26 +909,26 @@ void main() {
         // Start Session 1
         final session1 =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("FFplay Session 1: $session1");
+        if (kDebugMode) print("FFplay Session 1: $session1");
         expect(session1, isNot(nullptr));
         await Future.delayed(const Duration(seconds: 2));
 
         // Session 2 should stop Session 1 automatically
         final session2 =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("FFplay Session 2: $session2");
+        if (kDebugMode) print("FFplay Session 2: $session2");
         expect(session2, isNot(nullptr));
         await Future.delayed(const Duration(seconds: 2));
 
         // Verify Session 1 is completed
         final state1 = bindings.ffmpeg_kit_session_get_state(session1);
-        print("State 1: $state1");
+        if (kDebugMode) print("State 1: $state1");
         expect(state1,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
 
         // Verify Session 2 is the one currently playing
         final isPlaying2 = bindings.ffplay_kit_session_is_playing(session2);
-        print("Is Playing 2: $isPlaying2");
+        if (kDebugMode) print("Is Playing 2: $isPlaying2");
         expect(isPlaying2, isTrue);
 
         // Cleanup native handles
@@ -923,7 +957,7 @@ void main() {
         // FFplaySessionHandle session = ffplay_kit_execute_async(command, nullptr, nullptr, 1000);
         final session =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("FFplay Session: $session");
+        if (kDebugMode) print("FFplay Session: $session");
         expect(session, isNot(nullptr));
         await Future.delayed(const Duration(seconds: 2));
 
@@ -931,14 +965,14 @@ void main() {
         bindings.ffplay_kit_pause();
         await Future.delayed(const Duration(seconds: 1));
         final isPaused = bindings.ffplay_kit_is_paused();
-        print("Is Paused: $isPaused");
+        if (kDebugMode) print("Is Paused: $isPaused");
         expect(isPaused, isTrue);
 
         // ffplay_kit_resume();
         bindings.ffplay_kit_resume();
         await Future.delayed(const Duration(seconds: 1));
         final isPausedAfterResume = bindings.ffplay_kit_is_paused();
-        print("Is Paused: $isPausedAfterResume");
+        if (kDebugMode) print("Is Paused: $isPausedAfterResume");
         expect(isPausedAfterResume, isFalse);
 
         // ffplay_kit_stop();
@@ -947,7 +981,7 @@ void main() {
 
         // FFmpegKitSessionState state = ffmpeg_kit_session_get_state(session);
         final state = bindings.ffmpeg_kit_session_get_state(session);
-        print("State: $state");
+        if (kDebugMode) print("State: $state");
         expect(state,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
 
@@ -976,7 +1010,7 @@ void main() {
         // FFplaySessionHandle session = ffplay_kit_execute_async(command, nullptr, nullptr, 1000);
         final session =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("FFplay Session: $session");
+        if (kDebugMode) print("FFplay Session: $session");
         expect(session, isNot(nullptr));
         await Future.delayed(const Duration(seconds: 2));
 
@@ -987,7 +1021,7 @@ void main() {
 
         // double pos = ffplay_kit_get_position();
         final double pos = bindings.ffplay_kit_get_position();
-        print("Position: $pos");
+        if (kDebugMode) print("Position: $pos");
         expect(pos, greaterThanOrEqualTo(9.0));
 
         // Global Seek (Relative)
@@ -996,7 +1030,7 @@ void main() {
         await Future.delayed(const Duration(seconds: 1));
 
         final double newPos = bindings.ffplay_kit_get_position();
-        print("New Position: $newPos");
+        if (kDebugMode) print("New Position: $newPos");
         expect(newPos, lessThan(pos));
 
         // ffplay_kit_stop();
@@ -1026,7 +1060,7 @@ void main() {
 
         // FFplaySessionHandle session = ffplay_kit_create_session(command);
         final session = bindings.ffplay_kit_create_session(cmd);
-        print("Session: $session");
+        if (kDebugMode) print("Session: $session");
         expect(session, isNot(nullptr));
 
         // ffplay_kit_session_execute_async(session, 1000);
@@ -1037,26 +1071,26 @@ void main() {
         bindings.ffplay_kit_session_set_volume(session, 0.5);
         await Future.delayed(const Duration(seconds: 1));
         final volume = bindings.ffplay_kit_session_get_volume(session);
-        print("Volume: $volume");
+        if (kDebugMode) print("Volume: $volume");
         expect(volume, closeTo(0.5, 0.01));
 
         // ffplay_kit_session_set_position(session, 5.0);
         bindings.ffplay_kit_session_set_position(session, 5.0);
         await Future.delayed(const Duration(seconds: 1));
         final position = bindings.ffplay_kit_session_get_position(session);
-        print("Position: $position");
+        if (kDebugMode) print("Position: $position");
         expect(position, greaterThanOrEqualTo(4.0));
 
         // printf("Duration: %f\n", ffplay_kit_session_get_duration(session));
         final duration = bindings.ffplay_kit_session_get_duration(session);
-        print("Duration: $duration");
+        if (kDebugMode) print("Duration: $duration");
         expect(duration, greaterThan(0.0));
 
         // ffplay_kit_session_stop(session);
         bindings.ffplay_kit_session_stop(session);
         await Future.delayed(const Duration(seconds: 1));
         final state = bindings.ffmpeg_kit_session_get_state(session);
-        print("State: $state");
+        if (kDebugMode) print("State: $state");
         expect(state,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
 
@@ -1065,7 +1099,7 @@ void main() {
 
         // Create and manual start test (Session 2)
         final session2 = bindings.ffplay_kit_create_session(cmd);
-        print("Session2: $session2");
+        if (kDebugMode) print("Session2: $session2");
         expect(session2, isNot(nullptr));
 
         bindings.ffplay_kit_session_execute_async(session2, 1000);
@@ -1078,7 +1112,7 @@ void main() {
         await Future.delayed(const Duration(seconds: 1));
 
         final isPlaying2 = bindings.ffplay_kit_session_is_playing(session2);
-        print("Session2 is playing: $isPlaying2");
+        if (kDebugMode) print("Session2 is playing: $isPlaying2");
         expect(isPlaying2, isTrue);
 
         // Cleanup
@@ -1111,7 +1145,7 @@ void main() {
         // FFplaySessionHandle session = ffplay_kit_execute_async(command, nullptr, nullptr, 1000);
         final session =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("Session: $session");
+        if (kDebugMode) print("Session: $session");
         expect(session, isNot(nullptr));
 
         // WaitForSeconds(2);
@@ -1122,12 +1156,12 @@ void main() {
         await Future.delayed(const Duration(seconds: 1));
 
         final volume = bindings.ffplay_kit_get_volume();
-        print("Volume: $volume");
+        if (kDebugMode) print("Volume: $volume");
         expect(volume, closeTo(0.5, 0.01));
 
         // printf("Duration: %f\n", ffplay_kit_get_duration());
         final duration = bindings.ffplay_kit_get_duration();
-        print("Duration: $duration");
+        if (kDebugMode) print("Duration: $duration");
         expect(duration, greaterThan(0.0));
 
         // ffplay_kit_start();
@@ -1169,18 +1203,18 @@ void main() {
         // 1. Start Session 1 normally
         final session1 =
             bindings.ffplay_kit_execute_async(cmd, nullptr, nullptr, 1000);
-        print("Session 1: $session1");
+        if (kDebugMode) print("Session 1: $session1");
         expect(session1, isNot(nullptr));
 
         await Future.delayed(const Duration(seconds: 2));
 
         final isPlaying1 = bindings.ffplay_kit_session_is_playing(session1);
-        print("Session 1 is playing: $isPlaying1");
+        if (kDebugMode) print("Session 1 is playing: $isPlaying1");
         expect(isPlaying1, isTrue);
 
         // 2. Create Session 2
         final session2 = bindings.ffplay_kit_create_session(cmd);
-        print("Session 2: $session2");
+        if (kDebugMode) print("Session 2: $session2");
         expect(session2, isNot(nullptr));
 
         // 3. Execute Session 2 with a very short timeout (5ms)
@@ -1194,17 +1228,19 @@ void main() {
         final state2 = bindings.ffmpeg_kit_session_get_state(session2);
 
         if (state2 != FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_FAILED) {
-          print("Session 2 state: $state2");
+          if (kDebugMode) print("Session 2 state: $state2");
           final failStackTracePtr =
               bindings.ffmpeg_kit_session_get_fail_stack_trace(session2);
           if (failStackTracePtr != nullptr) {
-            print("Fail Stack Trace:\n${_fromNative(failStackTracePtr)}");
+            if (kDebugMode) {
+              print("Fail Stack Trace:\n${_fromNative(failStackTracePtr)}");
+            }
             bindings.ffmpeg_kit_free(failStackTracePtr.cast());
           }
         }
         // Wait for async execution to process
         await Future.delayed(const Duration(seconds: 1));
-        print("State 2: $state2");
+        if (kDebugMode) print("State 2: $state2");
         expect(state2,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_FAILED));
 
@@ -1222,7 +1258,7 @@ void main() {
         expect(pkgPtr, isNot(nullptr));
 
         final pkgName = _fromNative(pkgPtr);
-        print("Package Name: $pkgName");
+        if (kDebugMode) print("Package Name: $pkgName");
 
         expect(pkgName, isNotNull);
         expect(pkgName, isNotEmpty);
@@ -1248,7 +1284,7 @@ void main() {
         final devicesPtr =
             bindings.ffmpeg_kit_config_list_audio_output_devices();
         if (devicesPtr != nullptr) {
-          print("Audio Devices: ${_fromNative(devicesPtr)}");
+          if (kDebugMode) print("Audio Devices: ${_fromNative(devicesPtr)}");
           bindings.ffmpeg_kit_free(devicesPtr.cast());
         }
 
@@ -1290,7 +1326,7 @@ void main() {
             "-hide_banner -loglevel fatal -f lavfi -i testsrc=duration=5:size=128x128:rate=10 -y $outputFile",
             arena);
         final ffmpegSession = bindings.ffmpeg_kit_create_session(ffmpegCmd);
-        print("FFmpeg Session: $ffmpegSession");
+        if (kDebugMode) print("FFmpeg Session: $ffmpegSession");
         expect(ffmpegSession, isNot(nullptr));
 
         // 2. Create a FFprobe session to run at the same time
@@ -1298,7 +1334,7 @@ void main() {
             "-hide_banner -loglevel fatal -show_format -i ${getTestVideoFile()}",
             arena);
         final ffprobeSession = bindings.ffprobe_kit_create_session(ffprobeCmd);
-        print("FFprobe Session: $ffprobeSession");
+        if (kDebugMode) print("FFprobe Session: $ffprobeSession");
         expect(ffprobeSession, isNot(nullptr));
 
         // 3. Execute both asynchronously
@@ -1333,8 +1369,8 @@ void main() {
             bindings.ffmpeg_kit_session_get_state(ffmpegSession);
         final finalState2 =
             bindings.ffmpeg_kit_session_get_state(ffprobeSession);
-        print("FFmpeg Session State: $finalState1");
-        print("FFprobe Session State: $finalState2");
+        if (kDebugMode) print("FFmpeg Session State: $finalState1");
+        if (kDebugMode) print("FFprobe Session State: $finalState2");
 
         expect(finalState1,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
@@ -1371,8 +1407,8 @@ void main() {
         final ffmpegSession1 = bindings.ffmpeg_kit_create_session(cmd1);
         final ffmpegSession2 = bindings.ffmpeg_kit_create_session(cmd2);
 
-        print("FFmpeg Session 1: $ffmpegSession1");
-        print("FFmpeg Session 2: $ffmpegSession2");
+        if (kDebugMode) print("FFmpeg Session 1: $ffmpegSession1");
+        if (kDebugMode) print("FFmpeg Session 2: $ffmpegSession2");
 
         expect(ffmpegSession1, isNot(nullptr));
         expect(ffmpegSession2, isNot(nullptr));
@@ -1408,8 +1444,8 @@ void main() {
             bindings.ffmpeg_kit_session_get_state(ffmpegSession1);
         final finalState2 =
             bindings.ffmpeg_kit_session_get_state(ffmpegSession2);
-        print("FFmpeg Session 1 State: $finalState1");
-        print("FFmpeg Session 2 State: $finalState2");
+        if (kDebugMode) print("FFmpeg Session 1 State: $finalState1");
+        if (kDebugMode) print("FFmpeg Session 2 State: $finalState2");
 
         expect(finalState1,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
@@ -1443,7 +1479,7 @@ void main() {
               final s1 = arena.trackHandle(
                   bindings.ffmpeg_kit_create_session(cmd1), bindings);
 
-              print("Session 1: $s1");
+              if (kDebugMode) print("Session 1: $s1");
               expect(s1, isNotNull);
               bindings.ffmpeg_kit_session_execute_async(s1);
 
@@ -1465,8 +1501,10 @@ void main() {
                 }
               }
 
-              print(
-                  "Session 1 state: ${bindings.ffmpeg_kit_session_get_state(s1)}");
+              if (kDebugMode) {
+                print(
+                    "Session 1 state: ${bindings.ffmpeg_kit_session_get_state(s1)}");
+              }
               expect(
                   bindings.ffmpeg_kit_session_get_state(s1),
                   equals(FFmpegKitSessionState
@@ -1505,7 +1543,7 @@ void main() {
         final playSession =
             bindings.ffplay_kit_execute_async(playCmd, nullptr, nullptr, 1000);
 
-        print("FFplay Session: $playSession");
+        if (kDebugMode) print("FFplay Session: $playSession");
         expect(playSession, isNot(nullptr));
 
         // WaitForSeconds(2);
@@ -1513,12 +1551,12 @@ void main() {
 
         // 3. Verify both are running
         final isPlaying = bindings.ffplay_kit_session_is_playing(playSession);
-        print("FFplay Session Is Playing: $isPlaying");
+        if (kDebugMode) print("FFplay Session Is Playing: $isPlaying");
         expect(isPlaying, isTrue);
 
         final ffmpegState =
             bindings.ffmpeg_kit_session_get_state(ffmpegSession);
-        print("FFmpeg Session State: $ffmpegState");
+        if (kDebugMode) print("FFmpeg Session State: $ffmpegState");
         expect(
             ffmpegState ==
                     FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_RUNNING ||
@@ -1569,7 +1607,7 @@ void main() {
         // 1. Start FFplay session
         final playSession =
             bindings.ffplay_kit_execute_async(playCmd, nullptr, nullptr, 1000);
-        print("FFplay Session: $playSession");
+        if (kDebugMode) print("FFplay Session: $playSession");
         expect(playSession, isNot(nullptr));
 
         await Future.delayed(const Duration(seconds: 1));
@@ -1578,16 +1616,16 @@ void main() {
         final probeCmd = toNative(
             "-hide_banner -loglevel fatal -show_format -i $videoFile", arena);
         final probeSession = bindings.ffprobe_kit_execute(probeCmd);
-        print("FFprobe Session: $probeSession");
+        if (kDebugMode) print("FFprobe Session: $probeSession");
         expect(probeSession, isNot(nullptr));
 
         // 3. Verify FFplay is still playing and probe finished
         final isPlaying = bindings.ffplay_kit_session_is_playing(playSession);
-        print("FFplay Session Is Playing: $isPlaying");
+        if (kDebugMode) print("FFplay Session Is Playing: $isPlaying");
         expect(isPlaying, isTrue);
 
         final probeState = bindings.ffmpeg_kit_session_get_state(probeSession);
-        print("FFprobe Session State: $probeState");
+        if (kDebugMode) print("FFprobe Session State: $probeState");
         expect(probeState,
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
 
@@ -1650,9 +1688,9 @@ void main() {
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
         expect(bindings.ffmpeg_kit_session_get_state(ffprobeSession2),
             equals(FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_COMPLETED));
-        print("Completed sessions: $completedSessions");
+        if (kDebugMode) print("Completed sessions: $completedSessions");
         expect(completedSessions, equals(expectedSessions));
-        print("Session Complete: ${completer.isCompleted}");
+        if (kDebugMode) print("Session Complete: ${completer.isCompleted}");
         expect(completer.isCompleted, isTrue);
 
         // Cleanup
@@ -1688,28 +1726,28 @@ void main() {
 
         // 3. Check last session
         final last = bindings.ffmpeg_kit_get_last_session();
-        print("Last Session: $last");
+        if (kDebugMode) print("Last Session: $last");
         expect(last, isNot(nullptr));
         bindings.ffmpeg_kit_handle_release(last);
 
         final lastFFmpeg = bindings.ffmpeg_kit_get_last_ffmpeg_session();
-        print("Last FFmpeg Session: $lastFFmpeg");
+        if (kDebugMode) print("Last FFmpeg Session: $lastFFmpeg");
         expect(lastFFmpeg, isNot(nullptr));
         bindings.ffmpeg_kit_handle_release(lastFFmpeg);
 
         final lastFFprobe = bindings.ffmpeg_kit_get_last_ffprobe_session();
-        print("Last FFprobe Session: $lastFFprobe");
+        if (kDebugMode) print("Last FFprobe Session: $lastFFprobe");
         expect(lastFFprobe, isNot(nullptr));
         bindings.ffmpeg_kit_handle_release(lastFFprobe);
 
         final lastFFplay = bindings.ffmpeg_kit_get_last_ffplay_session();
-        print("Last FFplay Session: $lastFFplay");
+        if (kDebugMode) print("Last FFplay Session: $lastFFplay");
         expect(lastFFplay, isNot(nullptr));
         bindings.ffmpeg_kit_handle_release(lastFFplay);
 
         final lastMedia =
             bindings.ffmpeg_kit_get_last_media_information_session();
-        print("Last Media Information Session: $lastMedia");
+        if (kDebugMode) print("Last Media Information Session: $lastMedia");
         expect(lastMedia, isNot(nullptr));
         bindings.ffmpeg_kit_handle_release(lastMedia);
 
@@ -1724,7 +1762,7 @@ void main() {
           }
           bindings.ffmpeg_kit_free(sessionsPtr.cast());
         }
-        print("Session Count: $count");
+        if (kDebugMode) print("Session Count: $count");
         expect(count, greaterThanOrEqualTo(4));
 
         // 5. List FFmpeg sessions
@@ -1738,7 +1776,7 @@ void main() {
           }
           bindings.ffmpeg_kit_free(ffmpegSessionsPtr.cast());
         }
-        print("FFmpeg Session Count: $ffmpegCount");
+        if (kDebugMode) print("FFmpeg Session Count: $ffmpegCount");
         expect(ffmpegCount, greaterThanOrEqualTo(1));
 
         // 6. Cleanup
@@ -1806,10 +1844,10 @@ void main() {
         // long duration = ffmpeg_kit_session_get_duration(session);
         final duration = bindings.ffmpeg_kit_session_get_duration(session);
 
-        print("Create Time: $createTime");
-        print("Start Time: $startTime");
-        print("End Time: $endTime");
-        print("Duration: $duration");
+        if (kDebugMode) print("Create Time: $createTime");
+        if (kDebugMode) print("Start Time: $startTime");
+        if (kDebugMode) print("End Time: $endTime");
+        if (kDebugMode) print("Duration: $duration");
 
         // EXPECT_GT assertions
         expect(createTime, greaterThan(0));
@@ -1844,7 +1882,7 @@ void main() {
         // int stats_count = ffmpeg_kit_session_get_statistics_count(session);
         final statsCount =
             bindings.ffmpeg_kit_session_get_statistics_count(session);
-        print("Statistics Count: $statsCount");
+        if (kDebugMode) print("Statistics Count: $statsCount");
 
         if (statsCount > 0) {
           // StatisticsHandle stats = ffmpeg_kit_session_get_statistics_at(session, 0);
@@ -1860,9 +1898,9 @@ void main() {
           // double time = ffmpeg_kit_statistics_get_time(stats);
           final time = bindings.ffmpeg_kit_statistics_get_time(stats);
 
-          print("Frame Number: $frameNumber");
-          print("FPS: $fps");
-          print("Time: $time");
+          if (kDebugMode) print("Frame Number: $frameNumber");
+          if (kDebugMode) print("FPS: $fps");
+          if (kDebugMode) print("Time: $time");
 
           // EXPECT_GE assertions
           expect(frameNumber, greaterThanOrEqualTo(0));
@@ -1944,7 +1982,7 @@ void main() {
           }
           bindings.ffmpeg_kit_free(ffmpegListPtr.cast());
         }
-        print("FFmpeg List Count: $ffmpegCount");
+        if (kDebugMode) print("FFmpeg List Count: $ffmpegCount");
         expect(ffmpegCount, greaterThanOrEqualTo(1));
 
         // 2. FFprobe Listing
@@ -1960,7 +1998,7 @@ void main() {
           }
           bindings.ffmpeg_kit_free(ffprobeListPtr.cast());
         }
-        print("FFprobe List Count: $ffprobeCount");
+        if (kDebugMode) print("FFprobe List Count: $ffprobeCount");
         expect(ffprobeCount, greaterThanOrEqualTo(1));
 
         // 3. Media Information Listing
@@ -1977,7 +2015,7 @@ void main() {
           }
           bindings.ffmpeg_kit_free(mediaListPtr.cast());
         }
-        print("Media Info List Count: $mediaCount");
+        if (kDebugMode) print("Media Info List Count: $mediaCount");
         expect(mediaCount, greaterThanOrEqualTo(1));
 
         // Cleanup
@@ -2334,7 +2372,7 @@ void main() {
 
       if (outputPtr != nullptr) {
         final output = _fromNative(outputPtr);
-        print("Output from fake handle: $output");
+        if (kDebugMode) print("Output from fake handle: $output");
         bindings.ffmpeg_kit_free(outputPtr.cast());
       }
     });
@@ -2443,9 +2481,9 @@ void main() {
           throw TimeoutException('Timed out waiting for complete callback');
         });
 
-        print("completeCalled: ${capturer.completeCalled}");
-        print("logCalled: ${capturer.logCalled}");
-        print("statsCalled: ${capturer.statsCalled}");
+        if (kDebugMode) print("completeCalled: ${capturer.completeCalled}");
+        if (kDebugMode) print("logCalled: ${capturer.logCalled}");
+        if (kDebugMode) print("statsCalled: ${capturer.statsCalled}");
         expect(capturer.completeCalled, isTrue);
         expect(capturer.logCalled, isTrue);
         expect(capturer.statsCalled, isTrue);
@@ -2502,11 +2540,11 @@ void main() {
             bindings.media_information_session_get_media_information(session);
 
         expect(mediaInfo, isNot(nullptr));
-        print("Media Info: $mediaInfo");
+        if (kDebugMode) print("Media Info: $mediaInfo");
         final allPropsPtr =
             bindings.media_information_get_all_properties_json(mediaInfo);
         final allProps = _fromNative(allPropsPtr);
-        print("All Props: $allProps");
+        if (kDebugMode) print("All Props: $allProps");
         expect(allProps, isNot(nullptr));
         expect(allProps, isNot(''));
         if (mediaInfo != nullptr) {

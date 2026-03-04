@@ -1,3 +1,23 @@
+/*
+ * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
+ * Copyright (C) 2026 Akash Patel
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+import 'dart:developer';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -80,26 +100,25 @@ typedef MediaInformationSessionCompleteCallback = void Function(
 void _onFFmpegComplete(
     FFmpegSessionHandle sessionHandle, Pointer<Void> userData) {
   final sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
-  print(
-      "CallbackManager: _onFFmpegComplete sessionId=$sessionId userData=${userData.address}");
+  log("CallbackManager: _onFFmpegComplete sessionId=$sessionId userData=${userData.address}");
 
   // If we have an existing session object, use it.
   FFmpegSession? session;
   if (userData != nullptr) {
     final callbackId = userData.address;
     session = CallbackManager().getFFmpegSession(callbackId);
-    print("CallbackManager: Resolved session from userData: $session");
+    log("CallbackManager: Resolved session from userData: $session");
   }
 
   // Fallback to searching by sessionId if userData not provided (unlikely for specialized sessions but possible for global)
   session ??= CallbackManager().ffmpegSessions[sessionId];
 
   if (session != null) {
-    print("CallbackManager: Invoking completeCallback for session $sessionId");
+    log("CallbackManager: Invoking completeCallback for session $sessionId");
     try {
       session.completeCallback?.call(session);
     } catch (e) {
-      print("CallbackManager: Error invoking completeCallback: $e");
+      log("CallbackManager: Error invoking completeCallback: $e");
     }
   } else {
     stderr.writeln(

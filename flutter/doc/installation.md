@@ -4,18 +4,52 @@ This guide describes how to install and configure FFmpeg Kit Extended Flutter in
 
 ## 1. Add Dependency
 
-Add the package to your `pubspec.yaml` file:
+1. Install the package:
 
-```yaml
-dependencies:
-  ffmpeg_kit_extended_flutter: ^1.0.0
-```
+    ```bash
+    flutter pub add ffmpeg_kit_extended_flutter
+    ```
 
-Then run:
+2. Add the dependency to your `pubspec.yaml` then add `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
 
-```bash
-flutter pub get
-```
+    ```yaml
+    dependencies:
+      ffmpeg_kit_extended_flutter: ^0.1.0
+
+    ffmpeg_kit_extended_config:
+      version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
+      type: "base" # pre-bundled builds: base, full, audio, video, video_hw
+      gpl: true # enable to include GPL libraries
+      small: true # enable to use smaller builds
+      # == OR ==
+      # -------------------------------------------------------------
+      # You can specify remote or local path to libffmpegkit libraries for each platform
+      # This allows you to deploy custom builds of libffmpegkit.
+      # See: https://github.com/akashskypatel/ffmpeg-kit-builders
+      # Note: This will override all above options.
+      # -------------------------------------------------------------
+      # windows: "path/to/ffmpeg-kit/libraries"
+      # linux: "https://path/to/ffmpeg-kit/libraries"
+    ```
+
+3. Run `dart run ffmpeg_kit_extended_flutter:configure` to generate the native libraries.
+
+    ```bash
+    dart run ffmpeg_kit_extended_flutter:configure
+    ```
+
+    **Configure Options**
+    - `--help`: Show this help message.
+    - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
+    - `--verbose`: Enable verbose output.
+    - `--debug`: Enable debug mode. (Fetches remote bundles with debug symbols. Only base bundle is published with debug symbols. You can deploy your own using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders))
+    - `--app-root=<path>`: Specify the path to the app root.
+
+4. Import the package in your Dart code:
+
+    ```dart
+    import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+    ```
 
 ## 2. Platform Specific Configuration
 

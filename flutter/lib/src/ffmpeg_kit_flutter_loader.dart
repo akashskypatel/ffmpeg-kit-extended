@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+import 'dart:developer';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -57,14 +58,14 @@ DynamicLibrary _loadLibrary() {
     String platformName = Platform.operatingSystem;
     if (Platform.isMacOS) platformName = 'macos';
 
-    print('DEBUG: cacheRoot: ${cacheRoot.path}');
+    log('DEBUG: cacheRoot: ${cacheRoot.path}');
     final pathFile = File(path.join(cacheRoot.path, '.dart_tool',
         'ffmpeg_kit_extended_flutter', platformName, 'current_path.txt'));
-    print('DEBUG: pathFile: ${pathFile.path}');
+    log('DEBUG: pathFile: ${pathFile.path}');
 
     if (pathFile.existsSync()) {
       final cachedPath = pathFile.readAsStringSync().trim();
-      print('DEBUG: cachedPath: $cachedPath');
+      log('DEBUG: cachedPath: $cachedPath');
       String libPath = cachedPath;
 
       if (Platform.isWindows) {
@@ -91,9 +92,9 @@ DynamicLibrary _loadLibrary() {
       }
 
       final absoluteLibPath = File(libPath).absolute.path;
-      print('DEBUG: Resolved libPath (absolute): $absoluteLibPath');
-      print('DEBUG: libPath exists: ${File(absoluteLibPath).existsSync()}');
-      print('DEBUG: CWD: ${Directory.current.path}');
+      log('DEBUG: Resolved libPath (absolute): $absoluteLibPath');
+      log('DEBUG: libPath exists: ${File(absoluteLibPath).existsSync()}');
+      log('DEBUG: CWD: ${Directory.current.path}');
 
       if (Platform.isWindows) {
         final libDir = path.dirname(absoluteLibPath);
@@ -104,7 +105,7 @@ DynamicLibrary _loadLibrary() {
         _cachedLibrary = DynamicLibrary.open(absoluteLibPath);
         return _cachedLibrary!;
       } catch (inner) {
-        print('DEBUG: Failed to open library from parsed path: $inner');
+        log('DEBUG: Failed to open library from parsed path: $inner');
         // Try one last fallback with just the name
         try {
           _cachedLibrary = DynamicLibrary.open(path.basename(absoluteLibPath));
@@ -112,7 +113,7 @@ DynamicLibrary _loadLibrary() {
         } catch (_) {}
       }
     } else {
-      print('DEBUG: pathFile does not exist');
+      log('DEBUG: pathFile does not exist');
     }
     throw Exception(e);
   }
@@ -144,11 +145,10 @@ void _addDllDirectory(String dirPath) {
     final pPath = dirPath.toNativeUtf16();
     addDllDirectory(pPath);
     malloc.free(pPath);
-    print('DEBUG: Added to DLL Search Path: $dirPath');
+    log('DEBUG: Added to DLL Search Path: $dirPath');
   } catch (e) {
     // Fallback to your existing SetDllDirectoryW if AddDllDirectory isn't available
-    print(
-        'DEBUG: AddDllDirectory failed, check if Windows 7/8 without KB2533623: $e');
+    log('DEBUG: AddDllDirectory failed, check if Windows 7/8 without KB2533623: $e');
   }
 }
 

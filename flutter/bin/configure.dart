@@ -1,5 +1,27 @@
+/*
+ * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
+ * Copyright (C) 2026 Akash Patel
+ * 
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ * 
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
 // bin/configure.dart
+import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -30,7 +52,7 @@ Future<void> main(List<String> args) async {
   for (int i = 0; i < args.length; i++) {
     final arg = args[i];
     if (arg == '--help' || arg == '-h') {
-      print('''
+      stdout.write('''
 Usage: dart run ffmpeg_kit_extended_flutter:configure [platforms] [options]
 
 Platforms:
@@ -51,7 +73,7 @@ Configuration (pubspec.yaml):
 
   ffmpeg_kit_extended_config:
     version: "1.0.0"   # Version of pre-bundled libraries
-    type: "full"       # base, full, audio, video, streaming, video_hw
+    type: "full"       # base, full, audio, video, video_hw
     gpl: true          # Include GPL libraries
     small: false       # Use smaller builds
     # Optional: overrides for specific platforms
@@ -99,7 +121,10 @@ Configuration (pubspec.yaml):
 
   // Auto-detect Supported Platforms
   if (platforms.isEmpty) {
-    if (verbose) print('FFmpegKit: Auto-detecting supported platforms...');
+    if (verbose) {
+      log('FFmpegKit: Auto-detecting supported platforms...',
+          level: Level.FINEST.value);
+    }
     for (final pform in supportedPlatforms) {
       if (Directory(p.join(projectRoot.path, pform)).existsSync()) {
         platforms.add(pform);
@@ -108,9 +133,14 @@ Configuration (pubspec.yaml):
   }
 
   if (verbose) {
-    print('FFmpegKit: Project Root -> ${projectRoot.path}');
-    print('FFmpegKit: Platforms -> ${platforms.join(', ')}');
-    if (debug) print('FFmpegKit: Mode -> DEBUG (Fetching remote bundles)');
+    log('FFmpegKit: Project Root -> ${projectRoot.path}',
+        level: Level.FINEST.value);
+    log('FFmpegKit: Platforms -> ${platforms.join(', ')}',
+        level: Level.FINEST.value);
+    if (debug) {
+      log('FFmpegKit: Mode -> DEBUG (Fetching remote bundles)',
+          level: Level.INFO.value);
+    }
   }
 
   // Load Pubspec Configuration
@@ -155,13 +185,13 @@ Configuration (pubspec.yaml):
   try {
     final Map<String, String> configuredPaths = {};
     for (final platform in platforms) {
-      if (verbose) print('FFmpegKit: Configuring for $platform...');
+      if (verbose) log('FFmpegKit: Configuring for $platform...');
       final binaryPath = await _configurePlatform(
           config, platform, projectRoot, verbose, debug);
       if (binaryPath != null) {
         configuredPaths[platform] = binaryPath;
         // Success output for CMake/Scripts to verify (Legacy support)
-        print('FFMPEG_KIT_PATH_$platform=$binaryPath');
+        log('FFMPEG_KIT_PATH_$platform=$binaryPath', level: Level.INFO.value);
       } else {
         _logError('Configuration failed for $platform');
         exit(1);
@@ -190,6 +220,12 @@ Future<String?> _configurePlatform(dynamic config, String platform,
     Directory projectRoot, bool verbose, bool debug) async {
   // Parse Config values
   final version = config['version']?.toString() ?? "1.0.0";
+  if (config['type'] == "streaming") {
+    config['type'] =
+        "video"; //XXX streaming added to all libraries. Streaming is same as video.
+    log("WARNING: Streaming libraries have been added to all bundles. Streaming type will be deprecated in future, switch to video.",
+        level: Level.WARNING.value);
+  }
   final type = config['type']?.toString() ?? "full";
   final bool gpl = config['gpl'] == true;
   final bool small = config['small'] == true;
@@ -242,7 +278,8 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       final localFile = File(overrideUrl);
       if (localFile.existsSync()) {
         if (verbose) {
-          print('FFmpegKit: Using local override -> ${localFile.path}');
+          log('FFmpegKit: Using local override -> ${localFile.path}',
+              level: Level.FINEST.value);
         }
         // If it's a zip, extract it to cache. If it's a folder, use it.
         if (FileSystemEntity.isDirectorySync(localFile.path)) {
@@ -289,9 +326,14 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       destinationDir.existsSync() && destinationDir.listSync().isNotEmpty;
 
   if (cacheHit) {
-    if (verbose) print('FFmpegKit: Cache hit -> ${destinationDir.path}');
+    if (verbose) {
+      log('FFmpegKit: Cache hit -> ${destinationDir.path}',
+          level: Level.FINEST.value);
+    }
   } else {
-    if (verbose) print('FFmpegKit: Downloading $url...');
+    if (verbose) {
+      log('FFmpegKit: Downloading $url...', level: Level.FINEST.value);
+    }
 
     bool downloadSuccess = false;
     int retries = 3;
@@ -302,11 +344,15 @@ Future<String?> _configurePlatform(dynamic config, String platform,
           break;
         }
       } catch (e) {
-        if (verbose) print('FFmpegKit: Download error: $e');
+        if (verbose) {
+          log('FFmpegKit: Download error: $e', level: Level.FINEST.value);
+        }
       }
       retries--;
       if (retries > 0) {
-        if (verbose) print('FFmpegKit: Retrying download...');
+        if (verbose) {
+          log('FFmpegKit: Retrying download...', level: Level.FINEST.value);
+        }
         await Future.delayed(const Duration(seconds: 2));
       }
     }
@@ -315,7 +361,7 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       throw Exception('Failed to download $url after 3 attempts.');
     }
 
-    if (verbose) print('FFmpegKit: Extracting...');
+    if (verbose) log('FFmpegKit: Extracting...', level: Level.FINEST.value);
     if (!await _extractFile(zipFile, cacheDir.path, verbose)) {
       throw Exception('Extraction failed.');
     }
@@ -363,15 +409,18 @@ Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
   final sourceIncludeDir = Directory(p.join(finalDir.path, 'include'));
   if (sourceIncludeDir.existsSync()) {
     if (verbose) {
-      print('FFmpegKit: Updating generic include path for ffigen...');
+      log('FFmpegKit: Updating generic include path for ffigen...',
+          level: Level.FINEST.value);
     }
     await _copyDirectory(sourceIncludeDir, fixedIncludeDir);
   } else {
     // If we can't find 'include' directly, maybe it's nested?
     // Some bundles might have top-level include, others generic.
     // For now, warning is enough.
-    if (verbose)
-      print('FFmpegKit: Warning - include directory not found in bundle.');
+    if (verbose) {
+      log('FFmpegKit: Warning - include directory not found in bundle.',
+          level: Level.FINEST.value);
+    }
   }
 }
 
@@ -411,7 +460,10 @@ Future<void> _writeCmakeConfig(Directory projectRoot,
   });
 
   configFile.writeAsStringSync(buffer.toString());
-  if (verbose) print('FFmpegKit: Generated CMake config at ${configFile.path}');
+  if (verbose) {
+    log('FFmpegKit: Generated CMake config at ${configFile.path}',
+        level: Level.FINEST.value);
+  }
 }
 
 // =============================================================================
@@ -443,7 +495,9 @@ Future<bool> _extractFile(File zipFile, String destPath, bool verbose) async {
         'Expand-Archive -Path "${zipFile.path}" -DestinationPath "$destPath" -Force'
       ]);
       if (res.exitCode != 0) {
-        if (verbose) print("Extract failed: ${res.stderr}");
+        if (verbose) {
+          log("Extract failed: ${res.stderr}", level: Level.FINEST.value);
+        }
         return false;
       }
     } else {
@@ -454,14 +508,18 @@ Future<bool> _extractFile(File zipFile, String destPath, bool verbose) async {
         final res2 =
             await Process.run('tar', ['-xf', zipFile.path, '-C', destPath]);
         if (res2.exitCode != 0) {
-          if (verbose) print("Extract failed: ${res2.stderr}");
+          if (verbose) {
+            log("Extract failed: ${res2.stderr}", level: Level.FINEST.value);
+          }
           return false;
         }
       }
     }
     return true;
   } catch (e) {
-    if (verbose) print("Extract exception: $e");
+    if (verbose) {
+      stderr.writeln("Extract exception: $e");
+    }
     return false;
   }
 }
@@ -469,7 +527,9 @@ Future<bool> _extractFile(File zipFile, String destPath, bool verbose) async {
 Future<void> _runFfigen(Directory projectRoot, bool verbose) async {
   // Logic to locate ffigen config relative to package root
   // This is typically only run by developers of the plugin
-  if (verbose) print("FFmpegKit: Running ffigen...");
+  if (verbose) {
+    log("FFmpegKit: Running ffigen...", level: Level.FINEST.value);
+  }
   final result = await Process.run(
     'dart',
     ['run', 'ffigen', '--config', 'ffigen.yaml'],
@@ -477,9 +537,10 @@ Future<void> _runFfigen(Directory projectRoot, bool verbose) async {
     runInShell: true,
   );
   if (result.exitCode != 0) {
-    print('FFmpegKit: ffigen failed: ${result.stderr}');
+    log('FFmpegKit: ffigen failed: ${result.stderr}',
+        level: Level.SEVERE.value);
   } else {
-    print('FFmpegKit: ffigen completed.');
+    log('FFmpegKit: ffigen completed.', level: Level.FINEST.value);
   }
 }
 

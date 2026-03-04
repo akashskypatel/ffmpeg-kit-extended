@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -18,6 +18,7 @@
  */
 
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
@@ -42,8 +43,8 @@ class FFmpegSession extends Session {
   FFmpegSession.fromHandle(Pointer<Void> handle, String command) {
     this.handle = handle;
     this.command = command;
-    this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-    this.registerFinalizer();
+    sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    registerFinalizer();
   }
 
   /// Creates a new [FFmpegSession] to execute the given [command].
@@ -60,10 +61,10 @@ class FFmpegSession extends Session {
   }) {
     final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      this.handle = ffmpeg.ffmpeg_kit_create_session(cmdPtr.cast());
+      handle = ffmpeg.ffmpeg_kit_create_session(cmdPtr.cast());
       this.command = command;
-      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      this.registerFinalizer();
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
     }
@@ -71,10 +72,11 @@ class FFmpegSession extends Session {
     if (completeCallback != null ||
         logCallback != null ||
         statisticsCallback != null) {
-      if (completeCallback != null) this._completeCallback = completeCallback;
-      if (logCallback != null) this._logCallback = logCallback;
-      if (statisticsCallback != null)
-        this._statisticsCallback = statisticsCallback;
+      if (completeCallback != null) _completeCallback = completeCallback;
+      if (logCallback != null) _logCallback = logCallback;
+      if (statisticsCallback != null) {
+        _statisticsCallback = statisticsCallback;
+      }
       final int callbackId = CallbackManager().nextCallbackId++;
       CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
       CallbackManager().ffmpegSessions[sessionId] = this;
@@ -211,10 +213,11 @@ class FFmpegSession extends Session {
     FFmpegLogCallback? logCallback,
     FFmpegStatisticsCallback? statisticsCallback,
   }) async {
-    if (completeCallback != null) this._completeCallback = completeCallback;
-    if (logCallback != null) this._logCallback = logCallback;
-    if (statisticsCallback != null)
-      this._statisticsCallback = statisticsCallback;
+    if (completeCallback != null) _completeCallback = completeCallback;
+    if (logCallback != null) _logCallback = logCallback;
+    if (statisticsCallback != null) {
+      _statisticsCallback = statisticsCallback;
+    }
 
     // Start execution through queue manager
     await SessionQueueManager().executeSession(
@@ -223,23 +226,23 @@ class FFmpegSession extends Session {
         final sessionCompleter = Completer<void>();
 
         // Store the original callback
-        final originalCallback = this._completeCallback;
+        final originalCallback = _completeCallback;
 
         Timer? logPoller;
 
         // Wrap the callback to complete our completer
-        this._completeCallback = (session) {
+        _completeCallback = (session) {
           if (logPoller != null) {
             logPoller.cancel();
-            final count = this.getLogsCount();
-            for (int i = this.logsProcessed; i < count; i++) {
-              final message = this.getLogAt(i);
-              final level = this.getLogLevelAt(i);
-              final logObj = Log(this.sessionId, level, message);
+            final count = getLogsCount();
+            for (int i = logsProcessed; i < count; i++) {
+              final message = getLogAt(i);
+              final level = getLogLevelAt(i);
+              final logObj = Log(sessionId, level, message);
               CallbackManager().globalLogCallback?.call(logObj);
-              this._logCallback?.call(logObj);
+              _logCallback?.call(logObj);
             }
-            this.logsProcessed = count;
+            logsProcessed = count;
           }
 
           // Call the original callback if it exists
@@ -250,24 +253,24 @@ class FFmpegSession extends Session {
           }
         };
 
-        if (this._logCallback != null ||
+        if (_logCallback != null ||
             CallbackManager().globalLogCallback != null) {
           logPoller =
               Timer.periodic(const Duration(milliseconds: 100), (timer) {
-            final count = this.getLogsCount();
-            for (int i = this.logsProcessed; i < count; i++) {
-              final message = this.getLogAt(i);
-              final level = this.getLogLevelAt(i);
-              final logObj = Log(this.sessionId, level, message);
+            final count = getLogsCount();
+            for (int i = logsProcessed; i < count; i++) {
+              final message = getLogAt(i);
+              final level = getLogLevelAt(i);
+              final logObj = Log(sessionId, level, message);
               CallbackManager().globalLogCallback?.call(logObj);
-              this._logCallback?.call(logObj);
+              _logCallback?.call(logObj);
             }
-            this.logsProcessed = count;
+            logsProcessed = count;
 
-            final state = this.getState();
+            final state = getState();
             if (state == SessionState.completed ||
                 state == SessionState.failed ||
-                this.isCancelled) {
+                isCancelled) {
               timer.cancel();
             }
           });
@@ -284,7 +287,7 @@ class FFmpegSession extends Session {
         try {
           ffmpeg.ffmpeg_kit_session_execute_async(handle);
         } catch (e, stack) {
-          print("FFmpegSession: Error executing async session: $e\n$stack");
+          log("FFmpegSession: Error executing async session: $e\n$stack");
           if (!sessionCompleter.isCompleted) sessionCompleter.complete();
           rethrow;
         }
@@ -293,7 +296,7 @@ class FFmpegSession extends Session {
           // Wait for the session to complete
           await sessionCompleter.future;
         } catch (e) {
-          print("FFmpegSession: Error waiting for session completion: $e");
+          log("FFmpegSession: Error waiting for session completion: $e");
         }
       },
     );

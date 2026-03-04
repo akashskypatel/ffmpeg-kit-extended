@@ -23,13 +23,13 @@
 
 ### Platform Support
 
-| Platform | Status | Architecture |
-|----------|--------|-------|
-| Android  | 🚧 Planned | API 21+ |
-| iOS      | Not Supported | iOS 12+ |
-| macOS    | Not Supported | macOS 10.13+ |
-| Linux    | ✅ Supported | x86_64 |
-| Windows  | ✅ Supported | x86_64 |
+| Platform | Status         | Architecture         |
+|----------|----------------|----------------------|
+| Android  | 🚧 Planned     |armv7, arm64, x86_64  |
+| iOS      | Not Supported  |                      |
+| macOS    | Not Supported  |                      |
+| Linux    | ✅ Supported   | x86_64               |
+| Windows  | ✅ Supported   | x86_64               |
 
 ## 2. Installation
 
@@ -47,7 +47,7 @@
 
     ffmpeg_kit_extended_config:
       version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
-      type: "base" # pre-bundled builds: base, full, audio, video, streaming, video_hw
+      type: "base" # pre-bundled builds: base, full, audio, video, video_hw
       gpl: true # enable to include GPL libraries
       small: true # enable to use smaller builds
       # == OR ==
@@ -91,14 +91,16 @@
 
 ### 2.2 Feature Matrix
 
-|Feature  |Audio   |Video   |Streaming|Video+Hardware|
-|---------|--------|--------|-------- |--------------|
-|Video    |        |x       |x        |              |
-|Audio    |x       |x       |x        |              |
-|Streaming|        |        |x        |              |
-|Hardware |        |        |         |x             |
-|AI       |        |        |         |              |
-|HTTPS    |x       |x       |x        |x             |
+|Feature  |Base    |Audio   |Video   |Video+Hardware|Full|
+|---------|--------|--------|--------|--------------|----|
+|Video    |        |        |x       |              |x   |
+|Audio    |        |x       |x       |              |x   |
+|Streaming|        |x       |x       |x             |x   |
+|Hardware |        |        |        |x             |x   |
+|AI*      |        |        |        |              |    |
+|HTTPS    |        |x       |x       |x             |x   |
+
+- AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable AI features.
 
 ## 3. Usage
 

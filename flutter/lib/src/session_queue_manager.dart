@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -62,8 +62,9 @@ class SessionQueueManager {
 
   /// Sets the maximum number of concurrent sessions.
   set maxConcurrentSessions(int value) {
-    if (value < 1)
+    if (value < 1) {
       throw ArgumentError('maxConcurrentSessions must be at least 1');
+    }
     _maxConcurrentSessions = value;
     _processQueue();
   }

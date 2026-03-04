@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -18,6 +18,7 @@
  */
 
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
@@ -45,16 +46,16 @@ class FFprobeSession extends Session {
   }) {
     final cmdPtr = command.toNativeUtf8();
     try {
-      this.handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
+      handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
       this.command = command;
-      this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      this.registerFinalizer();
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
     }
 
     if (completeCallback != null) {
-      this._completeCallback = completeCallback;
+      _completeCallback = completeCallback;
       final int callbackId = CallbackManager().nextCallbackId++;
       CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
       CallbackManager().ffprobeSessions[sessionId] = this;
@@ -87,8 +88,8 @@ class FFprobeSession extends Session {
   FFprobeSession.fromHandle(Pointer<Void> handle, String command) {
     this.handle = handle;
     this.command = command;
-    this.sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-    this.registerFinalizer();
+    sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    registerFinalizer();
   }
 
   /// Internal constructor for subclasses to initialize without creating a new session.
@@ -133,7 +134,7 @@ class FFprobeSession extends Session {
   /// Executes this session asynchronously.
   Future<FFprobeSession> executeAsync(
       {FFprobeSessionCompleteCallback? completeCallback}) async {
-    if (completeCallback != null) this._completeCallback = completeCallback;
+    if (completeCallback != null) _completeCallback = completeCallback;
 
     // Start execution through queue manager
     await SessionQueueManager().executeSession(
@@ -142,10 +143,10 @@ class FFprobeSession extends Session {
         final sessionCompleter = Completer<void>();
 
         // Store the original callback
-        final originalCallback = this._completeCallback;
+        final originalCallback = _completeCallback;
 
         // Wrap the callback to complete our completer
-        this._completeCallback = (session) {
+        _completeCallback = (session) {
           originalCallback?.call(session);
           if (!sessionCompleter.isCompleted) {
             sessionCompleter.complete();
@@ -159,7 +160,7 @@ class FFprobeSession extends Session {
         try {
           ffmpeg.ffprobe_kit_session_execute_async(handle);
         } catch (e, stack) {
-          print("FFprobeSession: Error executing async session: $e\n$stack");
+          log("FFprobeSession: Error executing async session: $e\n$stack");
           if (!sessionCompleter.isCompleted) sessionCompleter.complete();
           rethrow;
         }
@@ -168,7 +169,7 @@ class FFprobeSession extends Session {
           // Wait for the session to complete
           await sessionCompleter.future;
         } catch (e) {
-          print("FFprobeSession: Error waiting for session completion: $e");
+          log("FFprobeSession: Error waiting for session completion: $e");
         }
       },
     );

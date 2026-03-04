@@ -1,4 +1,4 @@
-/**
+/*
  * FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
  * Copyright (C) 2026 Akash Patel
  * 
@@ -534,7 +534,9 @@ class FFmpegKitExtended {
         if (mappingsPtr != nullptr) malloc.free(mappingsPtr);
       }
     } finally {
-      for (final s in strings) malloc.free(s);
+      for (final s in strings) {
+        malloc.free(s);
+      }
       malloc.free(listPtr);
     }
   }
@@ -602,7 +604,9 @@ class FFmpegKitExtended {
       ffmpeg.ffmpeg_kit_free(resPtr.cast());
       return res;
     } finally {
-      for (final s in strings) malloc.free(s);
+      for (final s in strings) {
+        malloc.free(s);
+      }
       malloc.free(argsPtr);
     }
   }
@@ -663,7 +667,7 @@ class FFmpegKitExtended {
 
   /// Checks if the debug log is enabled.
   static bool isDebugLogEnabled(Session session) =>
-      ffmpeg.ffmpeg_kit_config_is_debug_log_enabled(session.handle) == 1;
+      ffmpeg.ffmpeg_kit_config_is_debug_log_enabled(session.handle);
 
   /// Gets the debug log.
   static String getDebugLog(Session session) {
