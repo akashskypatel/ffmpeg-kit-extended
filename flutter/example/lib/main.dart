@@ -265,74 +265,86 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('FFmpeg Kit Extended'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(icon: Icon(Icons.movie), text: "FFmpeg"),
-            Tab(icon: Icon(Icons.info), text: "FFprobe"),
-            Tab(icon: Icon(Icons.play_arrow), text: "FFplay"),
+    return LayoutBuilder(builder: (context, constraints) {
+      final isMobile = constraints.maxWidth < 600;
+
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(isMobile ? 'FFmpeg Kit' : 'FFmpeg Kit Extended'),
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: [
+              Tab(
+                  icon: const Icon(Icons.movie),
+                  text: isMobile ? null : "FFmpeg"),
+              Tab(
+                  icon: const Icon(Icons.info),
+                  text: isMobile ? null : "FFprobe"),
+              Tab(
+                  icon: const Icon(Icons.play_arrow),
+                  text: isMobile ? null : "FFplay"),
+            ],
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: _showSystemInfo,
+              tooltip: "System Info",
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _clearLogs,
+              tooltip: "Clear Logs",
+            )
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: _showSystemInfo,
-            tooltip: "System Info",
+        body: Column(
+          children: [
+            Expanded(flex: isMobile ? 3 : 2, child: _buildTabBarView()),
+            const Divider(height: 1),
+            Expanded(flex: isMobile ? 2 : 1, child: _buildLogView()),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildTabBarView() {
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildFFmpegTab(),
+        _buildFFprobeTab(),
+        _buildFFplayTab(),
+      ],
+    );
+  }
+
+  Widget _buildLogView() {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.all(8.0),
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        child: TextField(
+          controller: _outputController,
+          maxLines: null,
+          readOnly: true,
+          style: const TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'monospace',
+            fontSize: 12,
           ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _clearLogs,
-            tooltip: "Clear Logs",
-          )
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            flex: 1,
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildFFmpegTab(),
-                _buildFFprobeTab(),
-                _buildFFplayTab(),
-              ],
-            ),
+          decoration: const InputDecoration(
+            border: InputBorder.none,
           ),
-          const Divider(height: 1),
-          Expanded(
-            flex: 2,
-            child: Container(
-              color: Colors.black,
-              padding: const EdgeInsets.all(8.0),
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: TextField(
-                  controller: _outputController,
-                  maxLines: null,
-                  readOnly: true,
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildFFmpegTab() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -361,7 +373,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildFFprobeTab() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,82 +404,80 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildFFplayTab() {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCustomCommandSection(_ffplayCommandController,
-                _runCustomFFplay, "Enter FFplay command"),
-            const SizedBox(height: 20),
-            const Text("1. Generate Media:",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              children: [
-                _demoButton(_generateTestVideo, Icons.video_call, "Gen Video"),
-                _demoButton(_generateTestAudio, Icons.audiotrack, "Gen Audio"),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text("2. Play Generated:",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              children: [
-                _demoButton(() => _runFFplay('test_video.mp4'),
-                    Icons.play_circle_filled, "Play Video"),
-                _demoButton(() => _runFFplay('test_audio.mp3'),
-                    Icons.music_note, "Play Audio"),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text("Controls:",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            Row(
-              children: [
-                IconButton(
-                    onPressed: () => FFplayKit.pause(),
-                    icon: const Icon(Icons.pause)),
-                IconButton(
-                    onPressed: () => FFplayKit.resume(),
-                    icon: const Icon(Icons.play_arrow)),
-                IconButton(
-                    onPressed: () => FFplayKit.stop(),
-                    icon: const Icon(Icons.stop)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            StreamBuilder(
-                stream: Stream.periodic(const Duration(seconds: 1)),
-                builder: (context, snapshot) {
-                  final active = FFplayKit.getCurrentSession() != null;
-                  if (!active) return const Text("No active playback.");
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildCustomCommandSection(_ffplayCommandController, _runCustomFFplay,
+              "Enter FFplay command"),
+          const SizedBox(height: 20),
+          const Text("1. Generate Media:",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            children: [
+              _demoButton(_generateTestVideo, Icons.video_call, "Gen Video"),
+              _demoButton(_generateTestAudio, Icons.audiotrack, "Gen Audio"),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text("2. Play Generated:",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 10,
+            children: [
+              _demoButton(() => _runFFplay('test_video.mp4'),
+                  Icons.play_circle_filled, "Play Video"),
+              _demoButton(() => _runFFplay('test_audio.mp3'), Icons.music_note,
+                  "Play Audio"),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text("Controls:",
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          Row(
+            children: [
+              IconButton(
+                  onPressed: () => FFplayKit.pause(),
+                  icon: const Icon(Icons.pause)),
+              IconButton(
+                  onPressed: () => FFplayKit.resume(),
+                  icon: const Icon(Icons.play_arrow)),
+              IconButton(
+                  onPressed: () => FFplayKit.stop(),
+                  icon: const Icon(Icons.stop)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          StreamBuilder(
+              stream: Stream.periodic(const Duration(seconds: 1)),
+              builder: (context, snapshot) {
+                final active = FFplayKit.getCurrentSession() != null;
+                if (!active) return const Text("No active playback.");
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                          "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}"),
-                      Text(
-                          "Position: ${FFplayKit.position.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s"),
-                      Slider(
-                        value: (FFplayKit.position /
-                                (FFplayKit.duration > 0
-                                    ? FFplayKit.duration
-                                    : 1.0))
-                            .clamp(0.0, 1.0),
-                        onChanged: (val) =>
-                            FFplayKit.seek(val * FFplayKit.duration),
-                      ),
-                    ],
-                  );
-                }),
-          ],
-        ),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}"),
+                    Text(
+                        "Position: ${FFplayKit.position.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s"),
+                    Slider(
+                      value: (FFplayKit.position /
+                              (FFplayKit.duration > 0
+                                  ? FFplayKit.duration
+                                  : 1.0))
+                          .clamp(0.0, 1.0),
+                      onChanged: (val) =>
+                          FFplayKit.seek(val * FFplayKit.duration),
+                    ),
+                  ],
+                );
+              }),
+        ],
       ),
     );
   }

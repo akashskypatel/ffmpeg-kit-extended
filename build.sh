@@ -8,10 +8,12 @@ fi
 touch $build_log_file
 echo "Log file created at $build_log_file"
 cd $script_dir/flutter
-flutter clean && flutter pub get && flutter pub upgrade && dart run ffmpeg_kit_extended_flutter:configure $1 --app-root=. >> $build_log_file 2>&1
+flutter clean && flutter pub get && flutter pub upgrade && dart run ffmpeg_kit_extended_flutter:configure $1 --app-root=. --verbose >> $build_log_file 2>&1
 cd $script_dir/flutter/example
-flutter clean && flutter pub get && flutter pub upgrade && dart run ffmpeg_kit_extended_flutter:configure $1 --app-root=. >> $build_log_file 2>&1
-cd $script_dir/flutter && dart run ffigen --config ffigen.yaml && cd example >> $build_log_file 2>&1 
+flutter clean && flutter pub get && flutter pub upgrade && dart run ffmpeg_kit_extended_flutter:configure $1 --app-root=. --verbose >> $build_log_file 2>&1
+if [[ $* == *"--ffigen"* ]]; then
+    cd $script_dir/flutter && dart run ffigen --config ffigen.yaml && cd example >> $build_log_file 2>&1 
+fi
 if [[ $* == *"-y"* ]]; then
     flutter build -v $1 $2 >> $build_log_file 2>&1 || cd $script_dir
 fi

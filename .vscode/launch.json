@@ -16,6 +16,14 @@
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
         },
         {
+            "name": "Debug (Android)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "emulator-5554",
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+        },
+        {
             "name": "Debug Configure",
             "request": "launch",
             "type": "dart",

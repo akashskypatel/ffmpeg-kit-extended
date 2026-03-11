@@ -31,20 +31,18 @@ DynamicLibrary? _cachedLibrary;
 /// Loads the FFmpegKit native library based on the current platform.
 ///
 /// This function is used to load the appropriate library file based on the
-/// current platform (Android, iOS/macOS, Windows, or Linux).
+/// current platform (Android, Windows, or Linux).
 DynamicLibrary _loadLibrary() {
   if (_cachedLibrary != null) return _cachedLibrary!;
 
   // Try default locations
   try {
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isLinux) {
       _cachedLibrary = DynamicLibrary.open('libffmpegkit.so');
     } else if (Platform.isIOS || Platform.isMacOS) {
       _cachedLibrary = DynamicLibrary.process();
     } else if (Platform.isWindows) {
       _cachedLibrary = DynamicLibrary.open('libffmpegkit.dll');
-    } else if (Platform.isLinux) {
-      _cachedLibrary = DynamicLibrary.open('libffmpegkit.so');
     }
     return _cachedLibrary!;
   } catch (e) {
@@ -79,16 +77,25 @@ DynamicLibrary _loadLibrary() {
         } else {
           libPath = path.join(cachedPath, 'libffmpegkit.dll');
         }
-      } else if (Platform.isLinux) {
+      } else if (Platform.isLinux || Platform.isAndroid) {
         if (File(path.join(cachedPath, 'lib', 'libffmpegkit.so'))
             .existsSync()) {
           libPath = path.join(cachedPath, 'lib', 'libffmpegkit.so');
         } else {
           libPath = path.join(cachedPath, 'libffmpegkit.so');
         }
-      } else if (Platform.isMacOS) {
-        // Usually via Framework or dylib, assume loading by path works
-        libPath = path.join(cachedPath, 'lib', 'libffmpegkit.dylib');
+      } else if (Platform.isMacOS || Platform.isIOS) {
+        // Support both raw dylib and macOS Framework structures
+        if (File(path.join(cachedPath, 'lib', 'libffmpegkit.dylib'))
+            .existsSync()) {
+          libPath = path.join(cachedPath, 'lib', 'libffmpegkit.dylib');
+        } else if (File(
+                path.join(cachedPath, 'ffmpegkit.framework', 'ffmpegkit'))
+            .existsSync()) {
+          libPath = path.join(cachedPath, 'ffmpegkit.framework', 'ffmpegkit');
+        } else {
+          libPath = path.join(cachedPath, 'libffmpegkit.dylib');
+        }
       }
 
       final absoluteLibPath = File(libPath).absolute.path;

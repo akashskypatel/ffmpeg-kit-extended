@@ -19,9 +19,7 @@
 
 // bin/configure.dart
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
-import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -31,7 +29,7 @@ import 'package:yaml/yaml.dart';
 
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
-
+const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
 // =============================================================================
 // CLI LOGIC
 // =============================================================================
@@ -41,12 +39,12 @@ Future<void> main(List<String> args) async {
   String? appRootPath;
   bool generateBindings = false;
   bool verbose = false;
-  bool debug = false;
 
   final supportedPlatforms = [
     'windows',
-    'linux'
-  ]; // TODO: add 'macos', 'android', 'ios'
+    'linux',
+    'android'
+  ]; // TODO: add 'macos', 'ios'
 
   // Simple Argument Parser
   for (int i = 0; i < args.length; i++) {
@@ -62,8 +60,6 @@ Platforms:
 Options:
   --platform=<list>    Specify platforms to configure (e.g., windows,linux).
   --verbose            Enable verbose output.
-  --debug              Enable debug mode. Fetches remote bundles with debug symbols.
-                       Note: Only "base" bundle is published with debug symbols.
   --generate-bindings  Generate Dart FFI bindings using ffigen.
   --app-root=<path>    Specify the path to the app root (defaults to CWD).
   --help, -h           Show this help message.
@@ -73,7 +69,7 @@ Configuration (pubspec.yaml):
 
   ffmpeg_kit_extended_config:
     version: "1.0.0"   # Version of pre-bundled libraries
-    type: "full"       # base, full, audio, video, video_hw
+    type: "full"       # $_validTypes
     gpl: true          # Include GPL libraries
     small: false       # Use smaller builds
     # Optional: overrides for specific platforms
@@ -85,8 +81,6 @@ Configuration (pubspec.yaml):
       generateBindings = true;
     } else if (arg == '--verbose') {
       verbose = true;
-    } else if (arg == '--debug') {
-      debug = true;
     } else if (arg.startsWith('--app-root=')) {
       appRootPath = arg.substring('--app-root='.length);
     } else if (arg.startsWith('--platform=')) {
@@ -122,8 +116,7 @@ Configuration (pubspec.yaml):
   // Auto-detect Supported Platforms
   if (platforms.isEmpty) {
     if (verbose) {
-      log('FFmpegKit: Auto-detecting supported platforms...',
-          level: Level.FINEST.value);
+      stdout.writeln('FFmpegKit: Auto-detecting supported platforms...');
     }
     for (final pform in supportedPlatforms) {
       if (Directory(p.join(projectRoot.path, pform)).existsSync()) {
@@ -133,14 +126,8 @@ Configuration (pubspec.yaml):
   }
 
   if (verbose) {
-    log('FFmpegKit: Project Root -> ${projectRoot.path}',
-        level: Level.FINEST.value);
-    log('FFmpegKit: Platforms -> ${platforms.join(', ')}',
-        level: Level.FINEST.value);
-    if (debug) {
-      log('FFmpegKit: Mode -> DEBUG (Fetching remote bundles)',
-          level: Level.INFO.value);
-    }
+    stdout.writeln('FFmpegKit: Project Root -> ${projectRoot.path}');
+    stdout.writeln('FFmpegKit: Platforms -> ${platforms.join(', ')}');
   }
 
   // Load Pubspec Configuration
@@ -185,13 +172,13 @@ Configuration (pubspec.yaml):
   try {
     final Map<String, String> configuredPaths = {};
     for (final platform in platforms) {
-      if (verbose) log('FFmpegKit: Configuring for $platform...');
-      final binaryPath = await _configurePlatform(
-          config, platform, projectRoot, verbose, debug);
+      if (verbose) stdout.writeln('FFmpegKit: Configuring for $platform...');
+      final binaryPath =
+          await _configurePlatform(config, platform, projectRoot, verbose);
       if (binaryPath != null) {
         configuredPaths[platform] = binaryPath;
         // Success output for CMake/Scripts to verify (Legacy support)
-        log('FFMPEG_KIT_PATH_$platform=$binaryPath', level: Level.INFO.value);
+        stdout.writeln('FFMPEG_KIT_PATH_$platform=$binaryPath');
       } else {
         _logError('Configuration failed for $platform');
         exit(1);
@@ -217,16 +204,21 @@ Configuration (pubspec.yaml):
 // =============================================================================
 
 Future<String?> _configurePlatform(dynamic config, String platform,
-    Directory projectRoot, bool verbose, bool debug) async {
+    Directory projectRoot, bool verbose) async {
   // Parse Config values
   final version = config['version']?.toString() ?? "1.0.0";
-  if (config['type'] == "streaming") {
-    config['type'] =
+  String type = config['type']?.toString() ?? "full";
+  if (type == "streaming") {
+    type =
         "video"; //XXX streaming added to all libraries. Streaming is same as video.
-    log("WARNING: Streaming libraries have been added to all bundles. Streaming type will be deprecated in future, switch to video.",
-        level: Level.WARNING.value);
+    stdout.writeln(
+        "WARNING: Streaming libraries have been added to all bundles. Streaming type will be deprecated in future, switch to video.");
   }
-  final type = config['type']?.toString() ?? "full";
+  if (!_validTypes.contains(type)) {
+    _logError(
+        'Invalid bundle type: $type. Valid types are: ${_validTypes.join(', ')}');
+    exit(1);
+  }
   final bool gpl = config['gpl'] == true;
   final bool small = config['small'] == true;
   final overrideUrl = config[platform]?.toString();
@@ -250,91 +242,18 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       final hostArch = res.stdout.toString().trim();
       if (hostArch == 'aarch64') arch = 'arm64';
     } catch (_) {}
+  } else if (platform == 'android') {
+    arch = '';
+  } else {
+    _logError('Unsupported platform: $platform');
+    exit(1);
   }
 
   // Filename Construction
   String filename;
   String url;
 
-  if (debug) {
-    // Debug mode: ignore small/type, ignore local override, fetch specific remote bundle
-    final parts = [
-      'bundle',
-      'base',
-      platform,
-      arch,
-      'shared',
-      gpl ? 'gpl' : 'lgpl'
-    ];
-    filename = "${parts.join('-')}.zip";
-    final tag = "v$version-$platform";
-    url = "$_baseUrlTemplate/$tag/$filename";
-  } else if (overrideUrl != null) {
-    if (overrideUrl.startsWith('http')) {
-      url = overrideUrl;
-      filename = p.basename(Uri.parse(url).path);
-    } else {
-      // Local path override - just return it directly if valid
-      final localFile = File(overrideUrl);
-      if (localFile.existsSync()) {
-        if (verbose) {
-          log('FFmpegKit: Using local override -> ${localFile.path}',
-              level: Level.FINEST.value);
-        }
-        // If it's a zip, extract it to cache. If it's a folder, use it.
-        if (FileSystemEntity.isDirectorySync(localFile.path)) {
-          final finalDir = Directory(localFile.path);
-          await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
-          return finalDir.path;
-        } else {
-          // Extract local zip to cache
-          filename = p.basename(localFile.path);
-          url = ''; // Local handling
-          // Copy to cache to ensure consistency
-          final cacheFile = File(p.join(cacheDir.path, filename));
-          if (!cacheFile.existsSync() ||
-              cacheFile.lengthSync() != localFile.lengthSync()) {
-            localFile.copySync(cacheFile.path);
-          }
-          await _extractFile(cacheFile, cacheDir.path, verbose);
-          // Assuming structure
-          final extractedName = p.basenameWithoutExtension(filename);
-          final finalDir = Directory(p.join(cacheDir.path, extractedName));
-          await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
-          return finalDir.path;
-        }
-      } else {
-        throw Exception('Local override path not found: $overrideUrl');
-      }
-    }
-  } else {
-    // Standard Download
-    final parts = ['bundle', type, platform, arch, 'shared'];
-    if (small) parts.add('small');
-    if (gpl) parts.add('gpl');
-    filename = "${parts.join('-')}.zip";
-    final tag = "v$version-$platform";
-    url = "$_baseUrlTemplate/$tag/$filename";
-  }
-
-  final zipFile = File(p.join(cacheDir.path, filename));
-  final extractedFolderName = p.basenameWithoutExtension(filename);
-  final destinationDir = Directory(p.join(cacheDir.path, extractedFolderName));
-
-  // Check if already exists and valid
-  final bool cacheHit =
-      destinationDir.existsSync() && destinationDir.listSync().isNotEmpty;
-
-  if (cacheHit) {
-    if (verbose) {
-      log('FFmpegKit: Cache hit -> ${destinationDir.path}',
-          level: Level.FINEST.value);
-    }
-  } else {
-    if (verbose) {
-      log('FFmpegKit: Downloading $url...', level: Level.FINEST.value);
-    }
-
+  Future<bool> tryDownload(String url, File zipFile) async {
     bool downloadSuccess = false;
     int retries = 3;
     while (retries > 0) {
@@ -345,48 +264,154 @@ Future<String?> _configurePlatform(dynamic config, String platform,
         }
       } catch (e) {
         if (verbose) {
-          log('FFmpegKit: Download error: $e', level: Level.FINEST.value);
+          stdout.writeln('FFmpegKit: Download error: $e');
         }
       }
       retries--;
       if (retries > 0) {
         if (verbose) {
-          log('FFmpegKit: Retrying download...', level: Level.FINEST.value);
+          stdout.writeln('FFmpegKit: Retrying download...');
         }
         await Future.delayed(const Duration(seconds: 2));
       }
     }
-
-    if (!downloadSuccess) {
-      throw Exception('Failed to download $url after 3 attempts.');
-    }
-
-    if (verbose) log('FFmpegKit: Extracting...', level: Level.FINEST.value);
-    if (!await _extractFile(zipFile, cacheDir.path, verbose)) {
-      throw Exception('Extraction failed.');
-    }
+    return downloadSuccess;
   }
 
-  // Verify extraction
-  Directory finalDir;
-  if (destinationDir.existsSync()) {
-    finalDir = destinationDir;
+  bool skipExtract = false;
+
+  if (overrideUrl != null) {
+    if (_isUri(overrideUrl)) {
+      url = overrideUrl;
+      filename = p.basename(Uri.parse(url).path);
+    } else if (_isFile(overrideUrl)) {
+      final localFile = File(overrideUrl);
+      if (localFile.existsSync()) {
+        if (verbose) {
+          stdout
+              .writeln('FFmpegKit: Using local override -> ${localFile.path}');
+        }
+        if (FileSystemEntity.isDirectorySync(localFile.path)) {
+          final finalDir = Directory(localFile.path);
+          await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
+          return finalDir.path;
+        } else {
+          filename = p.basename(localFile.path);
+          url = ''; // Local handling
+          final cacheFile = File(p.join(cacheDir.path, filename));
+          if (!cacheFile.existsSync() ||
+              cacheFile.lengthSync() != localFile.lengthSync()) {
+            localFile.copySync(cacheFile.path);
+          }
+
+          if (platform == 'android') {
+            final pathFile = File(p.join(cacheDir.path, 'current_path.txt'));
+            pathFile.writeAsStringSync(cacheFile.path);
+            return cacheFile.path;
+          } else {
+            await _extractFile(cacheFile, cacheDir.path, verbose);
+            final extractedName = p.basenameWithoutExtension(filename);
+            final finalDir = Directory(p.join(cacheDir.path, extractedName));
+            await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
+            return finalDir.path;
+          }
+        }
+      } else {
+        _logError('Local override path not found: $overrideUrl');
+        exit(1);
+      }
+    } else {
+      _logError('Invalid override URL: $overrideUrl');
+      exit(1);
+    }
   } else {
-    // Fallback
-    finalDir = cacheDir;
+    // Resolve artifact properties
+    final currentType = type == 'debug' ? 'base' : type;
+    final license = gpl ? 'gpl' : 'lgpl';
+
+    if (platform == 'android') {
+      // Maven Central download for Android
+      const groupIdPath = 'io/github/akashskypatel/ffmpegkit';
+      final parts = ['bundle', currentType, 'shared'];
+
+      if (type == 'debug') {
+        parts.add('debug');
+      } else if (small) {
+        parts.add('small');
+      }
+      parts.add(license);
+
+      final artifactId = parts.join('-');
+      final remoteFilename = "$artifactId-$version.aar";
+
+      // Save as .zip to ensure smooth extraction
+      filename = "$artifactId-$version.zip";
+      url =
+          "https://repo1.maven.org/maven2/$groupIdPath/$artifactId/$version/$remoteFilename";
+
+      // We MUST extract the AAR for Flutter plugins
+      skipExtract = false;
+    } else {
+      // GitHub Releases for Desktop platforms
+      final parts = ['bundle', currentType, platform, arch, 'shared'];
+
+      if (type != 'debug' && small) {
+        parts.add('small');
+      }
+      parts.add(license);
+
+      filename = "${parts.join('-')}.zip";
+      final tag = "v$version-$platform";
+      url = "$_baseUrlTemplate/$tag/$filename";
+    }
   }
 
-  // Create 'bin' alias for easier access by loader
-  // We want .dart_tool/ffmpeg_kit_extended_flutter/{platform}/bin -> finalDir/bin (or finalDir if flat)
-  // Actually, let's just symlink the whole directory to 'current'
-  final currentLink = Link(p.join(cacheDir.path, 'current'));
-  if (currentLink.existsSync()) {
-    currentLink.deleteSync();
+  // --- Unified Caching Logic ---
+  final targetFile = File(p.join(cacheDir.path, filename));
+  final extractedFolderName = p.basenameWithoutExtension(filename);
+  final destinationDir = Directory(p.join(cacheDir.path, extractedFolderName));
+
+  // For Android, cache hit is just the AAR file existing. For desktop, it's the extracted folder.
+  final bool cacheHit = skipExtract
+      ? targetFile.existsSync()
+      : (destinationDir.existsSync() && destinationDir.listSync().isNotEmpty);
+
+  if (cacheHit) {
+    if (verbose) {
+      stdout.writeln(
+          'FFmpegKit: Cache hit -> ${skipExtract ? targetFile.path : destinationDir.path}');
+    }
+  } else {
+    if (verbose) {
+      stdout.writeln('FFmpegKit: Downloading $url...');
+    }
+
+    if (!await tryDownload(url, targetFile)) {
+      _logError('Error downloading from $url.');
+      exit(1);
+    }
+
+    if (!skipExtract) {
+      if (verbose) stdout.writeln('FFmpegKit: Extracting...');
+      if (!await _extractFile(targetFile, cacheDir.path, verbose)) {
+        _logError('Extraction failed.');
+        exit(1);
+      }
+    }
   }
 
-  await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
-
-  return finalDir.path;
+  // --- Output Resolution ---
+  if (skipExtract) {
+    // Android Output: Write the direct path to the AAR and return
+    final pathFile = File(p.join(cacheDir.path, 'current_path.txt'));
+    pathFile.writeAsStringSync(targetFile.path);
+    return targetFile.path;
+  } else {
+    // Desktop Output: Resolve the extracted directory
+    final finalDir = destinationDir.existsSync() ? destinationDir : cacheDir;
+    await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
+    return finalDir.path;
+  }
 }
 
 Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
@@ -409,8 +434,7 @@ Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
   final sourceIncludeDir = Directory(p.join(finalDir.path, 'include'));
   if (sourceIncludeDir.existsSync()) {
     if (verbose) {
-      log('FFmpegKit: Updating generic include path for ffigen...',
-          level: Level.FINEST.value);
+      stdout.writeln('FFmpegKit: Updating generic include path for ffigen...');
     }
     await _copyDirectory(sourceIncludeDir, fixedIncludeDir);
   } else {
@@ -418,8 +442,8 @@ Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
     // Some bundles might have top-level include, others generic.
     // For now, warning is enough.
     if (verbose) {
-      log('FFmpegKit: Warning - include directory not found in bundle.',
-          level: Level.FINEST.value);
+      stdout.writeln(
+          'FFmpegKit: Warning - include directory not found in bundle.');
     }
   }
 }
@@ -461,8 +485,7 @@ Future<void> _writeCmakeConfig(Directory projectRoot,
 
   configFile.writeAsStringSync(buffer.toString());
   if (verbose) {
-    log('FFmpegKit: Generated CMake config at ${configFile.path}',
-        level: Level.FINEST.value);
+    stdout.writeln('FFmpegKit: Generated CMake config at ${configFile.path}');
   }
 }
 
@@ -496,7 +519,7 @@ Future<bool> _extractFile(File zipFile, String destPath, bool verbose) async {
       ]);
       if (res.exitCode != 0) {
         if (verbose) {
-          log("Extract failed: ${res.stderr}", level: Level.FINEST.value);
+          stderr.writeln("Extract failed: ${res.stderr}");
         }
         return false;
       }
@@ -509,7 +532,7 @@ Future<bool> _extractFile(File zipFile, String destPath, bool verbose) async {
             await Process.run('tar', ['-xf', zipFile.path, '-C', destPath]);
         if (res2.exitCode != 0) {
           if (verbose) {
-            log("Extract failed: ${res2.stderr}", level: Level.FINEST.value);
+            stderr.writeln("Extract failed: ${res2.stderr}");
           }
           return false;
         }
@@ -528,7 +551,7 @@ Future<void> _runFfigen(Directory projectRoot, bool verbose) async {
   // Logic to locate ffigen config relative to package root
   // This is typically only run by developers of the plugin
   if (verbose) {
-    log("FFmpegKit: Running ffigen...", level: Level.FINEST.value);
+    stdout.writeln("FFmpegKit: Running ffigen...");
   }
   final result = await Process.run(
     'dart',
@@ -537,13 +560,30 @@ Future<void> _runFfigen(Directory projectRoot, bool verbose) async {
     runInShell: true,
   );
   if (result.exitCode != 0) {
-    log('FFmpegKit: ffigen failed: ${result.stderr}',
-        level: Level.SEVERE.value);
+    stderr.writeln('FFmpegKit: ffigen failed: ${result.stderr}');
   } else {
-    log('FFmpegKit: ffigen completed.', level: Level.FINEST.value);
+    stdout.writeln('FFmpegKit: ffigen completed.');
   }
 }
 
 void _logError(String message) {
   stderr.writeln('FFmpegKit Error: $message');
+}
+
+bool _isUri(String path) {
+  try {
+    Uri.parse(path);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+bool _isFile(String path) {
+  try {
+    File(path);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }

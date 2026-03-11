@@ -18,7 +18,7 @@ This guide describes how to install and configure FFmpeg Kit Extended Flutter in
 
     ffmpeg_kit_extended_config:
       version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
-      type: "base" # pre-bundled builds: base, full, audio, video, video_hw
+      type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
       gpl: true # enable to include GPL libraries
       small: true # enable to use smaller builds
       # == OR ==
@@ -42,7 +42,6 @@ This guide describes how to install and configure FFmpeg Kit Extended Flutter in
     - `--help`: Show this help message.
     - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
     - `--verbose`: Enable verbose output.
-    - `--debug`: Enable debug mode. (Fetches remote bundles with debug symbols. Only base bundle is published with debug symbols. You can deploy your own using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders))
     - `--app-root=<path>`: Specify the path to the app root.
 
 4. Import the package in your Dart code:
