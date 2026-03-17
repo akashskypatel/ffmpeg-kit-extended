@@ -11,7 +11,7 @@
             "flutterMode": "debug",
             "deviceId": "windows",
             "args": [
-                "--verbose"
+                "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
         },

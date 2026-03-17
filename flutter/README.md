@@ -23,61 +23,61 @@
 
 ### Platform Support
 
-| Platform | Status         | Architecture         |
-|----------|----------------|----------------------|
-| Android  | 🚧 Planned     |armv7, arm64, x86_64  |
-| iOS      | Not Supported  |                      |
-| macOS    | Not Supported  |                      |
-| Linux    | ✅ Supported   | x86_64               |
-| Windows  | ✅ Supported   | x86_64               |
+| Platform | Status        | Architecture         |
+| -------- | ------------- | -------------------- |
+| Android  | 🚧 Planned    | armv7, arm64, x86_64 |
+| iOS      | Not Supported |                      |
+| macOS    | Not Supported |                      |
+| Linux    | ✅ Supported  | x86_64               |
+| Windows  | ✅ Supported  | x86_64               |
 
 ## 2. Installation
 
 1. Install the package:
 
-    ```bash
-    flutter pub add ffmpeg_kit_extended_flutter
-    ```
+   ```bash
+   flutter pub add ffmpeg_kit_extended_flutter
+   ```
 
 2. Add the dependency to your `pubspec.yaml` then add `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
 
-    ```yaml
-    dependencies:
-      ffmpeg_kit_extended_flutter: ^0.1.0
+   ```yaml
+   dependencies:
+     ffmpeg_kit_extended_flutter: ^0.1.0
 
-    ffmpeg_kit_extended_config:
-      version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
-      type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
-      gpl: true # enable to include GPL libraries
-      small: true # enable to use smaller builds
-      # == OR ==
-      # -------------------------------------------------------------
-      # You can specify remote or local path to libffmpegkit libraries for each platform
-      # This allows you to deploy custom builds of libffmpegkit.
-      # See: https://github.com/akashskypatel/ffmpeg-kit-builders
-      # Note: This will override all above options.
-      # -------------------------------------------------------------
-      # windows: "path/to/ffmpeg-kit/libraries"
-      # linux: "https://path/to/ffmpeg-kit/libraries"
-    ```
+   ffmpeg_kit_extended_config:
+     version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
+     type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
+     gpl: true # enable to include GPL libraries
+     small: true # enable to use smaller builds
+     # == OR ==
+     # -------------------------------------------------------------
+     # You can specify remote or local path to libffmpegkit libraries for each platform
+     # This allows you to deploy custom builds of libffmpegkit.
+     # See: https://github.com/akashskypatel/ffmpeg-kit-builders
+     # Note: This will override all above options.
+     # -------------------------------------------------------------
+     # windows: "path/to/ffmpeg-kit/libraries"
+     # linux: "https://path/to/ffmpeg-kit/libraries"
+   ```
 
 3. Run `dart run ffmpeg_kit_extended_flutter:configure` to generate the native libraries.
 
-    ```bash
-    dart run ffmpeg_kit_extended_flutter:configure
-    ```
+   ```bash
+   dart run ffmpeg_kit_extended_flutter:configure
+   ```
 
-    **Configure Options**
-    - `--help`: Show this help message.
-    - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
-    - `--verbose`: Enable verbose output.
-    - `--app-root=<path>`: Specify the path to the app root.
+   **Configure Options**
+   - `--help`: Show this help message.
+   - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
+   - `--verbose`: Enable verbose output.
+   - `--app-root=<path>`: Specify the path to the app root.
 
 4. Import the package in your Dart code:
 
-    ```dart
-    import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
-    ```
+   ```dart
+   import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+   ```
 
 ### 2.1 Pre-bundled Builds
 
@@ -90,14 +90,14 @@
 
 ### 2.2 Feature Matrix
 
-|Feature  |Base    |Audio   |Video   |Video+Hardware|Full|
-|---------|--------|--------|--------|--------------|----|
-|Video    |        |        |x       |              |x   |
-|Audio    |        |x       |x       |              |x   |
-|Streaming|        |x       |x       |x             |x   |
-|Hardware |        |        |        |x             |x   |
-|AI*      |        |        |        |              |    |
-|HTTPS    |        |x       |x       |x             |x   |
+| Feature   | Base | Audio | Video | Video+Hardware | Full |
+| --------- | ---- | ----- | ----- | -------------- | ---- |
+| Video     |      |       | x     |                | x    |
+| Audio     |      | x     | x     |                | x    |
+| Streaming |      | x     | x     | x              | x    |
+| Hardware  |      |       |       | x              | x    |
+| AI\*      |      |       |       |                |      |
+| HTTPS     |      | x     | x     | x              | x    |
 
 - AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable AI features.
 
@@ -112,7 +112,7 @@ import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 
 FFmpegKit.executeAsync('-i input.mp4 -c:v libx264 output.mp4', onComplete: (session) async {
   final returnCode = session.getReturnCode();
-  
+
   if (ReturnCode.isSuccess(returnCode)) {
     print("Command success");
   } else if (ReturnCode.isCancel(returnCode)) {
@@ -187,6 +187,10 @@ This plugin uses a modular architecture:
 - **`session.dart`**: Abstract base class for all session types (`FFmpegSession`, `FFprobeSession`, `FFplaySession`).
 - **`callback_manager.dart`**: Handles the mapping between native function pointers and Dart callbacks.
 
-## 5. License
+## 5. Known Issues
+
+- FFplay playback of audio and video does not work correctly on Android.
+
+## 6. License
 
 This project is licensed under the LGPL v3.0 by default. However, depending on the underlying FFmpeg build configuration and external libraries used, the effective license may be GPL v3.0. Please review the licenses of the included libraries.
