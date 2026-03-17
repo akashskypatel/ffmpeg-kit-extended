@@ -40,8 +40,18 @@ function(run_configure)
 
   message(STATUS "FFmpegKit: Configuring for Linux (App Root: ${APP_ROOT})...")
 
+  find_program(DART_EXECUTABLE NAMES dart 
+    HINTS "$ENV{FLUTTER_ROOT}/bin" "${FLUTTER_ROOT}/bin")
+
+  if(NOT DART_EXECUTABLE)
+    message(FATAL_ERROR "FFmpegKit: dart executable not found. Please ensure Flutter is installed and in PATH.")
+  else()
+    file(TO_NATIVE_PATH "${DART_EXECUTABLE}" DART_EXECUTABLE_NATIVE)
+    set(DART_EXE "${DART_EXECUTABLE_NATIVE}")
+  endif()
+
   execute_process(
-      COMMAND dart run ffmpeg_kit_extended_flutter:configure "linux" "--app-root=${APP_ROOT}" "--verbose"
+      COMMAND ${DART_EXE} run ffmpeg_kit_extended_flutter:configure "linux" "--app-root=${APP_ROOT}" "--verbose"
       WORKING_DIRECTORY "${APP_ROOT}"
       RESULT_VARIABLE configure_result
       OUTPUT_VARIABLE configure_output
@@ -139,24 +149,30 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE ${FFMPEG_LIB_FILE})
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
-# For Windows, we need the runtime library which is usually in bin/
-find_file(FFMPEG_KIT_LIB_FILE
-    NAMES libffmpegkit.so libffmpegkit.a
-    HINTS "${FFMPEG_KIT_PATH}/lib"
-    NO_DEFAULT_PATH
+# For Linux, bundle all .so (including versioned) and .a libraries from lib/
+file(GLOB FFMPEG_KIT_SO_FILES
+    "${FFMPEG_KIT_PATH}/lib/*.so"
+    "${FFMPEG_KIT_PATH}/lib/*.so.*"
 )
 
-if (FFMPEG_KIT_LIB_FILE)
+file(GLOB FFMPEG_KIT_A_FILES
+    "${FFMPEG_KIT_PATH}/lib/*.a"
+)
+
+list(APPEND FFMPEG_KIT_SO_FILES ${FFMPEG_KIT_A_FILES})
+
+if (FFMPEG_KIT_SO_FILES)
     set(${PROJECT_NAME}_bundled_libraries
-      "${FFMPEG_KIT_LIB_FILE}"
+      ${FFMPEG_KIT_SO_FILES}
       PARENT_SCOPE
     )
+    message(STATUS "FFmpegKit: Bundling ${PROJECT_NAME}: ${FFMPEG_KIT_SO_FILES}")
 else()
-     message(WARNING "FFmpegKit library not found in ${FFMPEG_KIT_PATH}/lib. Runtime might fail.")
-     set(${PROJECT_NAME}_bundled_libraries
-       ""
-       PARENT_SCOPE
-     )
+    message(WARNING "FFmpegKit: No library files found in ${FFMPEG_KIT_PATH}/lib. Runtime might fail.")
+    set(${PROJECT_NAME}_bundled_libraries
+      ""
+      PARENT_SCOPE
+    )
 endif()
 
 # Link system libraries required by FFmpeg static builds

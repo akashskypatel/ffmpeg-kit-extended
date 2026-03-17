@@ -26,6 +26,24 @@ plugins {
     id("kotlin-android")
 }
 
+// Execute configure.dart BEFORE the android block to ensure artifacts exist
+val appRoot = project.rootProject.projectDir.parentFile
+try {
+    project.exec {
+        workingDir = appRoot
+        commandLine(
+            "dart", 
+            "run", 
+            "ffmpeg_kit_extended_flutter:configure", 
+            "android", 
+            "--verbose",
+            "--app-root=${appRoot}"
+        )
+    }
+} catch (e: Exception) {
+    logger.error("FFmpegKit: Failed to execute configure.dart. Ensure Dart SDK is in PATH.", e)
+}
+
 android {
     namespace = "com.akashskypatel.ffmpeg_kit_extended_flutter"
 
@@ -44,12 +62,13 @@ android {
         getByName("main") {
             java.srcDirs("src/main/kotlin")
             
-            val currentPathFile = File(project.projectDir.parentFile, ".dart_tool/ffmpeg_kit_extended_flutter/android/current_path.txt")
+            val currentPathFile = File(appRoot, ".dart_tool/ffmpeg_kit_extended_flutter/android/current_path.txt")
             if (currentPathFile.exists()) {
                 val extractedPath = currentPathFile.readText().trim()
                 val jniDir = File(extractedPath, "jni")
                 
                 if (jniDir.exists()) {
+                    logger.lifecycle("FFmpegKit: Including JNI libs from $jniDir")
                     jniLibs.srcDir(jniDir)
                 }
             }
@@ -62,6 +81,17 @@ android {
 
     defaultConfig {
         minSdk = 26
+        externalNativeBuild {
+            cmake {
+                arguments("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path("src/main/cpp/CMakeLists.txt")
+        }
     }
 
     testOptions {
@@ -81,27 +111,12 @@ android {
     }
 }
 
-val pluginRoot = project.projectDir.parentFile
-try {
-    project.exec {
-        workingDir = pluginRoot
-        commandLine(
-            "dart", 
-            "run", 
-            "ffmpeg_kit_extended_flutter:configure", 
-            "android", 
-            "--verbose"
-        )
-    }
-} catch (e: Exception) {
-    logger.error("FFmpegKit: Failed to execute configure.dart. Ensure Dart SDK is in PATH.", e)
-}
 
 dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 
-    val currentPathFile = File(project.projectDir.parentFile, ".dart_tool/ffmpeg_kit_extended_flutter/android/current_path.txt")
+    val currentPathFile = File(appRoot, ".dart_tool/ffmpeg_kit_extended_flutter/android/current_path.txt")
     if (currentPathFile.exists()) {
         val extractedPath = currentPathFile.readText().trim()
         val classesJar = File(extractedPath, "classes.jar")
