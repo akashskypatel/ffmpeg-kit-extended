@@ -21,188 +21,144 @@ import 'dart:developer';
 import 'dart:ffi';
 import 'dart:io';
 
-import 'ffmpeg_kit_flutter_loader.dart';
-import 'ffmpeg_session.dart';
-import 'ffplay_session.dart';
-import 'ffprobe_session.dart';
+import '../ffmpeg_kit_extended_flutter.dart';
+import 'ffmpeg_kit_flutter_loader.dart' show ffmpeg;
 import 'generated/ffmpeg_kit_bindings.dart';
-import 'log.dart';
-import 'media_information_session.dart';
-import 'statistics.dart';
 
-// --- Typedefs for Native Callbacks that are not exported by bindings ---
-// C: Implementations
-// typedef void (*FFmpegKitCompleteCallback)(FFmpegSessionHandle session,
-//                                           void *user_data);
-// typedef void (*FFmpegKitLogCallback)(FFmpegSessionHandle session,
-//                                      const char *log, void *user_data);
-// typedef void (*FFmpegKitStatisticsCallback)(FFmpegSessionHandle session,
-//                                             int time, int64_t size,
-//                                             double bitrate, double speed,
-//                                             int videoFrameNumber,
-//                                             float videoFps, float videoQuality,
-//                                             void *user_data);
-// typedef void (*FFprobeKitCompleteCallback)(FFprobeSessionHandle session,
-//                                            void *user_data);
-// typedef void (*FFplayKitCompleteCallback)(FFplaySessionHandle session,
-//                                           void *user_data);
-// typedef void (*MediaInformationSessionCompleteCallback)(
-//     MediaInformationSessionHandle session, void *user_data);
 typedef FFmpegKitCompleteCallbackFunction = Void Function(
     FFmpegSessionHandle, Pointer<Void>);
 typedef FFprobeKitCompleteCallbackFunction = Void Function(
     FFprobeSessionHandle, Pointer<Void>);
 typedef FFplayKitCompleteCallbackFunction = Void Function(
     FFplaySessionHandle, Pointer<Void>);
-// just using FFprobeKitCompleteCallbackFunction for MediaInformationSessionCompleteCallbackFunction
-// typedef MediaInformationSessionCompleteCallbackFunction = Void Function(
-//     MediaInformationSessionHandle, Pointer<Void>);
+
+typedef MediaInformationSessionCompleteCallbackFunction = Void Function(
+    MediaInformationSessionHandle, Pointer<Void>);
+
 typedef FFmpegKitLogCallbackFunction = Void Function(
     FFmpegSessionHandle, Pointer<Char>, Pointer<Void>);
 
-// Note: Ensure types match exactly with C API
-// C: void (*FFmpegKitStatisticsCallback)(FFmpegSessionHandle session,
-//                                         int time, int64_t size,
-//                                         double bitrate, double speed,
-//                                         int videoFrameNumber,
-//                                         float videoFps, float videoQuality,
-//                                         void *user_data);
 typedef FFmpegKitStatisticsCallbackFunction = Void Function(FFmpegSessionHandle,
     Int64, Int64, Double, Double, Int64, Double, Double, Pointer<Void>);
 
-// --- Callback Types (Dart side) ---
-/// Callback for session completion.
+// ---------------------------------------------------------------------------
+// Dart-side callback typedefs (user-facing)
+// ---------------------------------------------------------------------------
+
+/// Callback for [FFmpegSession] completion.
 typedef FFmpegSessionCompleteCallback = void Function(FFmpegSession session);
 
 /// Callback for processing log messages.
 typedef FFmpegLogCallback = void Function(Log log);
 
-/// Callback for session statistics updates.
+/// Callback for session [Statistics] updates.
 typedef FFmpegStatisticsCallback = void Function(Statistics statistics);
 
-/// Callback for FFprobe session completion.
+/// Callback for [FFprobeSession] completion.
 typedef FFprobeSessionCompleteCallback = void Function(FFprobeSession session);
 
-/// Callback for FFplay session completion.
+/// Callback for [FFplaySession] completion.
 typedef FFplaySessionCompleteCallback = void Function(FFplaySession session);
 
-/// Callback for MediaInformation session completion.
+/// Callback for [MediaInformationSession] completion.
 typedef MediaInformationSessionCompleteCallback = void Function(
     MediaInformationSession session);
 
+// ---------------------------------------------------------------------------
+// Native → Dart bridge functions
+// ---------------------------------------------------------------------------
+
 /// Handles the completion of an FFmpeg session.
 ///
-/// This function is called when an FFmpeg session is completed. It retrieves
-/// the session ID from the session handle and looks up the corresponding
-/// [FFmpegSession] object in the callback manager. If a session object is
-/// found, it is used; otherwise, the session is retrieved from the
-/// callback manager's map of sessions.
+/// [sessionHandle] is the native session handle; its session ID is resolved
+/// through the C API (never by treating the pointer address as an ID).
+///
+/// [userData] carries the [CallbackManager] callback ID that was passed when
+/// the native callback was registered. This is the primary lookup key; the
+/// session-ID map is a fallback for global (non-per-session) callbacks.
 void _onFFmpegComplete(
     FFmpegSessionHandle sessionHandle, Pointer<Void> userData) {
-  final sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
-  log("CallbackManager: _onFFmpegComplete sessionId=$sessionId userData=${userData.address}");
-
-  // If we have an existing session object, use it.
-  FFmpegSession? session;
-  if (userData != nullptr) {
-    final callbackId = userData.address;
-    session = CallbackManager().getFFmpegSession(callbackId);
-    log("CallbackManager: Resolved session from userData: $session");
-  }
-
-  // Fallback to searching by sessionId if userData not provided (unlikely for specialized sessions but possible for global)
-  session ??= CallbackManager().ffmpegSessions[sessionId];
-
-  if (session != null) {
-    log("CallbackManager: Invoking completeCallback for session $sessionId");
-    try {
-      session.completeCallback?.call(session);
-    } catch (e) {
-      log("CallbackManager: Error invoking completeCallback: $e");
-    }
-  } else {
-    stderr.writeln(
-        "Warning: FFmpeg session complete callback for unknown session $sessionId (userData: ${userData.address})");
-  }
-
-  // Always check global callback
-  if (session != null) {
-    CallbackManager().globalFFmpegSessionCompleteCallback?.call(session);
-  }
-
-  if (userData != nullptr) {
-    CallbackManager().unregisterSession(userData.address);
-  }
-  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
-}
-
-/// Handles a log message from an FFmpeg session.
-///
-/// This function is called when a log message is generated by an FFmpeg session.
-/// It retrieves the session ID from the session handle and looks up the
-/// corresponding [FFmpegSession] object in the callback manager. If a session
-/// object is found, it is used; otherwise, the session is retrieved from the
-/// callback manager's map of sessions.
-void _onFFmpegLog(FFmpegSessionHandle sessionHandle, Pointer<Char> logPtr,
-    Pointer<Void> userData) {
-  if (logPtr == nullptr) return;
-  int sessionId = 0;
-  final address = sessionHandle.address;
-  if (address != 0) {
-    // Heuristic: Real pointers are usually large (> 0x100000).
-    // Session IDs are small integers.
-    if (address < 0x100000) {
-      sessionId = address;
-    } else {
-      // Assume Real Handle
-      try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
-      } catch (e) {
-        stderr.writeln("Error getting session ID from handle: $e");
-      }
-    }
-  }
+  FFmpegKitExtended.requireInitialized();
+  // Always resolve the session ID through the C API.
+  final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegComplete');
+  log('CallbackManager: _onFFmpegComplete sessionId=$sessionId '
+      'userData=0x${userData.address.toRadixString(16)}');
 
   FFmpegSession? session;
+
+  // Primary lookup: callbackId encoded in userData.
   if (userData != nullptr && userData.address != 0) {
-    final callbackId = userData.address;
-    session = CallbackManager().getFFmpegSession(callbackId);
+    session = CallbackManager().getFFmpegSession(userData.address);
+    log('CallbackManager: resolved session from userData: $session');
   }
 
-  // Fallback to sessionId lookup
+  // Fallback: look up by session ID (covers global-callback-only scenarios).
   if (session == null && sessionId > 0) {
     session = CallbackManager().ffmpegSessions[sessionId];
   }
 
   if (session != null) {
+    log('CallbackManager: invoking completeCallback for session $sessionId');
+    try {
+      session.completeCallback?.call(session);
+    } catch (e, st) {
+      log('CallbackManager: error in completeCallback for session $sessionId: '
+          '$e\n$st');
+    }
+    CallbackManager().globalFFmpegSessionCompleteCallback?.call(session);
+  } else {
+    stderr.writeln('Warning: _onFFmpegComplete — no session found for '
+        'sessionId=$sessionId '
+        'userData=0x${userData.address.toRadixString(16)}');
+  }
+
+  // Unregister before releasing the handle so no further callbacks can fire.
+  if (userData != nullptr && userData.address != 0) {
+    CallbackManager().unregisterFFmpegSession(userData.address);
+  }
+  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
+}
+
+/// Handles a log notification from an FFmpeg session.
+void _onFFmpegLog(FFmpegSessionHandle sessionHandle, Pointer<Char> logPtr,
+    Pointer<Void> userData) {
+  // logPtr being null means no text — nothing to dispatch.
+  if (logPtr == nullptr) return;
+
+  // Resolve session ID reliably through the C API.
+  final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegLog');
+
+  // Primary lookup via userData callback ID.
+  FFmpegSession? session;
+  if (userData != nullptr && userData.address != 0) {
+    session = CallbackManager().getFFmpegSession(userData.address);
+  }
+
+  // Fallback to session-ID map.
+  if (session == null && sessionId > 0) {
+    session = CallbackManager().ffmpegSessions[sessionId];
+  }
+
+  if (session != null) {
+    // Poll the session's buffered log entries since the last delivery.
     final count = session.getLogsCount();
     for (int i = session.logsProcessed; i < count; i++) {
       final message = session.getLogAt(i);
       final level = session.getLogLevelAt(i);
       final logObj = Log(session.sessionId, level, message);
-
       CallbackManager().globalLogCallback?.call(logObj);
       session.logCallback?.call(logObj);
     }
     session.logsProcessed = count;
-  } else {
-    // Only print if not quiet
-    if (CallbackManager().globalLogCallback == null) {
-      // Optional: stderr.writeln("Warning: No session for log: $message");
-    }
   }
+  // If no session is found there is nothing to route. Do NOT print a warning
+  // here — this callback can legally fire for global log redirection where no
+  // specific session is registered.
 
-  // Free log string (Standard wrapper strdup)
-  ffmpeg.ffmpeg_kit_free(logPtr.cast());
+  // DO NOT free logPtr — it is owned by the C layer.
 }
 
 /// Handles statistics from an FFmpeg session.
-///
-/// This function is called when statistics are generated by an FFmpeg session.
-/// It retrieves the session ID from the session handle and looks up the
-/// corresponding [FFmpegSession] object in the callback manager. If a session
-/// object is found, it is used; otherwise, the session is retrieved from the
-/// callback manager's map of sessions.
 void _onFFmpegStatistics(
     FFmpegSessionHandle sessionHandle,
     int time,
@@ -213,31 +169,19 @@ void _onFFmpegStatistics(
     double videoFps,
     double videoQuality,
     Pointer<Void> userData) {
-  int sessionId = 0;
-  final address = sessionHandle.address;
-  if (address != 0) {
-    if (address < 0x100000) {
-      sessionId = address;
-    } else {
-      try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
-      } catch (e) {
-        stderr.writeln("Error getting session ID from handle: $e");
-      }
-    }
-  }
+  // Resolve session ID reliably through the C API.
+  final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegStatistics');
 
   final stats = Statistics(sessionId, time, size, bitrate, speed,
       videoFrameNumber, videoFps, videoQuality);
 
-  // Global callback
+  // Global callback fires unconditionally (no session required).
   CallbackManager().globalStatisticsCallback?.call(stats);
 
-  // Session specific
+  // Per-session callback: primary lookup via userData, fallback via sessionId.
   FFmpegSession? session;
   if (userData != nullptr && userData.address != 0) {
-    final callbackId = userData.address;
-    session = CallbackManager().getFFmpegSession(callbackId);
+    session = CallbackManager().getFFmpegSession(userData.address);
   }
   if (session == null && sessionId > 0) {
     session = CallbackManager().ffmpegSessions[sessionId];
@@ -246,206 +190,356 @@ void _onFFmpegStatistics(
   if (session != null) {
     session.statisticsCallback?.call(stats);
   } else {
-    stderr.writeln(
-        "Warning: Statistics received for unknown session $sessionId (userData: ${userData.address})");
+    stderr.writeln('Warning: _onFFmpegStatistics — no session found for '
+        'sessionId=$sessionId '
+        'userData=0x${userData.address.toRadixString(16)}');
   }
 }
 
 /// Handles the completion of an FFprobe session.
-///
-/// This function is called when an FFprobe session is completed. It retrieves
-/// the session ID from the session handle and looks up the corresponding
-/// [FFprobeSession] object in the callback manager. If a session object is
-/// found, it is used; otherwise, the session is retrieved from the
-/// callback manager's map of sessions.
 void _onFFprobeComplete(
     FFprobeSessionHandle sessionHandle, Pointer<Void> userData) {
-  final sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
+  FFmpegKitExtended.requireInitialized();
+  final sessionId = _safeGetSessionId(sessionHandle, '_onFFprobeComplete');
+
   FFprobeSession? session;
-
-  if (userData != nullptr) {
-    final callbackId = userData.address;
-    session = CallbackManager().getFFprobeSession(callbackId);
+  if (userData != nullptr && userData.address != 0) {
+    session = CallbackManager().getFFprobeSession(userData.address);
   }
-
   session ??= CallbackManager().ffprobeSessions[sessionId];
 
   if (session != null) {
-    if (session is MediaInformationSession) {
-      (session.completeCallback as MediaInformationSessionCompleteCallback?)
-          ?.call(session);
+    try {
+      // FFprobeSession and MediaInformationSession are separate registrations
+      // now, so the is-check here is a safety net rather than the primary path.
+      if (session is MediaInformationSession) {
+        session.completeCallback?.call(session);
+        CallbackManager()
+            .globalMediaInformationSessionCompleteCallback
+            ?.call(session);
+      } else {
+        session.completeCallback?.call(session);
+        CallbackManager().globalFFprobeSessionCompleteCallback?.call(session);
+      }
+    } catch (e, st) {
+      log('CallbackManager: error in FFprobe completeCallback for session '
+          '$sessionId: $e\n$st');
+    }
+  } else {
+    stderr.writeln('Warning: _onFFprobeComplete — no session found for '
+        'sessionId=$sessionId '
+        'userData=0x${userData.address.toRadixString(16)}');
+  }
+
+  if (userData != nullptr && userData.address != 0) {
+    CallbackManager().unregisterFFprobeSession(userData.address);
+  }
+  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
+}
+
+/// Handles the completion of a MediaInformation session.
+void _onMediaInfoComplete(
+    MediaInformationSessionHandle sessionHandle, Pointer<Void> userData) {
+  FFmpegKitExtended.requireInitialized();
+  final sessionId = _safeGetSessionId(sessionHandle, '_onMediaInfoComplete');
+
+  MediaInformationSession? session;
+  if (userData != nullptr && userData.address != 0) {
+    session = CallbackManager().getMediaInformationSession(userData.address);
+  }
+  session ??= CallbackManager().mediaInformationSessions[sessionId];
+
+  if (session != null) {
+    try {
+      session.completeCallback?.call(session);
       CallbackManager()
           .globalMediaInformationSessionCompleteCallback
           ?.call(session);
-    } else {
-      session.completeCallback?.call(session);
-      CallbackManager().globalFFprobeSessionCompleteCallback?.call(session);
+    } catch (e, st) {
+      log('CallbackManager: error in MediaInfo completeCallback for session '
+          '$sessionId: $e\n$st');
     }
+  } else {
+    stderr.writeln('Warning: _onMediaInfoComplete — no session found for '
+        'sessionId=$sessionId '
+        'userData=0x${userData.address.toRadixString(16)}');
   }
 
-  if (userData != nullptr) {
-    CallbackManager().unregisterSession(userData.address);
+  if (userData != nullptr && userData.address != 0) {
+    CallbackManager().unregisterMediaInformationSession(userData.address);
   }
   ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
 }
 
 /// Handles the completion of an FFplay session.
-///
-/// This function is called when an FFplay session is completed. It retrieves
-/// the session ID from the session handle and looks up the corresponding
-/// [FFplaySession] object in the callback manager. If a session object is
-/// found, it is used; otherwise, the session is retrieved from the
-/// callback manager's map of sessions.
 void _onFFplayComplete(
     FFplaySessionHandle sessionHandle, Pointer<Void> userData) {
-  final sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(sessionHandle);
+  FFmpegKitExtended.requireInitialized();
+  final sessionId = _safeGetSessionId(sessionHandle, '_onFFplayComplete');
+
   FFplaySession? session;
-
-  if (userData != nullptr) {
-    final callbackId = userData.address;
-    session = CallbackManager().getFFplaySession(callbackId);
+  if (userData != nullptr && userData.address != 0) {
+    session = CallbackManager().getFFplaySession(userData.address);
   }
-
   session ??= CallbackManager().ffplaySessions[sessionId];
 
   if (session != null) {
-    session.completeCallback?.call(session);
-    CallbackManager().globalFFplaySessionCompleteCallback?.call(session);
+    try {
+      session.completeCallback?.call(session);
+      CallbackManager().globalFFplaySessionCompleteCallback?.call(session);
+    } catch (e, st) {
+      log('CallbackManager: error in FFplay completeCallback for session '
+          '$sessionId: $e\n$st');
+    }
+  } else {
+    stderr.writeln('Warning: _onFFplayComplete — no session found for '
+        'sessionId=$sessionId '
+        'userData=0x${userData.address.toRadixString(16)}');
   }
 
-  if (userData != nullptr) {
-    CallbackManager().unregisterSession(userData.address);
+  if (userData != nullptr && userData.address != 0) {
+    CallbackManager().unregisterFFplaySession(userData.address);
   }
   ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
 }
 
-// Keep static references to listeners to prevent GC
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Resolves a session ID from a native handle by calling the C API.
+///
+/// Returns 0 on failure and logs a diagnostic message to stderr.
+int _safeGetSessionId(Pointer<Void> handle, String caller) {
+  if (handle.address == 0) return 0;
+  try {
+    return FFmpegKitExtended.getSessionId(handle);
+  } catch (e) {
+    stderr.writeln('$caller: failed to resolve session ID from handle '
+        '(address=0x${handle.address.toRadixString(16)}): $e');
+    return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Long-lived NativeCallable instances
+//
+// These must be top-level (or otherwise GC-rooted) so the Dart GC never
+// collects them while native threads still hold the function pointers.
+// ---------------------------------------------------------------------------
+
+/// Native-callable for [_onFFmpegComplete]. Kept alive for the process
+/// lifetime so the C layer can always invoke it safely.
 final nativeFFmpegComplete =
     NativeCallable<FFmpegKitCompleteCallbackFunction>.listener(
         _onFFmpegComplete);
+
+/// Native-callable for [_onFFmpegLog].
 final nativeFFmpegLog =
     NativeCallable<FFmpegKitLogCallbackFunction>.listener(_onFFmpegLog);
+
+/// Native-callable for [_onFFmpegStatistics].
 final nativeFFmpegStatistics =
     NativeCallable<FFmpegKitStatisticsCallbackFunction>.listener(
         _onFFmpegStatistics);
+
+/// Native-callable for [_onFFprobeComplete].
 final nativeFFprobeComplete =
     NativeCallable<FFprobeKitCompleteCallbackFunction>.listener(
         _onFFprobeComplete);
-final nativeMediaInfoComplete = NativeCallable<
-        MediaInformationSessionCompleteCallbackFunction>.listener(
-    _onFFprobeComplete); // Note: Re-use FFprobe handler as signature works (Handle, void*)
+
+/// Native-callable for [_onMediaInfoComplete].
+final nativeMediaInfoComplete =
+    NativeCallable<MediaInformationSessionCompleteCallbackFunction>.listener(
+        _onMediaInfoComplete);
+
+/// Native-callable for [_onFFplayComplete].
 final nativeFFplayComplete =
     NativeCallable<FFplayKitCompleteCallbackFunction>.listener(
         _onFFplayComplete);
 
-/// Internal manager for handling native-to-Dart callbacks.
+// ---------------------------------------------------------------------------
+// CallbackManager
+// ---------------------------------------------------------------------------
+
+/// Internal manager for bridging native-to-Dart callbacks.
 ///
-/// This class maintains maps of active sessions and bridges native callback
-/// invocations (which pass a `userData` pointer) back to the corresponding
-/// Dart session objects and their callbacks.
+/// Maintains maps of active sessions keyed by:
+///   - **session ID** — assigned by the C layer, stable for the session's
+///     lifetime; used as a fallback lookup key.
+///   - **callback ID** — a Dart-owned auto-increment integer assigned here
+///     at registration time and passed as the `userData` void* to the C layer.
+///     When the native callback fires, `userData.address` equals the callback
+///     ID, enabling O(1) lookup without pointer arithmetic or heuristics.
+///
+/// ### Thread safety
+/// All mutations occur on the Dart isolate thread. [NativeCallable.listener]
+/// posts native invocations onto the Dart event loop, so there is no
+/// concurrent mutation risk for these maps.
 class CallbackManager {
   static final _instance = CallbackManager._();
   CallbackManager._();
 
-  /// Returns the singleton instance of [CallbackManager].
+  /// Returns the singleton instance.
   factory CallbackManager() => _instance;
 
-  /// Active FFmpeg sessions indexed by their session ID.
+  // ---- Session-ID maps (authoritative session store) ----------------------
+
+  /// Active FFmpeg sessions indexed by C-layer session ID.
   final Map<int, FFmpegSession> ffmpegSessions = {};
 
-  /// Active FFprobe sessions indexed by their session ID.
+  /// Active FFprobe sessions indexed by C-layer session ID.
   final Map<int, FFprobeSession> ffprobeSessions = {};
 
-  /// Active FFplay sessions indexed by their session ID.
+  /// Active FFplay sessions indexed by C-layer session ID.
   final Map<int, FFplaySession> ffplaySessions = {};
 
-  /// Active MediaInformation sessions indexed by their session ID.
+  /// Active MediaInformation sessions indexed by C-layer session ID.
   final Map<int, MediaInformationSession> mediaInformationSessions = {};
 
-  /// Counter for generating unique callback IDs.
-  int nextCallbackId = 1;
+  // ---- Callback-ID maps (userData → session, fast path) ------------------
 
-  /// Map associating unique callback IDs (pointer addresses) with session IDs.
-  final Map<int, int> callbackIdToSessionId = {};
+  /// Auto-incrementing counter. Starts at 1 so address 0 (nullptr) is invalid.
+  int _nextCallbackId = 1;
 
-  /// Map associating unique callback IDs directly with FFmpegSession objects.
-  final Map<int, FFmpegSession> callbackIdToFFmpegSession = {};
+  /// callback ID → session ID (used during type-specific unregistration).
+  final Map<int, int> _callbackIdToSessionId = {};
 
-  /// Map associating unique callback IDs directly with FFprobeSession objects.
-  final Map<int, FFprobeSession> callbackIdToFFprobeSession = {};
+  /// callback ID → FFmpegSession.
+  final Map<int, FFmpegSession> _callbackIdToFFmpegSession = {};
 
-  /// Map associating unique callback IDs directly with FFplaySession objects.
-  final Map<int, FFplaySession> callbackIdToFFplaySession = {};
+  /// callback ID → FFprobeSession.
+  final Map<int, FFprobeSession> _callbackIdToFFprobeSession = {};
 
-  /// Map associating unique callback IDs directly with MediaInformationSession objects.
-  final Map<int, MediaInformationSession> callbackIdToMediaInformationSession =
+  /// callback ID → FFplaySession.
+  final Map<int, FFplaySession> _callbackIdToFFplaySession = {};
+
+  /// callback ID → MediaInformationSession.
+  final Map<int, MediaInformationSession> _callbackIdToMediaInformationSession =
       {};
 
-  /// Global FFmpeg log callback.
+  // ---- Global callbacks ---------------------------------------------------
+
+  /// Receives log events from all FFmpeg sessions.
   FFmpegLogCallback? globalLogCallback;
 
-  /// Global FFmpeg statistics callback.
+  /// Receives statistics from all FFmpeg sessions.
   FFmpegStatisticsCallback? globalStatisticsCallback;
 
-  /// Global FFmpeg session complete callback.
+  /// Fires on completion of any FFmpeg session.
   FFmpegSessionCompleteCallback? globalFFmpegSessionCompleteCallback;
 
-  /// Global FFprobe session complete callback.
+  /// Fires on completion of any FFprobe session.
   FFprobeSessionCompleteCallback? globalFFprobeSessionCompleteCallback;
 
-  /// Global FFplay session complete callback.
+  /// Fires on completion of any FFplay session.
   FFplaySessionCompleteCallback? globalFFplaySessionCompleteCallback;
 
-  /// Global MediaInformation session complete callback.
+  /// Fires on completion of any MediaInformation session.
   MediaInformationSessionCompleteCallback?
       globalMediaInformationSessionCompleteCallback;
 
-  /// Registers an [FFmpegSession] and generates a unique callback ID.
-  ///
-  /// The ID is used as the `userData` pointer in native calls.
+  // ---- Registration -------------------------------------------------------
+
+  /// Registers [FFmpegSession] in all relevant maps and returns the callback ID.
   int registerFFmpegSession(FFmpegSession session) {
-    final id = nextCallbackId++;
+    final id = _nextCallbackId++;
     ffmpegSessions[session.sessionId] = session;
-    callbackIdToSessionId[id] = session.sessionId;
-    callbackIdToFFmpegSession[id] = session;
+    _callbackIdToSessionId[id] = session.sessionId;
+    _callbackIdToFFmpegSession[id] = session;
     return id;
   }
 
-  /// Registers an [FFprobeSession] and generates a unique callback ID.
+  /// Registers [FFprobeSession] and returns the callback ID for `userData`.
   int registerFFprobeSession(FFprobeSession session) {
-    final id = nextCallbackId++;
+    final id = _nextCallbackId++;
     ffprobeSessions[session.sessionId] = session;
-    callbackIdToSessionId[id] = session.sessionId;
-    callbackIdToFFprobeSession[id] = session;
+    _callbackIdToSessionId[id] = session.sessionId;
+    _callbackIdToFFprobeSession[id] = session;
     return id;
   }
 
-  /// Registers an [FFplaySession] and generates a unique callback ID.
+  /// Registers [FFplaySession] and returns the callback ID for `userData`.
   int registerFFplaySession(FFplaySession session) {
-    final id = nextCallbackId++;
+    final id = _nextCallbackId++;
     ffplaySessions[session.sessionId] = session;
-    callbackIdToSessionId[id] = session.sessionId;
-    callbackIdToFFplaySession[id] = session;
+    _callbackIdToSessionId[id] = session.sessionId;
+    _callbackIdToFFplaySession[id] = session;
     return id;
   }
 
-  /// Registers a [MediaInformationSession] and generates a unique callback ID.
+  /// Registers [MediaInformationSession] and returns the callback ID for `userData`.
+  ///
+  /// [MediaInformationSession] extends [FFprobeSession], so the session is
+  /// stored in both [mediaInformationSessions] and [ffprobeSessions] to
+  /// support both lookup paths.
   int registerMediaInformationSession(MediaInformationSession session) {
-    final id = nextCallbackId++;
+    final id = _nextCallbackId++;
     mediaInformationSessions[session.sessionId] = session;
-    callbackIdToSessionId[id] = session.sessionId;
-    callbackIdToMediaInformationSession[id] = session;
+    ffprobeSessions[session.sessionId] = session; // mirror for fallback lookup
+    _callbackIdToSessionId[id] = session.sessionId;
+    _callbackIdToMediaInformationSession[id] = session;
+    _callbackIdToFFprobeSession[id] = session; // mirror for fallback lookup
     return id;
   }
 
-  /// Removes a session from registration using its [callbackId].
-  void unregisterSession(int callbackId) {
-    callbackIdToFFmpegSession.remove(callbackId);
-    callbackIdToFFprobeSession.remove(callbackId);
-    callbackIdToFFplaySession.remove(callbackId);
-    callbackIdToMediaInformationSession.remove(callbackId);
+  // ---- Type-specific unregistration --------------------------------------
 
-    final sessionId = callbackIdToSessionId.remove(callbackId);
+  /// Removes the [FFmpegSession] registration for [callbackId].
+  void unregisterFFmpegSession(int callbackId) {
+    _callbackIdToFFmpegSession.remove(callbackId);
+    final sessionId = _callbackIdToSessionId.remove(callbackId);
+    if (sessionId != null) {
+      ffmpegSessions.remove(sessionId);
+    }
+  }
+
+  /// Removes the [FFprobeSession] registration for [callbackId].
+  ///
+  /// If the session was a [MediaInformationSession], call
+  /// [unregisterMediaInformationSession] instead so both mirror maps are
+  /// cleaned up correctly.
+  void unregisterFFprobeSession(int callbackId) {
+    _callbackIdToFFprobeSession.remove(callbackId);
+    final sessionId = _callbackIdToSessionId.remove(callbackId);
+    if (sessionId != null) {
+      ffprobeSessions.remove(sessionId);
+    }
+  }
+
+  /// Removes the [FFplaySession] registration for [callbackId].
+  void unregisterFFplaySession(int callbackId) {
+    _callbackIdToFFplaySession.remove(callbackId);
+    final sessionId = _callbackIdToSessionId.remove(callbackId);
+    if (sessionId != null) {
+      ffplaySessions.remove(sessionId);
+    }
+  }
+
+  /// Removes the [MediaInformationSession] registration for [callbackId].
+  ///
+  /// Cleans up both [mediaInformationSessions] and the [ffprobeSessions]
+  /// mirror entry that was created by [registerMediaInformationSession].
+  void unregisterMediaInformationSession(int callbackId) {
+    _callbackIdToMediaInformationSession.remove(callbackId);
+    _callbackIdToFFprobeSession.remove(callbackId); // remove mirror
+    final sessionId = _callbackIdToSessionId.remove(callbackId);
+    if (sessionId != null) {
+      mediaInformationSessions.remove(sessionId);
+      ffprobeSessions.remove(sessionId); // remove mirror
+    }
+  }
+
+  /// Removes all registrations for [callbackId] regardless of session type.
+  ///
+  /// Prefer the type-specific methods above. This is provided as a convenience
+  /// for bulk-clear operations that do not know the session type.
+  void unregisterAny(int callbackId) {
+    _callbackIdToFFmpegSession.remove(callbackId);
+    _callbackIdToFFprobeSession.remove(callbackId);
+    _callbackIdToFFplaySession.remove(callbackId);
+    _callbackIdToMediaInformationSession.remove(callbackId);
+    final sessionId = _callbackIdToSessionId.remove(callbackId);
     if (sessionId != null) {
       ffmpegSessions.remove(sessionId);
       ffprobeSessions.remove(sessionId);
@@ -454,43 +548,34 @@ class CallbackManager {
     }
   }
 
-  /// Retrieves the [FFmpegSession] associated with the given [callbackId].
-  FFmpegSession? getFFmpegSession(int callbackId) {
-    if (callbackIdToFFmpegSession.containsKey(callbackId)) {
-      return callbackIdToFFmpegSession[callbackId];
-    }
-    final sessionId = callbackIdToSessionId[callbackId];
-    if (sessionId == null) return null;
-    return ffmpegSessions[sessionId];
-  }
+  // ---- Lookup (callback ID → session) ------------------------------------
 
-  /// Retrieves the [FFprobeSession] associated with the given [callbackId].
-  FFprobeSession? getFFprobeSession(int callbackId) {
-    if (callbackIdToFFprobeSession.containsKey(callbackId)) {
-      return callbackIdToFFprobeSession[callbackId];
-    }
-    final sessionId = callbackIdToSessionId[callbackId];
-    if (sessionId == null) return null;
-    return ffprobeSessions[sessionId];
-  }
+  /// Returns the [FFmpegSession] for [callbackId], or `null`.
+  FFmpegSession? getFFmpegSession(int callbackId) =>
+      _callbackIdToFFmpegSession[callbackId] ??
+      _bySessionId(callbackId, ffmpegSessions);
 
-  /// Retrieves the [FFplaySession] associated with the given [callbackId].
-  FFplaySession? getFFplaySession(int callbackId) {
-    if (callbackIdToFFplaySession.containsKey(callbackId)) {
-      return callbackIdToFFplaySession[callbackId];
-    }
-    final sessionId = callbackIdToSessionId[callbackId];
-    if (sessionId == null) return null;
-    return ffplaySessions[sessionId];
-  }
+  /// Returns the [FFprobeSession] for [callbackId], or `null`.
+  FFprobeSession? getFFprobeSession(int callbackId) =>
+      _callbackIdToFFprobeSession[callbackId] ??
+      _bySessionId(callbackId, ffprobeSessions);
 
-  /// Retrieves the [MediaInformationSession] associated with the given [callbackId].
-  MediaInformationSession? getMediaInformationSession(int callbackId) {
-    if (callbackIdToMediaInformationSession.containsKey(callbackId)) {
-      return callbackIdToMediaInformationSession[callbackId];
-    }
-    final sessionId = callbackIdToSessionId[callbackId];
+  /// Returns the [FFplaySession] for [callbackId], or `null`.
+  FFplaySession? getFFplaySession(int callbackId) =>
+      _callbackIdToFFplaySession[callbackId] ??
+      _bySessionId(callbackId, ffplaySessions);
+
+  /// Returns the [MediaInformationSession] for [callbackId], or `null`.
+  MediaInformationSession? getMediaInformationSession(int callbackId) =>
+      _callbackIdToMediaInformationSession[callbackId] ??
+      _bySessionId(callbackId, mediaInformationSessions);
+
+  // ---- Private helpers ----------------------------------------------------
+
+  /// Resolves callbackId → sessionId → session in [map].
+  T? _bySessionId<T>(int callbackId, Map<int, T> map) {
+    final sessionId = _callbackIdToSessionId[callbackId];
     if (sessionId == null) return null;
-    return mediaInformationSessions[sessionId];
+    return map[sessionId];
   }
 }

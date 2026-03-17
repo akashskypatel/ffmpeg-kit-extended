@@ -65,7 +65,7 @@ class FFplayKit {
       completeCallback: wrappedCallback,
     );
     await _activeFFplaySession!.executeAsync();
-    return _activeFFplaySession!;
+    return _activeFFplaySession!; //TODO: crashing when SDL window is closed
   }
 
   /// Creates a new [FFplaySession] without executing it.

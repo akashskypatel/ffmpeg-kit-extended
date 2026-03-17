@@ -17,8 +17,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-import 'dart:ffi';
-
 import 'callback_manager.dart' as callback_manager;
 import 'ffmpeg_kit_extended.dart';
 import 'log.dart';
@@ -65,10 +63,6 @@ class FFmpegKitConfig {
   /// Converts log level to string.
   static String? logLevelToString(LogLevel level) =>
       FFmpegKitExtended.logLevelToString(level);
-
-  /// Releases a native handle.
-  static void handleRelease(Pointer<Void> handle) =>
-      FFmpegKitExtended.handleRelease(handle);
 
   /// Clears all handled sessions.
   static void clearSessions() => FFmpegKitExtended.clearSessions();

@@ -20,10 +20,15 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import '../ffmpeg_kit_extended_flutter.dart'
-    show FFmpegSession, FFplaySession, FFprobeSession, MediaInformationSession;
+    show FFmpegSession, FFplaySession, FFprobeSession, MediaInformationSession, FFmpegKitExtended;
 import 'ffmpeg_kit_flutter_loader.dart';
+import 'statistics.dart';
 
-/// Return code for a session.
+// ---------------------------------------------------------------------------
+// Return-code sentinel values
+// ---------------------------------------------------------------------------
+
+/// Well-known exit codes returned by the native layer.
 enum ReturnCode {
   success(0),
   cancel(255);
@@ -31,11 +36,18 @@ enum ReturnCode {
   final int value;
   const ReturnCode(this.value);
 
+  /// Returns `true` if [code] represents successful completion.
   static bool isSuccess(int code) => code == success.value;
+
+  /// Returns `true` if [code] represents a user-requested cancellation.
   static bool isCancel(int code) => code == cancel.value;
 }
 
-/// Session state.
+// ---------------------------------------------------------------------------
+// Session lifecycle state
+// ---------------------------------------------------------------------------
+
+/// Lifecycle state of an FFmpegKit session
 enum SessionState {
   created(0),
   running(1),
@@ -45,205 +57,389 @@ enum SessionState {
   final int value;
   const SessionState(this.value);
 
+  /// Maps an integer value from the C layer to a [SessionState].
+  ///
+  /// Falls back to [SessionState.failed] for any unrecognised value so that
+  /// callers always receive a valid enum member rather than a runtime error.
   static SessionState fromValue(int value) => SessionState.values.firstWhere(
         (e) => e.value == value,
         orElse: () => SessionState.failed,
       );
 }
 
+// ---------------------------------------------------------------------------
+// Session base class
+// ---------------------------------------------------------------------------
+
 /// Base class for all FFmpegKit sessions.
 ///
-/// This class provides common functionality for managing session state,
-/// retrieving output, logs, and timing information.
+/// Provides common access to session state, return code, output, logs,
+/// statistics, timing, and debug utilities.  All concrete session types
+/// ([FFmpegSession], [FFprobeSession], [FFplaySession],
+/// [MediaInformationSession]) extend this class.
+///
+/// ### Native handle lifetime
+/// Each session owns an opaque native C++ object exposed as a
+/// [Pointer<Void>] ([handle]).  A [NativeFinalizer] is attached at
+/// construction time to call `ffmpeg_kit_handle_release` when the Dart
+/// object is garbage-collected, preventing native memory leaks even when
+/// the caller drops a reference without an explicit release.
+///
+/// ### Testing without a native library
+/// Use the protected [Session.noFinalizer] constructor in test subclasses
+/// or mock factories.  This sets an instance-level flag that suppresses
+/// finalizer registration for that specific instance.  Unlike the previous
+/// `static bool skipFinalizer` approach, this flag cannot leak between
+/// tests or affect unrelated sessions.
 abstract class Session implements Finalizable {
-  /// The native handle to the session.
+  // ---- Core fields --------------------------------------------------------
+
+  /// The native opaque handle for this session.
   late Pointer<Void> handle;
 
-  // Session(String command) {
-  //   final commandChar = command.toNativeUtf8();
-  //   handle = ffmpeg.ffmpeg_kit_create_session(commandChar.cast());
-  //   malloc.free(commandChar);
-  // }
-
-  /// The unique identifier for this session.
+  /// The C-layer session identifier.  Stable for the session's entire lifetime.
   late int sessionId;
 
-  /// The FFmpeg command associated with this session.
+  /// The command string that was (or will be) executed.
   late String command;
 
-  /// Number of logs already processed by the callback manager
+  /// Index of the next log entry not yet dispatched to Dart callbacks.
+  ///
+  /// Shared between [Session], `FFmpegSession`, and `CallbackManager` so
+  /// that the log-polling loop and the completion flush both advance from the
+  /// same cursor and never deliver the same entry twice.
   int logsProcessed = 0;
 
-  /// Internal state: whether this session was cancelled.
+  // ---- Cancellation -------------------------------------------------------
+
   bool _isCancelled = false;
 
-  /// Whether this session was cancelled.
+  /// Whether [cancel] has been called on this session.
   bool get isCancelled => _isCancelled;
 
-  static bool skipFinalizer = false;
-  static NativeFinalizer? __finalizer;
-  static NativeFinalizer get _finalizer {
-    if (__finalizer == null) {
-      Pointer<NativeFunction<Void Function(Pointer<Void>)>> ptr;
-      try {
-        ptr = ffmpegLibrary
-            .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-                'ffmpeg_kit_handle_release')
-            .cast();
-      } catch (e) {
-        // Fallback for tests if library or symbol is missing
-        ptr = Pointer.fromAddress(0);
-      }
-      __finalizer = NativeFinalizer(ptr);
+  /// When `true`, [registerFinalizer] is a no-op for this specific instance.
+  /// Set exclusively by [Session.noFinalizer]; immutable after construction.
+  final bool _skipFinalizer;
+
+  /// Standard constructor — [registerFinalizer] will attach the native
+  /// finalizer after [handle] is assigned.
+  Session() : _skipFinalizer = false;
+
+  /// Constructor for use in test subclasses where no native library is loaded.
+  ///
+  /// Suppresses finalizer registration for *this instance only*; all other
+  /// concurrently-live sessions are unaffected.
+  ///
+  /// **Production code must never call this constructor.**
+  Session.noFinalizer() : _skipFinalizer = true;
+
+  // Lazily-initialised shared NativeFinalizer.  The function pointer for
+  // `ffmpeg_kit_handle_release` is resolved once from the loaded dynamic
+  // library and reused for every subsequent [registerFinalizer] call.
+  static NativeFinalizer? _sharedFinalizer;
+
+  static NativeFinalizer _getFinalizer() {
+    if (_sharedFinalizer != null) return _sharedFinalizer!;
+
+    Pointer<NativeFunction<Void Function(Pointer<Void>)>> ptr;
+    try {
+      ptr = ffmpegLibrary
+          .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
+              'ffmpeg_kit_handle_release')
+          .cast();
+    } catch (_) {
+      // Library not loaded (unit-test environment with a stub / no-op lib).
+      // A zero-address token is safe: NativeFinalizer will never invoke it
+      // because it only runs on GC, and tests should not create sessions that
+      // reach GC in this code path.
+      ptr = Pointer.fromAddress(0);
     }
-    return __finalizer!;
+    _sharedFinalizer = NativeFinalizer(ptr);
+    return _sharedFinalizer!;
   }
 
-  /// Registers a finalizer to release the native handle when this object is garbage collected.
+  /// Attaches the native finalizer to this session.
+  ///
+  /// Must be called exactly once from every concrete subclass constructor,
+  /// *after* both [handle] and [sessionId] have been assigned.
+  ///
+  /// Calling this more than once on the same session is safe — [_skipFinalizer]
+  /// and the guard inside [NativeFinalizer.attach] prevent double-attachment.
   void registerFinalizer() {
-    if (skipFinalizer) return;
-    _finalizer.attach(this, handle, detach: this);
+    if (_skipFinalizer) return;
+    _getFinalizer().attach(this, handle, detach: this);
   }
 
-  /// Gets the current session state.
-  ///
-  /// Returns a [SessionState] enum value.
+  // ---- State & return code ------------------------------------------------
+
+  /// Returns the current lifecycle state of this session.
   SessionState getState() {
-    final stateEnum = ffmpeg.ffmpeg_kit_session_get_state(handle);
-    return SessionState.fromValue(stateEnum.value);
+    FFmpegKitExtended.requireInitialized();
+    return SessionState.fromValue(ffmpeg.ffmpeg_kit_session_get_state(handle).value);
   }
 
-  /// Gets the session return code.
+  /// Returns the native exit code.
   ///
-  /// Returns the exit code of the process.
-  int getReturnCode() => ffmpeg.ffmpeg_kit_session_get_return_code(handle);
+  /// Meaningful only after [getState] returns [SessionState.completed] or
+  /// [SessionState.failed].  Returns 0 while the session is still running.
+  int getReturnCode() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffmpeg_kit_session_get_return_code(handle);
+  }
 
-  /// Gets the unique session ID.
-  int getSessionId() => ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+  /// Returns the unique session ID assigned by the C layer.
+  ///
+  /// Equivalent to [sessionId]; provided as a method for API parity with
+  /// the original FFmpegKit Java/ObjC SDK.
+  int getSessionId() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+  }
 
-  /// Gets the creation time of this session.
-  DateTime getCreateTime() => DateTime.fromMillisecondsSinceEpoch(
-      ffmpeg.ffmpeg_kit_session_get_create_time(handle));
+  // ---- Timing -------------------------------------------------------------
 
-  /// Gets the start time of this session.
+  /// Returns the time at which the session object was created.
+  DateTime getCreateTime() {
+    FFmpegKitExtended.requireInitialized();
+    return DateTime.fromMillisecondsSinceEpoch(
+        ffmpeg.ffmpeg_kit_session_get_create_time(handle));
+  }
+
+  /// Returns the time at which execution started, or `null` if the session
+  /// has not yet been executed.
   DateTime? getStartTime() {
-    final time = ffmpeg.ffmpeg_kit_session_get_start_time(handle);
-    if (time == 0) return null;
-    return DateTime.fromMillisecondsSinceEpoch(time);
+    FFmpegKitExtended.requireInitialized();
+    final ms = ffmpeg.ffmpeg_kit_session_get_start_time(handle);
+    return ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
-  /// Gets the end time of this session.
+  /// Returns the time at which execution ended, or `null` if the session has
+  /// not yet completed.
   DateTime? getEndTime() {
-    final time = ffmpeg.ffmpeg_kit_session_get_end_time(handle);
-    if (time == 0) return null;
-    return DateTime.fromMillisecondsSinceEpoch(time);
+    FFmpegKitExtended.requireInitialized();
+    final ms = ffmpeg.ffmpeg_kit_session_get_end_time(handle);
+    return ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
-  /// Gets the duration of this session in milliseconds.
-  int getDuration() => ffmpeg.ffmpeg_kit_session_get_duration(handle);
-
-  /// Gets the session output.
+  /// Returns the wall-clock execution duration in milliseconds.
   ///
-  /// Returns the full output of the session as a string, or null if not available.
+  /// Returns 0 if the session has not yet completed.
+  int getDuration() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffmpeg_kit_session_get_duration(handle);
+  }
+
+  // ---- Output & logs ------------------------------------------------------
+
+  /// Returns the combined output of the session as a string, or `null` if no
+  /// output is available yet.
   String? getOutput() {
-    final ptr = ffmpeg.ffmpeg_kit_session_get_output(handle);
-    return _toDartStringAndFree(ptr);
+    FFmpegKitExtended.requireInitialized();
+    return _toDartStringAndFree(ffmpeg.ffmpeg_kit_session_get_output(handle));
   }
 
-  /// Gets the session logs as a single string.
-  String? getLogs() => getLogsAsString();
+  /// Returns all buffered log entries concatenated into a single string, or
+  /// `null` if no log entries exist.  Equivalent to [getLogsAsString].
+  String? getLogs() {
+    FFmpegKitExtended.requireInitialized();
+    return getLogsAsString();
+  }
 
-  /// Gets all logs of this session as a single string.
+  /// Returns all buffered log entries concatenated into a single string, or
+  /// `null` if no log entries exist.
   String? getLogsAsString() {
-    final ptr = ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle);
-    return _toDartStringAndFree(ptr);
+    FFmpegKitExtended.requireInitialized();
+    return _toDartStringAndFree(
+        ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle));
   }
 
-  /// Gets the failure stack trace if the session failed.
+  /// Returns the failure stack trace captured when the session failed, or
+  /// `null` if the session did not fail or no trace is available.
   String? getFailStackTrace() {
-    final ptr = ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle);
-    return _toDartStringAndFree(ptr);
+    FFmpegKitExtended.requireInitialized();
+    return _toDartStringAndFree(
+        ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle));
   }
 
-  /// Gets the command executed by this session.
+  /// Returns the command string as reported by the C layer.
   String getCommand() {
-    final commandChar = ffmpeg.ffmpeg_kit_session_get_command(handle);
-    return _toDartStringAndFree(commandChar) ?? "";
+    FFmpegKitExtended.requireInitialized();
+    return _toDartStringAndFree(
+        ffmpeg.ffmpeg_kit_session_get_command(handle)) ??
+        '';
   }
 
-  /// Gets the number of log entries available for this session.
-  int getLogsCount() => ffmpeg.ffmpeg_kit_session_get_logs_count(handle);
+  /// Returns the number of log entries buffered for this session.
+  int getLogsCount() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffmpeg_kit_session_get_logs_count(handle);
+  }
 
-  /// Gets the log entry at the specified [index].
+  /// Returns the log message at [index].
+  ///
+  /// Returns an empty string if [index] is out of range or the C layer
+  /// returns a null pointer.
   String getLogAt(int index) {
-    final logChar = ffmpeg.ffmpeg_kit_session_get_log_at(handle, index);
-    return _toDartStringAndFree(logChar) ?? "";
+    FFmpegKitExtended.requireInitialized();
+    return _toDartStringAndFree(
+        ffmpeg.ffmpeg_kit_session_get_log_at(handle, index)) ??
+        '';
   }
 
-  /// Gets the log level for the log entry at the specified [index].
-  int getLogLevelAt(int index) =>
-      ffmpeg.ffmpeg_kit_session_get_log_level_at(handle, index);
+  /// Returns the log level for the entry at [index].
+  int getLogLevelAt(int index) {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffmpeg_kit_session_get_log_level_at(handle, index);
+  }
 
-  /// Gets the number of statistics entries available for this session.
-  int getStatisticsCount() =>
-      ffmpeg.ffmpeg_kit_session_get_statistics_count(handle);
+  // ---- Statistics ---------------------------------------------------------
 
-  /// Gets the statistics entry at the specified [index] as a string.
-  String getStatisticsAt(int index) {
-    final handle =
-        ffmpeg.ffmpeg_kit_session_get_statistics_at(this.handle, index);
-    if (handle != nullptr) {
-      ffmpeg.ffmpeg_kit_handle_release(handle);
+  /// Returns the number of statistics snapshots buffered for this session.
+  int getStatisticsCount() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffmpeg_kit_session_get_statistics_count(handle);
+  }
+
+  /// Returns the [Statistics] snapshot at [index], or `null` if the index is
+  /// out of range.
+  Statistics? getStatisticsAt(int index) {
+    FFmpegKitExtended.requireInitialized();
+    final statsHandle =
+        ffmpeg.ffmpeg_kit_session_get_statistics_at(handle, index);
+    if (statsHandle == nullptr) return null;
+
+    try {
+      final videoFrameNumber =
+          ffmpeg.ffmpeg_kit_statistics_get_video_frame_number(statsHandle);
+      final videoFps =
+          ffmpeg.ffmpeg_kit_statistics_get_video_fps(statsHandle);
+      final videoQuality =
+          ffmpeg.ffmpeg_kit_statistics_get_video_quality(statsHandle);
+      final size =
+          ffmpeg.ffmpeg_kit_statistics_get_size(statsHandle);
+      // The C API returns time as a double (seconds); Statistics.time is int
+      // (milliseconds).
+      final timeMs =
+          (ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle) * 1000).round();
+      final bitrate =
+          ffmpeg.ffmpeg_kit_statistics_get_bitrate(statsHandle);
+      final speed =
+          ffmpeg.ffmpeg_kit_statistics_get_speed(statsHandle);
+
+      return Statistics(
+        sessionId,
+        timeMs,
+        size,
+        bitrate,
+        speed,
+        videoFrameNumber,
+        videoFps,
+        videoQuality,
+      );
+    } finally {
+      // Release after extraction, even if a getter call threw.
+      ffmpeg.ffmpeg_kit_handle_release(statsHandle);
     }
-    return "";
   }
 
-  String? _toDartStringAndFree(Pointer<Char> ptr) {
-    if (ptr == nullptr) return null;
-    final res = ptr.cast<Utf8>().toDartString();
-    ffmpeg.ffmpeg_kit_free(ptr.cast());
-    return res;
-  }
+  // ---- Cancellation -------------------------------------------------------
 
-  /// Cancels this session execution if it is currently running.
+  /// Requests cancellation of this session.
+  ///
+  /// Has no effect if the session has already completed, failed, or been
+  /// previously cancelled.
   void cancel() {
-    if (getState() == SessionState.completed ||
-        getState() == SessionState.failed ||
-        ReturnCode.isCancel(getReturnCode())) {
+    FFmpegKitExtended.requireInitialized();
+    // Take a consistent snapshot before evaluating the guard.
+    final currentState = getState();
+    final currentReturnCode = getReturnCode();
+
+    if (currentState == SessionState.completed ||
+        currentState == SessionState.failed ||
+        ReturnCode.isCancel(currentReturnCode) ||
+        _isCancelled) {
       return;
     }
+
     ffmpeg.ffmpeg_kit_cancel_session(sessionId);
     _isCancelled = true;
   }
 
-  /// Returns true if this is an [FFmpegSession].
-  bool isFFmpegSession() => ffmpeg.session_is_ffmpeg_session(handle);
+  // ---- Session-type identity ----------------------------------------------
+  //
+  // Default implementations delegate to the C layer.  Concrete subclasses
+  // override these with constant `true`/`false` returns to avoid unnecessary
+  // FFI calls in the common case where the Dart type is already known.
 
-  /// Returns true if this is an [FFplaySession].
-  bool isFFplaySession() => ffmpeg.session_is_ffplay_session(handle);
-
-  /// Returns true if this is an [FFprobeSession].
-  bool isFFprobeSession() => ffmpeg.session_is_ffprobe_session(handle);
-
-  /// Returns true if this is a [MediaInformationSession].
-  bool isMediaInformationSession() =>
-      ffmpeg.session_is_media_information_session(handle);
-
-  /// Enables the debug log for this session.
-  void enableDebugLog() => ffmpeg.session_enable_debug_log(handle);
-
-  /// Disables the debug log for this session.
-  void disableDebugLog() => ffmpeg.session_disable_debug_log(handle);
-
-  /// Checks if the debug log is enabled for this session.
-  bool isDebugLogEnabled() => ffmpeg.session_is_debug_log_enabled(handle);
-
-  /// Gets the debug log for this session.
-  String getDebugLog() {
-    final ptr = ffmpeg.session_get_debug_log(handle);
-    return _toDartStringAndFree(ptr) ?? "";
+  /// Returns `true` if this session is an [FFmpegSession].
+  bool isFFmpegSession() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.session_is_ffmpeg_session(handle);
   }
 
-  /// Clears the debug log for this session.
-  void clearDebugLog() => ffmpeg.session_clear_debug_log(handle);
+  /// Returns `true` if this session is an [FFplaySession].
+  bool isFFplaySession() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.session_is_ffplay_session(handle);
+  }
+
+  /// Returns `true` if this session is an [FFprobeSession].
+  bool isFFprobeSession() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.session_is_ffprobe_session(handle);
+  }
+
+  /// Returns `true` if this session is a [MediaInformationSession].
+  bool isMediaInformationSession() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.session_is_media_information_session(handle);
+  }
+
+  // ---- Debug log ----------------------------------------------------------
+
+  /// Enables per-session debug logging in the C layer.
+  void enableDebugLog() {
+    FFmpegKitExtended.requireInitialized();
+    ffmpeg.session_enable_debug_log(handle);
+  }
+
+  /// Disables per-session debug logging in the C layer.
+  void disableDebugLog() {
+    FFmpegKitExtended.requireInitialized();
+    ffmpeg.session_disable_debug_log(handle);
+  }
+
+  /// Returns `true` if per-session debug logging is currently enabled.
+  bool isDebugLogEnabled() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.session_is_debug_log_enabled(handle);
+  }
+
+  /// Returns the accumulated debug log for this session, or an empty string
+  /// if none is available.
+  String getDebugLog() {
+    FFmpegKitExtended.requireInitialized();
+    return _toDartStringAndFree(ffmpeg.session_get_debug_log(handle)) ?? '';
+  }
+
+  /// Clears the accumulated debug log in the C layer.
+  void clearDebugLog() {
+    FFmpegKitExtended.requireInitialized();
+    ffmpeg.session_clear_debug_log(handle);
+  }
+
+  // ---- Private helpers ----------------------------------------------------
+
+  /// Copies a heap-allocated `char*` from the C layer into a Dart [String]
+  /// and immediately frees the native memory via `ffmpeg_kit_free`.
+  ///
+  /// Returns `null` when [ptr] is the null pointer, allowing callers to
+  /// distinguish "no value" from an empty string.
+  String? _toDartStringAndFree(Pointer<Char> ptr) {
+    FFmpegKitExtended.requireInitialized();
+    if (ptr == nullptr) return null;
+    final result = ptr.cast<Utf8>().toDartString();
+    ffmpeg.ffmpeg_kit_free(ptr.cast());
+    return result;
+  }
 }

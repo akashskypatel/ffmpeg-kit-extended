@@ -22,11 +22,50 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:flutter/cupertino.dart' show WidgetsFlutterBinding;
+import 'package:flutter/material.dart' show WidgetsFlutterBinding;
+import 'package:flutter/widgets.dart' show WidgetsFlutterBinding;
 import 'package:path/path.dart' as path;
 
 import 'generated/ffmpeg_kit_bindings.dart';
 
+// Win32 LoadLibraryW signature
+typedef LoadLibraryWNative = Pointer Function(Pointer<Utf16> lpLibFileName);
+typedef GetLastErrorNative = Uint32 Function();
+typedef GetLastError_C = Uint32 Function();
+typedef GetLastError_Dart = int Function();
+
 DynamicLibrary? _cachedLibrary;
+
+bool _initialized = false;
+
+
+/// Eagerly loads the native library and wires up the [FFmpegKitBindings].
+///
+/// Must be called once before any other plugin API is used, typically from
+/// [main] after [WidgetsFlutterBinding.ensureInitialized]:
+///
+/// ```dart
+/// void main() async {
+///   WidgetsFlutterBinding.ensureInitialized();
+///   await FFmpegKitExtended.initialize();
+///   runApp(const MyApp());
+/// }
+/// ```
+///
+/// Calling this more than once is a no-op.
+Future<void> initializeFFmpegKit() async {
+  if (_initialized) return;
+  // Offload to a separate isolate/thread so the UI thread is not blocked
+  // during DLL loading. compute() is Flutter-dependent; for a pure-Dart
+  // package you can use Isolate.run (Dart 2.19+).
+  await Future(() {
+    _ffmpegInstance = FFmpegKitBindings(_loadLibrary());
+  });
+  _initialized = true;
+}
+
+bool get isFFmpegKitInitialized => _initialized;
 
 /// Loads the FFmpegKit native library based on the current platform.
 ///
@@ -45,7 +84,7 @@ DynamicLibrary _loadLibrary() {
       _cachedLibrary = DynamicLibrary.open('libffmpegkit.dll');
     }
     return _cachedLibrary!;
-  } catch (e) {
+  } catch (e, s) {
     final sep = Platform.isWindows ? '\\' : '/';
     // If not found, try to locate in .dart_tool cache (Common for 'flutter test')
     final cacheRoot = Platform.packageConfig != null
@@ -111,8 +150,8 @@ DynamicLibrary _loadLibrary() {
       try {
         _cachedLibrary = DynamicLibrary.open(absoluteLibPath);
         return _cachedLibrary!;
-      } catch (inner) {
-        log('DEBUG: Failed to open library from parsed path: $inner');
+      } catch (e, s) {
+        log('DEBUG: Failed to open library from parsed path: $e stackTrace: $s');
         // Try one last fallback with just the name
         try {
           _cachedLibrary = DynamicLibrary.open(path.basename(absoluteLibPath));
@@ -122,7 +161,7 @@ DynamicLibrary _loadLibrary() {
     } else {
       log('DEBUG: pathFile does not exist');
     }
-    throw Exception(e);
+    throw Exception('Failed to load ffmpegkit library: $e stackTrace: $s');
   }
 }
 

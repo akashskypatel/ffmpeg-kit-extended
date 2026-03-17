@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:android_media_store/android_media_store.dart';
+import 'package:path_provider/path_provider.dart'; // Import for getTemporaryDirectory
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FFmpegKitExtended.initialize();
   runApp(const MyApp());
 }
 
@@ -44,11 +50,100 @@ class _HomePageState extends State<HomePage>
   final TextEditingController _ffplayCommandController =
       TextEditingController(text: "-i test_video.mp4");
   String? _selectedProbePath;
+  String _status = 'Ready';
+  final _mediaStore = AndroidMediaStore.instance;
+  late StreamSubscription<bool> _permissionStreamSub;
+  LogLevel _currentLogLevel = LogLevel.info;
+
+  @override
+  void dispose() {
+    _permissionStreamSub.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _initializePlugin();
+    _currentLogLevel = FFmpegKitConfig.getLogLevel();
+    final tabController = TabController(length: 3, vsync: this);
+    if (Platform.isAndroid) {
+      // Listen for changes to the Special 'MANAGE_MEDIA' permission.
+      // This is useful when the user returns from the system settings screen.
+      _permissionStreamSub =
+          _mediaStore.onManageMediaPermissionChanged.listen((isGranted) {
+        if (mounted) {
+          setState(() {
+            _status = isGranted
+                ? 'Manage Media Permission: Granted'
+                : 'Manage Media Permission: Denied';
+            _addLog(_status);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_status)),
+          );
+        }
+      });
+    }
+    _tabController = tabController;
+  }
+
+  Future<void> _initializePlugin() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await AndroidMediaStore.ensureInitialized();
+      setState(() {
+        _status = 'Plugin initialized successfully';
+        _addLog(_status);
+      });
+      await _checkPermissions(silent: true);
+    } catch (e) {
+      setState(() {
+        _status = 'Initialization failed: $e';
+        _addLog(_status);
+      });
+    }
+  }
+
+  Future<void> _checkPermissions({bool silent = false}) async {
+    if (!Platform.isAndroid) return;
+    if (!silent) {
+      setState(() {
+        _status = 'Checking permissions...';
+        _addLog(_status);
+      });
+    }
+    try {
+      // 1. Check Standard Storage / Media Permissions (permission_handler)
+      await [
+        Permission.photos,
+        Permission.audio,
+        Permission.videos,
+        Permission.storage,
+      ].request();
+
+      // 2. Check Android 12+ Manage Media Access (Native Plugin)
+      bool canManageMedia = await _mediaStore.canManageMedia();
+
+      if (!canManageMedia) {
+        setState(() {
+          _status = 'Missing Manage Media Permission';
+          _addLog(_status);
+        });
+        await _mediaStore
+            .requestManageMedia(); // Will trigger the stream when user returns
+      } else {
+        setState(() {
+          _status = 'All permissions look good!';
+          _addLog(_status);
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _status = 'Permission check error: $e';
+        _addLog(_status);
+      });
+    }
   }
 
   void _addLog(String log) {
@@ -76,7 +171,9 @@ class _HomePageState extends State<HomePage>
   // --- FFmpeg Examples ---
 
   Future<void> _runFFmpegVersion() async {
-    _addLog("--- Running FFmpeg -version (Async) ---");
+    _addLog(
+        "--- Running FFmpeg -version (Async) ---"); // Logs are captured in real-time
+
     // Async execution allows capturing logs in real-time or at the end
     await FFmpegKit.executeAsync("-version", onLog: (log) {
       _addLog(log.message);
@@ -86,7 +183,8 @@ class _HomePageState extends State<HomePage>
   }
 
   void _runFFmpegInfoSync() {
-    _addLog("--- Running FFmpeg -version (Sync) ---");
+    _addLog(
+        "--- Running FFmpeg -version (Sync) ---"); // Logs are captured at the end
     // Synchronous execution blocks the current isolate
     // We capture the output from the session object after it returns
     final session = FFmpegKit.execute("-version");
@@ -98,14 +196,17 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _generateTestVideo() async {
-    final outputPath = path.join(Directory.current.path, 'test_video.mp4');
-    _addLog("--- Generating Test Video to: $outputPath ---");
+    // Use a temporary directory for FFmpeg output
+    final tempDir = await getTemporaryDirectory();
+    final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
+    _addLog("--- Generating Test Video to temporary path: $tempOutputPath ---");
 
     // Command from integration tests
     const command =
         "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -y";
 
-    await FFmpegKit.executeAsync("$command \"$outputPath\"", onLog: (log) {
+    await FFmpegKit.executeAsync("$command \"$tempOutputPath\"",
+        onLog: (log) {
       _addLog(log.message);
     }, onComplete: (session) {
       if (ReturnCode.isSuccess(session.getReturnCode())) {
@@ -117,12 +218,13 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _generateTestAudio() async {
-    final outputPath = path.join(Directory.current.path, 'test_audio.mp3');
+    final tempDir = await getTemporaryDirectory();
+    final outputPath = path.join(tempDir.path, 'test_audio.wav');
     _addLog("--- Generating Test Audio to: $outputPath ---");
 
     // Command from integration tests
     const command =
-        "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=3 -y";
+        "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=10 -y";
 
     await FFmpegKit.executeAsync("$command \"$outputPath\"", onLog: (log) {
       _addLog(log.message);
@@ -141,7 +243,15 @@ class _HomePageState extends State<HomePage>
     _addLog("FFmpegKit Version: ${FFmpegKitConfig.getVersion()}");
     _addLog("Build Date: ${FFmpegKitConfig.getBuildDate()}");
     _addLog("Package Name: ${FFmpegKitConfig.getPackageName()}");
-    _addLog("Log Level: ${FFmpegKitConfig.getLogLevel()}");
+    _addLog("Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}");
+  }
+
+  void _setLogLevel(LogLevel level) {
+    setState(() {
+      _currentLogLevel = level;
+    });
+    FFmpegKitConfig.setLogLevel(level);
+    _addLog("Log level set to: ${FFmpegKitConfig.logLevelToString(level)}");
   }
 
   Future<void> _runCustomFFmpeg() async {
@@ -190,7 +300,8 @@ class _HomePageState extends State<HomePage>
     // 1. Use picked file if available
     // 2. Otherwise use local test_video.mp4
     // 3. Finally fall back to remote URL
-    final localTestPath = path.join(Directory.current.path, 'test_video.mp4');
+    final tempDir = await getTemporaryDirectory();
+    final localTestPath = path.join(tempDir.path, 'test_video.mp4');
 
     final String probePath;
     if (_selectedProbePath != null && File(_selectedProbePath!).existsSync()) {
@@ -239,7 +350,8 @@ class _HomePageState extends State<HomePage>
 
   // --- FFplay Example ---
   Future<void> _runFFplay(String fileName) async {
-    final localPath = path.join(Directory.current.path, fileName);
+    final tempDir = await getTemporaryDirectory();
+    final localPath = path.join(tempDir.path, fileName);
 
     if (!File(localPath).existsSync()) {
       _addLog("⚠️ File not found: $localPath. Please generate it first!");
@@ -286,6 +398,30 @@ class _HomePageState extends State<HomePage>
             ],
           ),
           actions: [
+            PopupMenuButton<LogLevel>(
+              icon: const Icon(Icons.tune),
+              tooltip: "Log Level",
+              onSelected: _setLogLevel,
+              itemBuilder: (BuildContext context) {
+                return LogLevel.values.map((LogLevel level) {
+                  return PopupMenuItem<LogLevel>(
+                    value: level,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _currentLogLevel == level
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(level.name.toUpperCase()),
+                      ],
+                    ),
+                  );
+                }).toList();
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.settings),
               onPressed: _showSystemInfo,
@@ -295,6 +431,11 @@ class _HomePageState extends State<HomePage>
               icon: const Icon(Icons.delete),
               onPressed: _clearLogs,
               tooltip: "Clear Logs",
+            ),
+            IconButton(
+              icon: const Icon(Icons.verified_user),
+              onPressed: _checkPermissions,
+              tooltip: "Check / Request Permissions",
             )
           ],
         ),
@@ -431,7 +572,7 @@ class _HomePageState extends State<HomePage>
             children: [
               _demoButton(() => _runFFplay('test_video.mp4'),
                   Icons.play_circle_filled, "Play Video"),
-              _demoButton(() => _runFFplay('test_audio.mp3'), Icons.music_note,
+              _demoButton(() => _runFFplay('test_audio.wav'), Icons.music_note,
                   "Play Audio"),
             ],
           ),
