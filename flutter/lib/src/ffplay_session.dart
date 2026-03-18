@@ -346,17 +346,14 @@ class FFplaySession extends Session {
   // ---------------------------------------------------------------------------
 
   Future<void> _runAsync() async {
-    FFmpegKitExtended.requireInitialized();
     final sessionCompleter = Completer<void>();
     final userCompleteCallback = _completeCallback;
 
-    // Install a wrapper that completes the queue-slot future, calls the user
-    // callback, and then unregisters the session.
     _completeCallback = (FFplaySession s) {
       try {
         userCompleteCallback?.call(s);
       } catch (e, st) {
-        log('FFplaySession: error in completeCallback for session $sessionId: $e\n$st');
+        log('FFplaySession: error in completeCallback: $e\n$st');
       }
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       _unregister();
@@ -368,19 +365,12 @@ class FFplaySession extends Session {
     try {
       ffmpeg.ffplay_kit_session_execute_async(handle, _timeout);
     } catch (e, st) {
-      log('FFplaySession: error starting async session $sessionId: $e\n$st');
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+      log('FFplaySession: error starting async session $sessionId: $e\n$st');
       rethrow;
     }
 
-    try {
-      await sessionCompleter.future;
-    } catch (e, st) {
-      log('FFplaySession: error awaiting session $sessionId: $e\n$st');
-    }
-
-    // Restore the original callback so the session object is left clean.
-    _completeCallback = userCompleteCallback;
+    await sessionCompleter.future;
   }
 
   void _ensureRegistered() {

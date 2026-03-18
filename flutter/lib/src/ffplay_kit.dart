@@ -43,16 +43,10 @@ class FFplayKit {
     String command, {
     FFplaySessionCompleteCallback? onComplete,
   }) async {
-    // Create a new completer for this session
     _sessionCompleter = Completer<void>();
 
-    // Wrap the user's callback to complete our internal completer
     void wrappedCallback(FFplaySession session) {
-      if (onComplete != null) {
-        onComplete(session);
-      }
-
-      // Only clear if this session is still the active one
+      if (onComplete != null) onComplete(session);
       if (_activeFFplaySession == session) {
         _activeFFplaySession = null;
         _sessionCompleter?.complete();
@@ -64,8 +58,9 @@ class FFplayKit {
       command,
       completeCallback: wrappedCallback,
     );
-    await _activeFFplaySession!.executeAsync();
-    return _activeFFplaySession!; //TODO: crashing when SDL window is closed
+    final session = _activeFFplaySession!;
+    unawaited(session.executeAsync());
+    return session;
   }
 
   /// Creates a new [FFplaySession] without executing it.
