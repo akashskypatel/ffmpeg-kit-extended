@@ -60,8 +60,9 @@ Future<String?> _getLatestVersionForPlatform(String platform, bool verbose) asyn
       final responseBody = await response.transform(utf8.decoder).join();
       final List<dynamic> releases = json.decode(responseBody);
 
-      // Find the latest release for the specific platform
+      // Find the latest stable release for the specific platform (skip pre-releases)
       for (final release in releases) {
+        if (release['prerelease'] == true) continue;
         final tagName = release['tag_name'] as String;
         if (tagName.endsWith('-$platform')) {
           // Extract version number (remove 'v' prefix and platform suffix)
