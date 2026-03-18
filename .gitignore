@@ -1,3 +1,4 @@
 .agent/
 *.log
 .windsurf/*
+.claude/*

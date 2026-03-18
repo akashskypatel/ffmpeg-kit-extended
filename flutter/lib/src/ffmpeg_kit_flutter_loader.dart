@@ -32,18 +32,17 @@ import 'generated/ffmpeg_kit_bindings.dart';
 // Win32 LoadLibraryW signature
 typedef LoadLibraryWNative = Pointer Function(Pointer<Utf16> lpLibFileName);
 typedef GetLastErrorNative = Uint32 Function();
-typedef GetLastError_C = Uint32 Function();
-typedef GetLastError_Dart = int Function();
+typedef GetLastErrorC = Uint32 Function();
+typedef GetLastErrorDart = int Function();
 
 DynamicLibrary? _cachedLibrary;
 
 bool _initialized = false;
 
-
 /// Eagerly loads the native library and wires up the [FFmpegKitBindings].
 ///
 /// Must be called once before any other plugin API is used, typically from
-/// [main] after [WidgetsFlutterBinding.ensureInitialized]:
+/// `main()` after [WidgetsFlutterBinding.ensureInitialized]:
 ///
 /// ```dart
 /// void main() async {

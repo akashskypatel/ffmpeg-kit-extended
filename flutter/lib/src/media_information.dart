@@ -91,6 +91,7 @@ class MediaInformation {
     this.chapters = const [],
   });
 
+  /// Returns a string representation of this media information.
   @override
   String toString() =>
       'MediaInformation(filename: $filename, format: $format, duration: $duration, streams: ${streams.length}, chapters: ${chapters.length})';

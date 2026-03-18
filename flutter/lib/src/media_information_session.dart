@@ -89,8 +89,7 @@ class MediaInformationSession extends FFprobeSession {
     if (completeCallback == null) {
       removeMediaInfoCompleteCallback();
     } else {
-      setMediaInfoCompleteCallback(
-          (s) => completeCallback(s));
+      setMediaInfoCompleteCallback((s) => completeCallback(s));
     }
   }
 
@@ -376,22 +375,22 @@ class MediaInformationSession extends FFprobeSession {
                 _str(ffmpeg.stream_information_get_sample_format(streamHandle)),
             channelLayout: _str(
                 ffmpeg.stream_information_get_channel_layout(streamHandle)),
-            sampleAspectRatio: _str(
-                ffmpeg.stream_information_get_sample_aspect_ratio(streamHandle)),
-            displayAspectRatio: _str(
-                ffmpeg.stream_information_get_display_aspect_ratio(streamHandle)),
+            sampleAspectRatio: _str(ffmpeg
+                .stream_information_get_sample_aspect_ratio(streamHandle)),
+            displayAspectRatio: _str(ffmpeg
+                .stream_information_get_display_aspect_ratio(streamHandle)),
             averageFrameRate: _str(
                 ffmpeg.stream_information_get_average_frame_rate(streamHandle)),
-            realFrameRate:
-                _str(ffmpeg.stream_information_get_real_frame_rate(streamHandle)),
+            realFrameRate: _str(
+                ffmpeg.stream_information_get_real_frame_rate(streamHandle)),
             timeBase:
                 _str(ffmpeg.stream_information_get_time_base(streamHandle)),
             codecTimeBase: _str(
                 ffmpeg.stream_information_get_codec_time_base(streamHandle)),
             tagsJson:
                 _str(ffmpeg.stream_information_get_tags_json(streamHandle)),
-            allPropertiesJson: _str(
-                ffmpeg.stream_information_get_all_properties_json(streamHandle)),
+            allPropertiesJson: _str(ffmpeg
+                .stream_information_get_all_properties_json(streamHandle)),
           ));
         } catch (e, st) {
           stderr.writeln(
@@ -411,8 +410,7 @@ class MediaInformationSession extends FFprobeSession {
             _str(ffmpeg.media_information_get_start_time(mediaInfoHandle)),
         bitrate: _str(ffmpeg.media_information_get_bitrate(mediaInfoHandle)),
         size: _str(ffmpeg.media_information_get_size(mediaInfoHandle)),
-        tagsJson:
-            _str(ffmpeg.media_information_get_tags_json(mediaInfoHandle)),
+        tagsJson: _str(ffmpeg.media_information_get_tags_json(mediaInfoHandle)),
         allPropertiesJson: _str(
             ffmpeg.media_information_get_all_properties_json(mediaInfoHandle)),
         streams: streams,
@@ -431,15 +429,19 @@ class MediaInformationSession extends FFprobeSession {
   // Session type identity
   // ---------------------------------------------------------------------------
 
+  /// Returns true if this is an FFmpeg session.
   @override
   bool isFFmpegSession() => false;
 
+  /// Returns true if this is an FFplay session.
   @override
   bool isFFplaySession() => false;
 
+  /// Returns true if this is an FFprobe session.
   @override
   bool isFFprobeSession() => false;
 
+  /// Returns true if this is a media information session.
   @override
   bool isMediaInformationSession() => true;
 
@@ -447,12 +449,18 @@ class MediaInformationSession extends FFprobeSession {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /// Executes this session asynchronously and invokes the complete callback when done.
   Future<void> _runAsyncMediaInfo() async {
     FFmpegKitExtended.requireInitialized();
     final sessionCompleter = Completer<void>();
     final userCb = _mediaInfoCompleteCallback;
 
     _mediaInfoCompleteCallback = (MediaInformationSession s) {
+      // Restore and unregister before calling user code or completing the
+      // future, so the session is fully settled from any observer's perspective.
+      _mediaInfoCompleteCallback = userCb;
+      _unregister();
+
       try {
         userCb?.call(s);
       } catch (e, st) {
@@ -460,8 +468,10 @@ class MediaInformationSession extends FFprobeSession {
             'MediaInformationSession: error in completeCallback for session '
             '$sessionId: $e\n$st');
       }
+
+      // Complete last — everything is torn down, so any awaiter gets a fully
+      // settled session.
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
-      _unregister();
     };
 
     // Register the global native callback for media information completion.
@@ -483,15 +493,16 @@ class MediaInformationSession extends FFprobeSession {
       stderr.writeln('MediaInformationSession: error awaiting session '
           '$sessionId: $e\n$st');
     }
-
-    _mediaInfoCompleteCallback = userCb;
+    // No post-await restore needed — already done inside the callback above.
   }
 
+  /// Ensures this session is registered with the callback manager.
   void _ensureRegistered() {
     if (_callbackId != null) return;
     _callbackId = CallbackManager().registerMediaInformationSession(this);
   }
 
+  /// Unregisters this session from the callback manager.
   void _unregister() {
     final id = _callbackId;
     if (id == null) return;

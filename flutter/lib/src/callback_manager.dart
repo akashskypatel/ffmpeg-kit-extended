@@ -22,22 +22,29 @@ import 'dart:ffi';
 import 'dart:io';
 
 import '../ffmpeg_kit_extended_flutter.dart';
-import 'ffmpeg_kit_flutter_loader.dart' show ffmpeg;
 import 'generated/ffmpeg_kit_bindings.dart';
 
+/// Native callback function types for FFmpegKit
 typedef FFmpegKitCompleteCallbackFunction = Void Function(
     FFmpegSessionHandle, Pointer<Void>);
+
+/// Native callback function types for FFprobeKit
 typedef FFprobeKitCompleteCallbackFunction = Void Function(
     FFprobeSessionHandle, Pointer<Void>);
+
+/// Native callback function types for FFplayKit
 typedef FFplayKitCompleteCallbackFunction = Void Function(
     FFplaySessionHandle, Pointer<Void>);
 
+/// Native callback function types for MediaInformationSession
 typedef MediaInformationSessionCompleteCallbackFunction = Void Function(
     MediaInformationSessionHandle, Pointer<Void>);
 
+/// Native callback function types for FFmpegKit log callback
 typedef FFmpegKitLogCallbackFunction = Void Function(
     FFmpegSessionHandle, Pointer<Char>, Pointer<Void>);
 
+/// Native callback function types for FFmpegKit statistics callback
 typedef FFmpegKitStatisticsCallbackFunction = Void Function(FFmpegSessionHandle,
     Int64, Int64, Double, Double, Int64, Double, Double, Pointer<Void>);
 
@@ -112,11 +119,15 @@ void _onFFmpegComplete(
         'userData=0x${userData.address.toRadixString(16)}');
   }
 
-  // Unregister before releasing the handle so no further callbacks can fire.
+  // The Dart FFmpegSession owns this handle via its NativeFinalizer; do NOT
+  // call ffmpeg_kit_handle_release here.  Releasing in the callback would
+  // invalidate session.handle before any awaiter (await executeAsync, etc.)
+  // can read state/return-code from it, producing use-after-free reads that
+  // return 0 / SessionState.created.  The NativeFinalizer fires when the Dart
+  // session object is GC-collected, which is the correct and sole release point.
   if (userData != nullptr && userData.address != 0) {
     CallbackManager().unregisterFFmpegSession(userData.address);
   }
-  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
 }
 
 /// Handles a log notification from an FFmpeg session.
@@ -231,10 +242,11 @@ void _onFFprobeComplete(
         'userData=0x${userData.address.toRadixString(16)}');
   }
 
+  // Do NOT release sessionHandle here — the Dart FFprobeSession owns it via
+  // NativeFinalizer.  See _onFFmpegComplete for the full explanation.
   if (userData != nullptr && userData.address != 0) {
     CallbackManager().unregisterFFprobeSession(userData.address);
   }
-  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
 }
 
 /// Handles the completion of a MediaInformation session.
@@ -265,10 +277,11 @@ void _onMediaInfoComplete(
         'userData=0x${userData.address.toRadixString(16)}');
   }
 
+  // Do NOT release sessionHandle here — the Dart MediaInformationSession owns
+  // it via NativeFinalizer.  See _onFFmpegComplete for the full explanation.
   if (userData != nullptr && userData.address != 0) {
     CallbackManager().unregisterMediaInformationSession(userData.address);
   }
-  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
 }
 
 /// Handles the completion of an FFplay session.
@@ -297,10 +310,11 @@ void _onFFplayComplete(
         'userData=0x${userData.address.toRadixString(16)}');
   }
 
+  // Do NOT release sessionHandle here — the Dart FFplaySession owns it via
+  // NativeFinalizer.  See _onFFmpegComplete for the full explanation.
   if (userData != nullptr && userData.address != 0) {
     CallbackManager().unregisterFFplaySession(userData.address);
   }
-  ffmpeg.ffmpeg_kit_handle_release(sessionHandle);
 }
 
 // ---------------------------------------------------------------------------

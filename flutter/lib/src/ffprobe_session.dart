@@ -191,15 +191,19 @@ class FFprobeSession extends Session {
   // Session type identity
   // ---------------------------------------------------------------------------
 
+  /// Returns true if this is an FFmpeg session.
   @override
   bool isFFmpegSession() => false;
 
+  /// Returns true if this is an FFplay session.
   @override
   bool isFFplaySession() => false;
 
+  /// Returns true if this is an FFprobe session.
   @override
   bool isFFprobeSession() => true;
 
+  /// Returns true if this is a media information session.
   @override
   bool isMediaInformationSession() => false;
 
@@ -207,19 +211,27 @@ class FFprobeSession extends Session {
   // Private implementation
   // ---------------------------------------------------------------------------
 
+  /// Core async execution body, called by [executeAsync] through the queue.
   Future<void> _runAsync() async {
     FFmpegKitExtended.requireInitialized();
     final sessionCompleter = Completer<void>();
     final userCompleteCallback = _completeCallback;
 
     _completeCallback = (FFprobeSession s) {
+      // Restore and unregister before calling user code or completing the
+      // future, so the session is fully settled from any observer's perspective.
+      _completeCallback = userCompleteCallback;
+      _unregister();
+
       try {
         userCompleteCallback?.call(s);
       } catch (e, st) {
         log('FFprobeSession: error in completeCallback for session $sessionId: $e\n$st');
       }
+
+      // Complete last — everything is torn down, so any awaiter gets a fully
+      // settled session.
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
-      _unregister();
     };
 
     ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
@@ -238,15 +250,16 @@ class FFprobeSession extends Session {
     } catch (e, st) {
       log('FFprobeSession: error awaiting session $sessionId: $e\n$st');
     }
-
-    _completeCallback = userCompleteCallback;
+    // No post-await restore needed — already done inside the callback above.
   }
 
+  /// Ensures this session is registered with the callback manager.
   void _ensureRegistered() {
     if (_callbackId != null) return;
     _callbackId = CallbackManager().registerFFprobeSession(this);
   }
 
+  /// Unregisters this session from the callback manager.
   void _unregister() {
     final id = _callbackId;
     if (id == null) return;

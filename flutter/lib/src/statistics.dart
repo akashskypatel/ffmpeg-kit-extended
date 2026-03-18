@@ -49,7 +49,20 @@ class Statistics {
   Statistics(this.sessionId, this.time, this.size, this.bitrate, this.speed,
       this.videoFrameNumber, this.videoFps, this.videoQuality);
 
+  /// Returns a string representation of this statistics.
   @override
   String toString() =>
       'Statistics($sessionId, time: $time, size: $size, bitrate: $bitrate, speed: $speed, frame: $videoFrameNumber, fps: $videoFps, quality: $videoQuality)';
+
+  /// Converts this statistics to a JSON map.
+  Map<String, dynamic> toJson() => {
+        'sessionId': sessionId,
+        'time': time,
+        'size': size,
+        'bitrate': bitrate,
+        'speed': speed,
+        'videoFrameNumber': videoFrameNumber,
+        'videoFps': videoFps,
+        'videoQuality': videoQuality,
+      };
 }

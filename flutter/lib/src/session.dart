@@ -20,7 +20,12 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import '../ffmpeg_kit_extended_flutter.dart'
-    show FFmpegSession, FFplaySession, FFprobeSession, MediaInformationSession, FFmpegKitExtended;
+    show
+        FFmpegSession,
+        FFplaySession,
+        FFprobeSession,
+        MediaInformationSession,
+        FFmpegKitExtended;
 import 'ffmpeg_kit_flutter_loader.dart';
 import 'statistics.dart';
 
@@ -175,7 +180,8 @@ abstract class Session implements Finalizable {
   /// Returns the current lifecycle state of this session.
   SessionState getState() {
     FFmpegKitExtended.requireInitialized();
-    return SessionState.fromValue(ffmpeg.ffmpeg_kit_session_get_state(handle).value);
+    return SessionState.fromValue(
+        ffmpeg.ffmpeg_kit_session_get_state(handle).value);
   }
 
   /// Returns the native exit code.
@@ -265,7 +271,7 @@ abstract class Session implements Finalizable {
   String getCommand() {
     FFmpegKitExtended.requireInitialized();
     return _toDartStringAndFree(
-        ffmpeg.ffmpeg_kit_session_get_command(handle)) ??
+            ffmpeg.ffmpeg_kit_session_get_command(handle)) ??
         '';
   }
 
@@ -282,7 +288,7 @@ abstract class Session implements Finalizable {
   String getLogAt(int index) {
     FFmpegKitExtended.requireInitialized();
     return _toDartStringAndFree(
-        ffmpeg.ffmpeg_kit_session_get_log_at(handle, index)) ??
+            ffmpeg.ffmpeg_kit_session_get_log_at(handle, index)) ??
         '';
   }
 
@@ -311,20 +317,16 @@ abstract class Session implements Finalizable {
     try {
       final videoFrameNumber =
           ffmpeg.ffmpeg_kit_statistics_get_video_frame_number(statsHandle);
-      final videoFps =
-          ffmpeg.ffmpeg_kit_statistics_get_video_fps(statsHandle);
+      final videoFps = ffmpeg.ffmpeg_kit_statistics_get_video_fps(statsHandle);
       final videoQuality =
           ffmpeg.ffmpeg_kit_statistics_get_video_quality(statsHandle);
-      final size =
-          ffmpeg.ffmpeg_kit_statistics_get_size(statsHandle);
+      final size = ffmpeg.ffmpeg_kit_statistics_get_size(statsHandle);
       // The C API returns time as a double (seconds); Statistics.time is int
       // (milliseconds).
       final timeMs =
           (ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle) * 1000).round();
-      final bitrate =
-          ffmpeg.ffmpeg_kit_statistics_get_bitrate(statsHandle);
-      final speed =
-          ffmpeg.ffmpeg_kit_statistics_get_speed(statsHandle);
+      final bitrate = ffmpeg.ffmpeg_kit_statistics_get_bitrate(statsHandle);
+      final speed = ffmpeg.ffmpeg_kit_statistics_get_speed(statsHandle);
 
       return Statistics(
         sessionId,

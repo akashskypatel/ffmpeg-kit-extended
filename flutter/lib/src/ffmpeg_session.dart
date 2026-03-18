@@ -284,15 +284,19 @@ class FFmpegSession extends Session {
   // Session type identity
   // ---------------------------------------------------------------------------
 
+  /// Returns true if this is an FFmpeg session.
   @override
   bool isFFmpegSession() => true;
 
+  /// Returns true if this is an FFplay session.
   @override
   bool isFFplaySession() => false;
 
+  /// Returns true if this is an FFprobe session.
   @override
   bool isFFprobeSession() => false;
 
+  /// Returns true if this is a media information session.
   @override
   bool isMediaInformationSession() => false;
 
@@ -314,9 +318,12 @@ class FFmpegSession extends Session {
     // Install an internal completion wrapper that:
     //   1. Cancels the log poller.
     //   2. Flushes any remaining buffered log entries.
-    //   3. Invokes the original user callback.
-    //   4. Completes sessionCompleter so the queue slot is released.
-    //   5. Unregisters the session from CallbackManager.
+    //   3. Restores the original callback and unregisters — fully settling the
+    //      session BEFORE the user callback or completer fire, so any awaiter
+    //      sees a completely torn-down session.
+    //   4. Invokes the original user callback.
+    //   5. Completes sessionCompleter last — guaranteeing that by the time
+    //      `await executeAsync` resumes, the session is fully settled.
     //
     // This wrapper is visible to the native _onFFmpegComplete handler via
     // CallbackManager (the session is keyed by _callbackId / sessionId).
@@ -326,6 +333,11 @@ class FFmpegSession extends Session {
 
       _deliverPendingLogs();
 
+      // Restore and unregister before calling user code or completing the
+      // future, so the session is fully settled from any observer's perspective.
+      _completeCallback = userCompleteCallback;
+      _unregister();
+
       try {
         userCompleteCallback?.call(s);
       } catch (e, st) {
@@ -333,14 +345,11 @@ class FFmpegSession extends Session {
             '$sessionId: $e\n$st');
       }
 
+      // Complete last — everything is torn down, so any awaiter (test or
+      // production) gets a fully settled session.
       if (!sessionCompleter.isCompleted) {
         sessionCompleter.complete();
       }
-
-      // Unregister after the callback fires; any subsequent call on the
-      // native side for this session ID will find nothing in the maps,
-      // which is the correct post-completion state.
-      _unregister();
     };
 
     // Start the log poller only if there is a listener.
@@ -380,10 +389,7 @@ class FFmpegSession extends Session {
     } catch (e, st) {
       log('FFmpegSession: error awaiting session $sessionId: $e\n$st');
     }
-
-    // Restore the original user callback so the session object is left in a
-    // predictable state (e.g. if the caller re-executes it).
-    _completeCallback = userCompleteCallback;
+    // No post-await restore needed — already done inside the callback above.
   }
 
   /// Dispatches all buffered log entries that have not yet been delivered.

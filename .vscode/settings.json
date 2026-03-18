@@ -6,6 +6,9 @@
     "[cpp]": {
         "editor.formatOnSave": false
     },
+    "[dart]": {
+        "editor.formatOnSave": true
+    },
     "clangd.arguments": [
         // Allow clangd to query MSVC and MinGW compilers
         "--query-driver=C:\\msys64\\mingw64\\bin\\g++.exe,C:\\Program Files\\Microsoft Visual Studio\\**\\cl.exe",

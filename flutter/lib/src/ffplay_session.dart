@@ -102,13 +102,15 @@ class FFplaySession extends Session {
   // ---------------------------------------------------------------------------
 
   /// @deprecated Use [FFplayKit.createSession] for proper global tracking.
-  @Deprecated('Use FFplayKit.createSession for proper global session management')
+  @Deprecated(
+      'Use FFplayKit.createSession for proper global session management')
   static FFplaySession create(
     String command, {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) =>
-      FFplaySession(command, timeout: timeout, completeCallback: completeCallback);
+      FFplaySession(command,
+          timeout: timeout, completeCallback: completeCallback);
 
   /// Internal factory used by [FFplayKit] — not part of the public API.
   static FFplaySession createGlobal(
@@ -116,7 +118,8 @@ class FFplaySession extends Session {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) =>
-      FFplaySession(command, timeout: timeout, completeCallback: completeCallback);
+      FFplaySession(command,
+          timeout: timeout, completeCallback: completeCallback);
 
   // ---------------------------------------------------------------------------
   // Callback accessors / mutators
@@ -234,8 +237,8 @@ class FFplaySession extends Session {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) =>
-      FFplaySession.create(command, timeout: timeout,
-              completeCallback: completeCallback)
+      FFplaySession.create(command,
+              timeout: timeout, completeCallback: completeCallback)
           .execute();
 
   /// @deprecated Use [FFplayKit.executeAsync] for proper global session management.
@@ -245,8 +248,8 @@ class FFplaySession extends Session {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
   }) =>
-      FFplaySession.create(command, timeout: timeout,
-              completeCallback: completeCallback)
+      FFplaySession.create(command,
+              timeout: timeout, completeCallback: completeCallback)
           .executeAsync();
 
   /// Executes this session asynchronously and returns a [Future] that
@@ -329,15 +332,19 @@ class FFplaySession extends Session {
   // Session type identity
   // ---------------------------------------------------------------------------
 
+  /// Returns true if this is an FFmpeg session.
   @override
   bool isFFmpegSession() => false;
 
+  /// Returns true if this is an FFplay session.
   @override
   bool isFFplaySession() => true;
 
+  /// Returns true if this is an FFprobe session.
   @override
   bool isFFprobeSession() => false;
 
+  /// Returns true if this is a media information session.
   @override
   bool isMediaInformationSession() => false;
 
@@ -345,6 +352,7 @@ class FFplaySession extends Session {
   // Private implementation
   // ---------------------------------------------------------------------------
 
+  /// Core async execution body, called by [executeAsync] through the queue.
   Future<void> _runAsync() async {
     final sessionCompleter = Completer<void>();
     final userCompleteCallback = _completeCallback;
@@ -373,11 +381,13 @@ class FFplaySession extends Session {
     await sessionCompleter.future;
   }
 
+  /// Ensures this session is registered with the callback manager.
   void _ensureRegistered() {
     if (_callbackId != null) return;
     _callbackId = CallbackManager().registerFFplaySession(this);
   }
 
+  /// Unregisters this session from the callback manager.
   void _unregister() {
     final id = _callbackId;
     if (id == null) return;

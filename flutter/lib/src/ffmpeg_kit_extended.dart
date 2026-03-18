@@ -568,8 +568,9 @@ class FFmpegKitExtended {
   /// Converts [state] to its human-readable string name.
   static String sessionStateToString(SessionState state) {
     requireInitialized();
-    return _nativeStringOrEmpty(ffmpeg.ffmpeg_kit_config_session_state_to_string(
-        FFmpegKitSessionState.fromValue(state.value)));
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_config_session_state_to_string(
+            FFmpegKitSessionState.fromValue(state.value)));
   }
 
   /// Converts [level] to its human-readable string name, or `null` if

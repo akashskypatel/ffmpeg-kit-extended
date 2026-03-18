@@ -183,6 +183,7 @@ class SessionCancelledException implements Exception {
 
   SessionCancelledException(this.message);
 
+  /// Returns a string representation of this exception.
   @override
   String toString() => 'SessionCancelledException: $message';
 }

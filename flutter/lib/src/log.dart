@@ -99,9 +99,11 @@ class Log {
   /// Gets the [LogLevel] representation of this log entry.
   LogLevel get logLevel => LogLevel.fromValue(level);
 
+  /// Returns a string representation of this log entry.
   @override
   String toString() => 'Log($sessionId, $logLevel, $message)';
 
+  /// Returns a JSON representation of this log entry.
   String toJson() =>
       '{"sessionId":$sessionId,"level":$level,"message":"$message"}';
 }
