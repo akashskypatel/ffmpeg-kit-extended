@@ -4,6 +4,8 @@ The `FFmpegKit` class provides a convenient interface for executing FFmpeg comma
 
 ## Overview
 
+> **Prerequisites**: Call `await FFmpegKitExtended.initialize()` once at application startup before using any method in this class. See the [Quick Start Guide](../quick-start.md) for details.
+
 `FFmpegKit` is the primary class for video and audio processing operations. It allows you to:
 
 - Execute FFmpeg commands synchronously or asynchronously

@@ -46,7 +46,6 @@
      ffmpeg_kit_extended_flutter: ^0.1.0
 
    ffmpeg_kit_extended_config:
-     version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
      type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
      gpl: true # enable to include GPL libraries
      small: true # enable to use smaller builds
@@ -78,6 +77,18 @@
    ```dart
    import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
    ```
+
+5. Initialize the plugin at application startup **before** calling any API:
+
+   ```dart
+   void main() async {
+     WidgetsFlutterBinding.ensureInitialized();
+     await FFmpegKitExtended.initialize();
+     runApp(MyApp());
+   }
+   ```
+
+   > **Important**: Any FFmpeg, FFprobe, or FFplay API call made before `initialize()` completes will throw a `StateError`.
 
 ### 2.1 Pre-bundled Builds
 
@@ -178,6 +189,23 @@ final sessions = FFmpegKitExtended.getSessions();
 final ffmpegSessions = FFmpegKit.getFFmpegSessions();
 ```
 
+### 3.5 FFplay Playback
+
+```dart
+// Play a media file
+final session = await FFplayKit.execute('video.mp4');
+
+// Control playback
+FFplayKit.pause();
+FFplayKit.resume();
+FFplayKit.seek(30.0); // Seek to 30 seconds
+
+// Get playback status
+final position = FFplayKit.getPosition();
+final duration = FFplayKit.getDuration();
+print('Playing at $position / $duration seconds');
+```
+
 ## 4. Architecture
 
 This plugin uses a modular architecture:
@@ -189,7 +217,9 @@ This plugin uses a modular architecture:
 
 ## 5. Known Issues
 
-- FFplay playback of audio and video does not work correctly on Android.
+- **Android**: FFplay is currently non-functional. FFmpeg and FFprobe work fine.
+- **iOS**: Not yet supported.
+- **macOS**: Not yet supported.
 
 ## 6. License
 

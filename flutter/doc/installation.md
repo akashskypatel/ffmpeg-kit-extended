@@ -50,7 +50,24 @@ This guide describes how to install and configure FFmpeg Kit Extended Flutter in
     import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
     ```
 
-## 2. Platform Specific Configuration
+## 2. Initialize the Plugin
+
+Before using any API, call `FFmpegKitExtended.initialize()` once at application startup. This loads the native library via FFI.
+
+```dart
+import 'package:flutter/widgets.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FFmpegKitExtended.initialize();
+  runApp(MyApp());
+}
+```
+
+> **Important**: Any call to `FFmpegKit`, `FFprobeKit`, `FFplayKit`, or `FFmpegKitConfig` before `initialize()` completes will throw a `StateError`.
+
+## 3. Platform Specific Configuration
 
 ### Android
 
@@ -85,7 +102,7 @@ The Windows implementation uses `libffmpegkit` compiled with MinGW. Ensure your 
 
 Ensure you have `ffmpeg` dependencies installed if you are building from source or using specific features that rely on system libraries (though the plugin aims to be self-contained).
 
-## 3. Configuration Script
+## 4. Configuration Script
 
 FFmpeg Kit Extended Flutter uses a `configure.dart` script to manage native binaries. In some environments, you may need to run this manually if the automatic download fails:
 
@@ -99,7 +116,7 @@ This script handles:
 - Generating Dart bindings using `ffigen`.
 - Setting up the native build environment.
 
-## 4. Troubleshooting Installation
+## 5. Troubleshooting Installation
 
 ### Missing Binaries
 

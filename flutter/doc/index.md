@@ -28,7 +28,6 @@ Complete API documentation for all classes and methods:
   - Play media files
   - Playback controls (play, pause, seek, stop)
   - Position and duration tracking
-  - Session conflict resolution
 
 - **[FFmpegKitConfig API](api/config.md)** - Global configuration
   - Log level settings
@@ -129,6 +128,18 @@ dependencies:
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 ```
 
+### Initialization
+
+Call once at startup before any other API:
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FFmpegKitExtended.initialize();
+  runApp(MyApp());
+}
+```
+
 ### Basic Usage
 
 ```dart
@@ -139,7 +150,7 @@ final session = FFmpegKit.execute('-i input.mp4 output.mp4');
 final session = FFprobeKit.getMediaInformation('video.mp4');
 
 // Play media
-FFplayKit.execute('video.mp4');
+await FFplayKit.execute('video.mp4');
 ```
 
 ### Async with Callbacks

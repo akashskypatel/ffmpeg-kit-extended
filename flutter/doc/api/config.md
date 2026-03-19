@@ -35,9 +35,10 @@ Retrieve version and build information for FFmpeg and FFmpeg Kit.
 - `getSessionHistorySize()`: Gets the current history size.
 - `clearSessions()`: Clears all sessions from the history.
 
-### Resources
+### Concurrency
 
-- `handleRelease(Pointer<Void>)`: Manually release a native session handle.
+- `setMaxConcurrentSessions(int)`: Sets the maximum number of sessions that can run simultaneously (default: 8).
+- `getMaxConcurrentSessions()`: Gets the current concurrency limit.
 
 ## Global Callbacks
 

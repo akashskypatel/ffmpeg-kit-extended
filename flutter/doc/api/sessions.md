@@ -43,7 +43,7 @@ All session types provide the following methods:
 - `getLogs()`: Returns the session logs as a single string.
 - `getFailStackTrace()`: Returns the stack trace if the session failed.
 - `getStartTime()` / `getEndTime()`: Returns execution timestamps.
-- `getSessionDuration()`: Returns total execution time in milliseconds.
+- `getDuration()`: Returns total execution time in milliseconds.
 - `cancel()`: Terminates the session if it is currently running.
 
 ## Session Identification

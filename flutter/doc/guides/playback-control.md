@@ -15,17 +15,10 @@
 Start playing a file or URL with one command:
 
 ```dart
-FFplayKit.execute('https://example.com/video.mp4');
+await FFplayKit.execute('https://example.com/video.mp4');
 ```
 
-By default, this will terminate any existing playback session. To change this behavior, use a `SessionConflictStrategy`:
-
-```dart
-FFplayKit.execute(
-  'video.mp4', 
-  strategy: SessionConflictStrategy.waitForCompletion
-);
-```
+Only one FFplay session can be active at a time. Starting a new session automatically replaces the previous one.
 
 ## Controlling State
 
@@ -51,7 +44,7 @@ Seek to any position in the media (in seconds):
 FFplayKit.seek(45.0);
 
 // Relative seek (forward 10s)
-final current = FFplayKit.getPosition() ?? 0.0;
+final current = FFplayKit.getPosition();
 FFplayKit.seek(current + 10.0);
 ```
 
@@ -71,8 +64,8 @@ double _duration = 0.0;
 void startTimer() {
   _timer = Timer.periodic(Duration(milliseconds: 500), (timer) {
     setState(() {
-      _position = FFplayKit.getPosition() ?? 0.0;
-      _duration = FFplayKit.getMediaDuration() ?? 1.0;
+      _position = FFplayKit.getPosition();
+      _duration = FFplayKit.getDuration();
     });
   });
 }
@@ -99,28 +92,28 @@ Because FFplay typically opens a separate native window, the plugin manages it a
 Use the `onComplete` callback to handle the end of a video (e.g., to play the next one in a playlist):
 
 ```dart
-FFplayKit.executeAsync(
+await FFplayKit.executeAsync(
   'video1.mp4',
   onComplete: (session) {
     print('Video 1 finished, starting Video 2...');
     FFplayKit.execute('video2.mp4');
-  }
+  },
 );
 ```
 
 ## Tips for a Better UX
 
 1. **Handle Window Closing**: On desktop platforms, users might close the FFplay window manually. Monitor `FFplayKit.isClosed()` to update your UI accordingly.
-2. **Handle Null Values**: `getPosition()` and `getMediaDuration()` return `null` if no session is active or if metadata hasn't been loaded yet.
+2. **Position and Duration**: `getPosition()` and `getDuration()` return `0.0` when no session is active — no null check needed.
 3. **Volume and Audio**: You can pass additional FFplay flags during execution for audio control:
 
    ```dart
    // Start with 50% volume
-   FFplayKit.execute('-volume 50 video.mp4');
+   await FFplayKit.execute('-volume 50 video.mp4');
    ```
 
 4. **Window Title**:
 
    ```dart
-   FFplayKit.execute('-window_title "My Custom Player" video.mp4');
+   await FFplayKit.execute('-window_title "My Custom Player" video.mp4');
    ```

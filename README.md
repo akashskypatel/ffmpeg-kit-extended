@@ -11,7 +11,7 @@
 ## Features
 
 - **Cross-Platform Support**: Works on Windows, and Linux.
-  - **Android, iOS, macOS**: Not yet supported.
+  - **iOS, and macOS**: Not yet supported.
 - **FFmpeg, FFprobe & FFplay**: Full support for media manipulation and information retrieval.
 - **Dart FFI**: Direct native bindings for optimal performance.
 - **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.
@@ -25,7 +25,7 @@
 
 | Platform | Status         | Architecture         |
 |----------|----------------|----------------------|
-| Android  | 🚧 Planned     |armv7, arm64, x86_64  |
+| Android  | ✅ Supported     |armv7, arm64, x86_64  |
 | iOS      | Not Supported  |                      |
 | macOS    | Not Supported  |                      |
 | Linux    | ✅ Supported   | x86_64               |
@@ -55,7 +55,6 @@
       ffmpeg_kit_extended_flutter: ^0.1.0
 
     ffmpeg_kit_extended_config:
-      version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
       type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
       gpl: true # enable to include GPL libraries
       small: true # enable to use smaller builds
@@ -87,6 +86,18 @@
     ```dart
     import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
     ```
+
+5. Initialize the plugin at application startup **before** calling any API:
+
+    ```dart
+    void main() async {
+      WidgetsFlutterBinding.ensureInitialized();
+      await FFmpegKitExtended.initialize();
+      runApp(MyApp());
+    }
+    ```
+
+    > **Important**: Any call to `FFmpegKit`, `FFprobeKit`, `FFplayKit`, or `FFmpegKitConfig` before `initialize()` completes will throw a `StateError`.
 
 ## Quick Start
 
@@ -125,7 +136,7 @@ if (session is MediaInformationSession) {
 
 ```dart
 // Play a media file
-await FFplayKit.execute('-i input.mp4');
+await FFplayKit.execute('input.mp4');
 
 // Control playback
 FFplayKit.pause();
@@ -285,7 +296,7 @@ if (session is MediaInformationSession) {
 
 ```dart
 // Play a video file
-await FFplayKit.execute('video.mp4');
+final session = await FFplayKit.execute('video.mp4');
 
 // Check if currently playing
 if (FFplayKit.isPlaying()) {
@@ -368,6 +379,12 @@ Only one FFplay session can be active at a time. Starting a new session with `FF
 ```dart
 await FFplayKit.execute('video.mp4');
 ```
+
+## Known Issues
+
+- **Android**: FFplay is currently non-functional. FFmpeg and FFprobe work fine.
+- **iOS**: Not yet supported.
+- **macOS**: Not yet supported.
 
 ## Contributing
 

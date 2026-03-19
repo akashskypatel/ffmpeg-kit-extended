@@ -17,7 +17,6 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
       ffmpeg_kit_extended_flutter: ^0.1.0
 
     ffmpeg_kit_extended_config:
-      version: "0.8.2" # version of the pre-bundled libffmpegkit libraries released at https://github.com/akashskypatel/ffmpeg-kit-builders/releases
       type: "base" # pre-bundled builds: base, full, audio, video, streaming, video_hw
       gpl: true # enable to include GPL libraries
       small: true # enable to use smaller builds
@@ -50,6 +49,23 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
     - `--verbose`: Enable verbose output.
     - `--debug`: Enable debug mode. (Fetches remote bundles with debug symbols. Only base bundle is published with debug symbols. You can deploy your own using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders))
     - `--app-root=<path>`: Specify the path to the app root.
+
+## Initialize the Plugin
+
+**Before calling any FFmpeg, FFprobe, or FFplay API**, you must initialize the plugin once at application startup. This loads the native library and sets up the FFI bindings.
+
+```dart
+import 'package:flutter/widgets.dart';
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FFmpegKitExtended.initialize();
+  runApp(MyApp());
+}
+```
+
+> **Important**: Calling any API method before `FFmpegKitExtended.initialize()` completes will throw a `StateError`. Always `await` the call before proceeding.
 
 ## Your First FFmpeg Command
 
@@ -495,6 +511,12 @@ await FFmpegKit.executeAsync('...', onComplete: (session) {
   // This will be called
 });
 ```
+
+## Known Issues
+
+- **Android**: FFplay is currently non-functional. FFmpeg and FFprobe work fine.
+- **iOS**: Not yet supported.
+- **macOS**: Not yet supported.
 
 ## Tips
 
