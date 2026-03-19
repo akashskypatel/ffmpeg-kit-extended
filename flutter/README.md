@@ -11,7 +11,8 @@
 ## 1. Features
 
 - **Cross-Platform Support**: Works on Windows, and Linux.
-  - **Android, iOS, macOS**: Not yet supported.
+  - **iOS, and macOS**: Not yet supported.
+  - **Android**: Note that x86 architecture is not supported as its market share is pretty much nonexistent and no longer actively supported by Google.
 - **FFmpeg, FFprobe & FFplay**: Full support for media manipulation, information retrieval, and playback.
 - **Dart FFI**: Direct native bindings for optimal performance.
 - **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.
