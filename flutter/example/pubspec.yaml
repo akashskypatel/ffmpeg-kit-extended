@@ -34,10 +34,9 @@ flutter:
   uses-material-design: true
 
 ffmpeg_kit_extended_config:
-  windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-full-windows-x86_64-shared-debug-gpl.zip"
-  # version: "0.8.2"
-  # type: "audio"
-  # gpl: true
-  # small: false
-  # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-base-windows-x86_64-shared-debug-gpl.zip"
-  # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-base-linux-x86_64-shared-debug-gpl.zip"
+  type: "video"
+  gpl: true
+  small: true
+  # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-full-windows-x86_64-shared-debug-gpl.zip"
+  # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-full-linux-x86_64-shared-debug-gpl.zip"
+  # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-full-android-x86_64-shared-debug-gpl-release.aar"

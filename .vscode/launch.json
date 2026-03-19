@@ -21,7 +21,8 @@
             "type": "dart",
             "flutterMode": "debug",
             "deviceId": "emulator-5554",
-            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart",
+            "preLaunchTask": "Start Android Emulator (emulator-5554)"
         },
         {
             "name": "Debug Configure",

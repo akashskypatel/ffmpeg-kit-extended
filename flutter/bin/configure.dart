@@ -19,7 +19,6 @@
 
 // bin/configure.dart
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
@@ -30,81 +29,8 @@ import 'package:yaml/yaml.dart';
 
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
-const String _githubApiUrl = "https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
-
-// =============================================================================
-// GITHUB API FUNCTIONS
-// =============================================================================
-
-/// Fetches the latest version for a specific platform from GitHub API
-Future<String?> _getLatestVersionForPlatform(String platform, bool verbose) async {
-  try {
-    if (verbose) {
-      stdout.writeln('FFmpegKit: Fetching latest version for $platform...');
-    }
-
-    final client = HttpClient();
-    try {
-      // Get all releases
-      final request = await client.getUrl(Uri.parse(_githubApiUrl));
-      final response = await request.close();
-
-      if (response.statusCode != 200) {
-        if (verbose) {
-          stdout.writeln('FFmpegKit: Failed to fetch releases: ${response.statusCode}');
-        }
-        return null;
-      }
-
-      final responseBody = await response.transform(utf8.decoder).join();
-      final List<dynamic> releases = json.decode(responseBody);
-
-      // Find the latest stable release for the specific platform (skip pre-releases)
-      for (final release in releases) {
-        if (release['prerelease'] == true) continue;
-        final tagName = release['tag_name'] as String;
-        if (tagName.endsWith('-$platform')) {
-          // Extract version number (remove 'v' prefix and platform suffix)
-          final version = tagName.substring(1, tagName.length - '-$platform'.length);
-          if (verbose) {
-            stdout.writeln('FFmpegKit: Found latest version for $platform: $version');
-          }
-          return version;
-        }
-      }
-
-      if (verbose) {
-        stdout.writeln('FFmpegKit: No release found for platform: $platform');
-      }
-      return null;
-    } finally {
-      client.close();
-    }
-  } catch (e) {
-    if (verbose) {
-      stdout.writeln('FFmpegKit: Error fetching version for $platform: $e');
-    }
-    return null;
-  }
-}
-
-/// Gets the latest version, falling back to pubspec if GitHub API fails
-Future<String> _getEffectiveVersion(dynamic config, String platform, bool verbose) async {
-  // Try to get latest version from GitHub API first
-  final latestVersion = await _getLatestVersionForPlatform(platform, verbose);
-  
-  if (latestVersion != null) {
-    return latestVersion;
-  }
-  
-  // Fallback to pubspec version
-  final fallbackVersion = config['version']?.toString() ?? "0.0.0";
-  if (verbose) {
-    stdout.writeln('FFmpegKit: Using fallback version from pubspec: $fallbackVersion');
-  }
-  return fallbackVersion;
-}
+const String version = "0.9.0";
 // =============================================================================
 // CLI LOGIC
 // =============================================================================
@@ -143,7 +69,6 @@ Configuration (pubspec.yaml):
   Add the following section to your pubspec.yaml:
 
   ffmpeg_kit_extended_config:
-    # version: "1.0.0"   # Optional: Version fallback if GitHub API fails
     type: "full"       # $_validTypes
     gpl: true          # Include GPL libraries
     small: false       # Use smaller builds
@@ -151,8 +76,7 @@ Configuration (pubspec.yaml):
     # windows: "C:\\\\path\\\\to\\\\bundle.zip"
     # linux: "https://example.com/bundle.zip"
 
-Note: Version is automatically fetched from GitHub releases for each platform.
-The version field in pubspec.yaml is only used as a fallback if GitHub API fails.
+Note: Version is hardcoded to $version
 ''');
       exit(0);
     } else if (arg == '--generate-bindings') {
@@ -284,7 +208,7 @@ The version field in pubspec.yaml is only used as a fallback if GitHub API fails
 Future<String?> _configurePlatform(dynamic config, String platform,
     Directory projectRoot, bool verbose) async {
   // Parse Config values
-  final version = await _getEffectiveVersion(config, platform, verbose);
+
   String type = config['type']?.toString() ?? "full";
   if (type == "streaming") {
     type =
@@ -650,11 +574,12 @@ void _logError(String message) {
 
 bool _isUri(String path) {
   try {
-    if(path.contains("\\\\wsl.")) {
+    if (path.contains("\\\\wsl.")) {
       return false;
     }
-    Uri.parse(path);
-    return true;
+    final uri = Uri.parse(path);
+    return uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https' || uri.scheme == 'ftp');
   } catch (e) {
     return false;
   }
