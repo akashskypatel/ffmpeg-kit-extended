@@ -1,8 +1,10 @@
 
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
-## Version 0.3.0
+## Version 0.2.0
 
+- Feature: Added Android support.
+- Fix: Fixed lgpl package resolution.
 - Feature: Automatic version detection from GitHub API for Flutter configure script with fallback to pubspec version
 - Feature: New `ffmpeg_kit_initialize()` binding for proper library initialization
 - Feature: Enhanced FFI bindings generation for improved native integration
@@ -18,11 +20,6 @@
 - Fix: Improve build configuration and library bundling across platforms (Android, Linux, Windows)
 - Fix: Add WSL path handling in URI detection for cross-platform development
 - Fix: Remove redundant await in executeAsync
-
-## Version 0.2.0
-
-- Feature: Added Android support.
-- Fix: Fixed lgpl package resolution.
 
 ## Version 0.1.2
 
