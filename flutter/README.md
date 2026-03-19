@@ -26,7 +26,7 @@
 
 | Platform | Status        | Architecture         |
 | -------- | ------------- | -------------------- |
-| Android  | 🚧 Planned    | armv7, arm64, x86_64 |
+| Android  | ✅ Supported   | armv7, arm64, x86_64 |
 | iOS      | Not Supported |                      |
 | macOS    | Not Supported |                      |
 | Linux    | ✅ Supported  | x86_64               |
