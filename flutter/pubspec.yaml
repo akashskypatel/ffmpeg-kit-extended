@@ -8,18 +8,10 @@ version: 0.2.0
 
 topics:
   - ffmpeg
-  - video-processing
-  - audio-processing
+  - media-processing
   - transcoding
-  - convert-media
-  - tag-media
-  - tagging
-  - metadata
-  - media-information
-  - multimedia
+  - media-tagging
   - ffmpeg-kit
-  - ffprobe
-  - ffplay
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
