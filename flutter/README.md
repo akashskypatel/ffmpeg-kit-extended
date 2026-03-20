@@ -108,10 +108,11 @@
 | Audio     |      | x     | x     |                | x    |
 | Streaming |      | x     | x     | x              | x    |
 | Hardware  |      |       |       | x              | x    |
-| AI\*      |      |       |       |                |      |
+| AI\*      |      |       |       |                | x\*  |
 | HTTPS     |      | x     | x     | x              | x    |
 
 - AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable AI features.
+- See [Supported External Libraries](https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries) for more information.
 
 ## 3. Usage
 

@@ -60,6 +60,7 @@ Future<void> initializeFFmpegKit() async {
   // package you can use Isolate.run (Dart 2.19+).
   await Future(() {
     _ffmpegInstance = FFmpegKitBindings(_loadLibrary());
+    _ffmpegInstance!.ffmpeg_kit_initialize();
   });
   _initialized = true;
 }
