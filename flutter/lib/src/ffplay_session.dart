@@ -38,10 +38,7 @@ import 'ffmpeg_kit_flutter_loader.dart';
 class FFplaySession extends Session {
   FFplaySessionCompleteCallback? _completeCallback;
 
-  // The callback ID allocated by CallbackManager.registerFFplaySession().
-  // Stored so that unregistration always uses the same key that was allocated
-  // at registration time, instead of guessing the key from sessionId.
-  int? _callbackId;
+  bool _registered = false;
 
   int _timeout;
 
@@ -88,13 +85,8 @@ class FFplaySession extends Session {
 
     _completeCallback = completeCallback;
 
-    // FIX #5: use the canonical register method so all three internal maps
-    // (_callbackIdToFFplaySession, _callbackIdToSessionId, ffplaySessions)
-    // are populated consistently. Previously only ffplaySessions and
-    // callbackIdToSessionId were written, leaving _callbackIdToFFplaySession
-    // empty and making userData-based lookup always fall through to the
-    // slower session-ID path.
-    _callbackId = CallbackManager().registerFFplaySession(this);
+    CallbackManager().registerFFplaySession(this);
+    _registered = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -373,8 +365,9 @@ class FFplaySession extends Session {
     try {
       ffmpeg.ffplay_kit_session_execute_async(handle, _timeout);
     } catch (e, st) {
-      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       log('FFplaySession: error starting async session $sessionId: $e\n$st');
+      _unregister();
+      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
 
@@ -383,15 +376,15 @@ class FFplaySession extends Session {
 
   /// Ensures this session is registered with the callback manager.
   void _ensureRegistered() {
-    if (_callbackId != null) return;
-    _callbackId = CallbackManager().registerFFplaySession(this);
+    if (_registered) return;
+    CallbackManager().registerFFplaySession(this);
+    _registered = true;
   }
 
   /// Unregisters this session from the callback manager.
   void _unregister() {
-    final id = _callbackId;
-    if (id == null) return;
-    _callbackId = null;
-    CallbackManager().unregisterFFplaySession(id);
+    if (!_registered) return;
+    _registered = false;
+    CallbackManager().unregisterFFplaySession(sessionId);
   }
 }

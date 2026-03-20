@@ -33,10 +33,7 @@ import 'ffmpeg_kit_flutter_loader.dart';
 class FFprobeSession extends Session {
   FFprobeSessionCompleteCallback? _completeCallback;
 
-  // The callback ID returned by CallbackManager.registerFFprobeSession().
-  // Stored so unregistration always uses the exact key that was allocated,
-  // not a guess derived from sessionId.
-  int? _callbackId;
+  bool _registered = false;
 
   // ---------------------------------------------------------------------------
   // Constructors
@@ -61,8 +58,8 @@ class FFprobeSession extends Session {
     }
 
     _completeCallback = completeCallback;
-
-    _callbackId = CallbackManager().registerFFprobeSession(this);
+    CallbackManager().registerFFprobeSession(this);
+    _registered = true;
   }
 
   /// Restores an [FFprobeSession] from an existing native [handle].
@@ -241,6 +238,7 @@ class FFprobeSession extends Session {
       ffmpeg.ffprobe_kit_session_execute_async(handle);
     } catch (e, st) {
       log('FFprobeSession: error starting async session $sessionId: $e\n$st');
+      _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
@@ -255,15 +253,15 @@ class FFprobeSession extends Session {
 
   /// Ensures this session is registered with the callback manager.
   void _ensureRegistered() {
-    if (_callbackId != null) return;
-    _callbackId = CallbackManager().registerFFprobeSession(this);
+    if (_registered) return;
+    CallbackManager().registerFFprobeSession(this);
+    _registered = true;
   }
 
   /// Unregisters this session from the callback manager.
   void _unregister() {
-    final id = _callbackId;
-    if (id == null) return;
-    _callbackId = null;
-    CallbackManager().unregisterFFprobeSession(id);
+    if (!_registered) return;
+    _registered = false;
+    CallbackManager().unregisterFFprobeSession(sessionId);
   }
 }

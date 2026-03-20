@@ -50,12 +50,8 @@ class FFmpegSession extends Session {
   FFmpegLogCallback? _logCallback;
   FFmpegStatisticsCallback? _statisticsCallback;
 
-  // CallbackManager.registerFFmpegSession(). Stored here so that:
-  //   • execute/executeAsync can pass it as the userData pointer to the C
-  //     layer, enabling O(1) session lookup in native callbacks.
-  //   • remove* methods know exactly which registration entry to clean up
-  //     without guessing or scanning maps.
-  int? _callbackId;
+  // Whether this session is currently registered with CallbackManager.
+  bool _registered = false;
 
   // ---------------------------------------------------------------------------
   // Constructors
@@ -106,7 +102,8 @@ class FFmpegSession extends Session {
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
-    _callbackId = CallbackManager().registerFFmpegSession(this);
+    CallbackManager().registerFFmpegSession(this);
+    _registered = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -326,7 +323,7 @@ class FFmpegSession extends Session {
     //      `await executeAsync` resumes, the session is fully settled.
     //
     // This wrapper is visible to the native _onFFmpegComplete handler via
-    // CallbackManager (the session is keyed by _callbackId / sessionId).
+    // CallbackManager (the session is keyed by sessionId).
     _completeCallback = (FFmpegSession s) {
       logPoller?.cancel();
       logPoller = null;
@@ -379,6 +376,7 @@ class FFmpegSession extends Session {
     } catch (e, st) {
       log('FFmpegSession: error starting async session $sessionId: $e\n$st');
       logPoller?.cancel();
+      _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
@@ -416,26 +414,20 @@ class FFmpegSession extends Session {
 
   /// Ensures the session is registered with [CallbackManager].
   ///
-  /// If [_callbackId] is already set the existing registration is reused —
-  /// the session object reference in the maps is always `this`, so no
-  /// re-insertion is needed.  A new ID is allocated only when the session
-  /// was previously fully unregistered (e.g. after all callbacks were removed
-  /// and then a new callback is set).
+  /// No-op if already registered. Re-registers if the session was previously
+  /// fully unregistered (e.g. after all callbacks were removed and a new
+  /// callback is set).
   void _ensureRegistered() {
-    if (_callbackId != null) return;
-    _callbackId = CallbackManager().registerFFmpegSession(this);
+    if (_registered) return;
+    CallbackManager().registerFFmpegSession(this);
+    _registered = true;
   }
 
-  /// Unregisters the session from [CallbackManager] and clears [_callbackId].
-  ///
-  /// After this call, [_callbackId] is null and the session is invisible to
-  /// native callbacks.  Calling [_ensureRegistered] afterwards allocates a
-  /// fresh registration entry.
+  /// Unregisters this session from [CallbackManager].
   void _unregister() {
-    final id = _callbackId;
-    if (id == null) return;
-    _callbackId = null;
-    CallbackManager().unregisterFFmpegSession(id);
+    if (!_registered) return;
+    _registered = false;
+    CallbackManager().unregisterFFmpegSession(sessionId);
   }
 
   /// Unregisters the session only when no callbacks remain.

@@ -416,10 +416,9 @@ class FFmpegKitExtended {
   /// Clears all sessions from the native layer's history store.
   ///
   /// ### Note on Dart-side maps
-  /// This clears the C-side session history.  To also evict sessions from
-  /// [callback_manager.CallbackManager]'s runtime maps (which track *active* sessions, not
-  /// history) use [callback_manager.CallbackManager.unregisterAny] or let sessions
-  /// self-unregister when their completion callbacks fire.
+  /// This clears the C-side session history.  Active sessions tracked in
+  /// [callback_manager.CallbackManager]'s runtime maps self-unregister when
+  /// their completion callbacks fire.
   static void clearSessions() {
     requireInitialized();
     ffmpeg.ffmpeg_kit_clear_sessions();

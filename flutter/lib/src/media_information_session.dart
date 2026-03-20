@@ -39,8 +39,7 @@ class MediaInformationSession extends FFprobeSession {
 
   int _timeout;
 
-  // The callback ID from CallbackManager.registerMediaInformationSession().
-  int? _callbackId;
+  bool _registered = false;
 
   // ---------------------------------------------------------------------------
   // Default ffprobe command fragments
@@ -135,7 +134,8 @@ class MediaInformationSession extends FFprobeSession {
     }
 
     _mediaInfoCompleteCallback = completeCallback;
-    _callbackId = CallbackManager().registerMediaInformationSession(this);
+    CallbackManager().registerMediaInformationSession(this);
+    _registered = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -179,7 +179,8 @@ class MediaInformationSession extends FFprobeSession {
     }
 
     _mediaInfoCompleteCallback = completeCallback;
-    _callbackId = CallbackManager().registerMediaInformationSession(this);
+    CallbackManager().registerMediaInformationSession(this);
+    _registered = true;
   }
 
   /// Creates a [MediaInformationSession] for a network [uri].
@@ -207,7 +208,8 @@ class MediaInformationSession extends FFprobeSession {
     }
 
     _mediaInfoCompleteCallback = completeCallback;
-    _callbackId = CallbackManager().registerMediaInformationSession(this);
+    CallbackManager().registerMediaInformationSession(this);
+    _registered = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -483,6 +485,7 @@ class MediaInformationSession extends FFprobeSession {
     } catch (e, st) {
       stderr.writeln('MediaInformationSession: error starting async session '
           '$sessionId: $e\n$st');
+      _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
@@ -498,16 +501,16 @@ class MediaInformationSession extends FFprobeSession {
 
   /// Ensures this session is registered with the callback manager.
   void _ensureRegistered() {
-    if (_callbackId != null) return;
-    _callbackId = CallbackManager().registerMediaInformationSession(this);
+    if (_registered) return;
+    CallbackManager().registerMediaInformationSession(this);
+    _registered = true;
   }
 
   /// Unregisters this session from the callback manager.
   void _unregister() {
-    final id = _callbackId;
-    if (id == null) return;
-    _callbackId = null;
-    CallbackManager().unregisterMediaInformationSession(id);
+    if (!_registered) return;
+    _registered = false;
+    CallbackManager().unregisterMediaInformationSession(sessionId);
   }
 
   /// Reads a heap-allocated C string into a Dart [String] and frees it.
