@@ -1,6 +1,10 @@
 
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.2.1
+
+- Misc fixes to session handeling on error.
+
 ## Version 0.2.0
 
 - Feature: Added Android support.
