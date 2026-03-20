@@ -366,6 +366,7 @@ class FFplaySession extends Session {
       ffmpeg.ffplay_kit_session_execute_async(handle, _timeout);
     } catch (e, st) {
       log('FFplaySession: error starting async session $sessionId: $e\n$st');
+      _completeCallback = userCompleteCallback;
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
