@@ -62,10 +62,10 @@ dev_dependencies:
   plugin_platform_interface: ^2.1.5
   test: ^1.26.3
 
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
-  small: true
-  # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-full-windows-x86_64-shared-debug-gpl.zip"
-  # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-full-linux-x86_64-shared-debug-gpl.zip"
-  # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-full-android-x86_64-shared-debug-gpl-release.aar"
+# ffmpeg_kit_extended_config:
+#   type: "video"
+#   gpl: true
+#   small: true
+#   # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-full-windows-x86_64-shared-debug-gpl.zip"
+#   # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-full-linux-x86_64-shared-debug-gpl.zip"
+#   # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-full-android-x86_64-shared-debug-gpl-release.aar"

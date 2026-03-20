@@ -346,13 +346,12 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       final artifactId = parts.join('-');
       final remoteFilename = "$artifactId-$version.aar";
 
-      // Save as .zip to ensure smooth extraction
-      filename = "$artifactId-$version.zip";
+      filename = "$artifactId-$version.aar";
       url =
           "https://repo1.maven.org/maven2/$groupIdPath/$artifactId/$version/$remoteFilename";
 
-      // We MUST extract the AAR for Flutter plugins
-      skipExtract = false;
+      // Gradle (build.gradle.kts) handles AAR extraction into jniLibs
+      skipExtract = true;
     } else {
       // GitHub Releases for Desktop platforms
       final parts = ['bundle', currentType, platform, arch, 'shared'];

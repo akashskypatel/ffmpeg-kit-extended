@@ -34,7 +34,7 @@ flutter:
   uses-material-design: true
 
 ffmpeg_kit_extended_config:
-  type: "video"
+  type: "full"
   gpl: true
   small: true
   # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-full-windows-x86_64-shared-debug-gpl.zip"

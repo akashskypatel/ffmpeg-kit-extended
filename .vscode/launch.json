@@ -35,5 +35,11 @@
             ],
             "program": "${workspaceFolder}/flutter/bin/configure.dart"
         },
+        {
+            "name": "Launch Android Emulator",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "adb devices | grep -q 'emulator-5554' || emulator -avd Medium_Phone_API_36.1 -gpu swiftshader_indirect"
+        }
     ]
 }
