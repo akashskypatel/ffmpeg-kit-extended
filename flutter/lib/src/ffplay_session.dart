@@ -76,7 +76,7 @@ class FFplaySession extends Session {
   }) : _timeout = timeout {
     FFmpegKitExtended.requireInitialized();
     // toNativeUtf8 uses the calloc allocator by default.
-    final cmdPtr = command.toNativeUtf8();
+    final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
       handle = ffmpeg.ffplay_kit_create_session(cmdPtr.cast());
       this.command = command;

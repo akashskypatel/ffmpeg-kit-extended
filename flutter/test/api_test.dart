@@ -1128,7 +1128,7 @@ void main() {
       await using((Arena arena) async {
         // Updated helper to avoid the 'allocator' named parameter error
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Set environment variables for headless execution
         bindings.ffmpeg_kit_config_set_environment_variable(
@@ -1186,7 +1186,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Set SDL drivers to dummy for headless execution
         bindings.ffmpeg_kit_config_set_environment_variable(
@@ -1274,7 +1274,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Force dummy audio for headless environments
         bindings.ffmpeg_kit_config_set_environment_variable(
@@ -1317,7 +1317,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         const outputFile = "concurrent_output.mp4";
 
@@ -1391,7 +1391,7 @@ void main() {
     test('FFmpegKitTest ConcurrentFFmpegSessions', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         const outputFile1 = "concurrent1.mp4";
         const outputFile2 = "concurrent2.mp4";
@@ -1518,7 +1518,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Set SDL drivers to dummy for headless execution
         bindings.ffmpeg_kit_config_set_environment_variable(
@@ -1591,7 +1591,7 @@ void main() {
       await using((Arena arena) async {
         // Helper to convert Dart strings to native C strings using the arena for lifecycle management
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Set SDL drivers to dummy for headless execution
         bindings.ffmpeg_kit_config_set_environment_variable(
@@ -1706,7 +1706,7 @@ void main() {
       await using((Arena arena) async {
         // Updated helper to avoid the 'allocator' named parameter error
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // 1. Clear sessions
         bindings.ffmpeg_kit_clear_sessions();
@@ -1789,7 +1789,7 @@ void main() {
     test('FFmpegKitTest LastCompletedSession', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // ffmpeg_kit_clear_sessions();
         bindings.ffmpeg_kit_clear_sessions();
@@ -1824,7 +1824,7 @@ void main() {
     test('FFmpegKitTest SessionProperties', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // FFmpegSessionHandle session = ffmpeg_kit_execute(...)
         final cmd = toNative(
@@ -1868,7 +1868,7 @@ void main() {
     test('FFmpegKitTest Statistics', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // FFmpegSessionHandle session = ffmpeg_kit_execute(...)
         final cmd = toNative(
@@ -1924,7 +1924,7 @@ void main() {
       await using((Arena arena) async {
         // Helper to convert Dart strings to native C strings
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // ffmpeg_kit_clear_sessions();
         bindings.ffmpeg_kit_clear_sessions();
@@ -1964,7 +1964,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // ffmpeg_kit_clear_sessions();
         bindings.ffmpeg_kit_clear_sessions();
@@ -2027,7 +2027,7 @@ void main() {
     test('FFmpegKitTest HandleManagement', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // 1. Create a session and get a handle
         final session =
@@ -2048,7 +2048,7 @@ void main() {
     test('FFmpegKitTest ConcurrentHandleRelease', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Create a session
         final session =
@@ -2069,7 +2069,7 @@ void main() {
     test('StressTest SerialSyncHammer', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         const int iterations = 50;
         for (int i = 0; i < iterations; ++i) {
@@ -2086,7 +2086,7 @@ void main() {
     test('StressTest ParallelSyncHammer', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         const int threadCount = 10;
         const int iterationsPerThread = 10;
@@ -2152,7 +2152,7 @@ void main() {
     test('StressTest SessionHistoryConcurrency', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         bool stop = false;
         final List<Pointer<Void>> handles = [];
@@ -2194,7 +2194,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Set SDL dummy drivers
         bindings.ffmpeg_kit_config_set_environment_variable(
@@ -2219,7 +2219,7 @@ void main() {
       }
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         const int iterations = 20;
         for (int i = 0; i < iterations; ++i) {
@@ -2247,7 +2247,7 @@ void main() {
     test('FFmpegKitConfigTest EnvironmentVariable', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         // Set a dummy env var
         final int result = bindings.ffmpeg_kit_config_set_environment_variable(
@@ -2269,7 +2269,7 @@ void main() {
     test('FFmpegKitConfigTest FontDirectory', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         bindings.ffmpeg_kit_config_set_font_directory(
             toNative("/tmp/fonts", arena), nullptr);
@@ -2314,7 +2314,7 @@ void main() {
     test('FFmpegKitConfigTest ArgumentsToString', () async {
       await using((Arena arena) async {
         Pointer<Char> toNative(String s, Arena arena) =>
-            arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+            arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
         final args = arena<Pointer<Char>>(5);
         args[0] = toNative("ffmpeg", arena);
@@ -2338,7 +2338,7 @@ void main() {
   test('FFmpegKitTest RobustnessTest', () async {
     await using((Arena arena) async {
       Pointer<Char> toNative(String s, Arena arena) =>
-          arena.using(s.toNativeUtf8(), calloc.free).cast<Char>();
+          arena.using(s.toNativeUtf8(allocator: calloc), calloc.free).cast<Char>();
 
       // 1. Create a session and execute it to ensure it's in history
       final session =

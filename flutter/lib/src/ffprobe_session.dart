@@ -50,7 +50,7 @@ class FFprobeSession extends Session {
     FFprobeSessionCompleteCallback? completeCallback,
   }) {
     FFmpegKitExtended.requireInitialized();
-    final cmdPtr = command.toNativeUtf8();
+    final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
       handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
       this.command = command;

@@ -125,7 +125,7 @@ class MediaInformationSession extends FFprobeSession {
     final finalCommand = '$_defaultCommandPrefix $command';
     this.command = finalCommand;
 
-    final cmdPtr = finalCommand.toNativeUtf8();
+    final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
       handle = ffmpeg.media_information_create_session(cmdPtr.cast());
       sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
@@ -165,7 +165,7 @@ class MediaInformationSession extends FFprobeSession {
     final finalCommand = '$_defaultCommand ${file.path}';
     command = finalCommand;
 
-    final cmdPtr = finalCommand.toNativeUtf8();
+    final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
       handle = ffmpeg.media_information_create_session(cmdPtr.cast());
       sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
@@ -193,7 +193,7 @@ class MediaInformationSession extends FFprobeSession {
     final finalCommand = '$_defaultCommand ${uri.toString()}';
     command = finalCommand;
 
-    final cmdPtr = finalCommand.toNativeUtf8();
+    final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
       handle = ffmpeg.media_information_create_session(cmdPtr.cast());
       sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
