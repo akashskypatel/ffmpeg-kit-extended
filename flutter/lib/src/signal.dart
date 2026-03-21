@@ -36,5 +36,7 @@ enum Signal {
 
   /// The integer value associated with the signal.
   final int value;
+
+  /// Creates a new [Signal] instance with the given value.
   const Signal(this.value);
 }

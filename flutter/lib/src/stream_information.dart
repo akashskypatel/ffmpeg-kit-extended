@@ -121,7 +121,31 @@ class StreamInformation {
     this.allPropertiesJson,
   });
 
+  /// Returns a string representation of this stream information.
   @override
   String toString() =>
       'StreamInformation(index: $index, type: $type, codec: $codec)';
+
+  /// Converts this stream information to a JSON map.
+  Map<String, dynamic> toJson() => {
+        'index': index,
+        'type': type,
+        'codec': codec,
+        'codecLong': codecLong,
+        'format': format,
+        'width': width,
+        'height': height,
+        'bitrate': bitrate,
+        'sampleRate': sampleRate,
+        'sampleFormat': sampleFormat,
+        'channelLayout': channelLayout,
+        'sampleAspectRatio': sampleAspectRatio,
+        'displayAspectRatio': displayAspectRatio,
+        'averageFrameRate': averageFrameRate,
+        'realFrameRate': realFrameRate,
+        'timeBase': timeBase,
+        'codecTimeBase': codecTimeBase,
+        'tagsJson': tagsJson,
+        'allPropertiesJson': allPropertiesJson,
+      };
 }

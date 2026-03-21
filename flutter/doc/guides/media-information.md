@@ -43,7 +43,7 @@ for (final stream in streams) {
     print('  Resolution: ${stream.width}x${stream.height}');
     print('  FPS: ${stream.averageFrameRate}');
   } else if (stream.type == 'audio') {
-    print('  Channels: ${stream.channels}');
+    print('  Channel layout: ${stream.channelLayout}');
     print('  Sample Rate: ${stream.sampleRate} Hz');
   }
 }

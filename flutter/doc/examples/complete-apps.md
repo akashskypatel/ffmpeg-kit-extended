@@ -1,20 +1,126 @@
-# Complete Application Architectures
+# Complete Application Examples
 
-This page outlines the architectural patterns for building full-scale media applications using FFmpeg Kit Extended.
+## Example App
 
-## 1. Video Converter App
+The plugin ships with a fully functional example application located at [`flutter/example/`](../../example/). It is the best starting point for understanding real-world usage of the plugin.
 
-A standard converter app needs to handle file selection, parameter configuration, and background processing.
+### Running the Example
 
-### Converter Architecture
+```bash
+cd flutter/example
+dart run ffmpeg_kit_extended_flutter:configure
+flutter run -d windows   # or -d linux
+```
 
-- **State Management**: Use `Provider` or `Bloc` to track the list of tasks.
-- **Service Layer**: Create an `FFmpegService` that wraps `FFmpegKit.executeAsync`.
-- **UI Components**:
-  - `TaskCard`: Shows progress, speed, and status for an individual conversion.
-  - `SettingsPanel`: Allows user to pick resolution, bitrate, and codec.
+### What It Demonstrates
 
-### Key Snippet: Task Management
+The example is a tabbed desktop app with three sections, each covering a different tool:
+
+#### FFmpeg Tab
+
+- Generate test video and audio using FFmpeg filters (`testsrc`, `sine`)
+- Execute commands synchronously and asynchronously
+- Run arbitrary custom FFmpeg commands
+- Display real-time log output in a terminal-style viewer
+
+```dart
+// From the example app: async execution with real-time logs
+await FFmpegKit.executeAsync(
+  command,
+  onLog: (log) {
+    setState(() => _logs.add(log.message));
+  },
+  onComplete: (session) {
+    final code = session.getReturnCode();
+    setState(() => _logs.add('Done. Return code: $code'));
+  },
+);
+```
+
+#### FFprobe Tab
+
+- Pick a media file using a file picker
+- Extract and display format information (duration, bitrate, format name, stream count)
+- Show per-stream details: type, codec, resolution, sample rate, channel layout
+- Execute arbitrary custom FFprobe commands
+
+```dart
+// From the example app: extract and display stream details
+await FFprobeKit.getMediaInformationAsync(
+  path,
+  onComplete: (session) {
+    if (session.isMediaInformationSession()) {
+      final info = session.getMediaInformation();
+      for (final stream in info?.streams ?? []) {
+        print('${stream.type}: ${stream.codec}');
+        if (stream.type == 'video') {
+          print('  ${stream.width}x${stream.height} @ ${stream.averageFrameRate}');
+        } else if (stream.type == 'audio') {
+          print('  ${stream.sampleRate} Hz, ${stream.channelLayout}');
+        }
+      }
+    }
+  },
+);
+```
+
+#### FFplay Tab
+
+- Generate and play video/audio
+- Interactive playback controls: pause, resume, stop
+- Seek slider for scrubbing to any position
+- Live position and duration display (updated every second)
+
+```dart
+// From the example app: playback with real-time position tracking
+await FFplayKit.executeAsync(
+  command,
+  onComplete: (session) => setState(() => _playing = false),
+);
+
+// Periodic update (runs every 1 second via Timer)
+_position = FFplayKit.position;   // double, seconds
+_duration = FFplayKit.duration;   // double, seconds
+_playing  = FFplayKit.playing;    // bool
+```
+
+### App-Level Initialization
+
+The example shows the required initialization pattern:
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FFmpegKitExtended.initialize();
+  runApp(const MyApp());
+}
+```
+
+### Integration Tests
+
+The example includes a comprehensive integration test suite at [`flutter/example/integration_test/plugin_integration_test.dart`](../../example/integration_test/plugin_integration_test.dart) covering:
+
+- `FFmpegKitConfig` — version, log level, session history, argument parsing
+- `FFmpegKit` — sync/async execution, callbacks, cancellation, session timing, output capture
+- `FFprobeKit` — media information extraction, stream details, session management
+- `FFplayKit` — play/pause/stop/seek, volume, position/duration tracking
+- `SessionQueueManager` — concurrency limits, queue cancellation
+- Memory safety — stress tests with up to 500 iterations
+
+Run the integration tests with:
+
+```bash
+cd flutter/example
+flutter test integration_test/plugin_integration_test.dart -d <device-id>
+```
+
+---
+
+## Architectural Patterns
+
+The examples below illustrate patterns you can adapt from the example app for your own applications.
+
+### Video Converter
 
 ```dart
 class ConversionTask {
@@ -22,67 +128,52 @@ class ConversionTask {
   final String output;
   double progress = 0;
   SessionState state = SessionState.created;
-  
-  void run() {
-    FFmpegKit.executeAsync(
+
+  Future<void> run(double totalDurationMs) async {
+    await FFmpegKit.executeAsync(
       '-i $input $output',
-      onStatistics: (s) => progress = calculateProgress(s),
+      onStatistics: (s) {
+        progress = (s.time / totalDurationMs).clamp(0.0, 1.0);
+      },
       onComplete: (s) => state = s.getState(),
     );
   }
 }
 ```
 
-## 2. Media Player with Metadata
-
-A media player that displays rich metadata and supports seeking.
-
-### Player Architecture
-
-- **FFprobe Integration**: Load metadata when the file is selected.
-- **FFplay UI**: Use `FFplayKit` for the playback window and build a custom overlay for controls.
-- **Background Audio**: Use `audio_service` plugin if you want the audio to continue when the app is minimized (FFmpeg Kit processes, but audio session management is standard Flutter).
-
-### Key Snippet: Metadata Refresh
+### Media Player with Metadata
 
 ```dart
-void onLoadMedia(String path) async {
+Future<void> onLoadMedia(String path) async {
+  // Extract metadata first
   final session = await FFprobeKit.getMediaInformationAsync(path);
-  final info = session.getMediaInformation();
-  
-  setState(() {
-    currentVideoTitle = info?.tags?['title'] ?? 'Unknown';
-    duration = parseDuration(info?.duration);
-  });
-  
-  FFplayKit.execute(path);
+  if (session.isMediaInformationSession()) {
+    final info = session.getMediaInformation();
+    setState(() {
+      currentTitle = info?.tags?['title'] ?? 'Unknown';
+      totalDuration = double.tryParse(info?.duration ?? '0') ?? 0.0;
+    });
+  }
+
+  // Then start playback
+  await FFplayKit.execute(path);
 }
 ```
 
-## 3. Video Editing Suite
-
-For apps like "Trimmer" or "Filter App" where the user sees a preview.
-
-### Editor Architecture
-
-- **Preview Engine**: Use `FFplayKit` to show a preview of the video at a specific timestamp.
-- **Live Preview**: When the user adjusts a slider (e.g., brightness), you can run a quick `FFmpegKit` command to generate a thumbnail of that frame with the filter applied.
-- **Exporting**: Queue the final high-quality export using `executeAsync`.
-
-### Key Snippet: Live Filter Preview
+### Live Filter Preview (Video Editor)
 
 ```dart
-void onBrightnessChanged(double value) {
-  // Generate a thumbnail frame with current filter
-  FFmpegKit.execute(
-    '-ss $currentTime -i $input -vf "eq=brightness=$value" -vframes 1 preview.jpg'
+Future<void> onBrightnessChanged(double value) async {
+  await FFmpegKit.executeAsync(
+    '-ss $currentTime -i $input -vf "eq=brightness=$value" -vframes 1 preview.jpg',
   );
-  // Update UI with preview.jpg
+  // Reload preview.jpg in your image widget
 }
 ```
 
 ## Design Considerations
 
-1. **Power Management**: Media processing is CPU intensive. Use `wakelock` plugin to prevent the device from sleeping during long conversions.
-2. **Notification Integration**: For long-running background tasks, use `flutter_local_notifications` to show progress in the system tray.
-3. **Storage Access**: On Android 11+, ensure you are using Scope Storage correctly or have the `MANAGE_EXTERNAL_STORAGE` permission for arbitrary file access.
+1. **Initialization**: Always call `await FFmpegKitExtended.initialize()` before any API call. See the example app's `main()` for the correct pattern.
+2. **Power Management**: Media processing is CPU intensive. Use the `wakelock` plugin to prevent the device from sleeping during long conversions.
+3. **Notification Integration**: For long-running background tasks, use `flutter_local_notifications` to show progress in the system tray.
+4. **Storage Access**: On Android 11+, use Scoped Storage correctly or request `MANAGE_EXTERNAL_STORAGE` for arbitrary file access. The example app demonstrates permission handling for Android.

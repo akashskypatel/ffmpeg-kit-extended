@@ -3,7 +3,7 @@ description: "Demonstrates how to use the ffmpeg_kit_extended_flutter plugin."
 repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
-publish_to: 'none'
+publish_to: "none"
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -18,6 +18,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   path: ^1.9.1
   file_picker: ^10.3.10
+  android_media_store: ^0.0.1
+  permission_handler: ^12.0.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   integration_test:
@@ -31,9 +34,9 @@ flutter:
   uses-material-design: true
 
 ffmpeg_kit_extended_config:
-  version: "0.8.2"
-  type: "base"
+  type: "full"
   gpl: true
   small: true
-  # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-base-windows-x86_64-shared-debug-gpl.zip"
-  # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-base-linux-x86_64-shared-debug-gpl.zip"
+  # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-full-windows-x86_64-shared-debug-gpl.zip"
+  # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-full-linux-x86_64-shared-debug-gpl.zip"
+  # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-full-android-x86_64-shared-debug-gpl-release.aar"

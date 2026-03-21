@@ -302,18 +302,19 @@ if (session is MediaInformationSession) {
       if (stream.type == 'video') {
         print('  Resolution: ${stream.width}x${stream.height}');
         print('  Codec: ${stream.codec}');
-        print('  FPS: ${stream.frameRate}');
+        print('  FPS: ${stream.averageFrameRate}');
+        print('  Aspect ratio: ${stream.displayAspectRatio}');
       } else if (stream.type == 'audio') {
         print('  Codec: ${stream.codec}');
         print('  Sample rate: ${stream.sampleRate}');
-        print('  Channels: ${stream.channels}');
+        print('  Channel layout: ${stream.channelLayout}');
       }
     }
-    
+
     // Chapters
     for (final chapter in info.chapters) {
-      print('Chapter ${chapter.id}: ${chapter.title}');
-      print('  Start: ${chapter.start}, End: ${chapter.end}');
+      print('Chapter ${chapter.id}: ${chapter.tags?['title']}');
+      print('  Start: ${chapter.startTime}s, End: ${chapter.endTime}s');
     }
   }
 }
@@ -327,28 +328,33 @@ Represents a single stream (video, audio, subtitle, etc.) within a media file.
 
 ```dart
 class StreamInformation {
-  final int index;           // Stream index
-  final String type;         // Stream type: "video", "audio", "subtitle", etc.
-  final String? codec;       // Codec name
-  final String? codecLong;   // Long codec description
-  final String? format;      // Pixel format or sample format
-  
+  final int? index;                  // Stream index
+  final String? type;                // Stream type: "video", "audio", "subtitle", etc.
+  final String? codec;               // Codec short name (e.g., "h264", "aac")
+  final String? codecLong;           // Long codec description
+  final String? format;              // Pixel format or sample format
+
   // Video-specific
-  final int? width;          // Video width in pixels
-  final int? height;         // Video height in pixels
-  final String? aspectRatio; // Display aspect ratio
-  final String? frameRate;   // Frame rate (e.g., "30/1")
-  
+  final int? width;                  // Video width in pixels
+  final int? height;                 // Video height in pixels
+  final String? sampleAspectRatio;   // Sample aspect ratio
+  final String? displayAspectRatio;  // Display aspect ratio (e.g., "16:9")
+  final String? averageFrameRate;    // Average frame rate (e.g., "30/1")
+  final String? realFrameRate;       // Real base frame rate
+  final String? timeBase;            // Stream time base
+  final String? codecTimeBase;       // Codec time base
+
   // Audio-specific
-  final String? sampleRate;  // Sample rate in Hz
-  final int? channels;       // Number of audio channels
-  final String? channelLayout; // Channel layout (e.g., "stereo")
-  
-  final String? bitrate;     // Stream bitrate
-  final String? language;    // Language code
-  final String? tagsJson;    // JSON string of stream tags
-  
-  Map<String, dynamic>? get tags; // Parsed tags
+  final String? sampleRate;          // Sample rate in Hz
+  final String? sampleFormat;        // Audio sample format (e.g., "fltp")
+  final String? channelLayout;       // Channel layout (e.g., "stereo")
+
+  final String? bitrate;             // Stream bitrate in bits per second
+  final String? tagsJson;            // JSON string of stream tags
+  final String? allPropertiesJson;   // JSON string of all stream properties
+
+  Map<String, dynamic>? get tags;           // Parsed tags
+  Map<String, dynamic>? get allProperties;  // Parsed all properties
 }
 ```
 
@@ -398,8 +404,7 @@ if (session is MediaInformationSession) {
   print('Found ${audioStreams.length} audio stream(s):');
   for (final stream in audioStreams) {
     print('  Stream ${stream.index}: ${stream.codec}');
-    print('    Language: ${stream.language ?? "unknown"}');
-    print('    Channels: ${stream.channels}');
+    print('    Channel layout: ${stream.channelLayout ?? "unknown"}');
     print('    Sample rate: ${stream.sampleRate} Hz');
   }
 }

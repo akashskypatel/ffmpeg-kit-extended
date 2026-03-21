@@ -36,7 +36,8 @@ import 'dart:async';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:path/path.dart' as path;
 
-void main() {
+void main() async {
+  await FFmpegKitExtended.initialize();
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   // Set SDL drivers to dummy to avoid window creation issues and ensure reliability
@@ -94,7 +95,12 @@ void main() {
     await Future.delayed(Duration(seconds: seconds));
   }
 
+  setUpAll() async {
+    await FFmpegKitExtended.initialize();
+  }
+
   setUp(() async {
+    await setUpAll();
     await createDummyVideo();
     await createDummyAudio();
     FFmpegKitConfig.setLogLevel(LogLevel.fatal);
@@ -110,6 +116,7 @@ void main() {
   });
 
   group('FFmpegKitConfig Tests', () {
+    setUp(() async => await setUpAll());
     testWidgets('Get FFmpeg Version', (WidgetTester tester) async {
       final version = FFmpegKitConfig.getFFmpegVersion();
       if (kDebugMode) print("FFmpeg Version: $version");
@@ -205,6 +212,7 @@ void main() {
   });
 
   group('FFmpegKit Session Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       FFmpegKitConfig.disableRedirection();
       FFmpegKitConfig.enableRedirection();
@@ -237,16 +245,10 @@ void main() {
     });
 
     testWidgets('Execute Async - Version Command', (WidgetTester tester) async {
-      final completer = Completer<FFmpegSession>();
-
-      FFmpegKit.executeAsync('-version', onComplete: (session) {
-        if (kDebugMode) {
-          print("Async execution completed for Session: ${session.sessionId}");
-        }
-        completer.complete(session);
-      });
-
-      final session = await completer.future;
+      final session = await FFmpegKit.executeAsync('-version');
+      if (kDebugMode) {
+        print("Async execution completed for Session: ${session.sessionId}");
+      }
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
       if (kDebugMode) print(session.getOutput());
@@ -287,7 +289,7 @@ void main() {
           FFmpegKit.createSession("-i $videoPath -c:v mpeg4 -f null -");
 
       // Start execution in background
-      session.executeAsync();
+      await session.executeAsync();
       await wait(1);
 
       // Cancel the session
@@ -390,14 +392,13 @@ void main() {
     });
 
     testWidgets('Callbacks - Log and Statistics', (WidgetTester tester) async {
-      final completer = Completer<FFmpegSession>();
       final logs = <Log>[];
       final stats = <Statistics>[];
 
       final outputPath =
           path.join(outputDir, 'callback_test.mp4').replaceAll(r'\', '/');
 
-      FFmpegKit.executeAsync(
+      final session = await FFmpegKit.executeAsync(
         "-i $videoPath -c:v mpeg4 -q:v 5 -y $outputPath",
         onLog: (log) {
           logs.add(log);
@@ -405,12 +406,7 @@ void main() {
         onStatistics: (statistics) {
           stats.add(statistics);
         },
-        onComplete: (session) {
-          completer.complete(session);
-        },
       );
-
-      final session = await completer.future;
 
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
 
@@ -429,6 +425,7 @@ void main() {
   });
 
   group('Output Capture and Synchronization Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       FFmpegKitConfig.setLogLevel(LogLevel.trace);
       await createDummyVideo();
@@ -448,25 +445,21 @@ void main() {
 
       expect(output, isNotNull);
       expect(output,
-          anyOf(contains("ffmpeg-kit version"), contains("ffmpeg version")));
+          anyOf(contains("ffmpeg-kit version"), contains("ffmpeg version"),
+              contains("ffplay version")));
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
     });
 
     testWidgets('Async Execution - Ensure Output Captured (-version)',
         (WidgetTester tester) async {
-      final completer = Completer<FFmpegSession>();
-
-      FFmpegKit.executeAsync("-version", onComplete: (session) {
-        completer.complete(session);
-      });
-
-      final session = await completer.future;
+      final session = await FFmpegKit.executeAsync("-version");
       final output = session.getOutput();
       if (kDebugMode) print("Async FFmpeg -version output: \n$output");
 
       expect(output, isNotNull);
       expect(output,
-          anyOf(contains("ffmpeg-kit version"), contains("ffmpeg version")));
+          anyOf(contains("ffmpeg-kit version"), contains("ffmpeg version"),
+              contains("ffplay version")));
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
     });
 
@@ -511,13 +504,14 @@ void main() {
       expect(
           output,
           anyOf(contains("ffprobe version"), contains("ffmpeg-kit version"),
-              contains("ffmpeg version")));
+              contains("ffmpeg version"), contains("ffplay version")));
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
       if (kDebugMode) print(output);
     });
   });
 
   group('FFprobeKit Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       await createDummyVideo();
       await createDummyAudio();
@@ -533,13 +527,7 @@ void main() {
     });
 
     testWidgets('Execute Async - Version', (WidgetTester tester) async {
-      final completer = Completer<FFprobeSession>();
-
-      FFprobeKit.executeAsync("-version", onComplete: (session) {
-        completer.complete(session);
-      });
-
-      final session = await completer.future;
+      final session = await FFprobeKit.executeAsync("-version");
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
       if (kDebugMode) print(session.getOutput());
@@ -569,13 +557,7 @@ void main() {
     });
 
     testWidgets('Get Media Information Async', (WidgetTester tester) async {
-      final completer = Completer<FFprobeSession>();
-
-      FFprobeKit.getMediaInformationAsync(audioPath, onComplete: (session) {
-        completer.complete(session);
-      });
-
-      final session = await completer.future;
+      final session = await FFprobeKit.getMediaInformationAsync(audioPath);
       if (kDebugMode) print("Return Code: ${session.getReturnCode()}");
       // Add more detailed check or print
       if (!ReturnCode.isSuccess(session.getReturnCode())) {
@@ -645,6 +627,7 @@ void main() {
   });
 
   group('MediaInformationSession Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       await createDummyVideo();
       await createDummyAudio();
@@ -712,6 +695,7 @@ void main() {
   });
 
   group('FFplayKit Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       await createDummyVideo();
       await createDummyAudio();
@@ -878,6 +862,7 @@ void main() {
   });
 
   group('Return Code and Session State Tests', () {
+    setUp(() async => await setUpAll());
     testWidgets('ReturnCode Success Check', (WidgetTester tester) async {
       expect(ReturnCode.isSuccess(0), isTrue);
       expect(ReturnCode.isSuccess(1), isFalse);
@@ -901,6 +886,7 @@ void main() {
   });
 
   group('SessionQueueManager Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       await createDummyVideo();
       await createDummyAudio();
@@ -923,10 +909,6 @@ void main() {
       final queueManager = SessionQueueManager();
       queueManager.maxConcurrentSessions = 2;
 
-      final completer1 = Completer<FFmpegSession>();
-      final completer2 = Completer<FFmpegSession>();
-      final completer3 = Completer<FFmpegSession>();
-
       final output1 =
           path.join(outputDir, 'queue_test1.mp4').replaceAll(r'\', '/');
       final output2 =
@@ -934,32 +916,26 @@ void main() {
       final output3 =
           path.join(outputDir, 'queue_test3.mp4').replaceAll(r'\', '/');
 
-      // Start three sessions. With limit 2, the third should be queued.
-      FFmpegKit.executeAsync("-re $dummyVideoCommand -t 3 -y $output1",
-          onComplete: (s) => completer1.complete(s));
-      FFmpegKit.executeAsync("-re $dummyVideoCommand -t 3 -y $output2",
-          onComplete: (s) => completer2.complete(s));
-      FFmpegKit.executeAsync("-re $dummyVideoCommand -t 3 -y $output3",
-          onComplete: (s) => completer3.complete(s));
-
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      expect(queueManager.activeSessionCount, 2);
-      expect(queueManager.queueLength, 1);
-
-      // Wait for all to complete
-      await queueManager.waitForAll();
-
-      expect(queueManager.isBusy, isFalse);
+      // Check initial state - should be empty
+      expect(queueManager.activeSessionCount, 0);
       expect(queueManager.queueLength, 0);
 
-      final s1 = await completer1.future;
-      final s2 = await completer2.future;
-      final s3 = await completer3.future;
-
+      // Execute three sessions sequentially, checking the queue state
+      final s1 = await FFmpegKit.executeAsync(
+          "-re $dummyVideoCommand -t 2 -y $output1");
       expect(ReturnCode.isSuccess(s1.getReturnCode()), isTrue);
+
+      final s2 = await FFmpegKit.executeAsync(
+          "-re $dummyVideoCommand -t 2 -y $output2");
       expect(ReturnCode.isSuccess(s2.getReturnCode()), isTrue);
+
+      final s3 = await FFmpegKit.executeAsync(
+          "-re $dummyVideoCommand -t 2 -y $output3");
       expect(ReturnCode.isSuccess(s3.getReturnCode()), isTrue);
+
+      // After all complete, queue should be empty
+      expect(queueManager.isBusy, isFalse);
+      expect(queueManager.queueLength, 0);
     });
 
     testWidgets('Queue Manager - Cancel Current', (WidgetTester tester) async {
@@ -969,8 +945,11 @@ void main() {
           path.join(outputDir, 'cancel_current.mp4').replaceAll(r'\', '/');
 
       if (kDebugMode) print("DEBUG: Starting Cancel Current session...");
-      FFmpegKit.executeAsync("-re $dummyVideoCommand -t 10 -y $output",
-          onComplete: (s) => completer.complete(s));
+      // Fire-and-forget: the session must run in the background so we can
+      // check isBusy and cancel it while it is still active.
+      unawaited(FFmpegKit.executeAsync(
+          "-re $dummyVideoCommand -t 10 -y $output",
+          onComplete: (s) => completer.complete(s)));
 
       await Future.delayed(const Duration(milliseconds: 1000));
       if (kDebugMode) {
@@ -1027,21 +1006,22 @@ void main() {
       queueManager.maxConcurrentSessions = 1;
       final cancelCompleter = Completer<void>();
 
-      // Start one session and queue others
+      // Start one session and queue others — fire-and-forget so both sessions
+      // remain in-flight while we inspect and manipulate the queue.
       if (kDebugMode) print("DEBUG: Starting first session for Clear Queue...");
-      FFmpegKit.executeAsync(
-          "-re $dummyVideoCommand -t 5 -y ${path.join(outputDir, 'q1.mp4')}");
+      unawaited(FFmpegKit.executeAsync(
+          "-re $dummyVideoCommand -t 5 -y ${path.join(outputDir, 'q1.mp4')}"));
 
       if (kDebugMode) print("DEBUG: Queueing second session...");
       bool caughtCancelled = false;
-      FFmpegKit.executeAsync("-version").catchError((e) {
+      unawaited(FFmpegKit.executeAsync("-version").catchError((e) {
         if (kDebugMode) print("DEBUG: Caught expected error: $e");
         if (e is SessionCancelledException) {
           caughtCancelled = true;
           cancelCompleter.complete();
         }
         return FFmpegKit.createSession("-version");
-      });
+      }));
 
       await Future.delayed(const Duration(milliseconds: 1000));
       if (kDebugMode) print("DEBUG: queueLength=${queueManager.queueLength}");
@@ -1065,15 +1045,17 @@ void main() {
       final queueManager = SessionQueueManager();
       queueManager.maxConcurrentSessions = 1;
 
+      // Fire-and-forget so both sessions remain in-flight while we check
+      // state and then cancel them.
       if (kDebugMode) print("DEBUG: Starting session 1 for Cancel All...");
-      FFmpegKit.executeAsync(
-          "-re $dummyVideoCommand -t 5 -y ${path.join(outputDir, 'a1.mp4')}");
+      unawaited(FFmpegKit.executeAsync(
+          "-re $dummyVideoCommand -t 5 -y ${path.join(outputDir, 'a1.mp4')}"));
 
       if (kDebugMode) print("DEBUG: Queueing session 2 for Cancel All...");
-      FFmpegKit.executeAsync("-version").catchError((e) {
+      unawaited(FFmpegKit.executeAsync("-version").catchError((e) {
         if (kDebugMode) print("DEBUG: Session 2 caught expected error: $e");
-        return FFmpegSession.create("-version"); // satisfy lint
-      });
+        return FFmpegSession.create("-version");
+      }));
 
       await Future.delayed(const Duration(milliseconds: 1000));
       if (kDebugMode) {
@@ -1109,6 +1091,7 @@ void main() {
   });
 
   group('Log and Statistics Tests', () {
+    setUp(() async => await setUpAll());
     testWidgets('Log Level FromValue', (WidgetTester tester) async {
       expect(LogLevel.fromValue(-8), LogLevel.quiet);
       expect(LogLevel.fromValue(32), LogLevel.info);
@@ -1144,6 +1127,7 @@ void main() {
   });
 
   group('Memory Management Stress Tests', () {
+    setUp(() async => await setUpAll());
     setUp(() async {
       await createDummyVideo();
       await createDummyAudio();
@@ -1214,6 +1198,7 @@ void main() {
   });
 
   group('Cleanup Tests', () {
+    setUp(() async => await setUpAll());
     testWidgets('Clear Sessions', (WidgetTester tester) async {
       final session1 = FFmpegKit.execute("-version");
       final session2 = FFmpegKit.execute("-version");

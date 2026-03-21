@@ -30,6 +30,7 @@ import 'package:yaml/yaml.dart';
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
+const String version = "0.9.0";
 // =============================================================================
 // CLI LOGIC
 // =============================================================================
@@ -68,13 +69,14 @@ Configuration (pubspec.yaml):
   Add the following section to your pubspec.yaml:
 
   ffmpeg_kit_extended_config:
-    version: "1.0.0"   # Version of pre-bundled libraries
     type: "full"       # $_validTypes
     gpl: true          # Include GPL libraries
     small: false       # Use smaller builds
     # Optional: overrides for specific platforms
     # windows: "C:\\\\path\\\\to\\\\bundle.zip"
     # linux: "https://example.com/bundle.zip"
+
+Note: Version is hardcoded to $version
 ''');
       exit(0);
     } else if (arg == '--generate-bindings') {
@@ -206,7 +208,7 @@ Configuration (pubspec.yaml):
 Future<String?> _configurePlatform(dynamic config, String platform,
     Directory projectRoot, bool verbose) async {
   // Parse Config values
-  final version = config['version']?.toString() ?? "1.0.0";
+
   String type = config['type']?.toString() ?? "full";
   if (type == "streaming") {
     type =
@@ -344,13 +346,12 @@ Future<String?> _configurePlatform(dynamic config, String platform,
       final artifactId = parts.join('-');
       final remoteFilename = "$artifactId-$version.aar";
 
-      // Save as .zip to ensure smooth extraction
-      filename = "$artifactId-$version.zip";
+      filename = "$artifactId-$version.aar";
       url =
           "https://repo1.maven.org/maven2/$groupIdPath/$artifactId/$version/$remoteFilename";
 
-      // We MUST extract the AAR for Flutter plugins
-      skipExtract = false;
+      // Gradle (build.gradle.kts) handles AAR extraction into jniLibs
+      skipExtract = true;
     } else {
       // GitHub Releases for Desktop platforms
       final parts = ['bundle', currentType, platform, arch, 'shared'];
@@ -572,8 +573,12 @@ void _logError(String message) {
 
 bool _isUri(String path) {
   try {
-    Uri.parse(path);
-    return true;
+    if (path.contains("\\\\wsl.")) {
+      return false;
+    }
+    final uri = Uri.parse(path);
+    return uri.hasScheme &&
+        (uri.scheme == 'http' || uri.scheme == 'https' || uri.scheme == 'ftp');
   } catch (e) {
     return false;
   }

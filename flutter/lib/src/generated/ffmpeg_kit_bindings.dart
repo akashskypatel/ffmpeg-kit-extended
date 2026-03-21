@@ -23,6 +23,17 @@ class FFmpegKitBindings {
           lookup)
       : _lookup = lookup;
 
+  /// Initializes the library and FFmpeg backend.
+  /// Should be called once immediately after loading the DLL.
+  void ffmpeg_kit_initialize() {
+    return _ffmpeg_kit_initialize();
+  }
+
+  late final _ffmpeg_kit_initializePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>('ffmpeg_kit_initialize');
+  late final _ffmpeg_kit_initialize =
+      _ffmpeg_kit_initializePtr.asFunction<void Function()>();
+
   /// Executes the given FFmpeg command.
   ///
   /// @param command the FFmpeg command to execute
@@ -206,6 +217,108 @@ class FFmpegKitBindings {
               FFmpegKitLogCallback,
               FFmpegKitStatisticsCallback,
               ffi.Pointer<ffi.Void>)>();
+
+  /// Creates a new FFmpeg session with the given argument array.
+  /// This function prevents C++ objects from crossing the DLL boundary.
+  ///
+  /// @param argc the number of arguments
+  /// @param argv the argument array
+  /// @return the FFmpeg session handle
+  FFmpegSessionHandle ffmpeg_kit_create_session_from_argv(
+    int argc,
+    ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+  ) {
+    return _ffmpeg_kit_create_session_from_argv(
+      argc,
+      argv,
+    );
+  }
+
+  late final _ffmpeg_kit_create_session_from_argvPtr = _lookup<
+          ffi.NativeFunction<
+              FFmpegSessionHandle Function(
+                  ffi.Int, ffi.Pointer<ffi.Pointer<ffi.Char>>)>>(
+      'ffmpeg_kit_create_session_from_argv');
+  late final _ffmpeg_kit_create_session_from_argv =
+      _ffmpeg_kit_create_session_from_argvPtr.asFunction<
+          FFmpegSessionHandle Function(
+              int, ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+
+  /// Creates a new FFmpeg session with the given argument array and callbacks.
+  /// This function prevents C++ objects from crossing the DLL boundary.
+  ///
+  /// @param argc the number of arguments
+  /// @param argv the argument array
+  /// @param complete_cb the callback to be called when the FFmpeg session is completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param stats_cb the callback to be called when statistics are generated
+  /// @param user_data the user data to be passed to the callbacks
+  /// @return the FFmpeg session handle
+  FFmpegSessionHandle ffmpeg_kit_create_session_from_argv_with_callbacks(
+    int argc,
+    ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+    FFmpegKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    FFmpegKitStatisticsCallback stats_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffmpeg_kit_create_session_from_argv_with_callbacks(
+      argc,
+      argv,
+      complete_cb,
+      log_cb,
+      stats_cb,
+      user_data,
+    );
+  }
+
+  late final _ffmpeg_kit_create_session_from_argv_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              FFmpegSessionHandle Function(
+                  ffi.Int,
+                  ffi.Pointer<ffi.Pointer<ffi.Char>>,
+                  FFmpegKitCompleteCallback,
+                  FFmpegKitLogCallback,
+                  FFmpegKitStatisticsCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'ffmpeg_kit_create_session_from_argv_with_callbacks');
+  late final _ffmpeg_kit_create_session_from_argv_with_callbacks =
+      _ffmpeg_kit_create_session_from_argv_with_callbacksPtr.asFunction<
+          FFmpegSessionHandle Function(
+              int,
+              ffi.Pointer<ffi.Pointer<ffi.Char>>,
+              FFmpegKitCompleteCallback,
+              FFmpegKitLogCallback,
+              FFmpegKitStatisticsCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Closes and releases a session created by ffmpeg_kit_create_session_from_argv.
+  ///
+  /// @param handle the session handle to close
+  void ffmpeg_kit_close_session(
+    FFmpegSessionHandle handle,
+  ) {
+    return _ffmpeg_kit_close_session(
+      handle,
+    );
+  }
+
+  late final _ffmpeg_kit_close_sessionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(FFmpegSessionHandle)>>(
+          'ffmpeg_kit_close_session');
+  late final _ffmpeg_kit_close_session = _ffmpeg_kit_close_sessionPtr
+      .asFunction<void Function(FFmpegSessionHandle)>();
+
+  /// Debug function to verify stack alignment.
+  void ffmpeg_kit_debug_print_stack() {
+    return _ffmpeg_kit_debug_print_stack();
+  }
+
+  late final _ffmpeg_kit_debug_print_stackPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>(
+          'ffmpeg_kit_debug_print_stack');
+  late final _ffmpeg_kit_debug_print_stack =
+      _ffmpeg_kit_debug_print_stackPtr.asFunction<void Function()>();
 
   /// Sets the log callback for all FFmpeg sessions.
   ///
@@ -488,6 +601,92 @@ class FFmpegKitBindings {
               FFprobeKitCompleteCallback,
               FFmpegKitLogCallback,
               ffi.Pointer<ffi.Void>)>();
+
+  /// Creates a new FFprobe session with the given argument array.
+  /// This function prevents C++ objects from crossing the DLL boundary.
+  ///
+  /// @param argc the number of arguments
+  /// @param argv the argument array
+  /// @return the FFprobe session handle
+  FFprobeSessionHandle ffprobe_kit_create_session_from_argv(
+    int argc,
+    ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+  ) {
+    return _ffprobe_kit_create_session_from_argv(
+      argc,
+      argv,
+    );
+  }
+
+  late final _ffprobe_kit_create_session_from_argvPtr = _lookup<
+          ffi.NativeFunction<
+              FFprobeSessionHandle Function(
+                  ffi.Int, ffi.Pointer<ffi.Pointer<ffi.Char>>)>>(
+      'ffprobe_kit_create_session_from_argv');
+  late final _ffprobe_kit_create_session_from_argv =
+      _ffprobe_kit_create_session_from_argvPtr.asFunction<
+          FFprobeSessionHandle Function(
+              int, ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+
+  /// Creates a new FFprobe session with the given argument array and callbacks.
+  /// This function prevents C++ objects from crossing the DLL boundary.
+  ///
+  /// @param argc the number of arguments
+  /// @param argv the argument array
+  /// @param complete_cb the callback to be called when the FFprobe session is completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callbacks
+  /// @return the FFprobe session handle
+  FFprobeSessionHandle ffprobe_kit_create_session_from_argv_with_callbacks(
+    int argc,
+    ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+    FFprobeKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffprobe_kit_create_session_from_argv_with_callbacks(
+      argc,
+      argv,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffprobe_kit_create_session_from_argv_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              FFprobeSessionHandle Function(
+                  ffi.Int,
+                  ffi.Pointer<ffi.Pointer<ffi.Char>>,
+                  FFprobeKitCompleteCallback,
+                  FFmpegKitLogCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'ffprobe_kit_create_session_from_argv_with_callbacks');
+  late final _ffprobe_kit_create_session_from_argv_with_callbacks =
+      _ffprobe_kit_create_session_from_argv_with_callbacksPtr.asFunction<
+          FFprobeSessionHandle Function(
+              int,
+              ffi.Pointer<ffi.Pointer<ffi.Char>>,
+              FFprobeKitCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Closes and releases a session created by ffprobe_kit_create_session_from_argv.
+  ///
+  /// @param handle the session handle to close
+  void ffprobe_kit_close_session(
+    FFprobeSessionHandle handle,
+  ) {
+    return _ffprobe_kit_close_session(
+      handle,
+    );
+  }
+
+  late final _ffprobe_kit_close_sessionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(FFprobeSessionHandle)>>(
+          'ffprobe_kit_close_session');
+  late final _ffprobe_kit_close_session = _ffprobe_kit_close_sessionPtr
+      .asFunction<void Function(FFprobeSessionHandle)>();
 
   /// Sets the log callback for all FFprobe sessions.
   ///
@@ -772,6 +971,92 @@ class FFmpegKitBindings {
               FFplayKitCompleteCallback,
               FFmpegKitLogCallback,
               ffi.Pointer<ffi.Void>)>();
+
+  /// Creates a new FFplay session with the given argument array.
+  /// This function prevents C++ objects from crossing the DLL boundary.
+  ///
+  /// @param argc the number of arguments
+  /// @param argv the argument array
+  /// @return the FFplay session handle
+  FFplaySessionHandle ffplay_kit_create_session_from_argv(
+    int argc,
+    ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+  ) {
+    return _ffplay_kit_create_session_from_argv(
+      argc,
+      argv,
+    );
+  }
+
+  late final _ffplay_kit_create_session_from_argvPtr = _lookup<
+          ffi.NativeFunction<
+              FFplaySessionHandle Function(
+                  ffi.Int, ffi.Pointer<ffi.Pointer<ffi.Char>>)>>(
+      'ffplay_kit_create_session_from_argv');
+  late final _ffplay_kit_create_session_from_argv =
+      _ffplay_kit_create_session_from_argvPtr.asFunction<
+          FFplaySessionHandle Function(
+              int, ffi.Pointer<ffi.Pointer<ffi.Char>>)>();
+
+  /// Creates a new FFplay session with the given argument array and callbacks.
+  /// This function prevents C++ objects from crossing the DLL boundary.
+  ///
+  /// @param argc the number of arguments
+  /// @param argv the argument array
+  /// @param complete_cb the callback to be called when the FFplay session is completed
+  /// @param log_cb the callback to be called when a log is generated
+  /// @param user_data the user data to be passed to the callbacks
+  /// @return the FFplay session handle
+  FFplaySessionHandle ffplay_kit_create_session_from_argv_with_callbacks(
+    int argc,
+    ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+    FFplayKitCompleteCallback complete_cb,
+    FFmpegKitLogCallback log_cb,
+    ffi.Pointer<ffi.Void> user_data,
+  ) {
+    return _ffplay_kit_create_session_from_argv_with_callbacks(
+      argc,
+      argv,
+      complete_cb,
+      log_cb,
+      user_data,
+    );
+  }
+
+  late final _ffplay_kit_create_session_from_argv_with_callbacksPtr = _lookup<
+          ffi.NativeFunction<
+              FFplaySessionHandle Function(
+                  ffi.Int,
+                  ffi.Pointer<ffi.Pointer<ffi.Char>>,
+                  FFplayKitCompleteCallback,
+                  FFmpegKitLogCallback,
+                  ffi.Pointer<ffi.Void>)>>(
+      'ffplay_kit_create_session_from_argv_with_callbacks');
+  late final _ffplay_kit_create_session_from_argv_with_callbacks =
+      _ffplay_kit_create_session_from_argv_with_callbacksPtr.asFunction<
+          FFplaySessionHandle Function(
+              int,
+              ffi.Pointer<ffi.Pointer<ffi.Char>>,
+              FFplayKitCompleteCallback,
+              FFmpegKitLogCallback,
+              ffi.Pointer<ffi.Void>)>();
+
+  /// Closes and releases a session created by ffplay_kit_create_session_from_argv.
+  ///
+  /// @param handle the session handle to close
+  void ffplay_kit_close_session(
+    FFplaySessionHandle handle,
+  ) {
+    return _ffplay_kit_close_session(
+      handle,
+    );
+  }
+
+  late final _ffplay_kit_close_sessionPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(FFplaySessionHandle)>>(
+          'ffplay_kit_close_session');
+  late final _ffplay_kit_close_session = _ffplay_kit_close_sessionPtr
+      .asFunction<void Function(FFplaySessionHandle)>();
 
   /// Sets the log callback for all FFplay sessions.
   ///

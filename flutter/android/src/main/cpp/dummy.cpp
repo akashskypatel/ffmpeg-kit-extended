@@ -1,0 +1,1 @@
+// This file exists to force the Android Gradle Plugin to include libc++_shared.so

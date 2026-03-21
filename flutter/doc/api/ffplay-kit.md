@@ -9,73 +9,47 @@ The `FFplayKit` class provides a convenient interface for media playback using F
 - Simple playback control (play, pause, resume, stop)
 - Seek functionality
 - Position and duration tracking
-- Session conflict resolution strategies
 
-**Important**: Only one FFplay session can be active at a time.
-
-## Session Conflict Strategies
-
-When starting a new FFplay session while one is already active, you can choose how to handle the conflict:
-
-```dart
-enum SessionConflictStrategy {
-  /// Terminate the existing session immediately (default)
-  terminate,
-  
-  /// Wait for the existing session to complete before starting the new one
-  waitForCompletion,
-}
-```
+**Important**: Only one FFplay session can be active at a time. Starting a new session automatically replaces any existing one.
 
 ## Class Methods
 
 ### execute
 
-Starts playback synchronously with the specified command.
+Starts playback asynchronously with the specified command.
 
 ```dart
-static FFplaySession execute(
-  String command, {
-  SessionConflictStrategy strategy = SessionConflictStrategy.terminate,
-})
+static Future<FFplaySession> execute(String command)
 ```
 
 **Parameters:**
 
 - `command` (String): The FFplay command to execute (without the `ffplay` prefix)
-- `strategy` (SessionConflictStrategy, optional): How to handle existing sessions (default: terminate)
 
 **Returns:**
 
-- `FFplaySession`: The playback session
+- `Future<FFplaySession>`: A Future that completes with the session
 
 **Example:**
 
 ```dart
 // Play a video file
-final session = FFplayKit.execute('video.mp4');
+final session = await FFplayKit.execute('video.mp4');
 
 // Play with custom options
-FFplayKit.execute('-loop 0 video.mp4'); // Loop playback
-
-// Terminate any existing playback first
-FFplayKit.execute(
-  'new-video.mp4',
-  strategy: SessionConflictStrategy.terminate,
-);
+await FFplayKit.execute('-loop 0 video.mp4'); // Loop playback
 ```
 
 ---
 
 ### executeAsync
 
-Starts playback asynchronously.
+Starts playback asynchronously with an optional completion callback.
 
 ```dart
 static Future<FFplaySession> executeAsync(
   String command, {
   FFplaySessionCompleteCallback? onComplete,
-  SessionConflictStrategy strategy = SessionConflictStrategy.terminate,
 })
 ```
 
@@ -83,7 +57,6 @@ static Future<FFplaySession> executeAsync(
 
 - `command` (String): The FFplay command to execute
 - `onComplete` (FFplaySessionCompleteCallback?, optional): Callback when playback ends
-- `strategy` (SessionConflictStrategy, optional): How to handle existing sessions
 
 **Returns:**
 
@@ -105,13 +78,12 @@ await FFplayKit.executeAsync(
 
 ### createSession
 
-Creates a new FFplay session without starting playback.
+Creates a new FFplay session without starting playback. Call `FFplayKit.start()` to begin execution.
 
 ```dart
-static FFplaySession createSession(
+static Future<FFplaySession> createSession(
   String command, {
   FFplaySessionCompleteCallback? onComplete,
-  SessionConflictStrategy strategy = SessionConflictStrategy.terminate,
 })
 ```
 
@@ -119,20 +91,20 @@ static FFplaySession createSession(
 
 - `command` (String): The FFplay command for the session
 - `onComplete` (FFplaySessionCompleteCallback?, optional): Completion callback
-- `strategy` (SessionConflictStrategy, optional): Conflict resolution strategy
 
 **Returns:**
 
-- `FFplaySession`: A new session (not yet started)
+- `Future<FFplaySession>`: A Future that completes with the new session
 
 **Example:**
 
 ```dart
-final session = FFplayKit.createSession(
+final session = await FFplayKit.createSession(
   'video.mp4',
   onComplete: (session) => print('Done'),
 );
-// Start playback later if needed
+// Start playback later
+FFplayKit.start();
 ```
 
 ---
@@ -231,23 +203,21 @@ FFplayKit.seek(90.0);
 
 #### getPosition
 
-Gets the current playback position in seconds.
+Gets the current playback position in seconds. Returns `0.0` if no active session.
 
 ```dart
-static double? getPosition()
+static double getPosition()
 ```
 
 **Returns:**
 
-- `double?`: Current position in seconds, or null if no active session
+- `double`: Current position in seconds
 
 **Example:**
 
 ```dart
 final position = FFplayKit.getPosition();
-if (position != null) {
-  print('Current position: ${position.toStringAsFixed(1)}s');
-}
+print('Current position: ${position.toStringAsFixed(1)}s');
 ```
 
 ---
@@ -272,25 +242,23 @@ FFplayKit.setPosition(45.0);
 
 ---
 
-#### getMediaDuration
+#### getDuration
 
-Gets the total duration of the media in seconds.
+Gets the total duration of the media in seconds. Returns `0.0` if unavailable.
 
 ```dart
-static double? getMediaDuration()
+static double getDuration()
 ```
 
 **Returns:**
 
-- `double?`: Total duration in seconds, or null if unavailable
+- `double`: Total duration in seconds
 
 **Example:**
 
 ```dart
-final duration = FFplayKit.getMediaDuration();
-if (duration != null) {
-  print('Total duration: ${duration.toStringAsFixed(1)}s');
-}
+final duration = FFplayKit.getDuration();
+print('Total duration: ${duration.toStringAsFixed(1)}s');
 ```
 
 ---
@@ -380,7 +348,7 @@ static void cancel(FFplaySession session)
 **Example:**
 
 ```dart
-final session = FFplayKit.execute('video.mp4');
+final session = await FFplayKit.execute('video.mp4');
 // ... later
 FFplayKit.cancel(session);
 ```
@@ -478,7 +446,7 @@ void onPlaybackComplete(FFplaySession session) {
 
 ```dart
 // Start playing a video
-FFplayKit.execute('video.mp4');
+await FFplayKit.execute('video.mp4');
 
 // Wait a bit, then pause
 await Future.delayed(Duration(seconds: 5));
@@ -495,18 +463,18 @@ FFplayKit.stop();
 ### Playback with Progress Tracking
 
 ```dart
-FFplayKit.execute('video.mp4');
+await FFplayKit.execute('video.mp4');
 
 // Poll for position updates
 Timer.periodic(Duration(milliseconds: 500), (timer) {
   final position = FFplayKit.getPosition();
-  final duration = FFplayKit.getMediaDuration();
-  
-  if (position != null && duration != null) {
+  final duration = FFplayKit.getDuration();
+
+  if (duration > 0) {
     final progress = (position / duration) * 100;
     print('Progress: ${progress.toStringAsFixed(1)}%');
   }
-  
+
   if (FFplayKit.isClosed()) {
     timer.cancel();
   }
@@ -530,49 +498,33 @@ await FFplayKit.executeAsync(
 
 ```dart
 // Play in fullscreen
-FFplayKit.execute('-fs video.mp4');
+await FFplayKit.execute('-fs video.mp4');
 
 // Play with loop
-FFplayKit.execute('-loop 0 video.mp4');
+await FFplayKit.execute('-loop 0 video.mp4');
 
 // Play audio only (no video window)
-FFplayKit.execute('-nodisp audio.mp3');
+await FFplayKit.execute('-nodisp audio.mp3');
 
 // Play with custom window size
-FFplayKit.execute('-x 800 -y 600 video.mp4');
+await FFplayKit.execute('-x 800 -y 600 video.mp4');
 ```
 
 ### Seek to Specific Position
 
 ```dart
-FFplayKit.execute('video.mp4');
+await FFplayKit.execute('video.mp4');
 
 // Seek to 1 minute
 FFplayKit.seek(60.0);
 
 // Seek forward 10 seconds
-final currentPos = FFplayKit.getPosition() ?? 0.0;
+final currentPos = FFplayKit.getPosition();
 FFplayKit.seek(currentPos + 10.0);
 
 // Seek backward 10 seconds
-final pos = FFplayKit.getPosition() ?? 0.0;
+final pos = FFplayKit.getPosition();
 FFplayKit.seek((pos - 10.0).clamp(0.0, double.infinity));
-```
-
-### Handle Session Conflicts
-
-```dart
-// Terminate existing playback before starting new one
-FFplayKit.execute(
-  'video1.mp4',
-  strategy: SessionConflictStrategy.terminate,
-);
-
-// Or wait for current playback to finish
-FFplayKit.execute(
-  'video2.mp4',
-  strategy: SessionConflictStrategy.waitForCompletion,
-);
 ```
 
 ### Play/Pause Toggle
@@ -620,14 +572,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         _positionTimer?.cancel();
       },
     );
-    
+
     setState(() => _isPlaying = true);
-    
+
     // Update position periodically
     _positionTimer = Timer.periodic(Duration(milliseconds: 500), (_) {
       setState(() {
-        _position = FFplayKit.getPosition() ?? 0.0;
-        _duration = FFplayKit.getMediaDuration() ?? 0.0;
+        _position = FFplayKit.getPosition();
+        _duration = FFplayKit.getDuration();
         _isPlaying = FFplayKit.isPlaying();
       });
     });
@@ -686,7 +638,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 ## Error Handling
 
 ```dart
-final session = FFplayKit.execute('video.mp4');
+final session = await FFplayKit.execute('video.mp4');
 
 // Check if playback started successfully
 if (ReturnCode.isSuccess(session.getReturnCode())) {
@@ -717,7 +669,7 @@ await FFplayKit.executeAsync(
 
 ## Best Practices
 
-1. **Single Session**: Remember that only one FFplay session can be active. Use conflict strategies appropriately.
+1. **Single Session**: Only one FFplay session can be active at a time. Starting a new session automatically replaces the previous one.
 
 2. **Resource Cleanup**: Always stop or close sessions when done:
 
@@ -737,11 +689,7 @@ await FFplayKit.executeAsync(
    }
    ```
 
-4. **Handle Null Values**: Position and duration can be null:
-
-   ```dart
-   final position = FFplayKit.getPosition() ?? 0.0;
-   ```
+4. **Position and Duration**: `getPosition()` and `getDuration()` return `0.0` when no session is active — no null check needed.
 
 5. **Use Async for UI**: Use `executeAsync` to avoid blocking the UI thread:
 

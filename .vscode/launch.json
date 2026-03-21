@@ -11,7 +11,7 @@
             "flutterMode": "debug",
             "deviceId": "windows",
             "args": [
-                "--verbose"
+                "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
         },
@@ -21,7 +21,8 @@
             "type": "dart",
             "flutterMode": "debug",
             "deviceId": "emulator-5554",
-            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart",
+            "preLaunchTask": "Start Android Emulator (emulator-5554)"
         },
         {
             "name": "Debug Configure",
@@ -34,5 +35,11 @@
             ],
             "program": "${workspaceFolder}/flutter/bin/configure.dart"
         },
+        {
+            "name": "Launch Android Emulator",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "adb devices | grep -q 'emulator-5554' || emulator -avd Medium_Phone_API_36.1 -gpu swiftshader_indirect"
+        }
     ]
 }

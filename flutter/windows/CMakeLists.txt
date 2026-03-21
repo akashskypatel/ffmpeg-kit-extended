@@ -43,8 +43,18 @@ function(run_configure)
 
   message(STATUS "FFmpegKit: Configuring for Windows (App Root: ${APP_ROOT})...")
 
+  find_program(DART_EXECUTABLE NAMES dart.exe dart 
+    HINTS "$ENV{FLUTTER_ROOT}/bin" "${FLUTTER_ROOT}/bin")
+
+  if(NOT DART_EXECUTABLE)
+    message(FATAL_ERROR "FFmpegKit: dart executable not found. Please ensure Flutter is installed and in PATH.")
+  else()
+    file(TO_NATIVE_PATH "${DART_EXECUTABLE}" DART_EXECUTABLE_NATIVE)
+    set(DART_EXE "${DART_EXECUTABLE_NATIVE}")
+  endif()
+
   execute_process(
-      COMMAND dart run ffmpeg_kit_extended_flutter:configure "windows" "--app-root=${APP_ROOT}" "--verbose"
+      COMMAND ${DART_EXE} run ffmpeg_kit_extended_flutter:configure "windows" "--app-root=${APP_ROOT}" "--verbose"
       WORKING_DIRECTORY "${APP_ROOT}"
       RESULT_VARIABLE configure_result
       OUTPUT_VARIABLE configure_output
@@ -151,18 +161,38 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
-# For Windows, we need the runtime DLL which is usually in bin/
-find_file(FFMPEG_KIT_LIB_FILE
-    NAMES libffmpegkit.dll libffmpegkit.a
-    HINTS "${FFMPEG_KIT_PATH}/bin" "${FFMPEG_KIT_PATH}/lib"
-    NO_DEFAULT_PATH
+# For Windows, bundle all DLLs from bin/ and all static/import libraries from lib/
+file(GLOB FFMPEG_KIT_DLL_FILES 
+    "${FFMPEG_KIT_PATH}/bin/*.dll"
 )
 
-if (FFMPEG_KIT_LIB_FILE)
+file(GLOB FFMPEG_KIT_ALL_A_FILES
+    "${FFMPEG_KIT_PATH}/lib/*.a"
+)
+
+# Filter out .dll.a files, keep only regular .a files
+foreach(file ${FFMPEG_KIT_ALL_A_FILES})
+    if(NOT file MATCHES "\\.dll\\.a$")
+        list(APPEND FFMPEG_KIT_A_FILES "${file}")
+    endif()
+endforeach()
+
+file(GLOB FFMPEG_KIT_LIB_FILES
+    "${FFMPEG_KIT_PATH}/lib/*.lib"
+)
+
+list(APPEND FFMPEG_KIT_A_FILES ${FFMPEG_KIT_LIB_FILES})
+
+list(APPEND FFMPEG_KIT_DLL_FILES ${FFMPEG_KIT_A_FILES})
+
+if (FFMPEG_KIT_DLL_FILES)
     set(${PROJECT_NAME}_bundled_libraries
-      "${FFMPEG_KIT_LIB_FILE}"
+      ${FFMPEG_KIT_DLL_FILES}
       PARENT_SCOPE
     )
+    message(STATUS "FFmpegKit: Bundling ${PROJECT_NAME}: ${FFMPEG_KIT_DLL_FILES}")
+else()
+    message(WARNING "FFmpegKit: No library files found in ${FFMPEG_KIT_PATH}/lib or ${FFMPEG_KIT_PATH}/bin")
 endif()
 
 # === Tests ===

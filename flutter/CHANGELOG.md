@@ -1,10 +1,29 @@
 
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.2.1
+
+- Misc fixes to session handeling on error.
+
 ## Version 0.2.0
 
 - Feature: Added Android support.
 - Fix: Fixed lgpl package resolution.
+- Feature: Automatic version detection from GitHub API for Flutter configure script with fallback to pubspec version
+- Feature: New `ffmpeg_kit_initialize()` binding for proper library initialization
+- Feature: Enhanced FFI bindings generation for improved native integration
+- Feature: Comprehensive MediaInformationSession implementation
+- Feature: Documentation comments to native callback typedefs
+- Improvement: Refactor core session classes (FFmpegSession, FFplaySession, FFprobeSession, MediaInformationSession) for better async handling and state management
+- Improvement: Simplify FFplayKit callback wrapper and session management
+- Improvement: Improve callback management and error handling across all session types
+- Improvement: Update build configuration with CMake external native build support for Android
+- Improvement: Update example application with enhanced functionality
+- Fix: Memory safety issues - fix unsafe handle releases in callbacks that could cause use-after-free bugs
+- Fix: Replace manual handle release calls with NativeFinalizer-based cleanup
+- Fix: Improve build configuration and library bundling across platforms (Android, Linux, Windows)
+- Fix: Add WSL path handling in URI detection for cross-platform development
+- Fix: Remove redundant await in executeAsync
 
 ## Version 0.1.2
 

@@ -22,315 +22,370 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
+import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'ffmpeg_kit_flutter_loader.dart';
-import 'ffplay_kit.dart';
-import 'session.dart';
-import 'session_queue_manager.dart';
 
 /// A session for playing media using FFplay.
 ///
-/// This class provides methods to control playback (start, pause, resume, stop)
-/// and to query or set playback properties like position and volume.
+/// Provides methods to control playback (start, pause, resume, stop, seek)
+/// and to query or set playback properties such as position and volume.
+///
+/// ### Lifecycle
+/// Use [FFplayKit] to create and execute sessions so that global session
+/// tracking is maintained.  The deprecated [create] / [executeCommand] /
+/// [executeCommandAsync] static helpers still work but bypass that tracking.
 class FFplaySession extends Session {
   FFplaySessionCompleteCallback? _completeCallback;
 
-  /// Creates a new [FFplaySession] from a native [handle] and the executed [command].
+  bool _registered = false;
+
+  int _timeout;
+
+  // ---------------------------------------------------------------------------
+  // Constructors
+  // ---------------------------------------------------------------------------
+
+  /// Restores an [FFplaySession] from an existing native [handle].
   ///
-  /// This constructor is typically used internally or when restoring sessions from history.
-  FFplaySession.fromHandle(Pointer<Void> handle, String command) {
+  /// Used internally when wrapping handles from the session-history API.
+  /// No callbacks are registered; call [setCompleteCallback] if needed.
+  FFplaySession.fromHandle(Pointer<Void> handle, String command)
+      : _timeout = 500 {
+    FFmpegKitExtended.requireInitialized();
     this.handle = handle;
     this.command = command;
     sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
     registerFinalizer();
   }
 
-  /// Creates a new [FFplaySession] to execute the given [command].
+  /// Creates a new [FFplaySession] for [command].
   ///
-  /// **WARNING**: Direct instantiation is discouraged. Use [FFplayKit.createSession]
-  /// or [FFplayKit.execute] instead to ensure proper global session management.
-  /// Direct session creation bypasses the global session tracking and may lead
-  /// to multiple concurrent sessions.
+  /// **Prefer [FFplayKit.createSession]** to ensure the global current-session
+  /// reference is updated correctly.
   ///
-  /// - [command]: The FFplay command to run.
-  /// - [completeCallback]: Optional callback invoked when playback ends.
+  /// - [completeCallback]: Invoked once when playback ends.
   /// - [timeout]: Connection timeout in milliseconds (default 500).
   FFplaySession(
     String command, {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
-  }) {
-    _timeout = timeout;
-
-    final cmdPtr = command.toNativeUtf8();
+  }) : _timeout = timeout {
+    FFmpegKitExtended.requireInitialized();
+    // toNativeUtf8 uses the calloc allocator by default.
+    final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
       handle = ffmpeg.ffplay_kit_create_session(cmdPtr.cast());
       this.command = command;
       sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
       registerFinalizer();
     } finally {
-      calloc.free(cmdPtr);
+      calloc.free(cmdPtr); // must match the allocator used by toNativeUtf8
     }
 
-    if (completeCallback != null) {
-      _completeCallback = completeCallback;
-      final int callbackId = CallbackManager().nextCallbackId++;
-      CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
-      CallbackManager().ffplaySessions[sessionId] = this;
-    }
+    _completeCallback = completeCallback;
+
+    CallbackManager().registerFFplaySession(this);
+    _registered = true;
   }
 
-  /// Facilitates creating a new [FFplaySession].
-  ///
-  /// **DEPRECATED**: Use [FFplayKit.createSession] instead to ensure proper
-  /// global session management. Direct session creation bypasses the global
-  /// session tracking and may lead to multiple concurrent sessions.
+  // ---------------------------------------------------------------------------
+  // Static helpers (deprecated wrappers kept for API compatibility)
+  // ---------------------------------------------------------------------------
+
+  /// @deprecated Use [FFplayKit.createSession] for proper global tracking.
   @Deprecated(
-      'Use FFplayKit.createSession instead for proper global session management')
-  static FFplaySession create(String command,
-          {FFplaySessionCompleteCallback? completeCallback,
-          int timeout = 500}) =>
+      'Use FFplayKit.createSession for proper global session management')
+  static FFplaySession create(
+    String command, {
+    FFplaySessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) =>
       FFplaySession(command,
           timeout: timeout, completeCallback: completeCallback);
 
-  /// Internal factory method for creating sessions through [FFplayKit].
-  ///
-  /// This method should only be called by [FFplayKit] to ensure proper
-  /// global session management. Direct use of this method is discouraged.
-  static FFplaySession createGlobal(String command,
-          {FFplaySessionCompleteCallback? completeCallback,
-          int timeout = 500}) =>
+  /// Internal factory used by [FFplayKit] — not part of the public API.
+  static FFplaySession createGlobal(
+    String command, {
+    FFplaySessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) =>
       FFplaySession(command,
           timeout: timeout, completeCallback: completeCallback);
 
-  /// The callback invoked when the session is complete.
+  // ---------------------------------------------------------------------------
+  // Callback accessors / mutators
+  // ---------------------------------------------------------------------------
+
+  /// The callback invoked once when playback ends.
   FFplaySessionCompleteCallback? get completeCallback => _completeCallback;
 
-  /// Sets or updates the [completeCallback] for this session.
+  /// Sets or replaces the completion callback.
   void setCompleteCallback(FFplaySessionCompleteCallback? completeCallback) {
-    if (completeCallback != null) {
-      _completeCallback = completeCallback;
-      final int callbackId = CallbackManager().nextCallbackId++;
-      CallbackManager().callbackIdToSessionId[callbackId] = sessionId;
-      CallbackManager().ffplaySessions[sessionId] = this;
-    }
+    _completeCallback = completeCallback;
+    _ensureRegistered();
   }
 
-  /// Removes the [completeCallback] for this session.
+  /// Clears the completion callback and unregisters the session from
+  /// [CallbackManager] if no other callbacks remain.
   void removeCompleteCallback() {
     _completeCallback = null;
-    CallbackManager().callbackIdToSessionId.remove(sessionId);
-    CallbackManager().ffplaySessions.remove(sessionId);
+    _unregister();
   }
 
-  int _timeout = 500;
+  // ---------------------------------------------------------------------------
+  // Playback configuration
+  // ---------------------------------------------------------------------------
 
   /// The connection timeout in milliseconds.
   int get timeout => _timeout;
 
   /// Sets the connection [timeout] in milliseconds.
-  void setTimeout(int timeout) {
-    _timeout = timeout;
-  }
+  void setTimeout(int timeout) => _timeout = timeout;
+
+  // ---------------------------------------------------------------------------
+  // Playback controls
+  // ---------------------------------------------------------------------------
 
   /// Starts playback.
   void start() {
-    log("FFplaySession.start handle=$handle");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.start handle=$handle');
     ffmpeg.ffplay_kit_session_start(handle);
   }
 
   /// Pauses playback.
   void pause() {
-    log("FFplaySession.pause handle=$handle");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.pause handle=$handle');
     ffmpeg.ffplay_kit_session_pause(handle);
   }
 
   /// Resumes paused playback.
   void resume() {
-    log("FFplaySession.resume handle=$handle");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.resume handle=$handle');
     ffmpeg.ffplay_kit_session_resume(handle);
   }
 
   /// Stops playback.
   void stop() {
-    log("FFplaySession.stop handle=$handle");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.stop handle=$handle');
     ffmpeg.ffplay_kit_session_stop(handle);
   }
 
   /// Closes the session and releases native resources.
   void close() {
-    log("FFplaySession.close handle=$handle");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.close handle=$handle');
     ffmpeg.ffplay_kit_session_close(handle);
   }
 
+  /// Cancels the session — stops playback then delegates to [Session.cancel].
   @override
   void cancel() {
     stop();
     super.cancel();
   }
 
-  /// Seeks to the specified position in [seconds].
+  /// Seeks to [seconds] from the start of the media.
   void seek(double seconds) {
-    log("FFplaySession.seek handle=$handle seconds=$seconds");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.seek handle=$handle seconds=$seconds');
     ffmpeg.ffplay_kit_session_seek(handle, seconds);
   }
 
-  /// Executes this session synchronously.
+  // ---------------------------------------------------------------------------
+  // Execution
+  // ---------------------------------------------------------------------------
+
+  /// Enqueues this session for synchronous native execution and returns `this`
+  /// immediately.
   FFplaySession execute() {
-    log("FFplaySession.execute handle=$handle");
-    final completer = Completer<void>();
+    log('FFplaySession.execute handle=$handle');
     SessionQueueManager().executeSession(
       this,
       () async {
-        ffmpeg.ffplay_kit_session_execute(handle, timeout);
-        completer.complete();
+        FFmpegKitExtended.requireInitialized();
+        ffmpeg.ffplay_kit_session_execute(handle, _timeout);
+        try {
+          _completeCallback?.call(this);
+        } catch (e, st) {
+          log('FFplaySession.execute: error in completeCallback: $e\n$st');
+        }
+        _unregister();
       },
-    ).catchError(completer.completeError);
+    ).catchError((Object e, StackTrace st) {
+      log('FFplaySession.execute: queue error: $e\n$st');
+    });
     return this;
   }
 
-  /// Creates and executes a [FFplaySession] synchronously.
-  ///
-  /// **DEPRECATED**: Use [FFplayKit.execute] instead to ensure proper
-  /// global session management. Direct session execution bypasses the global
-  /// session tracking and may lead to multiple concurrent sessions.
-  @Deprecated(
-      'Use FFplayKit.execute instead for proper global session management')
+  /// @deprecated Use [FFplayKit.execute] for proper global session management.
+  @Deprecated('Use FFplayKit.execute for proper global session management')
   static FFplaySession executeCommand(
     String command, {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
-  }) {
-    final session = FFplaySession.create(command,
-        timeout: timeout, completeCallback: completeCallback);
-    return session.execute();
-  }
+  }) =>
+      FFplaySession.create(command,
+              timeout: timeout, completeCallback: completeCallback)
+          .execute();
 
-  /// Creates and executes a [FFplaySession] asynchronously.
-  ///
-  /// **DEPRECATED**: Use [FFplayKit.executeAsync] instead to ensure proper
-  /// global session management. Direct session execution bypasses the global
-  /// session tracking and may lead to multiple concurrent sessions.
-  @Deprecated(
-      'Use FFplayKit.executeAsync instead for proper global session management')
+  /// @deprecated Use [FFplayKit.executeAsync] for proper global session management.
+  @Deprecated('Use FFplayKit.executeAsync for proper global session management')
   static Future<FFplaySession> executeCommandAsync(
     String command, {
     FFplaySessionCompleteCallback? completeCallback,
     int timeout = 500,
+  }) =>
+      FFplaySession.create(command,
+              timeout: timeout, completeCallback: completeCallback)
+          .executeAsync();
+
+  /// Executes this session asynchronously and returns a [Future] that
+  /// resolves once playback finishes or is cancelled.
+  Future<FFplaySession> executeAsync({
+    int? timeout,
+    FFplaySessionCompleteCallback? completeCallback,
   }) async {
-    final session = FFplaySession.create(command,
-        timeout: timeout, completeCallback: completeCallback);
-    return await session.executeAsync();
-  }
-
-  /// Executes this session asynchronously.
-  ///
-  /// - [timeout]: Connection timeout in milliseconds.
-  /// - [completeCallback]: Optional callback when playback ends.
-  Future<FFplaySession> executeAsync(
-      {int timeout = 500,
-      FFplaySessionCompleteCallback? completeCallback}) async {
+    if (timeout != null) _timeout = timeout;
     if (completeCallback != null) _completeCallback = completeCallback;
-    setTimeout(timeout);
+    _ensureRegistered();
 
-    final startedCompleter = Completer<void>();
-
-    final executionFuture = SessionQueueManager().executeSession(
-      this,
-      () async {
-        final sessionCompleter = Completer<void>();
-
-        // Store the original callback
-        final originalCallback = _completeCallback;
-
-        // Wrap the callback to complete our completer
-        _completeCallback = (session) {
-          originalCallback?.call(session);
-          if (!sessionCompleter.isCompleted) {
-            sessionCompleter.complete();
-          }
-        };
-
-        ffmpeg.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-            nativeFFplayComplete.nativeFunction, nullptr);
-        CallbackManager().ffplaySessions[sessionId] = this;
-
-        try {
-          ffmpeg.ffplay_kit_session_execute_async(handle, _timeout);
-        } catch (e) {
-          if (!startedCompleter.isCompleted) startedCompleter.completeError(e);
-          rethrow;
-        }
-
-        // Signal that the session has started and handle is valid
-        if (!startedCompleter.isCompleted) {
-          startedCompleter.complete();
-        }
-
-        // Wait for the session to complete (this keeps the queue blocked)
-        await sessionCompleter.future;
-      },
-    );
-
-    // Handle initialization errors or rejection
-    executionFuture.catchError((e) {
-      if (!startedCompleter.isCompleted) startedCompleter.completeError(e);
-    });
-
-    await startedCompleter.future;
+    await SessionQueueManager().executeSession(this, _runAsync);
     return this;
   }
 
-  /// Gets the total duration of the media in seconds.
+  // ---------------------------------------------------------------------------
+  // Playback properties
+  // ---------------------------------------------------------------------------
+
+  /// Returns the total duration of the media in seconds.
   double getMediaDuration() {
+    FFmpegKitExtended.requireInitialized();
     final d = ffmpeg.ffplay_kit_session_get_duration(handle);
-    log("FFplaySession.getMediaDuration handle=$handle val=$d");
+    log('FFplaySession.getMediaDuration handle=$handle val=$d');
     return d;
   }
 
-  /// Gets the current playback position in seconds.
+  /// Returns the current playback position in seconds.
   double getPosition() {
+    FFmpegKitExtended.requireInitialized();
     final p = ffmpeg.ffplay_kit_session_get_position(handle);
-    log("FFplaySession.getPosition handle=$handle val=$p");
+    log('FFplaySession.getPosition handle=$handle val=$p');
     return p;
   }
 
-  /// Sets the current playback position to [seconds].
+  /// Seeks to [seconds] from the start of the media.
   void setPosition(double seconds) {
-    log("FFplaySession.setPosition handle=$handle seconds=$seconds");
+    FFmpegKitExtended.requireInitialized();
+    log('FFplaySession.setPosition handle=$handle seconds=$seconds');
     ffmpeg.ffplay_kit_session_set_position(handle, seconds);
   }
 
-  /// Gets the current playback volume (0.0 to 1.0).
-  double getVolume() => ffmpeg.ffplay_kit_session_get_volume(handle) / 128.0;
+  /// Returns the current playback volume in the range [0.0, 1.0].
+  ///
+  /// The native layer stores volume as an integer in [0, 128] (SDL_MIX_MAXVOLUME).
+  /// This getter normalises it to [0.0, 1.0] for a consistent API.
+  double getVolume() {
+    FFmpegKitExtended.requireInitialized();
+    return ffmpeg.ffplay_kit_session_get_volume(handle) / 128.0;
+  }
 
-  /// Sets the playback [volume] (0.0 to 1.0).
-  void setVolume(double volume) =>
-      ffmpeg.ffplay_kit_session_set_volume(handle, volume * 128.0);
+  /// Sets the playback [volume] in the range [0.0, 1.0].
+  ///
+  /// Values outside [0.0, 1.0] are clamped before being passed to the native
+  /// layer to prevent SDL audio distortion.
+  void setVolume(double volume) {
+    FFmpegKitExtended.requireInitialized();
+    final clamped = volume.clamp(0.0, 1.0);
+    ffmpeg.ffplay_kit_session_set_volume(handle, clamped * 128.0);
+  }
 
-  /// Returns true if the media is currently playing.
+  /// Returns `true` if the media is currently playing.
   bool isPlaying() {
+    FFmpegKitExtended.requireInitialized();
     final playing = ffmpeg.ffplay_kit_session_is_playing(handle);
-    log("FFplaySession.isPlaying handle=$handle val=$playing");
+    log('FFplaySession.isPlaying handle=$handle val=$playing');
     return playing;
   }
 
-  /// Returns true if the media is current paused.
+  /// Returns `true` if the media is currently paused.
   bool isPaused() {
+    FFmpegKitExtended.requireInitialized();
     final paused = ffmpeg.ffplay_kit_session_is_paused(handle);
-    log("FFplaySession.isPaused handle=$handle val=$paused");
+    log('FFplaySession.isPaused handle=$handle val=$paused');
     return paused;
   }
 
+  // ---------------------------------------------------------------------------
+  // Session type identity
+  // ---------------------------------------------------------------------------
+
+  /// Returns true if this is an FFmpeg session.
   @override
   bool isFFmpegSession() => false;
 
+  /// Returns true if this is an FFplay session.
   @override
   bool isFFplaySession() => true;
 
+  /// Returns true if this is an FFprobe session.
   @override
   bool isFFprobeSession() => false;
 
+  /// Returns true if this is a media information session.
   @override
   bool isMediaInformationSession() => false;
+
+  // ---------------------------------------------------------------------------
+  // Private implementation
+  // ---------------------------------------------------------------------------
+
+  /// Core async execution body, called by [executeAsync] through the queue.
+  Future<void> _runAsync() async {
+    final sessionCompleter = Completer<void>();
+    final userCompleteCallback = _completeCallback;
+
+    _completeCallback = (FFplaySession s) {
+      try {
+        userCompleteCallback?.call(s);
+      } catch (e, st) {
+        log('FFplaySession: error in completeCallback: $e\n$st');
+      }
+      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+      _unregister();
+    };
+
+    ffmpeg.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+        nativeFFplayComplete.nativeFunction, nullptr);
+
+    try {
+      ffmpeg.ffplay_kit_session_execute_async(handle, _timeout);
+    } catch (e, st) {
+      log('FFplaySession: error starting async session $sessionId: $e\n$st');
+      _completeCallback = userCompleteCallback;
+      _unregister();
+      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+      rethrow;
+    }
+
+    await sessionCompleter.future;
+  }
+
+  /// Ensures this session is registered with the callback manager.
+  void _ensureRegistered() {
+    if (_registered) return;
+    CallbackManager().registerFFplaySession(this);
+    _registered = true;
+  }
+
+  /// Unregisters this session from the callback manager.
+  void _unregister() {
+    if (!_registered) return;
+    _registered = false;
+    CallbackManager().unregisterFFplaySession(sessionId);
+  }
 }
