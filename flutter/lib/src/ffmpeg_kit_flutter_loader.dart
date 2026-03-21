@@ -63,8 +63,14 @@ Future<void> initializeFFmpegKit() async {
     _ffmpegInstance = FFmpegKitBindings(_loadLibrary());
     _ffmpegInstance!.ffmpeg_kit_initialize();
   });
-  await _initializeFuture;
-  _initialized = true;
+  try {
+    await _initializeFuture;
+    _initialized = true;
+  } catch (e, s) {
+    log('Failed to initialize FFmpegKit: $e', stackTrace: s);
+    _initializeFuture = null;
+    rethrow;
+  }
 }
 
 Future<void>? _initializeFuture;

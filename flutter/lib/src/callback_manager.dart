@@ -92,11 +92,11 @@ void _onFFmpegComplete(
     log('CallbackManager: invoking completeCallback for session $sessionId');
     try {
       session.completeCallback?.call(session);
+      CallbackManager().globalFFmpegSessionCompleteCallback?.call(session);
     } catch (e, st) {
       log('CallbackManager: error in completeCallback for session $sessionId: '
           '$e\n$st');
     }
-    CallbackManager().globalFFmpegSessionCompleteCallback?.call(session);
   } else {
     stderr.writeln(
         'Warning: _onFFmpegComplete — no session found for sessionId=$sessionId');
