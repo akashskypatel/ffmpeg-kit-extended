@@ -3,7 +3,7 @@ description: A comprehensive Flutter plugin for executing FFmpeg, FFprobe, and F
 repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
-documentation: https://github.com/akashskypatel/ffmpeg-kit-extended/tree/main/flutter/doc
+documentation: https://github.com/akashskypatel/ffmpeg-kit-extended/tree/master/flutter/doc
 version: 0.2.1
 
 topics:
