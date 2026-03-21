@@ -55,15 +55,19 @@ bool _initialized = false;
 /// Calling this more than once is a no-op.
 Future<void> initializeFFmpegKit() async {
   if (_initialized) return;
-  // Offload to a separate isolate/thread so the UI thread is not blocked
-  // during DLL loading. compute() is Flutter-dependent; for a pure-Dart
-  // package you can use Isolate.run (Dart 2.19+).
-  await Future(() {
+  if (_initializeFuture != null) {
+    await _initializeFuture;
+    return;
+  }
+  _initializeFuture = Future(() {
     _ffmpegInstance = FFmpegKitBindings(_loadLibrary());
     _ffmpegInstance!.ffmpeg_kit_initialize();
   });
+  await _initializeFuture;
   _initialized = true;
 }
+
+Future<void>? _initializeFuture;
 
 bool get isFFmpegKitInitialized => _initialized;
 
