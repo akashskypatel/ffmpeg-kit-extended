@@ -9,8 +9,29 @@ The `FFplayKit` class provides a convenient interface for media playback using F
 - Simple playback control (play, pause, resume, stop)
 - Seek functionality
 - Position and duration tracking
+- Video surface management
 
 **Important**: Only one FFplay session can be active at a time. Starting a new session automatically replaces any existing one.
+
+## Video Playback
+
+For video playback, use the `FFplaySurface` class to create a cross-platform video surface:
+
+```dart
+// Create surface before starting playback
+final surface = await FFplaySurface.create();
+
+// Start playback
+final session = await FFplayKit.executeAsync('-i "video.mp4"');
+
+// Use surface in widget tree
+Texture(textureId: surface.textureId)
+
+// Clean up when done
+await surface.release();
+```
+
+See the [Video Playback Guide](../guides/video-playback.md) for complete examples.
 
 ## Class Methods
 

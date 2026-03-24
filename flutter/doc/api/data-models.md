@@ -48,15 +48,92 @@ Represents a single media stream (video, audio, subtitle, etc.) within a contain
 - `displayAspectRatio` (String?): The display aspect ratio (e.g., "16:9").
 - `averageFrameRate` (String?): The average frame rate of the video stream.
 - `realFrameRate` (String?): The real frame rate of the video stream.
-- `timeBase` (String?): The time base of the stream.
-- `codecTimeBase` (String?): The codec time base.
-- `tagsJson` (String?): A JSON string containing stream tags.
-- `allPropertiesJson` (String?): A JSON string containing all stream properties.
+- `pixelFormat` (String?): The pixel format of the video stream (e.g., "yuv420p").
+- `level` (int?): The codec level.
+- `profile` (String?): The codec profile.
 
-### Stream Information Computed Properties
+---
 
-- `tags` (Map<String, dynamic>?): Parsed map of tags from the `tagsJson` string.
-- `allProperties` (Map<String, dynamic>?): Parsed map of all properties from the `allPropertiesJson` string.
+## Video Surface Types
+
+### FFplaySurface
+
+Unified cross-platform video surface that automatically handles platform differences.
+
+**Properties:**
+- `textureId` (int): Flutter texture ID for the surface
+
+**Key Methods:**
+- `create()`: Creates platform-appropriate surface
+- `toWidget()`: Returns Flutter Texture widget
+- `release()`: Releases native resources
+
+### FFplayAndroidSurface
+
+Android-specific surface implementation using SurfaceTexture and ANativeWindow.
+
+**Properties:**
+- `textureId` (int): Flutter texture ID
+- `nativeWindowPtr` (int): Native ANativeWindow* pointer
+
+**Key Methods:**
+- `bindToFFplay()`: Registers surface with FFplay
+- `release()`: Releases Android surface resources
+
+### FFplayDesktopTexture
+
+Desktop texture implementation for Linux and Windows using pixel buffers.
+
+**Properties:**
+- `textureId` (int): Flutter texture ID
+
+**Key Methods:**
+- `create()`: Creates pixel buffer texture
+- `release()`: Releases texture resources
+
+---
+
+## Session Stream Types
+
+### Position Stream
+
+Stream of playback position updates in seconds.
+
+```dart
+Stream<double> positionStream
+```
+
+**Example:**
+```dart
+session.positionStream.listen((position) {
+  print('Position: ${position.toStringAsFixed(1)}s');
+});
+```
+
+### Video Size Stream
+
+Stream of video dimension changes as `(width, height)` tuples.
+
+```dart
+Stream<(int, int)> videoSizeStream
+```
+
+**Example:**
+```dart
+session.videoSizeStream.listen((size) {
+  final (width, height) = size;
+  print('Video size: ${width}x${height}');
+});
+```
+
+---
+
+## Related Documentation
+
+- [Video Surface API](video-surface.md) - Complete video surface API reference
+- [FFplayKit API](ffplay-kit.md) - FFplay session management
+- [Sessions API](sessions.md) - Session base classes and lifecycle
+- [Video Playback Guide](../guides/video-playback.md) - Complete video playback examples
 
 ---
 
