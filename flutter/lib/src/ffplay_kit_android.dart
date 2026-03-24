@@ -92,8 +92,7 @@ class FFplayKitAndroid {
     // Release must be called from the Java/Kotlin side because
     // releaseNativeWindowPtr is a JNI method, not a pure-C export.
     // This method exists as documentation only — see class-level doc.
-    assert(
-      false,
+    throw UnsupportedError(
       'FFplayKitAndroid.releaseNativeWindowPtr must be called from '
       'Kotlin/Java: FFplayKitAndroid.releaseNativeWindowPtr(ptr)',
     );

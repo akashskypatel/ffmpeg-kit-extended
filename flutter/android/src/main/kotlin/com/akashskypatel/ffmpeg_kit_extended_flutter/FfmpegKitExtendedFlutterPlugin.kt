@@ -12,9 +12,12 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
     private var channel: MethodChannel? = null
     private var textureRegistry: TextureRegistry? = null
 
-    /** Live surfaces keyed by Flutter texture ID. */
+    /** Live surfaces keyed by Flutter texture ID.
+     *  Triple: (SurfaceTextureEntry, Surface, nativeWindowPtr)
+     *  nativeWindowPtr is stored so it can be released in onDetachedFromEngine
+     *  even if releaseSurface was never called from the Dart side. */
     private val surfaces =
-        mutableMapOf<Long, Pair<TextureRegistry.SurfaceTextureEntry, Surface>>()
+        mutableMapOf<Long, Triple<TextureRegistry.SurfaceTextureEntry, Surface, Long>>()
 
     // -------------------------------------------------------------------------
     // FlutterPlugin
@@ -30,7 +33,8 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel?.setMethodCallHandler(null)
         channel = null
-        surfaces.values.forEach { (entry, surface) ->
+        surfaces.values.forEach { (entry, surface, nativeWindowPtr) ->
+            if (nativeWindowPtr != 0L) FFplayKitAndroid.releaseNativeWindowPtr(nativeWindowPtr)
             surface.release()
             entry.release()
         }
@@ -79,7 +83,7 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
             return
         }
 
-        surfaces[textureId] = Pair(entry, surface)
+        surfaces[textureId] = Triple(entry, surface, nativeWindowPtr)
         result.success(
             mapOf("textureId" to textureId, "nativeWindowPtr" to nativeWindowPtr)
         )
@@ -97,7 +101,7 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
         if (nativeWindowPtr != 0L) {
             FFplayKitAndroid.releaseNativeWindowPtr(nativeWindowPtr)
         }
-        surfaces.remove(textureId)?.let { (entry, surface) ->
+        surfaces.remove(textureId)?.let { (entry, surface, _) ->
             surface.release()
             entry.release()
         }
