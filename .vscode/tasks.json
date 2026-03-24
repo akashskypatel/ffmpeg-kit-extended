@@ -46,6 +46,20 @@
         "reveal": "always"
       },
       "dependsOn": ["Start Android Emulator (emulator-5554)"]
+    },
+    {
+      "label": "Logcat",
+      "type": "shell",
+      "command": "adb logcat -s FFplayLib:* FFmpegKitAndroid:* | grep -E 'ffplay|FFplay|executeFFplay'",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Logcat (Clear and restream)",
+      "type": "shell",
+      "command": "adb logcat -c && adb logcat -v threadtime *:V",
+      "isBackground": true,
+      "problemMatcher": []
     }
   ]
 }
