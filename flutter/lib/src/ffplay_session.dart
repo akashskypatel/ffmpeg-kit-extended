@@ -256,8 +256,6 @@ class FFplaySession extends Session {
     if (completeCallback != null) _completeCallback = completeCallback;
     _ensureRegistered();
 
-    _startPositionStream();
-    _startVideoSizeStream();
     await SessionQueueManager().executeSession(this, _runAsync);
     return this;
   }
@@ -403,6 +401,11 @@ class FFplaySession extends Session {
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
+
+    // Start polling only after the native session is executing so timers never
+    // fire against a not-yet-started session during SessionQueueManager delays.
+    _startPositionStream();
+    _startVideoSizeStream();
 
     await sessionCompleter.future;
   }
