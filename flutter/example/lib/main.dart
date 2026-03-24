@@ -55,9 +55,26 @@ class _HomePageState extends State<HomePage>
   late StreamSubscription<bool> _permissionStreamSub;
   LogLevel _currentLogLevel = LogLevel.info;
 
+  // FFplay position tracking
+  StreamSubscription<double>? _positionSub;
+  double _playbackPosition = 0.0;
+  bool _hasActiveSession = false;
+
+  // Video dimensions updated via videoSizeStream when first frame is decoded
+  StreamSubscription<(int, int)>? _videoSizeSub;
+  int _videoWidth = 0;
+  int _videoHeight = 0;
+  bool _hasVideo = false;
+
+  // Unified video surface for Android, Linux, Windows
+  FFplaySurface? _surface;
+
   @override
   void dispose() {
     _permissionStreamSub.cancel();
+    _positionSub?.cancel();
+    _videoSizeSub?.cancel();
+    _surface?.release();
     super.dispose();
   }
 
@@ -68,8 +85,7 @@ class _HomePageState extends State<HomePage>
     _currentLogLevel = FFmpegKitConfig.getLogLevel();
     final tabController = TabController(length: 3, vsync: this);
     if (Platform.isAndroid) {
-      // Listen for changes to the Special 'MANAGE_MEDIA' permission.
-      // This is useful when the user returns from the system settings screen.
+      // Listen for MANAGE_MEDIA permission changes.
       _permissionStreamSub =
           _mediaStore.onManageMediaPermissionChanged.listen((isGranted) {
         if (mounted) {
@@ -114,7 +130,7 @@ class _HomePageState extends State<HomePage>
       });
     }
     try {
-      // 1. Check Standard Storage / Media Permissions (permission_handler)
+      // Check standard storage/media permissions.
       await [
         Permission.photos,
         Permission.audio,
@@ -122,7 +138,7 @@ class _HomePageState extends State<HomePage>
         Permission.storage,
       ].request();
 
-      // 2. Check Android 12+ Manage Media Access (Native Plugin)
+      // Check Android 12+ Manage Media Access.
       bool canManageMedia = await _mediaStore.canManageMedia();
 
       if (!canManageMedia) {
@@ -171,10 +187,9 @@ class _HomePageState extends State<HomePage>
   // --- FFmpeg Examples ---
 
   Future<void> _runFFmpegVersion() async {
-    _addLog(
-        "--- Running FFmpeg -version (Async) ---"); // Logs are captured in real-time
+    _addLog("--- Running FFmpeg -version (Async) ---");
 
-    // Async execution allows capturing logs in real-time or at the end
+    // Async execution captures logs in real-time.
     await FFmpegKit.executeAsync("-version", onLog: (log) {
       _addLog(log.message);
     }, onComplete: (session) {
@@ -183,10 +198,8 @@ class _HomePageState extends State<HomePage>
   }
 
   void _runFFmpegInfoSync() {
-    _addLog(
-        "--- Running FFmpeg -version (Sync) ---"); // Logs are captured at the end
-    // Synchronous execution blocks the current isolate
-    // We capture the output from the session object after it returns
+    _addLog("--- Running FFmpeg -version (Sync) ---");
+    // Synchronous execution blocks the current isolate.
     final session = FFmpegKit.execute("-version");
     final output = session.getOutput();
 
@@ -196,7 +209,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _generateTestVideo() async {
-    // Use a temporary directory for FFmpeg output
+    // Use temporary directory for FFmpeg output.
     final tempDir = await getTemporaryDirectory();
     final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
     _addLog("--- Generating Test Video to temporary path: $tempOutputPath ---");
@@ -205,8 +218,7 @@ class _HomePageState extends State<HomePage>
     const command =
         "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -y";
 
-    await FFmpegKit.executeAsync("$command \"$tempOutputPath\"",
-        onLog: (log) {
+    await FFmpegKit.executeAsync("$command \"$tempOutputPath\"", onLog: (log) {
       _addLog(log.message);
     }, onComplete: (session) {
       if (ReturnCode.isSuccess(session.getReturnCode())) {
@@ -243,7 +255,8 @@ class _HomePageState extends State<HomePage>
     _addLog("FFmpegKit Version: ${FFmpegKitConfig.getVersion()}");
     _addLog("Build Date: ${FFmpegKitConfig.getBuildDate()}");
     _addLog("Package Name: ${FFmpegKitConfig.getPackageName()}");
-    _addLog("Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}");
+    _addLog(
+        "Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}");
   }
 
   void _setLogLevel(LogLevel level) {
@@ -277,7 +290,7 @@ class _HomePageState extends State<HomePage>
 
   void _runFFprobeInfoSync() {
     _addLog("--- Running FFprobe -version (Sync) ---");
-    // Capturing output from synchronous ffprobe call
+    // Capturing output from synchronous ffprobe call.
     final session = FFprobeKit.execute("-version");
     final output = session.getOutput();
 
@@ -297,9 +310,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runMediaInformation() async {
-    // 1. Use picked file if available
-    // 2. Otherwise use local test_video.mp4
-    // 3. Finally fall back to remote URL
+    // Use picked file, local test video, or remote URL fallback.
     final tempDir = await getTemporaryDirectory();
     final localTestPath = path.join(tempDir.path, 'test_video.mp4');
 
@@ -349,6 +360,62 @@ class _HomePageState extends State<HomePage>
   }
 
   // --- FFplay Example ---
+
+  Future<void> _prepareSurface() async {
+    final old = _surface;
+    if (mounted) {
+      setState(() {
+        _surface = null;
+        _hasVideo = false;
+      });
+    }
+    await old?.release();
+  }
+
+  void _attachPositionStream(FFplaySession session) {
+    _positionSub?.cancel();
+    _videoSizeSub?.cancel();
+    setState(() {
+      _hasActiveSession = true;
+      _playbackPosition = 0.0;
+      _videoWidth = 0;
+      _videoHeight = 0; // Reset until actual dimensions arrive
+      _hasVideo = false; // Unknown until first frame arrives
+    });
+
+    // Capture surface at subscription time to avoid race conditions.
+    final surfaceToRelease = _surface;
+
+    _positionSub = session.positionStream.listen(
+      (pos) {
+        if (mounted) setState(() => _playbackPosition = pos);
+      },
+      onDone: () {
+        if (mounted) setState(() => _hasActiveSession = false);
+        surfaceToRelease?.release().then((_) {
+          if (mounted) {
+            setState(() {
+              // Only clear if this is still the current surface
+              if (_surface == surfaceToRelease) {
+                _surface = null;
+              }
+            });
+          }
+        });
+      },
+    );
+    _videoSizeSub = session.videoSizeStream.listen((size) {
+      final (w, h) = size;
+      if (mounted && w > 0 && h > 0) {
+        setState(() {
+          _videoWidth = w;
+          _videoHeight = h;
+          _hasVideo = true;
+        });
+      }
+    });
+  }
+
   Future<void> _runFFplay(String fileName) async {
     final tempDir = await getTemporaryDirectory();
     final localPath = path.join(tempDir.path, fileName);
@@ -360,19 +427,36 @@ class _HomePageState extends State<HomePage>
 
     _addLog("--- Starting FFplay for $localPath ---");
 
-    await FFplayKit.executeAsync("-i \"$localPath\"", onComplete: (session) {
+    // Clear existing surface and create new one.
+    await _prepareSurface();
+    final surface = await FFplaySurface.create();
+    if (surface != null && mounted) {
+      setState(() => _surface = surface);
+    }
+
+    final session = await FFplayKit.executeAsync("-i \"$localPath\"",
+        onComplete: (session) {
       _addLog("FFplay playback of $fileName finished");
     });
-
+    _attachPositionStream(session);
     _addLog("Playback started.");
   }
 
   Future<void> _runCustomFFplay() async {
     final command = _ffplayCommandController.text;
     _addLog("--- Running Custom FFplay: $command ---");
-    await FFplayKit.executeAsync(command, onComplete: (session) {
+
+    await _prepareSurface();
+    final surface = await FFplaySurface.create();
+    if (surface != null && mounted) {
+      setState(() => _surface = surface);
+    }
+
+    final session =
+        await FFplayKit.executeAsync(command, onComplete: (session) {
       _addLog("FFplay playback finished");
     });
+    _attachPositionStream(session);
   }
 
   @override
@@ -550,6 +634,16 @@ class _HomePageState extends State<HomePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_hasVideo && _surface != null) ...[
+            Center(
+              child: SizedBox(
+                width: _videoWidth.toDouble(),
+                height: _videoHeight.toDouble(),
+                child: _surface!.toWidget(),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           _buildCustomCommandSection(_ffplayCommandController, _runCustomFFplay,
               "Enter FFplay command"),
           const SizedBox(height: 20),
@@ -593,31 +687,19 @@ class _HomePageState extends State<HomePage>
             ],
           ),
           const SizedBox(height: 8),
-          StreamBuilder(
-              stream: Stream.periodic(const Duration(seconds: 1)),
-              builder: (context, snapshot) {
-                final active = FFplayKit.getCurrentSession() != null;
-                if (!active) return const Text("No active playback.");
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}"),
-                    Text(
-                        "Position: ${FFplayKit.position.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s"),
-                    Slider(
-                      value: (FFplayKit.position /
-                              (FFplayKit.duration > 0
-                                  ? FFplayKit.duration
-                                  : 1.0))
-                          .clamp(0.0, 1.0),
-                      onChanged: (val) =>
-                          FFplayKit.seek(val * FFplayKit.duration),
-                    ),
-                  ],
-                );
-              }),
+          if (_hasActiveSession) ...[
+            Text(
+                "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}"),
+            Text(
+                "Position: ${_playbackPosition.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s"),
+            Slider(
+              value: (_playbackPosition /
+                      (FFplayKit.duration > 0 ? FFplayKit.duration : 1.0))
+                  .clamp(0.0, 1.0),
+              onChanged: (val) => FFplayKit.seek(val * FFplayKit.duration),
+            ),
+          ] else
+            const Text("No active playback."),
         ],
       ),
     );

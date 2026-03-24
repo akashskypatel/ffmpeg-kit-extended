@@ -39,10 +39,10 @@ DynamicLibrary? _cachedLibrary;
 
 bool _initialized = false;
 
-/// Eagerly loads the native library and wires up the [FFmpegKitBindings].
+/// Loads the native library and initializes [FFmpegKitBindings].
 ///
-/// Must be called once before any other plugin API is used, typically from
-/// `main()` after [WidgetsFlutterBinding.ensureInitialized]:
+/// Must be called once before using any plugin API, typically from `main()`
+/// after [WidgetsFlutterBinding.ensureInitialized].
 ///
 /// ```dart
 /// void main() async {
@@ -60,8 +60,10 @@ Future<void> initializeFFmpegKit() async {
     return;
   }
   _initializeFuture = Future(() {
-    _ffmpegInstance = FFmpegKitBindings(_loadLibrary());
+    final lib = _loadLibrary();
+    _ffmpegInstance = FFmpegKitBindings(lib);
     _ffmpegInstance!.ffmpeg_kit_initialize();
+    _logBuildStamp(_ffmpegInstance!);
   });
   try {
     await _initializeFuture;
@@ -78,9 +80,6 @@ Future<void>? _initializeFuture;
 bool get isFFmpegKitInitialized => _initialized;
 
 /// Loads the FFmpegKit native library based on the current platform.
-///
-/// This function is used to load the appropriate library file based on the
-/// current platform (Android, Windows, or Linux).
 DynamicLibrary _loadLibrary() {
   if (_cachedLibrary != null) return _cachedLibrary!;
 
@@ -96,7 +95,7 @@ DynamicLibrary _loadLibrary() {
     return _cachedLibrary!;
   } catch (e, s) {
     final sep = Platform.isWindows ? '\\' : '/';
-    // If not found, try to locate in .dart_tool cache (Common for 'flutter test')
+    // If not found, try to locate in .dart_tool cache (common for 'flutter test')
     final cacheRoot = Platform.packageConfig != null
         ? Directory.fromUri(
             Uri.parse(Platform.packageConfig!).resolve("..$sep.."))
@@ -176,7 +175,7 @@ DynamicLibrary _loadLibrary() {
 }
 
 /// Helper for Windows to add DLL search directory.
-/// This ensures that dependencies in the same folder (or MSYS2) are found.
+/// Ensures dependencies in the same folder (or MSYS2) are found.
 void _addDllDirectory(String dirPath) {
   if (!Platform.isWindows) return;
   try {
@@ -187,7 +186,7 @@ void _addDllDirectory(String dirPath) {
         Pointer Function(Pointer<Utf16>),
         Pointer Function(Pointer<Utf16>)>('AddDllDirectory');
 
-    // SetDefaultDllDirectories tells the OS to actually look at the paths we add
+    // SetDefaultDllDirectories tells the OS to look at the paths we add
     final setDefaultDllDirectories =
         kernel32.lookupFunction<Int32 Function(Uint32), int Function(int)>(
             'SetDefaultDllDirectories');
@@ -203,23 +202,66 @@ void _addDllDirectory(String dirPath) {
     malloc.free(pPath);
     log('DEBUG: Added to DLL Search Path: $dirPath');
   } catch (e) {
-    // Fallback to your existing SetDllDirectoryW if AddDllDirectory isn't available
+    // Fallback to existing SetDllDirectoryW if AddDllDirectory isn't available
     log('DEBUG: AddDllDirectory failed, check if Windows 7/8 without KB2533623: $e');
+  }
+}
+
+/// Logs the DLL build stamp and verifies key symbols resolve correctly.
+///
+/// Runs once at initialization and prints to Flutter debug console via [log].
+/// Confirms DLL was loaded, build stamp matches, and critical FFI symbols exist.
+void _logBuildStamp(FFmpegKitBindings bindings) {
+  try {
+    // ffmpeg_kit_get_build_stamp not yet in generated bindings, look up directly
+    final lib = ffmpegLibrary;
+    try {
+      final stampFn = lib.lookupFunction<Pointer<Utf8> Function(),
+          Pointer<Utf8> Function()>('ffmpeg_kit_get_build_stamp');
+      final stamp = stampFn().toDartString();
+      log('[FFmpegKit] DLL build stamp: $stamp');
+    } catch (e) {
+      log('[FFmpegKit] WARNING: ffmpeg_kit_get_build_stamp not found — '
+          'DLL predates this build. Symbol error: $e');
+    }
+
+    // Probe the video-dimension symbol that is currently failing at runtime.
+    try {
+      lib.lookup('ffplay_kit_session_get_video_width');
+      log('[FFmpegKit] ffplay_kit_session_get_video_width: OK');
+    } catch (e) {
+      log('[FFmpegKit] MISSING: ffplay_kit_session_get_video_width — '
+          'DLL does not export this symbol. $e');
+    }
+
+    // Probe the frame-callback symbols added for desktop texture support.
+    for (final sym in [
+      'ffplay_kit_register_frame_callback',
+      'ffplay_kit_unregister_frame_callback',
+    ]) {
+      try {
+        lib.lookup(sym);
+        log('[FFmpegKit] $sym: OK');
+      } catch (e) {
+        log('[FFmpegKit] MISSING: $sym');
+      }
+    }
+  } catch (e) {
+    log('[FFmpegKit] _logBuildStamp error: $e');
   }
 }
 
 /// Returns the [DynamicLibrary] instance for the FFmpegKit native library.
 ///
-/// This getter performs a lazy load of the appropriate library file based on the
-/// current platform (Android, iOS/macOS, Windows, or Linux).
+/// Performs lazy load of appropriate library based on current platform.
 DynamicLibrary get ffmpegLibrary => _loadLibrary();
 
 FFmpegKitBindings? _ffmpegInstance;
 
 /// The global [FFmpegKitBindings] instance.
 ///
-/// Accessing this getter will automatically initialize the bindings by loading
-/// the native dynamic library if it hasn't been loaded yet.
+/// Accessing this getter automatically initializes bindings by loading
+/// the native dynamic library if not already loaded.
 FFmpegKitBindings get ffmpeg {
   _ffmpegInstance ??= FFmpegKitBindings(ffmpegLibrary);
   return _ffmpegInstance!;

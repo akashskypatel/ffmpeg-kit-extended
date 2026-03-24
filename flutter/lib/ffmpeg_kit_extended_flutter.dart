@@ -17,10 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/// ffmpeg_kit_extended_flutter is a comprehensive Flutter plugin for executing
-/// FFmpeg FFprobe, and FFplay commands on Windows, and Linux. It leverages Dart
-/// FFI to interact directly with native FFmpeg libraries, providing high
-/// performance and flexibility.
+/// Flutter plugin for FFmpeg, FFprobe, and FFplay commands on Windows, Linux, and Android.
+/// Uses Dart FFI to interact directly with native FFmpeg libraries for high performance.
 library;
 
 export 'src/callback_manager.dart'
@@ -34,8 +32,12 @@ export 'src/ffmpeg_kit.dart';
 export 'src/ffmpeg_kit_config.dart';
 export 'src/ffmpeg_kit_extended.dart';
 export 'src/ffmpeg_session.dart';
+export 'src/ffplay_android_surface.dart';
+export 'src/ffplay_desktop_texture.dart';
 export 'src/ffplay_kit.dart';
+export 'src/ffplay_kit_android.dart';
 export 'src/ffplay_session.dart';
+export 'src/ffplay_surface.dart';
 export 'src/ffprobe_kit.dart';
 export 'src/ffprobe_session.dart';
 export 'src/log.dart';

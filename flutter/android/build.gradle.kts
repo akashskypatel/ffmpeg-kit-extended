@@ -47,6 +47,7 @@ try {
 // Extract AAR during configuration phase so sourceSets can see the JNI libs
 val currentPathFile = File(appRoot, ".dart_tool/ffmpeg_kit_extended_flutter/android/current_path.txt")
 var extractedJniDir: File? = null
+var extractedClassesJar: File? = null
 
 logger.lifecycle("FFmpegKit: appRoot = $appRoot")
 logger.lifecycle("FFmpegKit: Looking for current_path.txt at ${currentPathFile.absolutePath}")
@@ -64,7 +65,7 @@ if (currentPathFile.exists()) {
     if (aarFile.exists() && aarFile.name.endsWith(".aar")) {
         val extractDir = File(aarFile.parentFile, "extracted_aar_libs")
 
-        if (!extractDir.exists() || !File(extractDir, "jni").exists()) {
+        if (!extractDir.exists() || !File(extractDir, "jni").exists() || !File(extractDir, "classes.jar").exists()) {
             logger.lifecycle("FFmpegKit: Extracting AAR to $extractDir ...")
             extractDir.mkdirs()
 
@@ -83,6 +84,12 @@ if (currentPathFile.exists()) {
                 logger.lifecycle("FFmpegKit:   Found native lib: ${it.relativeTo(jniDir)}")
             }
             extractedJniDir = jniDir
+        }
+
+        val classesJar = File(extractDir, "classes.jar")
+        if (classesJar.exists()) {
+            extractedClassesJar = classesJar
+            logger.lifecycle("FFmpegKit: Found classes.jar for compile-only classpath: $classesJar")
         }
     }
 } else {
@@ -154,6 +161,10 @@ android {
 
 
 dependencies {
+    // Use the extracted classes.jar (not the .aar directly — AGP forbids local .aar deps
+    // in library modules). A plain .jar is allowed and its classes will be included in
+    // this module's output AAR so they are present in the app DEX at runtime.
+    extractedClassesJar?.let { implementation(files(it)) }
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }
