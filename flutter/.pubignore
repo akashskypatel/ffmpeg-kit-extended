@@ -3,3 +3,7 @@
 .pub
 .dart_tool
 pubspec.lock
+TODO/*
+.dart_tool/*
+build/*
+.idea/*

@@ -1,1 +1,4 @@
 TODO/*
+.dart_tool/*
+build/*
+.idea/*
