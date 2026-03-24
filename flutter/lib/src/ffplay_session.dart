@@ -424,8 +424,6 @@ class FFplaySession extends Session {
   /// Starts polling [getPosition] and pushing values onto [positionStream].
   void _startPositionStream({int intervalMs = 200}) {
     _positionTimer?.cancel();
-    if (!_positionController.isClosed) _positionController.close();
-    _positionController = StreamController<double>.broadcast();
     _positionTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) {
       final pos = ffmpeg.ffplay_kit_session_get_position(handle);
       if (!_positionController.isClosed) _positionController.add(pos);
@@ -443,8 +441,6 @@ class FFplaySession extends Session {
   /// `(width, height)` onto [videoSizeStream] whenever dimensions change.
   void _startVideoSizeStream({int intervalMs = 500}) {
     _videoSizeTimer?.cancel();
-    if (!_videoSizeController.isClosed) _videoSizeController.close();
-    _videoSizeController = StreamController<(int, int)>.broadcast();
     int lastW = 0, lastH = 0;
     _videoSizeTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) {
       final w = ffmpeg.ffplay_kit_session_get_video_width(handle);

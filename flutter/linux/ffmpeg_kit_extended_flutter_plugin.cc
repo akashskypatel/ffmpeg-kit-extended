@@ -253,7 +253,9 @@ static void ffmpeg_kit_extended_flutter_plugin_handle_method_call(
 static void ffmpeg_kit_extended_flutter_plugin_dispose(GObject* object) {
   auto* self = FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(object);
   release_texture(self);
-  g_clear_object(&self->texture_registrar);
+  // texture_registrar is a borrowed reference (fl_plugin_registrar_get_texture_registrar
+  // transfers no ownership), so only null the pointer — do not unref.
+  self->texture_registrar = nullptr;
   g_clear_object(&self->channel);
   G_OBJECT_CLASS(ffmpeg_kit_extended_flutter_plugin_parent_class)
       ->dispose(object);
