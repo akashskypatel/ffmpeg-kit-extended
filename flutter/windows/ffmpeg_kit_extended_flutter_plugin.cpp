@@ -131,12 +131,12 @@ static const FlutterDesktopPixelBuffer* CopyPixelBuffer(size_t /*width*/,
   if (state->read_buf.empty() || state->width == 0 || state->height == 0)
     return nullptr;
 
-  state->pixel_buffer.buffer = state->read_buf.data();
+  // Copy under the mutex so render_buf.data() remains stable after we return
+  // and the mutex is released (OnFrameCallback may swap read_buf at any time).
+  state->render_buf = state->read_buf;
+  state->pixel_buffer.buffer = state->render_buf.data();
   state->pixel_buffer.width = state->width;
   state->pixel_buffer.height = state->height;
-  // No release_callback needed: the buffer remains valid under the mutex for
-  // the duration of the CopyPixelBuffer call, and Flutter copies before
-  // returning.
   state->pixel_buffer.release_callback = nullptr;
   state->pixel_buffer.release_context = nullptr;
   return &state->pixel_buffer;

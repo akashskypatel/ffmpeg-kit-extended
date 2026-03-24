@@ -45,6 +45,9 @@ struct TextureState {
   std::mutex mutex;
   std::vector<uint8_t> write_buf;
   std::vector<uint8_t> read_buf;
+  // render_buf is written only on the render thread (CopyPixelBuffer) so the
+  // pointer returned to Flutter remains stable after the mutex is released.
+  std::vector<uint8_t> render_buf;
   uint32_t width = 0;
   uint32_t height = 0;
 

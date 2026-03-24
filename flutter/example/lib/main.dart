@@ -52,7 +52,7 @@ class _HomePageState extends State<HomePage>
   String? _selectedProbePath;
   String _status = 'Ready';
   final _mediaStore = AndroidMediaStore.instance;
-  late StreamSubscription<bool> _permissionStreamSub;
+  StreamSubscription<bool>? _permissionStreamSub;
   LogLevel _currentLogLevel = LogLevel.info;
 
   // FFplay position tracking
@@ -71,7 +71,7 @@ class _HomePageState extends State<HomePage>
 
   @override
   void dispose() {
-    _permissionStreamSub.cancel();
+    _permissionStreamSub?.cancel();
     _positionSub?.cancel();
     _videoSizeSub?.cancel();
     _surface?.release();
