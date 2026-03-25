@@ -53,6 +53,7 @@ struct TextureState {
 
   // Stable FlutterDesktopPixelBuffer returned by CopyPixelBuffer.
   FlutterDesktopPixelBuffer pixel_buffer{};
+  bool destroyed = false;            // Flag to indicate texture is being destroyed
 };
 
 // ─── Plugin class ─────────────────────────────────────────────────────────────

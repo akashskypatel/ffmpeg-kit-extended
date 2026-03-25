@@ -60,6 +60,7 @@ struct TextureState {
   uint32_t render_width = 0;
   uint32_t render_height = 0;
   bool has_video_frames = false;     // Track if we received any video frames
+  bool destroyed = false;            // Flag to indicate texture is being destroyed
 };
 
 // ─── FfkitPixelTexture — FlPixelBufferTexture subtype ────────────────────────
@@ -153,7 +154,7 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     // Early exit if texture is being destroyed
-    if (!state->has_video_frames && state->width == 0 && state->height == 0) {
+    if (state->destroyed) {
       return;
     }
     size_t size = static_cast<size_t>(linesize) * static_cast<size_t>(height);
@@ -195,6 +196,8 @@ static void release_texture(FfmpegKitExtendedFlutterPlugin* self) {
   //    duration) has fully exited before we destroy the state.
   {
     std::lock_guard<std::mutex> lock(tex->state->mutex);
+    // Mark as destroyed while holding the mutex to ensure no concurrent access
+    tex->state->destroyed = true;
     // Clear state while holding the mutex to ensure no concurrent access
     tex->state->has_video_frames = false;
     tex->state->frame_buf.clear();

@@ -109,7 +109,7 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     // Early exit if texture is being destroyed
-    if (state->width == 0 && state->height == 0 && state->read_buf.empty()) {
+    if (state->destroyed) {
       return;
     }
     size_t row_bytes = static_cast<size_t>(linesize);
@@ -262,6 +262,8 @@ void FfmpegKitExtendedFlutterPlugin::ReleaseTextureState() {
   //    duration) has fully exited before we destroy the state.
   { 
     std::lock_guard<std::mutex> lock(state_to_release->mutex);
+    // Mark as destroyed while holding the mutex to ensure no concurrent access
+    state_to_release->destroyed = true;
     // Clear state while holding the mutex to ensure no concurrent access
     state_to_release->write_buf.clear();
     state_to_release->read_buf.clear();
