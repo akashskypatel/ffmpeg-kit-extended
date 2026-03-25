@@ -244,15 +244,15 @@ static void handle_release_texture(FfmpegKitExtendedFlutterPlugin* self,
   FlValue* args = fl_method_call_get_args(method_call);
   if (!args || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
     fl_method_call_respond_error(method_call, "INVALID_ARGUMENT",
-                                "Expected map with textureId", nullptr);
+                                "Expected map with textureId", nullptr, nullptr);
     return;
   }
   
   g_autoptr(FlValue) texture_id_key = fl_value_new_string("textureId");
-  FlValue* texture_id_value = fl_value_get_map_value(args, texture_id_key);
+  FlValue* texture_id_value = fl_value_lookup_string(args, fl_value_get_string(texture_id_key));
   if (!texture_id_value || fl_value_get_type(texture_id_value) != FL_VALUE_TYPE_INT) {
     fl_method_call_respond_error(method_call, "INVALID_ARGUMENT",
-                                "Expected textureId integer", nullptr);
+                                "Expected textureId integer", nullptr, nullptr);
     return;
   }
   
