@@ -116,9 +116,8 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
     // Swap write_buf ↔ read_buf so the render callback always gets the latest
     // complete frame without blocking the decoder thread.
     std::swap(state->write_buf, state->read_buf);
+    state->texture_registrar->MarkTextureFrameAvailable(state->texture_id);
   }
-
-  state->texture_registrar->MarkTextureFrameAvailable(state->texture_id);
 }
 
 // ─── CopyPixelBuffer callback (Flutter render thread) ────────────────────────
@@ -224,13 +223,18 @@ void FfmpegKitExtendedFlutterPlugin::ReleaseTextureState() {
   // 1. Stop frame delivery before touching the texture.
   ffplay_kit_unregister_frame_callback();
 
-  // 2. Unregister the texture from Flutter's TextureRegistrar.
+  // 2. Drain any in-flight callback: acquire then immediately release the mutex
+  //    to guarantee the callback (which now holds the mutex for its entire
+  //    duration) has fully exited before we destroy the state.
+  { std::lock_guard<std::mutex> lock(texture_state_->mutex); }
+
+  // 3. Unregister the texture from Flutter's TextureRegistrar.
   if (texture_state_->texture_id >= 0) {
     texture_registrar_->UnregisterTexture(texture_state_->texture_id);
     texture_state_->texture_id = -1;
   }
 
-  // 3. Destroy the state (and the TextureVariant inside it).
+  // 4. Destroy the state (and the TextureVariant inside it).
   texture_state_.reset();
 }
 

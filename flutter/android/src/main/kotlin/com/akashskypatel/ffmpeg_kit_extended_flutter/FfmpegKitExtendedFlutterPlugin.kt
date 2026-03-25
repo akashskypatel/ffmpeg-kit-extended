@@ -95,13 +95,11 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
                 result.error("INVALID_ARG", "textureId required", null)
                 return
             }
-        val nativeWindowPtr =
-            (call.argument<Any>("nativeWindowPtr") as? Number)?.toLong() ?: 0L
 
-        if (nativeWindowPtr != 0L) {
-            FFplayKitAndroid.releaseNativeWindowPtr(nativeWindowPtr)
-        }
-        surfaces.remove(textureId)?.let { (entry, surface, _) ->
+        surfaces.remove(textureId)?.let { (entry, surface, nativeWindowPtr) ->
+            if (nativeWindowPtr != 0L) {
+                FFplayKitAndroid.releaseNativeWindowPtr(nativeWindowPtr)
+            }
             surface.release()
             entry.release()
         }

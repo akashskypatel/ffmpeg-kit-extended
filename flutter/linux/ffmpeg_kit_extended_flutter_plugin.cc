@@ -158,10 +158,9 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
     state->width = static_cast<uint32_t>(width);
     state->height = static_cast<uint32_t>(height);
     state->has_video_frames = true;  // Mark that we have video frames
+    fl_texture_registrar_mark_texture_frame_available(state->registrar,
+                                                      FL_TEXTURE(tex));
   }
-
-  fl_texture_registrar_mark_texture_frame_available(state->registrar,
-                                                    FL_TEXTURE(tex));
 }
 
 // ─── GObject struct ───────────────────────────────────────────────────────────
