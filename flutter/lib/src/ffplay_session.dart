@@ -331,8 +331,11 @@ class FFplaySession extends Session {
     FFmpegKitExtended.requireInitialized();
     // ffplay_get_volume already normalizes to 0.0–1.0 by dividing by
     // SDL_MIX_MAXVOLUME internally — do NOT divide again here.
+    // Native returns -1.0 as a sentinel when the context is not yet ready
+    // (or has been torn down); any value >= 0 is a real reading, including 0.0
+    // for a legitimately muted session.
     final v = ffmpeg.ffplay_kit_session_get_volume(handle);
-    if (v > 0) _cachedVolume = v;
+    if (v >= 0) _cachedVolume = v;
     return _cachedVolume;
   }
 

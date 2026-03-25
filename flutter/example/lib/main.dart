@@ -215,17 +215,18 @@ class _HomePageState extends State<HomePage>
     // Use temporary directory for FFmpeg output.
     final tempDir = await getTemporaryDirectory();
     final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
-    _addLog("--- Generating Test Video to temporary path: $tempOutputPath ---");
+    _addLog(
+        "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---");
 
-    // Command from integration tests
+    // Command with both video and audio streams
     const command =
-        "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -y";
+        "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync("$command \"$tempOutputPath\"", onLog: (log) {
       _addLog(log.message);
     }, onComplete: (session) {
       if (ReturnCode.isSuccess(session.getReturnCode())) {
-        _addLog("✅ Video generated successfully!");
+        _addLog("✅ Video with audio generated successfully!");
       } else {
         _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
       }
