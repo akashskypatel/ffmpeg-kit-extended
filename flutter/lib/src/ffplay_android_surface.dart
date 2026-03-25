@@ -100,7 +100,7 @@ class FFplayAndroidSurface {
   /// After calling this, discard the [FFplayAndroidSurface] instance.
   Future<void> release() async {
     if (!Platform.isAndroid) return;
-    FFplayKitAndroid.clearAndroidSurface();
+    FFplayKitAndroid.clearAndroidSurfaceIfMatches(nativeWindowPtr);
     try {
       await _channel.invokeMethod<void>('releaseSurface', {
         'textureId': textureId,

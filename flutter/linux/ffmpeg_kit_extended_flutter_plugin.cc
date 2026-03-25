@@ -238,7 +238,8 @@ static void handle_release_texture(FfmpegKitExtendedFlutterPlugin* self,
     return;
   }
   
-  FlValue* texture_id_value = fl_value_get_map_value(args, fl_value_new_string("textureId"));
+  g_autoptr(FlValue) texture_id_key = fl_value_new_string("textureId");
+  FlValue* texture_id_value = fl_value_get_map_value(args, texture_id_key);
   if (!texture_id_value || fl_value_get_type(texture_id_value) != FL_VALUE_TYPE_INT) {
     fl_method_call_respond_error(method_call, "INVALID_ARGUMENT",
                                 "Expected textureId integer", nullptr);

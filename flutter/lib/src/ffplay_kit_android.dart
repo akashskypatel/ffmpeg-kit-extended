@@ -52,6 +52,9 @@ import 'ffmpeg_kit_flutter_loader.dart';
 ///
 /// Audio output uses SDL2's OpenSL ES backend and requires no additional setup.
 class FFplayKitAndroid {
+  /// Tracks the currently bound native window pointer to prevent race conditions
+  static int _currentNativeWindowPtr = 0;
+
   /// Sets Android ANativeWindow for FFplay video output.
   /// [nativeWindowPtr] is the `ANativeWindow*` obtained from
   /// `FFplayKitAndroid.getNativeWindowPtr(surface)` on the Java/Kotlin side,
@@ -60,6 +63,7 @@ class FFplayKitAndroid {
   /// No-op on non-Android platforms.
   static void setAndroidSurface(int nativeWindowPtr) {
     if (!Platform.isAndroid) return;
+    _currentNativeWindowPtr = nativeWindowPtr;
     FFmpegKitExtended.requireInitialized();
     ffmpeg.ffplay_kit_set_android_surface_ptr(nativeWindowPtr);
   }
@@ -72,8 +76,21 @@ class FFplayKitAndroid {
   /// No-op on non-Android platforms.
   static void clearAndroidSurface() {
     if (!Platform.isAndroid) return;
+    _currentNativeWindowPtr = 0;
     FFmpegKitExtended.requireInitialized();
     ffmpeg.ffplay_kit_clear_android_surface();
+  }
+
+  /// Clears Android ANativeWindow only if it matches the specified pointer.
+  /// This prevents race conditions where stale surfaces clear the active one.
+  /// No-op on non-Android platforms.
+  static void clearAndroidSurfaceIfMatches(int nativeWindowPtr) {
+    if (!Platform.isAndroid) return;
+    if (_currentNativeWindowPtr == nativeWindowPtr) {
+      _currentNativeWindowPtr = 0;
+      FFmpegKitExtended.requireInitialized();
+      ffmpeg.ffplay_kit_clear_android_surface();
+    }
   }
 
   /// Releases the `ANativeWindow` reference acquired by
