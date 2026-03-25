@@ -60,6 +60,9 @@ class _HomePageState extends State<HomePage>
   double _playbackPosition = 0.0;
   bool _hasActiveSession = false;
 
+  // Volume control
+  double _volume = 0.5;
+
   // Video dimensions updated via videoSizeStream when first frame is decoded
   StreamSubscription<(int, int)>? _videoSizeSub;
   int _videoWidth = 0;
@@ -381,6 +384,8 @@ class _HomePageState extends State<HomePage>
       _videoWidth = 0;
       _videoHeight = 0; // Reset until actual dimensions arrive
       _hasVideo = false; // Unknown until first frame arrives
+      _volume = session.getVolume(); // Sync volume with current session
+      _addLog("Volume: $_volume");
     });
 
     // Capture surface at subscription time to avoid race conditions.
@@ -388,7 +393,11 @@ class _HomePageState extends State<HomePage>
 
     _positionSub = session.positionStream.listen(
       (pos) {
-        if (mounted) setState(() => _playbackPosition = pos);
+        if (mounted) {
+          setState(() {
+            _playbackPosition = pos;
+          });
+        }
       },
       onDone: () {
         if (mounted) setState(() => _hasActiveSession = false);
@@ -457,6 +466,30 @@ class _HomePageState extends State<HomePage>
       _addLog("FFplay playback finished");
     });
     _attachPositionStream(session);
+  }
+
+  void _seekForward() {
+    if (_hasActiveSession) {
+      final newPosition = FFplayKit.position + 1.0;
+      FFplayKit.seek(newPosition);
+    }
+  }
+
+  void _seekBackward() {
+    if (_hasActiveSession) {
+      final newPosition =
+          (FFplayKit.position - 1.0).clamp(0.0, double.infinity);
+      FFplayKit.seek(newPosition);
+    }
+  }
+
+  void _setVolume(double volume) {
+    if (_hasActiveSession) {
+      final session = FFplayKit.getCurrentSession();
+      if (session != null) {
+        session.setVolume(volume);
+      }
+    }
   }
 
   @override
@@ -640,8 +673,7 @@ class _HomePageState extends State<HomePage>
                 final srcW = _videoWidth.toDouble();
                 final srcH = _videoHeight.toDouble();
                 final availW = constraints.maxWidth;
-                final scale =
-                    (srcW > availW && srcW > 0) ? availW / srcW : 1.0;
+                final scale = (srcW > availW && srcW > 0) ? availW / srcW : 1.0;
                 return Center(
                   child: SizedBox(
                     width: srcW * scale,
@@ -693,6 +725,12 @@ class _HomePageState extends State<HomePage>
               IconButton(
                   onPressed: () => FFplayKit.stop(),
                   icon: const Icon(Icons.stop)),
+              IconButton(
+                  onPressed: () => _seekForward(),
+                  icon: const Icon(Icons.fast_forward)),
+              IconButton(
+                  onPressed: () => _seekBackward(),
+                  icon: const Icon(Icons.fast_rewind)),
             ],
           ),
           const SizedBox(height: 8),
@@ -706,6 +744,35 @@ class _HomePageState extends State<HomePage>
                       (FFplayKit.duration > 0 ? FFplayKit.duration : 1.0))
                   .clamp(0.0, 1.0),
               onChanged: (val) => FFplayKit.seek(val * FFplayKit.duration),
+            ),
+            const SizedBox(height: 16),
+            const Text("Volume:",
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                const Icon(Icons.volume_down),
+                Expanded(
+                  child: Slider(
+                    value: _volume,
+                    min: 0.0,
+                    max: 1.0,
+                    divisions: 20,
+                    onChanged: (val) {
+                      _addLog("Current volume: $_volume, new volume: $val");
+                      setState(() {
+                        _volume = val;
+                      });
+                      _setVolume(val);
+                    },
+                  ),
+                ),
+                const Icon(Icons.volume_up),
+                SizedBox(
+                  width: 40,
+                  child: Text("${(_volume * 100).round()}%",
+                      textAlign: TextAlign.center),
+                ),
+              ],
             ),
           ] else
             const Text("No active playback."),

@@ -50,17 +50,32 @@ class FFplaySession extends Session {
   bool _locallyPlaying = false;
   final Stopwatch _positionStopwatch = Stopwatch();
 
+  // Set by seek() so the sync timer knows the next backwards move is
+  // intentional and should be accepted rather than treated as jitter.
+  bool _seekPending = false;
+
+  // High-water mark for emitted positions — prevents apparent backwards
+  // motion when the sync timer reanchors _syncedPos to a value that the
+  // clamp had previously hidden from the output.  Reset on seek and stream start.
+  double _lastEmittedPos = 0.0;
+
+  // Last known valid volume (0.0–1.0).  Seeded to 1.0 because FFplay's
+  // default startup_volume is 100 %.  Updated on every successful native
+  // read and on every setVolume call so that getVolume() returns a
+  // meaningful value even before the native context is ready (or after it
+  // has been torn down).
+  double _cachedVolume = 1.0;
+
   // Adaptive emit-rate state
-  static const int _emitMinMs = 16;   // ~60 fps ceiling
-  static const int _emitMaxMs = 100;  // 10 fps floor
-  static const int _emitStepMs = 16;  // step size when adapting
+  static const int _emitMinMs = 16; // ~60 fps ceiling
+  static const int _emitMaxMs = 100; // 10 fps floor
+  static const int _emitStepMs = 16; // step size when adapting
   int _currentEmitMs = _emitMinMs;
   int _lateCount = 0;
   int _onTimeCount = 0;
   // Separate stopwatch for emit lateness measurement so it is not disturbed
   // by the sync timer resetting _positionStopwatch.
   final Stopwatch _emitStopwatch = Stopwatch();
-
 
   StreamController<(int, int)> _videoSizeController =
       StreamController<(int, int)>.broadcast();
@@ -170,14 +185,12 @@ class FFplaySession extends Session {
   /// Starts playback.
   void start() {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.start handle=$handle');
     ffmpeg.ffplay_kit_session_start(handle);
   }
 
   /// Pauses playback.
   void pause() {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.pause handle=$handle');
     ffmpeg.ffplay_kit_session_pause(handle);
     _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
     _positionStopwatch.reset();
@@ -187,7 +200,6 @@ class FFplaySession extends Session {
   /// Resumes paused playback.
   void resume() {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.resume handle=$handle');
     ffmpeg.ffplay_kit_session_resume(handle);
     _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
     _positionStopwatch.reset();
@@ -197,14 +209,12 @@ class FFplaySession extends Session {
   /// Stops playback.
   void stop() {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.stop handle=$handle');
     ffmpeg.ffplay_kit_session_stop(handle);
   }
 
   /// Closes the session and releases native resources.
   void close() {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.close handle=$handle');
     ffmpeg.ffplay_kit_session_close(handle);
   }
 
@@ -218,12 +228,16 @@ class FFplaySession extends Session {
   /// Seeks to [seconds] from the start of the media.
   void seek(double seconds) {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.seek handle=$handle seconds=$seconds');
     ffmpeg.ffplay_kit_session_seek(handle, seconds);
     // Optimistically update local position so interpolation restarts from the
     // seek target immediately, before the next native sync fires.
-    _syncedPos = seconds.clamp(0.0, _cachedDuration > 0 ? _cachedDuration : seconds);
+    _syncedPos =
+        seconds.clamp(0.0, _cachedDuration > 0 ? _cachedDuration : seconds);
+    _lastEmittedPos = _syncedPos;
     _positionStopwatch.reset();
+    // Allow the next sync tick to accept a lower native value if the seek
+    // target is earlier than the current position.
+    _seekPending = true;
   }
 
   // ---------------------------------------------------------------------------
@@ -232,7 +246,6 @@ class FFplaySession extends Session {
 
   /// Enqueues session for synchronous native execution and returns `this` immediately.
   FFplaySession execute() {
-    log('FFplaySession.execute handle=$handle');
     SessionQueueManager().executeSession(
       this,
       () async {
@@ -295,7 +308,6 @@ class FFplaySession extends Session {
   double getMediaDuration() {
     FFmpegKitExtended.requireInitialized();
     final d = ffmpeg.ffplay_kit_session_get_duration(handle);
-    log('FFplaySession.getMediaDuration handle=$handle val=$d');
     return d;
   }
 
@@ -303,23 +315,25 @@ class FFplaySession extends Session {
   double getPosition() {
     FFmpegKitExtended.requireInitialized();
     final p = ffmpeg.ffplay_kit_session_get_position(handle);
-    log('FFplaySession.getPosition handle=$handle val=$p');
     return p;
   }
 
   /// Seeks to [seconds] from the start of the media.
   void setPosition(double seconds) {
     FFmpegKitExtended.requireInitialized();
-    log('FFplaySession.setPosition handle=$handle seconds=$seconds');
     ffmpeg.ffplay_kit_session_set_position(handle, seconds);
   }
 
   /// Returns current playback volume in range [0.0, 1.0].
-  /// Native layer stores volume as integer in [0, 128] (SDL_MIX_MAXVOLUME).
-  /// This getter normalizes to [0.0, 1.0] for consistent API.
+  /// Falls back to the last known value (default 1.0) when the native
+  /// context is not yet ready or has already been torn down.
   double getVolume() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffplay_kit_session_get_volume(handle) / 128.0;
+    // ffplay_get_volume already normalizes to 0.0–1.0 by dividing by
+    // SDL_MIX_MAXVOLUME internally — do NOT divide again here.
+    final v = ffmpeg.ffplay_kit_session_get_volume(handle);
+    if (v > 0) _cachedVolume = v;
+    return _cachedVolume;
   }
 
   /// Sets playback [volume] in range [0.0, 1.0].
@@ -327,14 +341,17 @@ class FFplaySession extends Session {
   void setVolume(double volume) {
     FFmpegKitExtended.requireInitialized();
     final clamped = volume.clamp(0.0, 1.0);
-    ffmpeg.ffplay_kit_session_set_volume(handle, clamped * 128.0);
+    _cachedVolume = clamped;
+    // The FF_PLAY_VOLUME_EVENT handler in ffplay_lib.c interprets the value
+    // as a 0.0–1.0 fraction (multiplies by 100 to get a percentage).
+    // Do NOT pre-scale to SDL_MIX_MAXVOLUME (0–128) here.
+    ffmpeg.ffplay_kit_session_set_volume(handle, clamped);
   }
 
   /// Returns `true` if the media is currently playing.
   bool isPlaying() {
     FFmpegKitExtended.requireInitialized();
     final playing = ffmpeg.ffplay_kit_session_is_playing(handle);
-    log('FFplaySession.isPlaying handle=$handle val=$playing');
     return playing;
   }
 
@@ -354,7 +371,6 @@ class FFplaySession extends Session {
   bool isPaused() {
     FFmpegKitExtended.requireInitialized();
     final paused = ffmpeg.ffplay_kit_session_is_paused(handle);
-    log('FFplaySession.isPaused handle=$handle val=$paused');
     return paused;
   }
 
@@ -476,16 +492,49 @@ class FFplaySession extends Session {
     _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
     _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(handle);
     _locallyPlaying = ffmpeg.ffplay_kit_session_is_playing(handle);
-    _positionStopwatch..reset()..start();
-    _emitStopwatch..reset()..start();
+    _lastEmittedPos = _syncedPos;
+    _positionStopwatch
+      ..reset()
+      ..start();
+    _emitStopwatch
+      ..reset()
+      ..start();
     _currentEmitMs = _emitMinMs;
     _lateCount = 0;
     _onTimeCount = 0;
 
     // Periodic native sync — corrects drift at low, fixed overhead.
     _positionSyncTimer = Timer.periodic(Duration(milliseconds: syncMs), (_) {
-      _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
-      _locallyPlaying = ffmpeg.ffplay_kit_session_is_playing(handle);
+      final prevPos = _syncedPos;
+      final prevPlaying = _locallyPlaying;
+      final newPos = ffmpeg.ffplay_kit_session_get_position(handle);
+      final newPlaying = ffmpeg.ffplay_kit_session_is_playing(handle);
+
+      // Duration is unavailable until the file is opened by the native layer.
+      // Keep retrying until we get a valid value so the Dart clamp activates.
+      if (_cachedDuration <= 0.0) {
+        _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(handle);
+      }
+
+      // During seek the native clock is undefined; FFplay reports nan.
+      // Skip the entire update to avoid poisoning _syncedPos.
+      if (newPos.isNaN) return;
+
+      _locallyPlaying = newPlaying;
+
+      if (prevPlaying && !newPlaying) {
+        // Playback just ended. The native context may already have reset to 0;
+        // freeze at duration so the UI lands on the final frame, not the start.
+        _syncedPos = _cachedDuration > 0.0 ? _cachedDuration : prevPos;
+      } else if (_seekPending || newPos >= _syncedPos) {
+        // Normal forward progress, or a user seek allows backwards movement.
+        _syncedPos = newPos;
+        _seekPending = false;
+      } else {
+        // Native position went backwards without a seek — clock jitter near
+        // EOF or a buffer stall. Ignore and keep the last good position.
+      }
+
       _positionStopwatch.reset();
     });
 
@@ -521,13 +570,25 @@ class FFplaySession extends Session {
         }
 
         // Interpolate position locally between native syncs.
-        double pos = _syncedPos;
-        if (_locallyPlaying) {
-          pos += _positionStopwatch.elapsed.inMicroseconds / 1e6;
+        final rawPos = _syncedPos +
+            (_locallyPlaying
+                ? _positionStopwatch.elapsed.inMicroseconds / 1e6
+                : 0.0);
+        // Skip emit if rawPos is NaN (defensive guard — sync timer normally
+        // catches nan from the native layer, but guard here as a safety net).
+        if (rawPos.isNaN) {
+          scheduleEmit();
+          return;
         }
-        if (_cachedDuration > 0.0 && pos > _cachedDuration) {
-          pos = _cachedDuration;
-        }
+        final clamped = _cachedDuration > 0.0 && rawPos > _cachedDuration;
+        // Apply high-water mark: never emit a value lower than what was
+        // previously emitted.  This prevents apparent backwards jitter when
+        // the sync timer reanchors _syncedPos to a native value that the
+        // duration clamp had already masked from the output.
+        final pos = (clamped ? _cachedDuration : rawPos)
+            .clamp(_lastEmittedPos, double.infinity);
+        _lastEmittedPos = pos;
+
         _positionController.add(pos);
 
         scheduleEmit();
