@@ -1479,7 +1479,11 @@ class FFmpegKitBindings {
   /// Gets the volume of the FFplay session.
   ///
   /// @param session the FFplay session to get the volume of
-  /// @return the volume of the FFplay session
+  /// @return volume in [0.0, 1.0], or -1.0 if the session handle is invalid or
+  /// the native playback context is not yet ready (called before the
+  /// session has started executing, or after it has completed).
+  /// Callers should treat any negative value as "not available" and
+  /// fall back to a cached or default value.
   double ffplay_kit_session_get_volume(
     FFplaySessionHandle session,
   ) {
@@ -1647,7 +1651,8 @@ class FFmpegKitBindings {
 
   /// Gets the volume of the current FFplay session.
   ///
-  /// @return the volume of the current FFplay session
+  /// @return volume in [0.0, 1.0], or -1.0 if there is no active session or
+  /// the native context is not yet ready. See ffplay_kit_session_get_volume.
   double ffplay_kit_get_volume() {
     return _ffplay_kit_get_volume();
   }
@@ -1992,6 +1997,172 @@ class FFmpegKitBindings {
           'ffmpeg_kit_packages_get_external_libraries');
   late final _ffmpeg_kit_packages_get_external_libraries =
       _ffmpeg_kit_packages_get_external_librariesPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets the FFmpegKit bundle type.
+  ///
+  /// @return the bundle type
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_bundle_type() {
+    return _ffmpeg_kit_packages_get_bundle_type();
+  }
+
+  late final _ffmpeg_kit_packages_get_bundle_typePtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_bundle_type');
+  late final _ffmpeg_kit_packages_get_bundle_type =
+      _ffmpeg_kit_packages_get_bundle_typePtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets whether GPL is enabled.
+  ///
+  /// @return 1 if GPL is enabled, 0 otherwise
+  bool ffmpeg_kit_packages_get_is_gpl() {
+    return _ffmpeg_kit_packages_get_is_gpl();
+  }
+
+  late final _ffmpeg_kit_packages_get_is_gplPtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function()>>(
+          'ffmpeg_kit_packages_get_is_gpl');
+  late final _ffmpeg_kit_packages_get_is_gpl =
+      _ffmpeg_kit_packages_get_is_gplPtr.asFunction<bool Function()>();
+
+  /// Gets whether non-free is enabled.
+  ///
+  /// @return 1 if non-free is enabled, 0 otherwise
+  bool ffmpeg_kit_packages_get_is_nonfree() {
+    return _ffmpeg_kit_packages_get_is_nonfree();
+  }
+
+  late final _ffmpeg_kit_packages_get_is_nonfreePtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function()>>(
+          'ffmpeg_kit_packages_get_is_nonfree');
+  late final _ffmpeg_kit_packages_get_is_nonfree =
+      _ffmpeg_kit_packages_get_is_nonfreePtr.asFunction<bool Function()>();
+
+  /// Gets all registered codecs.
+  ///
+  /// @return comma-separated list of codec names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_codecs() {
+    return _ffmpeg_kit_packages_get_registered_codecs();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_codecsPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_codecs');
+  late final _ffmpeg_kit_packages_get_registered_codecs =
+      _ffmpeg_kit_packages_get_registered_codecsPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered encoders.
+  ///
+  /// @return comma-separated list of encoder names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_encoders() {
+    return _ffmpeg_kit_packages_get_registered_encoders();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_encodersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_encoders');
+  late final _ffmpeg_kit_packages_get_registered_encoders =
+      _ffmpeg_kit_packages_get_registered_encodersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered decoders.
+  ///
+  /// @return comma-separated list of decoder names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_decoders() {
+    return _ffmpeg_kit_packages_get_registered_decoders();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_decodersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_decoders');
+  late final _ffmpeg_kit_packages_get_registered_decoders =
+      _ffmpeg_kit_packages_get_registered_decodersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered muxers.
+  ///
+  /// @return comma-separated list of muxer names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_muxers() {
+    return _ffmpeg_kit_packages_get_registered_muxers();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_muxersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_muxers');
+  late final _ffmpeg_kit_packages_get_registered_muxers =
+      _ffmpeg_kit_packages_get_registered_muxersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered demuxers.
+  ///
+  /// @return comma-separated list of demuxer names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_demuxers() {
+    return _ffmpeg_kit_packages_get_registered_demuxers();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_demuxersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_demuxers');
+  late final _ffmpeg_kit_packages_get_registered_demuxers =
+      _ffmpeg_kit_packages_get_registered_demuxersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered filters.
+  ///
+  /// @return comma-separated list of filter names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_filters() {
+    return _ffmpeg_kit_packages_get_registered_filters();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_filtersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_filters');
+  late final _ffmpeg_kit_packages_get_registered_filters =
+      _ffmpeg_kit_packages_get_registered_filtersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered protocols.
+  ///
+  /// @return comma-separated list of protocol names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_protocols() {
+    return _ffmpeg_kit_packages_get_registered_protocols();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_protocolsPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_protocols');
+  late final _ffmpeg_kit_packages_get_registered_protocols =
+      _ffmpeg_kit_packages_get_registered_protocolsPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered bitstream filters.
+  ///
+  /// @return comma-separated list of bitstream filter names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_bitstream_filters() {
+    return _ffmpeg_kit_packages_get_registered_bitstream_filters();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_bitstream_filtersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_bitstream_filters');
+  late final _ffmpeg_kit_packages_get_registered_bitstream_filters =
+      _ffmpeg_kit_packages_get_registered_bitstream_filtersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets the FFmpeg build configuration.
+  ///
+  /// @return the build configuration string
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_build_configuration() {
+    return _ffmpeg_kit_packages_get_build_configuration();
+  }
+
+  late final _ffmpeg_kit_packages_get_build_configurationPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_build_configuration');
+  late final _ffmpeg_kit_packages_get_build_configuration =
+      _ffmpeg_kit_packages_get_build_configurationPtr
           .asFunction<ffi.Pointer<ffi.Char> Function()>();
 
   /// Gets the session ID.
