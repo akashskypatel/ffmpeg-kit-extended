@@ -635,12 +635,21 @@ class _HomePageState extends State<HomePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_hasVideo && _surface != null) ...[
-            Center(
-              child: SizedBox(
-                width: _videoWidth.toDouble(),
-                height: _videoHeight.toDouble(),
-                child: _surface!.toWidget(),
-              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final srcW = _videoWidth.toDouble();
+                final srcH = _videoHeight.toDouble();
+                final availW = constraints.maxWidth;
+                final scale =
+                    (srcW > availW && srcW > 0) ? availW / srcW : 1.0;
+                return Center(
+                  child: SizedBox(
+                    width: srcW * scale,
+                    height: srcH * scale,
+                    child: _surface!.toWidget(),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 12),
           ],

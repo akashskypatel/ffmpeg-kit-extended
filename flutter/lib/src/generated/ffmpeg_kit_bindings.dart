@@ -1741,16 +1741,11 @@ class FFmpegKitBindings {
   late final _ffplay_kit_unregister_frame_callback =
       _ffplay_kit_unregister_frame_callbackPtr.asFunction<void Function()>();
 
-  /// Probes whether the file or URL at [path] contains at least one video stream.
-  ///
-  /// Uses avformat_open_input + avformat_find_stream_info internally — no
-  /// decoding is performed.  Blocking but typically completes in milliseconds
-  /// for local files.  Thread-safe.
+  /// Probes [path] for at least one video stream without decoding.
+  /// Uses avformat_open_input + avformat_find_stream_info. Thread-safe.
   ///
   /// @param path  UTF-8 file path or URL
-  /// @return  1 if a video stream is present,
-  /// 0 if the file contains no video (audio-only),
-  /// -1 on error (file not found, unsupported format, etc.)
+  /// @return  1 video present, 0 audio-only, -1 on error
   int ffplay_kit_has_video_stream(
     ffi.Pointer<ffi.Char> path,
   ) {
@@ -3863,10 +3858,11 @@ class FFmpegKitBindings {
       _ffmpeg_kit_statistics_get_sizePtr
           .asFunction<int Function(StatisticsHandle)>();
 
-  /// Gets the time.
+  /// Gets the time in milliseconds.
   ///
   /// @param handle the statistics handle
-  /// @return the time
+  /// @return the time in milliseconds (consistent with the time argument passed
+  /// to FFmpegKitStatisticsCallback)
   double ffmpeg_kit_statistics_get_time(
     StatisticsHandle handle,
   ) {

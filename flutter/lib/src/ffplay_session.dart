@@ -44,6 +44,23 @@ class FFplaySession extends Session {
   StreamController<double> _positionController =
       StreamController<double>.broadcast();
   Timer? _positionTimer;
+  Timer? _positionSyncTimer;
+  double _syncedPos = 0.0;
+  double _cachedDuration = 0.0;
+  bool _locallyPlaying = false;
+  final Stopwatch _positionStopwatch = Stopwatch();
+
+  // Adaptive emit-rate state
+  static const int _emitMinMs = 16;   // ~60 fps ceiling
+  static const int _emitMaxMs = 100;  // 10 fps floor
+  static const int _emitStepMs = 16;  // step size when adapting
+  int _currentEmitMs = _emitMinMs;
+  int _lateCount = 0;
+  int _onTimeCount = 0;
+  // Separate stopwatch for emit lateness measurement so it is not disturbed
+  // by the sync timer resetting _positionStopwatch.
+  final Stopwatch _emitStopwatch = Stopwatch();
+
 
   StreamController<(int, int)> _videoSizeController =
       StreamController<(int, int)>.broadcast();
@@ -162,6 +179,9 @@ class FFplaySession extends Session {
     FFmpegKitExtended.requireInitialized();
     log('FFplaySession.pause handle=$handle');
     ffmpeg.ffplay_kit_session_pause(handle);
+    _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+    _positionStopwatch.reset();
+    _locallyPlaying = false;
   }
 
   /// Resumes paused playback.
@@ -169,6 +189,9 @@ class FFplaySession extends Session {
     FFmpegKitExtended.requireInitialized();
     log('FFplaySession.resume handle=$handle');
     ffmpeg.ffplay_kit_session_resume(handle);
+    _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+    _positionStopwatch.reset();
+    _locallyPlaying = true;
   }
 
   /// Stops playback.
@@ -197,6 +220,10 @@ class FFplaySession extends Session {
     FFmpegKitExtended.requireInitialized();
     log('FFplaySession.seek handle=$handle seconds=$seconds');
     ffmpeg.ffplay_kit_session_seek(handle, seconds);
+    // Optimistically update local position so interpolation restarts from the
+    // seek target immediately, before the next native sync fires.
+    _syncedPos = seconds.clamp(0.0, _cachedDuration > 0 ? _cachedDuration : seconds);
+    _positionStopwatch.reset();
   }
 
   // ---------------------------------------------------------------------------
@@ -424,22 +451,100 @@ class FFplaySession extends Session {
     CallbackManager().unregisterFFplaySession(sessionId);
   }
 
-  /// Starts polling [getPosition] and pushing values onto [positionStream].
-  void _startPositionStream({int intervalMs = 200}) {
+  /// Starts the position stream.
+  ///
+  /// Emits interpolated position at an adaptive rate (starting at ~60 fps,
+  /// backing off toward 10 fps if the event loop is saturated) by advancing a
+  /// local [Stopwatch] since the last native sync.  A separate
+  /// [Timer.periodic] calls the native layer every [syncMs] milliseconds
+  /// (default 200 ms) to correct for drift from buffering stalls or seeks.
+  ///
+  /// The emit timer is a recursive [Timer] (not [Timer.periodic]) so its
+  /// interval can be adjusted without cancelling and recreating from outside.
+  /// Lateness is measured by comparing the wall-clock gap between consecutive
+  /// fires against the scheduled interval.  Three consecutive late fires step
+  /// the interval up by [_emitStepMs]; five consecutive on-time fires step it
+  /// back down, with hysteresis to prevent thrashing.
+  void _startPositionStream({int syncMs = 200}) {
     _positionTimer?.cancel();
+    _positionSyncTimer?.cancel();
     if (_positionController.isClosed) {
       _positionController = StreamController<double>.broadcast();
     }
-    _positionTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) {
-      final pos = ffmpeg.ffplay_kit_session_get_position(handle);
-      if (!_positionController.isClosed) _positionController.add(pos);
+
+    // Initial ground truth.
+    _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+    _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(handle);
+    _locallyPlaying = ffmpeg.ffplay_kit_session_is_playing(handle);
+    _positionStopwatch..reset()..start();
+    _emitStopwatch..reset()..start();
+    _currentEmitMs = _emitMinMs;
+    _lateCount = 0;
+    _onTimeCount = 0;
+
+    // Periodic native sync — corrects drift at low, fixed overhead.
+    _positionSyncTimer = Timer.periodic(Duration(milliseconds: syncMs), (_) {
+      _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+      _locallyPlaying = ffmpeg.ffplay_kit_session_is_playing(handle);
+      _positionStopwatch.reset();
     });
+
+    // Adaptive recursive emit timer.
+    void scheduleEmit() {
+      _emitStopwatch.reset();
+      _positionTimer = Timer(Duration(milliseconds: _currentEmitMs), () {
+        if (_positionController.isClosed) return;
+
+        // Measure lateness against _emitStopwatch, which is independent of
+        // the sync timer and only reset at the start of each emit tick.
+        final actualMs = _emitStopwatch.elapsedMilliseconds;
+        final thresholdMs = (_currentEmitMs * 1.5).round();
+
+        if (actualMs > thresholdMs) {
+          _lateCount++;
+          _onTimeCount = 0;
+          if (_lateCount >= 3) {
+            // Event loop is struggling — step down emit rate.
+            _currentEmitMs =
+                (_currentEmitMs + _emitStepMs).clamp(_emitMinMs, _emitMaxMs);
+            _lateCount = 0;
+          }
+        } else {
+          _onTimeCount++;
+          _lateCount = 0;
+          if (_onTimeCount >= 5 && _currentEmitMs > _emitMinMs) {
+            // Event loop recovered — step back up, with hysteresis.
+            _currentEmitMs =
+                (_currentEmitMs - _emitStepMs).clamp(_emitMinMs, _emitMaxMs);
+            _onTimeCount = 0;
+          }
+        }
+
+        // Interpolate position locally between native syncs.
+        double pos = _syncedPos;
+        if (_locallyPlaying) {
+          pos += _positionStopwatch.elapsed.inMicroseconds / 1e6;
+        }
+        if (_cachedDuration > 0.0 && pos > _cachedDuration) {
+          pos = _cachedDuration;
+        }
+        _positionController.add(pos);
+
+        scheduleEmit();
+      });
+    }
+
+    scheduleEmit();
   }
 
-  /// Cancels polling timer and closes [positionStream].
+  /// Cancels both timers and closes [positionStream].
   void _stopPositionStream() {
     _positionTimer?.cancel();
     _positionTimer = null;
+    _positionSyncTimer?.cancel();
+    _positionSyncTimer = null;
+    _positionStopwatch.stop();
+    _emitStopwatch.stop();
     if (!_positionController.isClosed) _positionController.close();
   }
 
