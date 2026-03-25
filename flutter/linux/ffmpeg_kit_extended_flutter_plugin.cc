@@ -152,6 +152,10 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
 
   {
     std::lock_guard<std::mutex> lock(state->mutex);
+    // Early exit if texture is being destroyed
+    if (!state->has_video_frames && state->width == 0 && state->height == 0) {
+      return;
+    }
     size_t size = static_cast<size_t>(linesize) * static_cast<size_t>(height);
     state->frame_buf.resize(size);
     memcpy(state->frame_buf.data(), pixels, size);
@@ -186,9 +190,12 @@ static void release_texture(FfmpegKitExtendedFlutterPlugin* self) {
   if (ffplay_kit_unregister_frame_callback)
     ffplay_kit_unregister_frame_callback();
 
-  // 2. Reset video frame tracking
+  // 2. Drain any in-flight callback: acquire then immediately release the mutex
+  //    to guarantee the callback (which now holds the mutex for its entire
+  //    duration) has fully exited before we destroy the state.
   {
     std::lock_guard<std::mutex> lock(tex->state->mutex);
+    // Clear state while holding the mutex to ensure no concurrent access
     tex->state->has_video_frames = false;
     tex->state->frame_buf.clear();
     tex->state->render_buf.clear();

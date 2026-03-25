@@ -108,6 +108,10 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
 
   {
     std::lock_guard<std::mutex> lock(state->mutex);
+    // Early exit if texture is being destroyed
+    if (state->width == 0 && state->height == 0 && state->read_buf.empty()) {
+      return;
+    }
     size_t row_bytes = static_cast<size_t>(linesize);
     state->write_buf.resize(row_bytes * static_cast<size_t>(height));
     memcpy(state->write_buf.data(), pixels, state->write_buf.size());
@@ -246,22 +250,34 @@ void FfmpegKitExtendedFlutterPlugin::HandleReleaseTexture(
 void FfmpegKitExtendedFlutterPlugin::ReleaseTextureState() {
   if (!texture_state_) return;
 
+  // Store a local copy of the state pointer to avoid race conditions
+  auto state_to_release = std::move(texture_state_);
+  texture_state_ = nullptr;
+
   // 1. Stop frame delivery before touching the texture.
   ffplay_kit_unregister_frame_callback();
 
   // 2. Drain any in-flight callback: acquire then immediately release the mutex
   //    to guarantee the callback (which now holds the mutex for its entire
   //    duration) has fully exited before we destroy the state.
-  { std::lock_guard<std::mutex> lock(texture_state_->mutex); }
+  { 
+    std::lock_guard<std::mutex> lock(state_to_release->mutex);
+    // Clear state while holding the mutex to ensure no concurrent access
+    state_to_release->write_buf.clear();
+    state_to_release->read_buf.clear();
+    state_to_release->render_buf.clear();
+    state_to_release->width = 0;
+    state_to_release->height = 0;
+  }
 
   // 3. Unregister the texture from Flutter's TextureRegistrar.
-  if (texture_state_->texture_id >= 0) {
-    texture_registrar_->UnregisterTexture(texture_state_->texture_id);
-    texture_state_->texture_id = -1;
+  if (state_to_release->texture_id >= 0) {
+    texture_registrar_->UnregisterTexture(state_to_release->texture_id);
+    state_to_release->texture_id = -1;
   }
 
   // 4. Destroy the state (and the TextureVariant inside it).
-  texture_state_.reset();
+  // state_to_release goes out of scope here, automatically destroying the TextureState
 }
 
 }  // namespace ffmpeg_kit_extended_flutter
