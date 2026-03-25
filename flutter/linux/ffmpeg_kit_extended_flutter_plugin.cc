@@ -230,7 +230,31 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self,
 
 static void handle_release_texture(FfmpegKitExtendedFlutterPlugin* self,
                                     FlMethodCall* method_call) {
-  release_texture(self);
+  // Extract textureId from method call arguments
+  FlValue* args = fl_method_call_get_args(method_call);
+  if (!args || fl_value_get_type(args) != FL_VALUE_TYPE_MAP) {
+    fl_method_call_respond_error(method_call, "INVALID_ARGUMENT",
+                                "Expected map with textureId", nullptr);
+    return;
+  }
+  
+  FlValue* texture_id_value = fl_value_get_map_value(args, fl_value_new_string("textureId"));
+  if (!texture_id_value || fl_value_get_type(texture_id_value) != FL_VALUE_TYPE_INT) {
+    fl_method_call_respond_error(method_call, "INVALID_ARGUMENT",
+                                "Expected textureId integer", nullptr);
+    return;
+  }
+  
+  int64_t requested_texture_id = fl_value_get_int(texture_id_value);
+  
+  // Only release if the texture ID matches the currently active texture
+  if (self->texture) {
+    int64_t current_texture_id = fl_texture_get_id(FL_TEXTURE(self->texture));
+    if (current_texture_id == requested_texture_id) {
+      release_texture(self);
+    }
+  }
+  
   fl_method_call_respond_success(method_call, nullptr, nullptr);
 }
 

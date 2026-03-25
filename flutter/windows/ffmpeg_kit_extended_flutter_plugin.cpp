@@ -173,7 +173,7 @@ void FfmpegKitExtendedFlutterPlugin::HandleMethodCall(
   if (method_call.method_name() == "createTexture") {
     HandleCreateTexture(std::move(result));
   } else if (method_call.method_name() == "releaseTexture") {
-    HandleReleaseTexture(std::move(result));
+    HandleReleaseTexture(method_call, std::move(result));
   } else {
     result->NotImplemented();
   }
@@ -212,8 +212,34 @@ void FfmpegKitExtendedFlutterPlugin::HandleCreateTexture(
 }
 
 void FfmpegKitExtendedFlutterPlugin::HandleReleaseTexture(
+    const flutter::MethodCall<flutter::EncodableValue>& method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
-  ReleaseTextureState();
+  // Extract textureId from method call arguments
+  const auto* args = std::get_if<flutter::EncodableMap>(method_call.arguments());
+  if (!args) {
+    result->Error("INVALID_ARGUMENT", "Expected map with textureId");
+    return;
+  }
+  
+  auto it = args->find(flutter::EncodableValue("textureId"));
+  if (it == args->end()) {
+    result->Error("INVALID_ARGUMENT", "Expected textureId in map");
+    return;
+  }
+  
+  const auto* texture_id_value = std::get_if<int64_t>(&it->second);
+  if (!texture_id_value) {
+    result->Error("INVALID_ARGUMENT", "Expected textureId to be integer");
+    return;
+  }
+  
+  int64_t requested_texture_id = *texture_id_value;
+  
+  // Only release if the texture ID matches the currently active texture
+  if (texture_state_ && texture_state_->texture_id == requested_texture_id) {
+    ReleaseTextureState();
+  }
+  
   result->Success();
 }
 

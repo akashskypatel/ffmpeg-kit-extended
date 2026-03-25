@@ -79,6 +79,7 @@ class FfmpegKitExtendedFlutterPlugin : public flutter::Plugin {
   void HandleCreateTexture(
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
   void HandleReleaseTexture(
+      const flutter::MethodCall<flutter::EncodableValue>& method_call,
       std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
   void ReleaseTextureState();
 
