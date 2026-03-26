@@ -39,7 +39,7 @@
 
 <center>
 
-<image width="378" height="672" src="doc/demo.gif" alt="Video Thumbnail">
+<image width="378" height="672" src="https://raw.githubusercontent.com/akashskypatel/ffmpeg-kit-extended/refs/heads/master/flutter/doc/demo.gif" alt="Video Thumbnail">
 
 _Video demonstration of FFmpegKit Extended Flutter plugin showing real-time video playback, FFmpeg command execution, and the comprehensive introspection API interface._
 
