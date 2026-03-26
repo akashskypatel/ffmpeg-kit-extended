@@ -35,14 +35,11 @@
 | Linux    | ✅ Supported  | ✅ Texture     | x86_64               |
 | Windows  | ✅ Supported  | ✅ Texture     | x86_64               |
 
-## 🎬 Demo Video
+## 🎬 Demo
 
 <center>
 
-<video width="378" height="672" controls>
-  <source src="https://github.com/akashskypatel/ffmpeg-kit-extended/raw/refs/heads/dev/flutter/doc/demo.mp4" type="video/mp4">
-  Your browser does not support the video tag.
-</video>
+<image width="378" height="672" src="flutter/doc/demo.gif" alt="Video Thumbnail">
 
 _Video demonstration of FFmpegKit Extended Flutter plugin showing real-time video playback, FFmpeg command execution, and the comprehensive introspection API interface._
 
