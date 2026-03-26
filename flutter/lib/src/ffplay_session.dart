@@ -192,7 +192,8 @@ class FFplaySession extends Session {
   void pause() {
     FFmpegKitExtended.requireInitialized();
     ffmpeg.ffplay_kit_session_pause(handle);
-    _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+    final pausePos = ffmpeg.ffplay_kit_session_get_position(handle);
+    _syncedPos = pausePos.isNaN ? _lastEmittedPos : pausePos;
     _positionStopwatch.reset();
     _locallyPlaying = false;
   }
@@ -201,7 +202,8 @@ class FFplaySession extends Session {
   void resume() {
     FFmpegKitExtended.requireInitialized();
     ffmpeg.ffplay_kit_session_resume(handle);
-    _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+    final resumePos = ffmpeg.ffplay_kit_session_get_position(handle);
+    _syncedPos = resumePos.isNaN ? _lastEmittedPos : resumePos;
     _positionStopwatch.reset();
     _locallyPlaying = true;
   }
@@ -518,7 +520,7 @@ class FFplaySession extends Session {
 
       // Duration is unavailable until the file is opened by the native layer.
       // Keep retrying until we get a valid value so the Dart clamp activates.
-      if (_cachedDuration <= 0.0) {
+      if (_cachedDuration <= 0.0 || _cachedDuration.isNaN) {
         _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(handle);
       }
 
