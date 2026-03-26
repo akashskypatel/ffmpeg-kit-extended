@@ -229,6 +229,7 @@ class FFplaySession extends Session {
 
   /// Seeks to [seconds] from the start of the media.
   void seek(double seconds) {
+    if (seconds.isNaN || seconds.isInfinite) return;
     FFmpegKitExtended.requireInitialized();
     ffmpeg.ffplay_kit_session_seek(handle, seconds);
     // Optimistically update local position so interpolation restarts from the
