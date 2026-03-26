@@ -29,11 +29,24 @@
 
 | Platform | Status        | Video Playback | Architecture         |
 | -------- | ------------- | -------------- | -------------------- |
-| Android  | ✅ Supported   | ✅ Native       | armv7, arm64, x86_64 |
+| Android  | ✅ Supported  | ✅ Native      | armv7, arm64, x86_64 |
 | iOS      | Not Supported | ❌ N/A         |                      |
 | macOS    | Not Supported | ❌ N/A         |                      |
-| Linux    | ✅ Supported  | ✅ Texture      | x86_64               |
-| Windows  | ✅ Supported  | ✅ Texture      | x86_64               |
+| Linux    | ✅ Supported  | ✅ Texture     | x86_64               |
+| Windows  | ✅ Supported  | ✅ Texture     | x86_64               |
+
+## 🎬 Demo Video
+
+<center>
+
+<video width="378" height="672" controls>
+  <source src="flutter/doc/demo.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
+_Video demonstration of FFmpegKit Extended Flutter plugin showing real-time video playback, FFmpeg command execution, and the comprehensive introspection API interface._
+
+</center>
 
 ## 2. Installation
 
@@ -224,9 +237,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _startPlayback(String filePath) async {
     // Create surface before starting playback
     _surface = await FFplaySurface.create();
-    
+
     final session = await FFplayKit.executeAsync('-i "$filePath"');
-    
+
     // Listen for video dimensions
     session.videoSizeStream.listen((size) {
       final (width, height) = size;
@@ -238,7 +251,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         });
       }
     });
-    
+
     // Listen for position updates
     session.positionStream.listen((position) {
       if (mounted) {
@@ -258,7 +271,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             height: _videoHeight.toDouble(),
             child: _surface!.toWidget(),
           ),
-          
+
         // Playback controls
         Row(
           children: [
