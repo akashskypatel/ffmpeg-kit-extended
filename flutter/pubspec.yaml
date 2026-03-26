@@ -4,7 +4,7 @@ repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
 documentation: https://github.com/akashskypatel/ffmpeg-kit-extended/tree/master/flutter/doc
-version: 0.3.0
+version: 0.3.1
 
 topics:
   - ffmpeg

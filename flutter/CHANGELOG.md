@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.3.1
+
+- Updated README with demo link
+
 ## Version 0.3.0
 
 - **Feature**: Complete video playback support with unified cross-platform surface API
