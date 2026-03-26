@@ -263,6 +263,115 @@ class _HomePageState extends State<HomePage>
         "Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}");
   }
 
+  // Introspection API methods
+  Future<void> _showFFmpegVersion() async {
+    _addLog("--- FFmpeg Version ---");
+    _addLog(FFmpegKitExtended.getFFmpegVersion());
+  }
+
+  Future<void> _showFFmpegArchitecture() async {
+    _addLog("--- FFmpeg Architecture ---");
+    _addLog(FFmpegKitExtended.getFFmpegArchitecture());
+  }
+
+  Future<void> _showFFmpegKitVersion() async {
+    _addLog("--- FFmpegKit Version ---");
+    _addLog(FFmpegKitExtended.getVersion());
+  }
+
+  Future<void> _showPackageName() async {
+    _addLog("--- Package Name ---");
+    _addLog(FFmpegKitExtended.getPackageName());
+  }
+
+  Future<void> _showExternalLibraries() async {
+    _addLog("--- External Libraries ---");
+    final libraries = FFmpegKitExtended.getExternalLibraries();
+    if (libraries.isEmpty) {
+      _addLog("No external libraries bundled");
+    } else {
+      _addLog(libraries);
+    }
+  }
+
+  Future<void> _showBundleType() async {
+    _addLog("--- Bundle Type ---");
+    _addLog(FFmpegKitExtended.getBundleType());
+  }
+
+  Future<void> _showGplStatus() async {
+    _addLog("--- GPL Status ---");
+    _addLog(FFmpegKitExtended.isGpl() ? "GPL enabled" : "GPL disabled");
+  }
+
+  Future<void> _showNonfreeStatus() async {
+    _addLog("--- Non-Free Status ---");
+    _addLog(FFmpegKitExtended.isNonfree()
+        ? "Non-free enabled"
+        : "Non-free disabled");
+  }
+
+  Future<void> _showRegisteredCodecs() async {
+    _addLog("--- Registered Codecs ---");
+    final codecs = FFmpegKitExtended.getRegisteredCodecs();
+    _addLog(codecs.isEmpty ? "No codecs found" : codecs);
+  }
+
+  Future<void> _showRegisteredEncoders() async {
+    _addLog("--- Registered Encoders ---");
+    final encoders = FFmpegKitExtended.getRegisteredEncoders();
+    _addLog(encoders.isEmpty ? "No encoders found" : encoders);
+  }
+
+  Future<void> _showRegisteredDecoders() async {
+    _addLog("--- Registered Decoders ---");
+    final decoders = FFmpegKitExtended.getRegisteredDecoders();
+    _addLog(decoders.isEmpty ? "No decoders found" : decoders);
+  }
+
+  Future<void> _showRegisteredMuxers() async {
+    _addLog("--- Registered Muxers ---");
+    final muxers = FFmpegKitExtended.getRegisteredMuxers();
+    _addLog(muxers.isEmpty ? "No muxers found" : muxers);
+  }
+
+  Future<void> _showRegisteredDemuxers() async {
+    _addLog("--- Registered Demuxers ---");
+    final demuxers = FFmpegKitExtended.getRegisteredDemuxers();
+    _addLog(demuxers.isEmpty ? "No demuxers found" : demuxers);
+  }
+
+  Future<void> _showRegisteredFilters() async {
+    _addLog("--- Registered Filters ---");
+    final filters = FFmpegKitExtended.getRegisteredFilters();
+    _addLog(filters.isEmpty ? "No filters found" : filters);
+  }
+
+  Future<void> _showRegisteredProtocols() async {
+    _addLog("--- Registered Protocols ---");
+    final protocols = FFmpegKitExtended.getRegisteredProtocols();
+    _addLog(protocols.isEmpty ? "No protocols found" : protocols);
+  }
+
+  Future<void> _showRegisteredBitstreamFilters() async {
+    _addLog("--- Registered Bitstream Filters ---");
+    final bitstreamFilters = FFmpegKitExtended.getRegisteredBitstreamFilters();
+    _addLog(bitstreamFilters.isEmpty
+        ? "No bitstream filters found"
+        : bitstreamFilters);
+  }
+
+  Future<void> _showBuildConfiguration() async {
+    _addLog("--- Build Configuration ---");
+    final config = FFmpegKitExtended.getBuildConfiguration();
+    _addLog(config.isEmpty ? "No build configuration found" : config);
+  }
+
+  Future<void> _showBuildDate() async {
+    _addLog("--- Build Date ---");
+    _addLog(FFmpegKitExtended.getBuildDate());
+  }
+
   void _setLogLevel(LogLevel level) {
     setState(() {
       _currentLogLevel = level;
@@ -540,10 +649,268 @@ class _HomePageState extends State<HomePage>
                 }).toList();
               },
             ),
-            IconButton(
+            PopupMenuButton<String>(
               icon: const Icon(Icons.settings),
-              onPressed: _showSystemInfo,
               tooltip: "System Info",
+              onSelected: (String value) {
+                switch (value) {
+                  case 'basic_info':
+                    _showSystemInfo();
+                    break;
+                  case 'ffmpeg_version':
+                    _showFFmpegVersion();
+                    break;
+                  case 'ffmpeg_arch':
+                    _showFFmpegArchitecture();
+                    break;
+                  case 'ffmpegkit_version':
+                    _showFFmpegKitVersion();
+                    break;
+                  case 'package_name':
+                    _showPackageName();
+                    break;
+                  case 'external_libs':
+                    _showExternalLibraries();
+                    break;
+                  case 'bundle_type':
+                    _showBundleType();
+                    break;
+                  case 'gpl_status':
+                    _showGplStatus();
+                    break;
+                  case 'nonfree_status':
+                    _showNonfreeStatus();
+                    break;
+                  case 'codecs':
+                    _showRegisteredCodecs();
+                    break;
+                  case 'encoders':
+                    _showRegisteredEncoders();
+                    break;
+                  case 'decoders':
+                    _showRegisteredDecoders();
+                    break;
+                  case 'muxers':
+                    _showRegisteredMuxers();
+                    break;
+                  case 'demuxers':
+                    _showRegisteredDemuxers();
+                    break;
+                  case 'filters':
+                    _showRegisteredFilters();
+                    break;
+                  case 'protocols':
+                    _showRegisteredProtocols();
+                    break;
+                  case 'bitstream_filters':
+                    _showRegisteredBitstreamFilters();
+                    break;
+                  case 'build_config':
+                    _showBuildConfiguration();
+                    break;
+                  case 'build_date':
+                    _showBuildDate();
+                    break;
+                }
+              },
+              itemBuilder: (BuildContext context) {
+                return [
+                  const PopupMenuItem<String>(
+                    value: 'basic_info',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline),
+                        SizedBox(width: 8),
+                        Text('Basic System Info'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'ffmpeg_version',
+                    child: Row(
+                      children: [
+                        Icon(Icons.verified),
+                        SizedBox(width: 8),
+                        Text('FFmpeg Version'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'ffmpeg_arch',
+                    child: Row(
+                      children: [
+                        Icon(Icons.memory),
+                        SizedBox(width: 8),
+                        Text('FFmpeg Architecture'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'ffmpegkit_version',
+                    child: Row(
+                      children: [
+                        Icon(Icons.info),
+                        SizedBox(width: 8),
+                        Text('FFmpegKit Version'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem<String>(
+                    value: 'package_name',
+                    child: Row(
+                      children: [
+                        Icon(Icons.inventory_2_outlined),
+                        SizedBox(width: 8),
+                        Text('Package Name'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'external_libs',
+                    child: Row(
+                      children: [
+                        Icon(Icons.library_books),
+                        SizedBox(width: 8),
+                        Text('External Libraries'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'bundle_type',
+                    child: Row(
+                      children: [
+                        Icon(Icons.category),
+                        SizedBox(width: 8),
+                        Text('Bundle Type'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'gpl_status',
+                    child: Row(
+                      children: [
+                        Icon(Icons.gavel),
+                        SizedBox(width: 8),
+                        Text('GPL Status'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'nonfree_status',
+                    child: Row(
+                      children: [
+                        Icon(Icons.lock),
+                        SizedBox(width: 8),
+                        Text('Non-Free Status'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'codecs',
+                    child: Row(
+                      children: [
+                        Icon(Icons.video_settings),
+                        SizedBox(width: 8),
+                        Text('Registered Codecs'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'encoders',
+                    child: Row(
+                      children: [
+                        Icon(Icons.upload),
+                        SizedBox(width: 8),
+                        Text('Registered Encoders'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'decoders',
+                    child: Row(
+                      children: [
+                        Icon(Icons.download),
+                        SizedBox(width: 8),
+                        Text('Registered Decoders'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'muxers',
+                    child: Row(
+                      children: [
+                        Icon(Icons.merge_type),
+                        SizedBox(width: 8),
+                        Text('Registered Muxers'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'demuxers',
+                    child: Row(
+                      children: [
+                        Icon(Icons.call_split),
+                        SizedBox(width: 8),
+                        Text('Registered Demuxers'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'filters',
+                    child: Row(
+                      children: [
+                        Icon(Icons.filter_alt),
+                        SizedBox(width: 8),
+                        Text('Registered Filters'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'protocols',
+                    child: Row(
+                      children: [
+                        Icon(Icons.link),
+                        SizedBox(width: 8),
+                        Text('Registered Protocols'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'bitstream_filters',
+                    child: Row(
+                      children: [
+                        Icon(Icons.tune),
+                        SizedBox(width: 8),
+                        Text('Registered Bitstream Filters'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  const PopupMenuItem<String>(
+                    value: 'build_config',
+                    child: Row(
+                      children: [
+                        Icon(Icons.build),
+                        SizedBox(width: 8),
+                        Text('Build Configuration'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'build_date',
+                    child: Row(
+                      children: [
+                        Icon(Icons.date_range),
+                        SizedBox(width: 8),
+                        Text('Build Date'),
+                      ],
+                    ),
+                  ),
+                ];
+              },
             ),
             IconButton(
               icon: const Icon(Icons.delete),
