@@ -28,6 +28,13 @@ Complete API documentation for all classes and methods:
   - Play media files
   - Playback controls (play, pause, seek, stop)
   - Position and duration tracking
+  - Video surface management
+
+- **[Video Surface API](api/video-surface.md)** - Cross-platform video surfaces
+  - FFplaySurface unified API
+  - Android-specific surface handling
+  - Desktop texture implementation
+  - Real-time video streams
 
 - **[FFmpegKitConfig API](api/config.md)** - Global configuration
   - Log level settings
@@ -45,11 +52,21 @@ Complete API documentation for all classes and methods:
   - MediaInformation
   - StreamInformation
   - ChapterInformation
+  - Video surface types
+  - Session streams
   - Log and Statistics
 
 ## User Guides
 
 Comprehensive guides for common tasks:
+
+- **[Video Playback](guides/video-playback.md)** - Complete video playback guide
+  - Cross-platform video surface API
+  - Android native surface rendering
+  - Desktop texture implementation
+  - Real-time position and dimension streams
+  - Audio-only content handling
+  - Complete video player examples
 
 - **[Video Processing](guides/video-processing.md)** - Complete video operations guide
   - Video conversion and compression
@@ -167,7 +184,7 @@ await FFmpegKit.executeAsync(
 
 | Platform | Status        | Notes        |
 |----------|---------------|--------------|
-| Android  | Not Supported | API 21+      |
+| Android  | ✅ Supported  | API 21+      |
 | iOS      | Not Supported | iOS 12+      |
 | macOS    | Not Supported | macOS 10.13+ |
 | Linux    | ✅ Supported  | x86_64       |

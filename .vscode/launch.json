@@ -16,6 +16,17 @@
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
         },
         {
+            "name": "Debug (Linux)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "linux",
+            "args": [
+                "--debug"
+            ],
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+        },
+        {
             "name": "Debug (Android)",
             "request": "launch",
             "type": "dart",

@@ -200,27 +200,113 @@ void createThumbnail(String videoPath, String thumbnailPath) {
 }
 ```
 
-### 5. Play a Video
+### 5. Video Playback with Surface
 
 ```dart
-void playVideo(String videoPath) {
-  FFplayKit.executeAsync(
-    videoPath,
-    onComplete: (session) {
-      print('🎬 Playback finished');
-    },
-  );
+class VideoPlayerWidget extends StatefulWidget {
+  final String videoPath;
   
-  // Control playback
-  Future.delayed(Duration(seconds: 5), () {
-    FFplayKit.pause();
-    print('⏸️ Paused');
-  });
+  const VideoPlayerWidget({Key? key, required this.videoPath}) : super(key: key);
   
-  Future.delayed(Duration(seconds: 7), () {
-    FFplayKit.resume();
-    print('▶️ Resumed');
-  });
+  @override
+  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  FFplaySurface? _surface;
+  FFplaySession? _session;
+  bool _hasVideo = false;
+  int _videoWidth = 0;
+  int _videoHeight = 0;
+  double _playbackPosition = 0.0;
+  
+  StreamSubscription<double>? _positionSub;
+  StreamSubscription<(int, int)>? _videoSizeSub;
+  
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    _videoSizeSub?.cancel();
+    _surface?.release();
+    super.dispose();
+  }
+  
+  Future<void> _startPlayback() async {
+    // Create surface before starting playback
+    _surface = await FFplaySurface.create();
+    if (_surface == null) return;
+    
+    // Start playback
+    _session = await FFplayKit.executeAsync('-i "${widget.videoPath}"');
+    
+    // Listen for video dimensions
+    _videoSizeSub = _session!.videoSizeStream.listen((size) {
+      final (width, height) = size;
+      if (mounted && width > 0 && height > 0) {
+        setState(() {
+          _videoWidth = width;
+          _videoHeight = height;
+          _hasVideo = true;
+        });
+      }
+    });
+    
+    // Listen for position updates
+    _positionSub = _session!.positionStream.listen((position) {
+      if (mounted) {
+        setState(() => _playbackPosition = position);
+      }
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Video display
+        if (_hasVideo && _surface != null)
+          SizedBox(
+            width: _videoWidth.toDouble(),
+            height: _videoHeight.toDouble(),
+            child: _surface!.toWidget(),
+          )
+        else
+          Container(
+            height: 200,
+            color: Colors.black,
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          
+        // Controls
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => FFplayKit.pause(),
+              icon: const Icon(Icons.pause),
+            ),
+            IconButton(
+              onPressed: () => FFplayKit.resume(),
+              icon: const Icon(Icons.play_arrow),
+            ),
+            Expanded(
+              child: Slider(
+                value: _playbackPosition / (FFplayKit.duration > 0 ? FFplayKit.duration : 1.0),
+                onChanged: (value) => FFplayKit.seek(value * FFplayKit.duration),
+              ),
+            ),
+            Text('${_playbackPosition.toInt()}s'),
+          ],
+        ),
+        
+        ElevatedButton(
+          onPressed: _startPlayback,
+          child: const Text('Start Playback'),
+        ),
+      ],
+    );
+  }
 }
 ```
 
@@ -514,7 +600,7 @@ await FFmpegKit.executeAsync('...', onComplete: (session) {
 
 ## Known Issues
 
-- **Android**: FFplay is currently non-functional. FFmpeg and FFprobe work fine.
+- **Android**: FFplay video and audio output are supported. Requires binding a surface via `FFplayKitAndroid.setAndroidSurface()` before playback.
 - **iOS**: Not yet supported.
 - **macOS**: Not yet supported.
 

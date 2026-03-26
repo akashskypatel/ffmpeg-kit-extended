@@ -321,10 +321,8 @@ abstract class Session implements Finalizable {
       final videoQuality =
           ffmpeg.ffmpeg_kit_statistics_get_video_quality(statsHandle);
       final size = ffmpeg.ffmpeg_kit_statistics_get_size(statsHandle);
-      // The C API returns time as a double (seconds); Statistics.time is int
-      // (milliseconds).
-      final timeMs =
-          (ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle) * 1000).round();
+      // The C API returns time in milliseconds; Statistics.time is int (milliseconds).
+      final timeMs = ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle).round();
       final bitrate = ffmpeg.ffmpeg_kit_statistics_get_bitrate(statsHandle);
       final speed = ffmpeg.ffmpeg_kit_statistics_get_speed(statsHandle);
 

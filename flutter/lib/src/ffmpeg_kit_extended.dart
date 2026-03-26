@@ -287,6 +287,88 @@ class FFmpegKitExtended {
         ffmpeg.ffmpeg_kit_packages_get_external_libraries());
   }
 
+  /// Returns the FFmpegKit bundle type.
+  static String getBundleType() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_bundle_type());
+  }
+
+  /// Returns whether this FFmpegKit build has GPL enabled.
+  static bool isGpl() {
+    requireInitialized();
+    return ffmpeg.ffmpeg_kit_packages_get_is_gpl();
+  }
+
+  /// Returns whether this FFmpegKit build has non-free libraries enabled.
+  static bool isNonfree() {
+    requireInitialized();
+    return ffmpeg.ffmpeg_kit_packages_get_is_nonfree();
+  }
+
+  /// Returns a comma-separated list of all registered codecs.
+  static String getRegisteredCodecs() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_codecs());
+  }
+
+  /// Returns a comma-separated list of all registered encoders.
+  static String getRegisteredEncoders() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_encoders());
+  }
+
+  /// Returns a comma-separated list of all registered decoders.
+  static String getRegisteredDecoders() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_decoders());
+  }
+
+  /// Returns a comma-separated list of all registered muxers.
+  static String getRegisteredMuxers() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_muxers());
+  }
+
+  /// Returns a comma-separated list of all registered demuxers.
+  static String getRegisteredDemuxers() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_demuxers());
+  }
+
+  /// Returns a comma-separated list of all registered filters.
+  static String getRegisteredFilters() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_filters());
+  }
+
+  /// Returns a comma-separated list of all registered protocols.
+  static String getRegisteredProtocols() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_protocols());
+  }
+
+  /// Returns a comma-separated list of all registered bitstream filters.
+  static String getRegisteredBitstreamFilters() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_registered_bitstream_filters());
+  }
+
+  /// Returns the FFmpeg build configuration string.
+  static String getBuildConfiguration() {
+    requireInitialized();
+    return _nativeStringOrEmpty(
+        ffmpeg.ffmpeg_kit_packages_get_build_configuration());
+  }
+
   /// Returns the library build date.
   static String getBuildDate() {
     requireInitialized();

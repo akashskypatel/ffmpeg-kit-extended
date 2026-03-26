@@ -34,6 +34,21 @@ class FFmpegKitBindings {
   late final _ffmpeg_kit_initialize =
       _ffmpeg_kit_initializePtr.asFunction<void Function()>();
 
+  /// Returns a NUL-terminated build-stamp string of the form
+  /// "YYYY-MM-DD HH:MM:SS" (compile-time __DATE__ and __TIME__).
+  ///
+  /// Call this immediately after loading the DLL to confirm you are running the
+  /// expected build.  If this symbol itself is missing the DLL is too old.
+  ffi.Pointer<ffi.Char> ffmpeg_kit_get_build_stamp() {
+    return _ffmpeg_kit_get_build_stamp();
+  }
+
+  late final _ffmpeg_kit_get_build_stampPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_get_build_stamp');
+  late final _ffmpeg_kit_get_build_stamp = _ffmpeg_kit_get_build_stampPtr
+      .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
   /// Executes the given FFmpeg command.
   ///
   /// @param command the FFmpeg command to execute
@@ -1364,6 +1379,46 @@ class FFmpegKitBindings {
       _ffplay_kit_session_get_durationPtr
           .asFunction<double Function(FFplaySessionHandle)>();
 
+  /// Returns the video width of the FFplay session in pixels.
+  /// Returns 0 if no video stream is active yet.
+  ///
+  /// @param session the FFplay session
+  /// @return video width in pixels, or 0
+  int ffplay_kit_session_get_video_width(
+    FFplaySessionHandle session,
+  ) {
+    return _ffplay_kit_session_get_video_width(
+      session,
+    );
+  }
+
+  late final _ffplay_kit_session_get_video_widthPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(FFplaySessionHandle)>>(
+          'ffplay_kit_session_get_video_width');
+  late final _ffplay_kit_session_get_video_width =
+      _ffplay_kit_session_get_video_widthPtr
+          .asFunction<int Function(FFplaySessionHandle)>();
+
+  /// Returns the video height of the FFplay session in pixels.
+  /// Returns 0 if no video stream is active yet.
+  ///
+  /// @param session the FFplay session
+  /// @return video height in pixels, or 0
+  int ffplay_kit_session_get_video_height(
+    FFplaySessionHandle session,
+  ) {
+    return _ffplay_kit_session_get_video_height(
+      session,
+    );
+  }
+
+  late final _ffplay_kit_session_get_video_heightPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(FFplaySessionHandle)>>(
+          'ffplay_kit_session_get_video_height');
+  late final _ffplay_kit_session_get_video_height =
+      _ffplay_kit_session_get_video_heightPtr
+          .asFunction<int Function(FFplaySessionHandle)>();
+
   /// Checks if the FFplay session is playing.
   ///
   /// @param session the FFplay session to check
@@ -1424,7 +1479,11 @@ class FFmpegKitBindings {
   /// Gets the volume of the FFplay session.
   ///
   /// @param session the FFplay session to get the volume of
-  /// @return the volume of the FFplay session
+  /// @return volume in [0.0, 1.0], or -1.0 if the session handle is invalid or
+  /// the native playback context is not yet ready (called before the
+  /// session has started executing, or after it has completed).
+  /// Callers should treat any negative value as "not available" and
+  /// fall back to a cached or default value.
   double ffplay_kit_session_get_volume(
     FFplaySessionHandle session,
   ) {
@@ -1592,7 +1651,8 @@ class FFmpegKitBindings {
 
   /// Gets the volume of the current FFplay session.
   ///
-  /// @return the volume of the current FFplay session
+  /// @return volume in [0.0, 1.0], or -1.0 if there is no active session or
+  /// the native context is not yet ready. See ffplay_kit_session_get_volume.
   double ffplay_kit_get_volume() {
     return _ffplay_kit_get_volume();
   }
@@ -1602,6 +1662,108 @@ class FFmpegKitBindings {
           'ffplay_kit_get_volume');
   late final _ffplay_kit_get_volume =
       _ffplay_kit_get_volumePtr.asFunction<double Function()>();
+
+  /// Sets the Android ANativeWindow for FFplay video output.
+  ///
+  /// Pass the ANativeWindow* obtained via ANativeWindow_fromSurface() cast to
+  /// int64_t. On Android this must be called before executing an FFplay session;
+  /// on all other platforms this function is a no-op.
+  ///
+  /// The caller is responsible for ensuring the window remains valid for the
+  /// duration of playback. Call ffplay_kit_clear_android_surface() when the
+  /// Surface is destroyed to avoid use-after-free.
+  ///
+  /// Dart bridge: use FFplayKitAndroid.setAndroidSurface(nativeWindowPtr).
+  ///
+  /// @param native_window_ptr ANativeWindow* cast to int64_t, or 0 to clear
+  void ffplay_kit_set_android_surface_ptr(
+    int native_window_ptr,
+  ) {
+    return _ffplay_kit_set_android_surface_ptr(
+      native_window_ptr,
+    );
+  }
+
+  late final _ffplay_kit_set_android_surface_ptrPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
+          'ffplay_kit_set_android_surface_ptr');
+  late final _ffplay_kit_set_android_surface_ptr =
+      _ffplay_kit_set_android_surface_ptrPtr.asFunction<void Function(int)>();
+
+  /// Clears the Android ANativeWindow, stopping video output.
+  ///
+  /// Call when the Surface is destroyed (e.g. in surfaceDestroyed()).
+  /// Equivalent to ffplay_kit_set_android_surface_ptr(0).
+  /// On non-Android platforms this is a no-op.
+  void ffplay_kit_clear_android_surface() {
+    return _ffplay_kit_clear_android_surface();
+  }
+
+  late final _ffplay_kit_clear_android_surfacePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>(
+          'ffplay_kit_clear_android_surface');
+  late final _ffplay_kit_clear_android_surface =
+      _ffplay_kit_clear_android_surfacePtr.asFunction<void Function()>();
+
+  /// Registers a global frame-ready callback for desktop video output (Linux/Windows).
+  ///
+  /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
+  /// On Android this is a no-op; video output is delivered to the ANativeWindow.
+  ///
+  /// Dart FFI usage:
+  /// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback), nullptr);
+  ///
+  /// @param callback  frame callback function; NULL clears any previous registration
+  /// @param userdata  opaque pointer forwarded to every callback invocation
+  void ffplay_kit_register_frame_callback(
+    FFplayKitFrameCallback callback,
+    ffi.Pointer<ffi.Void> userdata,
+  ) {
+    return _ffplay_kit_register_frame_callback(
+      callback,
+      userdata,
+    );
+  }
+
+  late final _ffplay_kit_register_frame_callbackPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(FFplayKitFrameCallback,
+              ffi.Pointer<ffi.Void>)>>('ffplay_kit_register_frame_callback');
+  late final _ffplay_kit_register_frame_callback =
+      _ffplay_kit_register_frame_callbackPtr.asFunction<
+          void Function(FFplayKitFrameCallback, ffi.Pointer<ffi.Void>)>();
+
+  /// Clears the global frame callback, stopping desktop pixel delivery.
+  /// Equivalent to ffplay_kit_register_frame_callback(NULL, NULL).
+  /// On Android this is a no-op.
+  void ffplay_kit_unregister_frame_callback() {
+    return _ffplay_kit_unregister_frame_callback();
+  }
+
+  late final _ffplay_kit_unregister_frame_callbackPtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function()>>(
+          'ffplay_kit_unregister_frame_callback');
+  late final _ffplay_kit_unregister_frame_callback =
+      _ffplay_kit_unregister_frame_callbackPtr.asFunction<void Function()>();
+
+  /// Probes [path] for at least one video stream without decoding.
+  /// Uses avformat_open_input + avformat_find_stream_info. Thread-safe.
+  ///
+  /// @param path  UTF-8 file path or URL
+  /// @return  1 video present, 0 audio-only, -1 on error
+  int ffplay_kit_has_video_stream(
+    ffi.Pointer<ffi.Char> path,
+  ) {
+    return _ffplay_kit_has_video_stream(
+      path,
+    );
+  }
+
+  late final _ffplay_kit_has_video_streamPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Char>)>>(
+          'ffplay_kit_has_video_stream');
+  late final _ffplay_kit_has_video_stream = _ffplay_kit_has_video_streamPtr
+      .asFunction<int Function(ffi.Pointer<ffi.Char>)>();
 
   /// Enables redirection of FFmpeg output to files.
   void ffmpeg_kit_config_enable_redirection() {
@@ -1835,6 +1997,172 @@ class FFmpegKitBindings {
           'ffmpeg_kit_packages_get_external_libraries');
   late final _ffmpeg_kit_packages_get_external_libraries =
       _ffmpeg_kit_packages_get_external_librariesPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets the FFmpegKit bundle type.
+  ///
+  /// @return the bundle type
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_bundle_type() {
+    return _ffmpeg_kit_packages_get_bundle_type();
+  }
+
+  late final _ffmpeg_kit_packages_get_bundle_typePtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_bundle_type');
+  late final _ffmpeg_kit_packages_get_bundle_type =
+      _ffmpeg_kit_packages_get_bundle_typePtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets whether GPL is enabled.
+  ///
+  /// @return 1 if GPL is enabled, 0 otherwise
+  bool ffmpeg_kit_packages_get_is_gpl() {
+    return _ffmpeg_kit_packages_get_is_gpl();
+  }
+
+  late final _ffmpeg_kit_packages_get_is_gplPtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function()>>(
+          'ffmpeg_kit_packages_get_is_gpl');
+  late final _ffmpeg_kit_packages_get_is_gpl =
+      _ffmpeg_kit_packages_get_is_gplPtr.asFunction<bool Function()>();
+
+  /// Gets whether non-free is enabled.
+  ///
+  /// @return 1 if non-free is enabled, 0 otherwise
+  bool ffmpeg_kit_packages_get_is_nonfree() {
+    return _ffmpeg_kit_packages_get_is_nonfree();
+  }
+
+  late final _ffmpeg_kit_packages_get_is_nonfreePtr =
+      _lookup<ffi.NativeFunction<ffi.Bool Function()>>(
+          'ffmpeg_kit_packages_get_is_nonfree');
+  late final _ffmpeg_kit_packages_get_is_nonfree =
+      _ffmpeg_kit_packages_get_is_nonfreePtr.asFunction<bool Function()>();
+
+  /// Gets all registered codecs.
+  ///
+  /// @return comma-separated list of codec names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_codecs() {
+    return _ffmpeg_kit_packages_get_registered_codecs();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_codecsPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_codecs');
+  late final _ffmpeg_kit_packages_get_registered_codecs =
+      _ffmpeg_kit_packages_get_registered_codecsPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered encoders.
+  ///
+  /// @return comma-separated list of encoder names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_encoders() {
+    return _ffmpeg_kit_packages_get_registered_encoders();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_encodersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_encoders');
+  late final _ffmpeg_kit_packages_get_registered_encoders =
+      _ffmpeg_kit_packages_get_registered_encodersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered decoders.
+  ///
+  /// @return comma-separated list of decoder names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_decoders() {
+    return _ffmpeg_kit_packages_get_registered_decoders();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_decodersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_decoders');
+  late final _ffmpeg_kit_packages_get_registered_decoders =
+      _ffmpeg_kit_packages_get_registered_decodersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered muxers.
+  ///
+  /// @return comma-separated list of muxer names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_muxers() {
+    return _ffmpeg_kit_packages_get_registered_muxers();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_muxersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_muxers');
+  late final _ffmpeg_kit_packages_get_registered_muxers =
+      _ffmpeg_kit_packages_get_registered_muxersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered demuxers.
+  ///
+  /// @return comma-separated list of demuxer names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_demuxers() {
+    return _ffmpeg_kit_packages_get_registered_demuxers();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_demuxersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_demuxers');
+  late final _ffmpeg_kit_packages_get_registered_demuxers =
+      _ffmpeg_kit_packages_get_registered_demuxersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered filters.
+  ///
+  /// @return comma-separated list of filter names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_filters() {
+    return _ffmpeg_kit_packages_get_registered_filters();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_filtersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_filters');
+  late final _ffmpeg_kit_packages_get_registered_filters =
+      _ffmpeg_kit_packages_get_registered_filtersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered protocols.
+  ///
+  /// @return comma-separated list of protocol names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_protocols() {
+    return _ffmpeg_kit_packages_get_registered_protocols();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_protocolsPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_protocols');
+  late final _ffmpeg_kit_packages_get_registered_protocols =
+      _ffmpeg_kit_packages_get_registered_protocolsPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets all registered bitstream filters.
+  ///
+  /// @return comma-separated list of bitstream filter names
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_registered_bitstream_filters() {
+    return _ffmpeg_kit_packages_get_registered_bitstream_filters();
+  }
+
+  late final _ffmpeg_kit_packages_get_registered_bitstream_filtersPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_registered_bitstream_filters');
+  late final _ffmpeg_kit_packages_get_registered_bitstream_filters =
+      _ffmpeg_kit_packages_get_registered_bitstream_filtersPtr
+          .asFunction<ffi.Pointer<ffi.Char> Function()>();
+
+  /// Gets the FFmpeg build configuration.
+  ///
+  /// @return the build configuration string
+  ffi.Pointer<ffi.Char> ffmpeg_kit_packages_get_build_configuration() {
+    return _ffmpeg_kit_packages_get_build_configuration();
+  }
+
+  late final _ffmpeg_kit_packages_get_build_configurationPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ffi.Char> Function()>>(
+          'ffmpeg_kit_packages_get_build_configuration');
+  late final _ffmpeg_kit_packages_get_build_configuration =
+      _ffmpeg_kit_packages_get_build_configurationPtr
           .asFunction<ffi.Pointer<ffi.Char> Function()>();
 
   /// Gets the session ID.
@@ -3701,10 +4029,11 @@ class FFmpegKitBindings {
       _ffmpeg_kit_statistics_get_sizePtr
           .asFunction<int Function(StatisticsHandle)>();
 
-  /// Gets the time.
+  /// Gets the time in milliseconds.
   ///
   /// @param handle the statistics handle
-  /// @return the time
+  /// @return the time in milliseconds (consistent with the time argument passed
+  /// to FFmpegKitStatisticsCallback)
   double ffmpeg_kit_statistics_get_time(
     StatisticsHandle handle,
   ) {
@@ -4504,3 +4833,35 @@ enum FFmpegKitSignal {
         _ => throw ArgumentError('Unknown value for FFmpegKitSignal: $value'),
       };
 }
+
+typedef FFplayKitFrameCallbackFunction = ffi.Void Function(
+    ffi.Pointer<ffi.Void> userdata,
+    ffi.Pointer<ffi.Uint8> pixels,
+    ffi.Int width,
+    ffi.Int height,
+    ffi.Int linesize);
+typedef DartFFplayKitFrameCallbackFunction = void Function(
+    ffi.Pointer<ffi.Void> userdata,
+    ffi.Pointer<ffi.Uint8> pixels,
+    int width,
+    int height,
+    int linesize);
+
+/// Frame-ready callback type for desktop (Linux/Windows) video output.
+///
+/// Fired inside ffplay_step() on every rendered video frame.
+/// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
+/// with Flutter's FlutterDesktopPixelBuffer.
+/// The pixel buffer is valid only for the duration of the call — copy it
+/// (e.g. into a pre-allocated FlutterDesktopPixelBuffer) before returning.
+///
+/// Not used on Android; Android video output goes to the ANativeWindow set via
+/// ffplay_kit_set_android_surface_ptr().
+///
+/// @param userdata  opaque pointer registered with ffplay_kit_register_frame_callback()
+/// @param pixels    RGBA8888 pixels, width*4 bytes per row (linesize == width*4)
+/// @param width     frame width in pixels
+/// @param height    frame height in pixels
+/// @param linesize  bytes per row
+typedef FFplayKitFrameCallback
+    = ffi.Pointer<ffi.NativeFunction<FFplayKitFrameCallbackFunction>>;

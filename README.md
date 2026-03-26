@@ -6,14 +6,17 @@
 
 </center>
 
-`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing FFmpeg FFprobe, and FFplay commands on Windows, and Linux. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance and flexibility.
+`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing FFmpeg, FFprobe, and FFplay commands on Windows, Linux, and Android. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
 
 ## 1. Features
 
-- **Cross-Platform Support**: Works on Windows, and Linux.
+- **Cross-Platform Support**: Works on Windows, Linux, and Android.
   - **iOS, and macOS**: Not yet supported.
-  - **Android**: Note that x86 architecture is not supported as its market share is pretty much nonexistent and no longer actively supported by Google.
-- **FFmpeg, FFprobe & FFplay**: Full support for media manipulation, information retrieval, and playback.
+  - **Android**: Full video playback support with native surface rendering.
+  - **Note**: x86 architecture is not supported as its market share is pretty much nonexistent and no longer actively supported by Google.
+- **FFmpeg, FFprobe & FFplay**: Full support for media manipulation, information retrieval, and audio/video playback.
+- **Video Playback**: Complete cross-platform video playback with unified surface API.
+- **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
 - **Dart FFI**: Direct native bindings for optimal performance.
 - **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.
 - **Parallel Execution**: Run multiple tasks in parallel.
@@ -24,13 +27,23 @@
 
 ### Platform Support
 
-| Platform | Status        | Architecture         |
-| -------- | ------------- | -------------------- |
-| Android  | ✅ Supported   | armv7, arm64, x86_64 |
-| iOS      | Not Supported |                      |
-| macOS    | Not Supported |                      |
-| Linux    | ✅ Supported  | x86_64               |
-| Windows  | ✅ Supported  | x86_64               |
+| Platform | Status        | Video Playback | Architecture         |
+| -------- | ------------- | -------------- | -------------------- |
+| Android  | ✅ Supported  | ✅ Native      | armv7, arm64, x86_64 |
+| iOS      | Not Supported | ❌ N/A         |                      |
+| macOS    | Not Supported | ❌ N/A         |                      |
+| Linux    | ✅ Supported  | ✅ Texture     | x86_64               |
+| Windows  | ✅ Supported  | ✅ Texture     | x86_64               |
+
+## 🎬 Demo
+
+<center>
+
+<image width="378" height="672" src="flutter/doc/demo.gif" alt="Video Thumbnail">
+
+_Video demonstration of FFmpegKit Extended Flutter plugin showing real-time video playback, FFmpeg command execution, and the comprehensive introspection API interface._
+
+</center>
 
 ## 2. Installation
 
@@ -191,21 +204,125 @@ final sessions = FFmpegKitExtended.getSessions();
 final ffmpegSessions = FFmpegKit.getFFmpegSessions();
 ```
 
-### 3.5 FFplay Playback
+### 3.5 FFplay Video Playback
+
+The plugin now supports complete video playback with a unified cross-platform surface API.
+
+#### Basic Video Playback
 
 ```dart
-// Play a media file
-final session = await FFplayKit.execute('video.mp4');
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 
-// Control playback
-FFplayKit.pause();
-FFplayKit.resume();
-FFplayKit.seek(30.0); // Seek to 30 seconds
+class VideoPlayerWidget extends StatefulWidget {
+  @override
+  _VideoPlayerWidgetState createState() => _VideoPlayerWidgetState();
+}
 
-// Get playback status
-final position = FFplayKit.getPosition();
-final duration = FFplayKit.getDuration();
-print('Playing at $position / $duration seconds');
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  FFplaySurface? _surface;
+  bool _hasVideo = false;
+  int _videoWidth = 0;
+  int _videoHeight = 0;
+  double _playbackPosition = 0.0;
+
+  @override
+  void dispose() {
+    _surface?.release();
+    super.dispose();
+  }
+
+  Future<void> _startPlayback(String filePath) async {
+    // Create surface before starting playback
+    _surface = await FFplaySurface.create();
+
+    final session = await FFplayKit.executeAsync('-i "$filePath"');
+
+    // Listen for video dimensions
+    session.videoSizeStream.listen((size) {
+      final (width, height) = size;
+      if (mounted && width > 0 && height > 0) {
+        setState(() {
+          _videoWidth = width;
+          _videoHeight = height;
+          _hasVideo = true;
+        });
+      }
+    });
+
+    // Listen for position updates
+    session.positionStream.listen((position) {
+      if (mounted) {
+        setState(() => _playbackPosition = position);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Video display (only when video frames are available)
+        if (_hasVideo && _surface != null)
+          SizedBox(
+            width: _videoWidth.toDouble(),
+            height: _videoHeight.toDouble(),
+            child: _surface!.toWidget(),
+          ),
+
+        // Playback controls
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => FFplayKit.pause(),
+              icon: Icon(Icons.pause),
+            ),
+            IconButton(
+              onPressed: () => FFplayKit.resume(),
+              icon: Icon(Icons.play_arrow),
+            ),
+            Expanded(
+              child: Slider(
+                value: _playbackPosition / (FFplayKit.duration > 0 ? FFplayKit.duration : 1.0),
+                onChanged: (value) => FFplayKit.seek(value * FFplayKit.duration),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+```
+
+#### Platform-Specific Usage
+
+The `FFplaySurface` class automatically handles platform differences:
+
+- **Android**: Uses `SurfaceTexture` backed `ANativeWindow` for native rendering
+- **Linux/Windows**: Uses pixel buffer textures with frame callbacks
+- **Audio-only**: Surface is created but not displayed, preventing crashes
+
+#### Advanced Features
+
+```dart
+// Get session-specific properties
+final session = await FFplayKit.executeAsync('-i video.mp4');
+
+// Video dimensions (available when first frame is decoded)
+final width = session.getVideoWidth();
+final height = session.getVideoHeight();
+
+// Real-time streams
+session.positionStream.listen((pos) => print('Position: ${pos}s'));
+session.videoSizeStream.listen((size) => print('Size: ${size}'));
+
+// Volume control
+session.setVolume(0.8); // 0.0 to 1.0
+print('Volume: ${session.getVolume()}');
+
+// Session state
+print('Playing: ${session.isPlaying()}');
+print('Paused: ${session.isPaused()}');
 ```
 
 ## 4. Architecture
@@ -219,7 +336,6 @@ This plugin uses a modular architecture:
 
 ## 5. Known Issues
 
-- **Android**: FFplay is currently non-functional. FFmpeg and FFprobe work fine.
 - **iOS**: Not yet supported.
 - **macOS**: Not yet supported.
 
