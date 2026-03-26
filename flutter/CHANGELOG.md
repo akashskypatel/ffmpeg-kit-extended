@@ -1,4 +1,3 @@
-
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
 ## Version 0.3.0
@@ -13,6 +12,17 @@
   - Linux plugin with pixel buffer texture support and frame callback handling
   - Windows plugin with double-buffered texture delivery and runtime symbol resolution
   - Thread-safe frame delivery from FFplay decoder to Flutter render thread
+- **Feature**: FFmpegKit packages introspection API
+  - Runtime detection of available FFmpeg packages and capabilities
+  - Bundle type, version, and build configuration access
+  - License detection (GPL, non-free enabled status)
+  - Complete component registration queries:
+    - Registered codecs, encoders, and decoders
+    - Registered muxers, demuxers, and protocols
+    - Registered filters and bitstream filters
+- **Feature**: Enhanced audio control and test content generation
+  - Volume control functionality for media playback
+  - Improved test video generation with audio track support
 - **Enhancement**: Extended FFmpeg bindings for video functionality
   - Video dimension accessors: `ffplay_kit_session_get_video_width/height`
   - Android surface binding: `ffplay_kit_set_android_surface_ptr`
@@ -26,10 +36,34 @@
   - Real-time video display with proper aspect ratio handling
   - Playback controls with position slider and state indicators
   - Audio-only content handling with graceful UI fallback
+- **Enhancement**: Adaptive position streaming and performance optimization
+  - Hysteresis-based emit rate adjustment (60fps ceiling, 10fps floor)
+  - Optimistic position updates on seek operations
+  - Local stopwatch interpolation for smooth position tracking
+  - Event loop performance improvements
 - **Improvement**: Enhanced library loading with symbol verification
   - Runtime probing of critical FFmpeg symbols at initialization
   - Detailed logging for DLL/SO loading and symbol resolution
   - Graceful degradation for missing or outdated native libraries
+- **Fix**: Critical thread safety and memory management improvements
+  - Windows desktop texture double-buffering for stable pixel data delivery
+  - Android native window pointer storage and proper cleanup on plugin detachment
+  - Texture release validation to prevent invalid texture ID operations
+  - Frame callback race condition prevention during texture cleanup
+  - Stream controller lifecycle management to prevent closure conflicts
+- **Fix**: Robust numerical handling for media playback
+  - NaN and infinite value guards in FFplaySession seek operations
+  - Position and duration validation to prevent mathematical errors
+  - Statistics time conversion fixes (removed incorrect 1000x multiplication)
+- **Fix**: Platform-specific build and runtime issues
+  - Linux build API usage corrections
+  - Windows runtime symbol resolution improvements
+  - Frame callback guard fixes to prevent blocking initial video frames
+- **Documentation**: Comprehensive video playback guides
+  - Complete video playback documentation with platform-specific implementations
+  - Detailed video surface API reference with usage examples
+  - Enhanced quick-start guide with video player integration
+  - Platform support matrix and real-time streaming examples
 
 ## Version 0.2.1
 
