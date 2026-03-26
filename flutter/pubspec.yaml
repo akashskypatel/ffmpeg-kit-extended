@@ -58,6 +58,6 @@ dev_dependencies:
 #   type: "video"
 #   gpl: true
 #   small: true
-#   windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-video-windows-x86_64-shared-lgpl.zip"
-#   linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-video-linux-x86_64-shared-lgpl.zip"
-#   android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-video-android-x86_64-shared-lgpl-release.aar"
+#   # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-video-windows-x86_64-shared-lgpl.zip"
+#   # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-video-linux-x86_64-shared-lgpl.zip"
+#   # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-video-android-x86_64-shared-lgpl-release.aar"
