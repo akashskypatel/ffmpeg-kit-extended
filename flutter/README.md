@@ -40,7 +40,7 @@
 <center>
 
 <video width="378" height="672" controls>
-  <source src="flutter/doc/demo.mp4" type="video/mp4">
+  <source src="doc/demo.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
