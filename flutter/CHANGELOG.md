@@ -1,6 +1,6 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
-## Version 0.3.3
+## Version 0.3.4
 
 - Updated README with demo link
 
