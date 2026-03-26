@@ -491,8 +491,11 @@ class FFplaySession extends Session {
       _positionController = StreamController<double>.broadcast();
     }
 
-    // Initial ground truth.
+    // Initial ground truth.  Guard NaN in case the native context isn't ready
+    // yet (e.g., called before the first frame is decoded).  A NaN here would
+    // poison _lastEmittedPos and cause ArgumentError inside .clamp() later.
     _syncedPos = ffmpeg.ffplay_kit_session_get_position(handle);
+    if (_syncedPos.isNaN) _syncedPos = 0.0;
     _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(handle);
     _locallyPlaying = ffmpeg.ffplay_kit_session_is_playing(handle);
     _lastEmittedPos = _syncedPos;
