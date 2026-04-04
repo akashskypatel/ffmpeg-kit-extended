@@ -103,6 +103,184 @@ void dispose() {
 }
 ```
 
+## FFplayView
+
+High-level video display widget. Handles aspect ratio, native-size bounding, and fullscreen routing. Does **not** include a built-in button — fullscreen is controlled entirely via [FFplayViewController].
+
+### Constructor
+
+```dart
+const FFplayView({
+  required FFplaySurface surface,
+  FFplayViewController? controller,
+  double? aspectRatio,
+  int? videoWidth,
+  int? videoHeight,
+  Color backgroundColor = Colors.black,
+  Key? key,
+})
+```
+
+**Parameters:**
+- `surface` (FFplaySurface, required): The video surface to render.
+- `controller` (FFplayViewController?): Controls fullscreen state. When omitted no fullscreen capability is wired up.
+- `aspectRatio` (double?): Video aspect ratio (e.g. `16 / 9`). When `null` the widget expands to fill its parent.
+- `videoWidth` (int?): Native pixel width of the video stream. When provided the widget caps itself to `min(containerWidth, videoWidth)` and never upscales beyond native dimensions.
+- `videoHeight` (int?): Native pixel height of the video stream (informational).
+- `backgroundColor` (Color): Background colour for letterbox / pillarbox areas. Default: `Colors.black`.
+
+### Sizing Behaviour
+
+| Parameters provided | Widget size |
+|---------------------|-------------|
+| `aspectRatio` + `videoWidth` | `min(containerWidth, videoWidth) × (w / aspectRatio)` |
+| `aspectRatio` only | Fills parent container at the given ratio |
+| Neither | Expands to fill parent |
+
+### Example
+
+```dart
+// Minimal — fill parent at 16:9
+FFplayView(
+  surface: _surface,
+  aspectRatio: 16 / 9,
+)
+
+// Bounded by native video dimensions
+FFplayView(
+  surface: _surface,
+  controller: _controller,
+  aspectRatio: _videoWidth > 0 && _videoHeight > 0
+      ? _videoWidth / _videoHeight
+      : null,
+  videoWidth: _videoWidth > 0 ? _videoWidth : null,
+  videoHeight: _videoHeight > 0 ? _videoHeight : null,
+)
+```
+
+---
+
+## FFplayViewController
+
+Controls the fullscreen state of an [FFplayView]. Extends `ChangeNotifier` so listeners rebuild when [isFullscreen] changes.
+
+### Constructor
+
+```dart
+FFplayViewController({
+  Future<void> Function()? onEnterFullscreen,
+  Future<void> Function()? onExitFullscreen,
+})
+```
+
+**Parameters:**
+- `onEnterFullscreen` (Future\<void\> Function()?): Called just before the fullscreen route is pushed. On desktop pass `() => windowManager.setFullScreen(true)`.
+- `onExitFullscreen` (Future\<void\> Function()?): Called after the fullscreen route is popped. On desktop pass `() => windowManager.setFullScreen(false)`.
+
+### Properties
+
+#### isFullscreen
+
+Whether the attached [FFplayView] is currently showing the fullscreen route.
+
+```dart
+bool get isFullscreen
+```
+
+### Methods
+
+#### enterFullscreen
+
+Pushes the fullscreen route. Must be called with a `BuildContext` that is inside the app's [Navigator] (i.e. inside a `MaterialApp`).
+
+```dart
+Future<void> enterFullscreen(BuildContext context)
+```
+
+#### exitFullscreen
+
+Programmatically pops the active fullscreen route. No-op when not in fullscreen.
+
+```dart
+Future<void> exitFullscreen()
+```
+
+#### dispose
+
+Release internal references. Call in the owning widget's `dispose()`.
+
+```dart
+void dispose()
+```
+
+### Lifecycle
+
+```dart
+class _MyWidgetState extends State<MyWidget> {
+  late final FFplayViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = FFplayViewController(
+      onEnterFullscreen: (Platform.isWindows || Platform.isLinux)
+          ? () => windowManager.setFullScreen(true)
+          : null,
+      onExitFullscreen: (Platform.isWindows || Platform.isLinux)
+          ? () => windowManager.setFullScreen(false)
+          : null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+}
+```
+
+### Example — Button Anchored to Video Bounds
+
+Wrap `FFplayView` and a `Positioned` button in a `Stack`. Because `FFplayView` sizes itself to the video's computed dimensions, the stack's bounds equal the video bounds and the button anchors to the video's corner — not the app window.
+
+```dart
+Center(
+  child: Stack(
+    children: [
+      FFplayView(
+        surface: _surface,
+        controller: _controller,
+        aspectRatio: _videoWidth / _videoHeight,
+        videoWidth: _videoWidth,
+        videoHeight: _videoHeight,
+      ),
+      Positioned(
+        right: 8,
+        bottom: 8,
+        child: ListenableBuilder(
+          listenable: _controller,
+          builder: (ctx, _) => IconButton(
+            icon: Icon(
+              _controller.isFullscreen
+                  ? Icons.fullscreen_exit
+                  : Icons.fullscreen,
+            ),
+            color: Colors.white,
+            style: IconButton.styleFrom(backgroundColor: Colors.black45),
+            onPressed: () => _controller.isFullscreen
+                ? _controller.exitFullscreen()
+                : _controller.enterFullscreen(ctx),
+          ),
+        ),
+      ),
+    ],
+  ),
+)
+```
+
+---
+
 ## FFplayAndroidSurface
 
 Platform-specific surface implementation for Android.

@@ -7,9 +7,13 @@ import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:android_media_store/android_media_store.dart';
 import 'package:path_provider/path_provider.dart'; // Import for getTemporaryDirectory
+import 'package:window_manager/window_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+  }
   await FFmpegKitExtended.initialize();
   runApp(const MyApp());
 }
@@ -71,6 +75,7 @@ class _HomePageState extends State<HomePage>
 
   // Unified video surface for Android, Linux, Windows
   FFplaySurface? _surface;
+  late FFplayViewController _fsController;
 
   @override
   void dispose() {
@@ -78,12 +83,23 @@ class _HomePageState extends State<HomePage>
     _positionSub?.cancel();
     _videoSizeSub?.cancel();
     _surface?.release();
+    _fsController.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    _fsController = FFplayViewController(
+      onEnterFullscreen:
+          (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+              ? () => windowManager.setFullScreen(true)
+              : null,
+      onExitFullscreen:
+          (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+              ? () => windowManager.setFullScreen(false)
+              : null,
+    );
     _initializePlugin();
     _currentLogLevel = FFmpegKitConfig.getLogLevel();
     final tabController = TabController(length: 3, vsync: this);
@@ -573,7 +589,8 @@ class _HomePageState extends State<HomePage>
 
     final session =
         await FFplayKit.executeAsync(command, onComplete: (session) {
-      _addLog("FFplay playback finished");
+      final output = session.getOutput();
+      _addLog("FFplay playback finished. Output: $output");
     });
     _attachPositionStream(session);
   }
@@ -1036,20 +1053,44 @@ class _HomePageState extends State<HomePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_hasVideo && _surface != null) ...[
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final srcW = _videoWidth.toDouble();
-                final srcH = _videoHeight.toDouble();
-                final availW = constraints.maxWidth;
-                final scale = (srcW > availW && srcW > 0) ? availW / srcW : 1.0;
-                return Center(
-                  child: SizedBox(
-                    width: srcW * scale,
-                    height: srcH * scale,
-                    child: _surface!.toWidget(),
+            Center(
+              child: Stack(
+                children: [
+                  FFplayView(
+                    surface: _surface!,
+                    controller: _fsController,
+                    aspectRatio: _videoWidth > 0 && _videoHeight > 0
+                        ? _videoWidth / _videoHeight
+                        : null,
+                    videoWidth: _videoWidth > 0 ? _videoWidth : null,
+                    videoHeight: _videoHeight > 0 ? _videoHeight : null,
                   ),
-                );
-              },
+                  Positioned(
+                    right: 8,
+                    bottom: 8,
+                    child: ListenableBuilder(
+                      listenable: _fsController,
+                      builder: (ctx, _) => IconButton(
+                        icon: Icon(
+                          _fsController.isFullscreen
+                              ? Icons.fullscreen_exit
+                              : Icons.fullscreen,
+                        ),
+                        color: Colors.white,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black45,
+                        ),
+                        onPressed: () => _fsController.isFullscreen
+                            ? _fsController.exitFullscreen()
+                            : _fsController.enterFullscreen(ctx),
+                        tooltip: _fsController.isFullscreen
+                            ? 'Exit fullscreen'
+                            : 'Fullscreen',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
           ],

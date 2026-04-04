@@ -31,6 +31,8 @@ Complete API documentation for all classes and methods:
   - Video surface management
 
 - **[Video Surface API](api/video-surface.md)** - Cross-platform video surfaces
+  - FFplayView widget with aspect-ratio sizing
+  - FFplayViewController for decoupled fullscreen control
   - FFplaySurface unified API
   - Android-specific surface handling
   - Desktop texture implementation
@@ -62,6 +64,8 @@ Comprehensive guides for common tasks:
 
 - **[Video Playback](guides/video-playback.md)** - Complete video playback guide
   - Cross-platform video surface API
+  - FFplayView widget and FFplayViewController
+  - Fullscreen mode with OS-level window support
   - Android native surface rendering
   - Desktop texture implementation
   - Real-time position and dimension streams
