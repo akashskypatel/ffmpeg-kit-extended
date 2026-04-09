@@ -23,7 +23,7 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
 import 'callback_manager.dart' as callback_manager;
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 import 'ffmpeg_session.dart';
 import 'ffplay_session.dart';
 import 'ffprobe_session.dart';
@@ -290,8 +290,7 @@ class FFmpegKitExtended {
   /// Returns the FFmpegKit bundle type.
   static String getBundleType() {
     requireInitialized();
-    return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_bundle_type());
+    return _nativeStringOrEmpty(ffmpeg.ffmpeg_kit_packages_get_bundle_type());
   }
 
   /// Returns whether this FFmpegKit build has GPL enabled.

@@ -25,7 +25,7 @@ import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 
 /// A session for executing FFmpeg commands.
 ///

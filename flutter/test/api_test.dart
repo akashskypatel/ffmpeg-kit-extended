@@ -23,7 +23,7 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
-import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_flutter_loader.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_extended_flutter_loader.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/generated/ffmpeg_kit_bindings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';

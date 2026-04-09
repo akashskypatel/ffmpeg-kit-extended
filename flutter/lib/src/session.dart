@@ -26,7 +26,7 @@ import '../ffmpeg_kit_extended_flutter.dart'
         FFprobeSession,
         MediaInformationSession,
         FFmpegKitExtended;
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 import 'statistics.dart';
 
 // ---------------------------------------------------------------------------

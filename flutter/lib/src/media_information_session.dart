@@ -26,7 +26,7 @@ import 'package:ffi/ffi.dart';
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'chapter_information.dart';
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 import 'stream_information.dart';
 
 /// A specialised [FFprobeSession] for retrieving detailed media information.

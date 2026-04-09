@@ -19,7 +19,7 @@ library;
 import 'dart:io' show Platform;
 
 import '../ffmpeg_kit_extended_flutter.dart';
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 
 /// Android-specific FFplay utilities.
 ///
