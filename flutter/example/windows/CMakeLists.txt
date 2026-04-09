@@ -1,12 +1,12 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
-project(ffmpeg_kit_flutter_example LANGUAGES CXX)
+project(ffmpeg_kit_extended_flutter_example LANGUAGES CXX)
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/bundle" CACHE PATH "Local install prefix" FORCE)
 endif()
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "ffmpeg_kit_flutter_example")
+set(BINARY_NAME "ffmpeg_kit_extended_flutter_example")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -55,7 +55,7 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 add_subdirectory("runner")
 
 # Enable the test target.
-set(include_ffmpeg_kit_flutter_tests TRUE)
+set(include_ffmpeg_kit_extended_flutter_tests TRUE)
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
