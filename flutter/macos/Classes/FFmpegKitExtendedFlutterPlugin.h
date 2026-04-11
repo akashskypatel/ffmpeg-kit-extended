@@ -20,6 +20,9 @@
 
 #import <FlutterMacOS/FlutterMacOS.h>
 
-@interface FfmpegKitExtendedFlutterPlugin
-    : NSObject <FlutterPlugin, FlutterStreamHandler>
+/// Entry point called by GeneratedPluginRegistrant.
+/// All FFmpegKit/FFprobe/FFplay APIs are accessed directly via dart:ffi;
+/// this class exists only to satisfy the CocoaPods plugin-registration
+/// contract and to forward registration to FfplayKitPlugin.
+@interface FfmpegKitExtendedFlutterPlugin : NSObject <FlutterPlugin>
 @end

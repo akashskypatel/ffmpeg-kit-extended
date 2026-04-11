@@ -46,8 +46,7 @@ import 'package:flutter/widgets.dart';
 /// _texture = null;
 /// ```
 ///
-/// On non-desktop platforms (Android, iOS) [create] returns `null` and all
-/// other methods are no-ops.
+/// On Android, [create] returns `null` and all other methods are no-ops.
 ///
 /// ### API symmetry with `FFplayAndroidSurface`
 ///
@@ -63,15 +62,16 @@ class FFplayDesktopTexture {
   FFplayDesktopTexture._({required this.textureId});
 
   /// Allocates Flutter [Texture] backed by native pixel buffer.
-  /// Internally the C++ plugin:
+  /// Internally the native plugin:
   ///   1. Registers pixel-buffer texture with Flutter's `TextureRegistrar`.
-  ///   2. Calls `ffplay_kit_register_frame_callback` so every decoded
-  ///      video frame is delivered to this texture automatically.
+  ///   2. Calls `ffplay_set_frame_callback` so every decoded video frame is
+  ///      delivered to this texture automatically.
   /// Calling `create` while previous texture is active implicitly releases
-  /// that texture first (C++ side replaces global frame callback).
-  /// Returns `null` on Android/iOS or if texture creation fails.
+  /// that texture first (native side replaces global frame callback).
+  /// Returns `null` on Android or if texture creation fails.
   static Future<FFplayDesktopTexture?> create() async {
-    if (!Platform.isLinux && !Platform.isWindows) return null;
+    if (!Platform.isLinux && !Platform.isWindows &&
+        !Platform.isIOS && !Platform.isMacOS) return null;
     try {
       final result = await _channel.invokeMapMethod<String, dynamic>(
         'createTexture',
@@ -94,11 +94,12 @@ class FFplayDesktopTexture {
   void bindToFFplay() {}
 
   /// Releases native pixel-buffer texture and stops frame delivery.
-  /// The C++ plugin calls `ffplay_kit_unregister_frame_callback` before
-  /// unregistering texture with `TextureRegistrar`.
+  /// The native plugin calls `ffplay_set_frame_callback(null, null)` before
+  /// unregistering the texture with `TextureRegistrar`.
   /// After calling this, discard the [FFplayDesktopTexture] instance.
   Future<void> release() async {
-    if (!Platform.isLinux && !Platform.isWindows) return;
+    if (!Platform.isLinux && !Platform.isWindows &&
+        !Platform.isIOS && !Platform.isMacOS) return;
     try {
       await _channel.invokeMethod<void>('releaseTexture', {
         'textureId': textureId,

@@ -1,19 +1,9 @@
-import Flutter
-import UIKit
-
-public class FfmpegKitExtendedFlutterPlugin: NSObject, FlutterPlugin {
-  public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "ffmpeg_kit_extended_flutter", binaryMessenger: registrar.messenger())
-    let instance = FfmpegKitExtendedFlutterPlugin()
-    registrar.addMethodCallDelegate(instance, channel: channel)
-  }
-
-  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    switch call.method {
-    case "getPlatformVersion":
-      result("iOS " + UIDevice.current.systemVersion)
-    default:
-      result(FlutterMethodNotImplemented)
-    }
-  }
-}
+// FFmpegKit Flutter Extended Plugin - A wrapper library for FFmpeg
+// Copyright (C) 2026 Akash Patel
+//
+// The plugin is implemented in Objective-C:
+//   FFmpegKitExtendedFlutterPlugin.h/.m  — FFmpegKit/FFprobe channels
+//   FfplayKitPlugin.h/.m                 — ffplay_kit_desktop texture channel
+//
+// This file is intentionally empty; the Xcode build includes it only to
+// satisfy the CocoaPods Swift source-file requirement.

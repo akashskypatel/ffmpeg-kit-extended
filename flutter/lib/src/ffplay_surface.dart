@@ -55,8 +55,8 @@ import 'ffplay_desktop_texture.dart';
 /// the video size stream), Flutter never polls the texture for
 /// audio-only media and no crash can occur.
 ///
-/// [create] returns `null` on unsupported platforms (iOS, macOS) or if the
-/// underlying surface/texture allocation fails.
+/// [create] returns `null` on unsupported platforms or if the underlying
+/// surface/texture allocation fails.
 class FFplaySurface {
   /// Flutter texture ID backing this surface.
   final int textureId;
@@ -73,9 +73,9 @@ class FFplaySurface {
 
   /// Allocates platform-appropriate video surface and wires it to FFplay.
   /// On Android, creates `SurfaceTexture`-backed `ANativeWindow` and calls
-  /// `FFplayAndroidSurface.bindToFFplay` automatically. On Linux/Windows,
-  /// creates `FlutterDesktopPixelBuffer` texture and registers frame callback
-  /// via the C++ plugin.
+  /// `FFplayAndroidSurface.bindToFFplay` automatically. On Linux/Windows/iOS/
+  /// macOS, creates a native pixel-buffer texture and registers the frame
+  /// callback via the platform plugin.
   /// Call this unconditionally before starting playback — for audio-only files
   /// the surface is allocated but [Texture] widget is never shown (because
   /// `_hasVideo` from the video size stream stays false), so no
@@ -90,7 +90,8 @@ class FFplaySurface {
       s.bindToFFplay();
       return FFplaySurface._(textureId: s.textureId, android: s);
     }
-    if (Platform.isLinux || Platform.isWindows) {
+    if (Platform.isLinux || Platform.isWindows ||
+        Platform.isIOS || Platform.isMacOS) {
       final t = await FFplayDesktopTexture.create();
       if (t == null) return null;
       return FFplaySurface._(textureId: t.textureId, desktop: t);
