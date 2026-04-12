@@ -1,13 +1,14 @@
 Pod::Spec.new do |s|
   s.name             = 'ffmpeg_kit_extended_flutter'
-  s.version          = '6.0.3'
-  s.summary          = 'FFmpeg Kit for Flutter'
-  s.description      = 'A Flutter plugin for running FFmpeg and FFprobe commands.'
+  s.version          = '0.4.0'
+  s.summary          = 'FFmpeg Kit Extended for Flutter'
+  s.description      = 'A Flutter plugin for running FFmpeg, FFprobe, and FFplay commands with iOS and macOS support.'
   s.homepage         = 'https://github.com/akashskypatel/ffmpeg-kit-extended'
   s.license          = { :file => '../LICENSE' }
-  s.author           = { 'ARTHENICA' => 'open-source@akashskypatel.com' }
+  s.author           = { 'akashskypatel' => 'akashskypatel@gmail.com' }
 
-  s.platform            = :ios
+  s.ios.deployment_target = '13.0'
+  s.osx.deployment_target = '10.15'
   s.requires_arc        = true
   s.static_framework    = true
 
@@ -21,121 +22,128 @@ Pod::Spec.new do |s|
     :execution_position => :before_compile
   }
 
-  s.default_subspec     = 'https'
+  s.default_subspec     = 'base'
 
   s.dependency          'Flutter'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES', 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386' }
+  s.pod_target_xcconfig = {
+    'DEFINES_MODULE' => 'YES',
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386'
+  }
 
-  s.subspec 'min' do |ss|
+  # Base LGPL variant (recommended for most users)
+  s.subspec 'base' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-min', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-base.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
-  s.subspec 'min-lts' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-min', "6.0.LTS"
-    ss.ios.deployment_target = '10'
-  end
-
-  s.subspec 'min-gpl' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-min-gpl', "6.0"
-    ss.ios.deployment_target = '12.1'
-  end
-
-  s.subspec 'min-gpl-lts' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-min-gpl', "6.0.LTS"
-    ss.ios.deployment_target = '10'
-  end
-
-  s.subspec 'https' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-https', "6.0"
-    ss.ios.deployment_target = '12.1'
-  end
-
-  s.subspec 'https-lts' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-https', "6.0.LTS"
-    ss.ios.deployment_target = '10'
-  end
-
-  s.subspec 'https-gpl' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-https-gpl', "6.0"
-    ss.ios.deployment_target = '12.1'
-  end
-
-  s.subspec 'https-gpl-lts' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-https-gpl', "6.0.LTS"
-    ss.ios.deployment_target = '10'
-  end
-
+  # Audio LGPL variant
   s.subspec 'audio' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-audio', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-audio.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'AudioToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'AudioToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
-  s.subspec 'audio-lts' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-audio', "6.0.LTS"
-    ss.ios.deployment_target = '10'
-  end
-
+  # Video LGPL variant
   s.subspec 'video' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-video', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-video.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
-  s.subspec 'video-lts' do |ss|
+  # Video HW LGPL variant
+  s.subspec 'video_hw' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-video', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-video_hw.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
+  # Full LGPL variant
   s.subspec 'full' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-full', "6.0"
-    ss.ios.deployment_target = '12.1'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-full.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
-  s.subspec 'full-lts' do |ss|
+  # GPL variants (require GPL compliance)
+  s.subspec 'base-gpl' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-full', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-base-gpl.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
+  end
+
+  s.subspec 'audio-gpl' do |ss|
+    ss.source_files         = 'Classes/**/*'
+    ss.public_header_files  = 'Classes/**/*.h'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-audio-gpl.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'AudioToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'AudioToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
+  end
+
+  s.subspec 'video-gpl' do |ss|
+    ss.source_files         = 'Classes/**/*'
+    ss.public_header_files  = 'Classes/**/*.h'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-video-gpl.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
+  end
+
+  s.subspec 'video_hw-gpl' do |ss|
+    ss.source_files         = 'Classes/**/*'
+    ss.public_header_files  = 'Classes/**/*.h'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-video_hw-gpl.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
   s.subspec 'full-gpl' do |ss|
     ss.source_files         = 'Classes/**/*'
     ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-full-gpl', "6.0"
-    ss.ios.deployment_target = '12.1'
-  end
-
-  s.subspec 'full-gpl-lts' do |ss|
-    ss.source_files         = 'Classes/**/*'
-    ss.public_header_files  = 'Classes/**/*.h'
-    ss.dependency 'ffmpeg-kit-extended-ios-full-gpl', "6.0.LTS"
-    ss.ios.deployment_target = '10'
+    ss.vendored_frameworks  = '../../prebuilt/apple/xcframeworks/ffmpegkit-full-gpl.xcframework'
+    ss.ios.frameworks = ['AVFoundation', 'CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.osx.frameworks = ['CoreMedia', 'CoreVideo', 'AudioToolbox', 'VideoToolbox']
+    ss.libraries = ['c++', 'iconv', 'z']
+    ss.ios.deployment_target = '13.0'
+    ss.osx.deployment_target = '10.15'
   end
 
 end
