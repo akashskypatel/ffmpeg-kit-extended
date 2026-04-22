@@ -26,10 +26,18 @@
 
 #import "FfmpegKitExtendedFlutterPlugin.h"
 #import "FfplayKitPlugin.h"
+#include <dlfcn.h>
 
 @implementation FfmpegKitExtendedFlutterPlugin
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
+  // Promote libffmpegkit to RTLD_GLOBAL so Dart FFI can find its symbols
+  // via dlsym(RTLD_DEFAULT, ...) / DynamicLibrary.process()
+  NSBundle *bundle = [NSBundle bundleForClass:[self class]];
+  NSString *libPath =
+      [[bundle bundlePath] stringByAppendingPathComponent:
+                               @"Versions/A/Frameworks/libffmpegkit.dylib"];
+  dlopen([libPath UTF8String], RTLD_GLOBAL | RTLD_NOW);
   [FfplayKitPlugin registerWithRegistrar:registrar];
 }
 

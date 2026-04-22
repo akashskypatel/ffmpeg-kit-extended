@@ -32,8 +32,8 @@ flutter:
         pluginClass: FfmpegKitExtendedFlutterPlugin
       # ios:
       #   pluginClass: FfmpegKitExtendedFlutterPlugin
-      # macos:
-      #   pluginClass: FfmpegKitExtendedFlutterPlugin
+      macos:
+        pluginClass: FfmpegKitExtendedFlutterPlugin
 
 dependencies:
   ffi: ^2.2.0

@@ -44,8 +44,10 @@ Future<void> main(List<String> args) async {
   final supportedPlatforms = [
     'windows',
     'linux',
-    'android'
-  ]; // TODO: add 'macos', 'ios'
+    'android',
+    'ios',
+    'macos',
+  ];
 
   // Simple Argument Parser
   for (int i = 0; i < args.length; i++) {
@@ -226,8 +228,8 @@ Future<String?> _configurePlatform(dynamic config, String platform,
   final overrideUrl = config[platform]?.toString();
 
   // Determine Destination (App Local Cache)
-  final cacheDir = Directory(p.join(
-      projectRoot.path, '.dart_tool', 'ffmpeg_kit_extended_flutter', platform));
+  final cacheDir = Directory(p.absolute(p.join(projectRoot.path, '.dart_tool',
+      'ffmpeg_kit_extended_flutter', platform)));
 
   if (!cacheDir.existsSync()) {
     cacheDir.createSync(recursive: true);
@@ -246,6 +248,9 @@ Future<String?> _configurePlatform(dynamic config, String platform,
     } catch (_) {}
   } else if (platform == 'android') {
     arch = '';
+  } else if (platform == 'ios' || platform == 'macos') {
+    // iOS/macOS use XCFrameworks with universal architectures
+    arch = 'universal';
   } else {
     _logError('Unsupported platform: $platform');
     exit(1);
@@ -310,6 +315,16 @@ Future<String?> _configurePlatform(dynamic config, String platform,
             final pathFile = File(p.join(cacheDir.path, 'current_path.txt'));
             pathFile.writeAsStringSync(cacheFile.path);
             return cacheFile.path;
+          } else if (platform == 'macos' || platform == 'ios') {
+            // For macOS and iOS, we don't need to extract anything
+            // The xcframework is already in the correct format
+            await _extractFile(cacheFile, cacheDir.path, verbose);
+            final archName = platform == 'macos' ? 'arm64_x86_64' : 'arm64';
+            final extractedName = p.basenameWithoutExtension(filename);
+            final finalDir = Directory(
+                p.join(cacheDir.path, extractedName, "$platform-$archName"));
+            await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
+            return finalDir.path;
           } else {
             await _extractFile(cacheFile, cacheDir.path, verbose);
             final extractedName = p.basenameWithoutExtension(filename);
@@ -352,8 +367,24 @@ Future<String?> _configurePlatform(dynamic config, String platform,
 
       // Gradle (build.gradle.kts) handles AAR extraction into jniLibs
       skipExtract = true;
+    } else if (platform == 'ios' || platform == 'macos') {
+      // iOS/macOS: Download per-platform XCFramework bundles
+      // Each platform gets its own XCFramework (ios combines device+simulator, macos is universal)
+      // Build script naming: bundle-{type}-{platform-arch}[-small|-debug][-gpl|-lgpl].xcframework.zip
+
+      final parts = ['bundle', currentType, platform, 'universal', 'shared'];
+
+      if (type != 'debug' && small) {
+        parts.add('small');
+      }
+      parts.add(license);
+
+      // XCFramework filename: bundle-{type}-{platform-arch}[-small|-debug][-gpl|-lgpl].xcframework.zip
+      filename = "${parts.join('-')}.xcframework.zip";
+      final tag = "v$version-$platform";
+      url = "$_baseUrlTemplate/$tag/$filename";
     } else {
-      // GitHub Releases for Desktop platforms
+      // GitHub Releases for Desktop platforms (Windows/Linux)
       final parts = ['bundle', currentType, platform, arch, 'shared'];
 
       if (type != 'debug' && small) {
@@ -403,7 +434,7 @@ Future<String?> _configurePlatform(dynamic config, String platform,
 
   // --- Output Resolution ---
   if (skipExtract) {
-    // Android Output: Write the direct path to the AAR and return
+    // Android/iOS/macOS Output: Write the direct path to the archive and return
     final pathFile = File(p.join(cacheDir.path, 'current_path.txt'));
     pathFile.writeAsStringSync(targetFile.path);
     return targetFile.path;
@@ -417,8 +448,9 @@ Future<String?> _configurePlatform(dynamic config, String platform,
 
 Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
     Directory projectRoot, bool verbose) async {
+  // Write absolute path to current_path.txt
   final pathFile = File(p.join(cacheDir.path, 'current_path.txt'));
-  pathFile.writeAsStringSync(finalDir.path);
+  pathFile.writeAsStringSync(finalDir.absolute.path);
 
   // Copy include directory to a fixed location for ffigen
   final fixedIncludeDir = Directory(p.join(projectRoot.path, '.dart_tool',
@@ -433,18 +465,30 @@ Future<void> _updateMetadata(Directory finalDir, Directory cacheDir,
   fixedIncludeDir.createSync(recursive: true);
 
   final sourceIncludeDir = Directory(p.join(finalDir.path, 'include'));
+  final sourceHeadersDir = Directory(p.join(finalDir.path, 'Headers'));
   if (sourceIncludeDir.existsSync()) {
     if (verbose) {
-      stdout.writeln('FFmpegKit: Updating generic include path for ffigen...');
+      stdout.writeln(
+          'FFmpegKit: Updating generic include path for ffigen to ${sourceIncludeDir.path}...');
     }
     await _copyDirectory(sourceIncludeDir, fixedIncludeDir);
+  } else if (sourceHeadersDir.existsSync()) {
+    if (verbose) {
+      stdout.writeln(
+          'FFmpegKit: Updating generic include path for ffigen to ${sourceHeadersDir.path}...');
+    }
+    await _copyDirectory(sourceHeadersDir, fixedIncludeDir);
   } else {
     // If we can't find 'include' directly, maybe it's nested?
     // Some bundles might have top-level include, others generic.
     // For now, warning is enough.
     if (verbose) {
       stdout.writeln(
-          'FFmpegKit: Warning - include directory not found in bundle.');
+          'FFmpegKit: Warning - include directory not found in bundle.\n'
+          'Expected paths: ${sourceIncludeDir.path} or ${sourceHeadersDir.path}\n'
+          'Input directory: ${finalDir.path}\n'
+          'Cache directory: ${cacheDir.path}\n'
+          'Project root: ${projectRoot.path}');
     }
   }
 }
