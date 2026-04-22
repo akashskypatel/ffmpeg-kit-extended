@@ -30,8 +30,8 @@ flutter:
       android:
         package: com.akashskypatel.ffmpeg_kit_extended_flutter
         pluginClass: FfmpegKitExtendedFlutterPlugin
-      # ios:
-      #   pluginClass: FfmpegKitExtendedFlutterPlugin
+      ios:
+        pluginClass: FfmpegKitExtendedFlutterPlugin
       macos:
         pluginClass: FfmpegKitExtendedFlutterPlugin
 
