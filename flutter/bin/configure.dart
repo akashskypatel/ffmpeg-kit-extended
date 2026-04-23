@@ -316,13 +316,9 @@ Future<String?> _configurePlatform(dynamic config, String platform,
             pathFile.writeAsStringSync(cacheFile.path);
             return cacheFile.path;
           } else if (platform == 'macos' || platform == 'ios') {
-            // For macOS and iOS, we don't need to extract anything
-            // The xcframework is already in the correct format
             await _extractFile(cacheFile, cacheDir.path, verbose);
-            final archName = platform == 'macos' ? 'arm64_x86_64' : 'arm64';
             final extractedName = p.basenameWithoutExtension(filename);
-            final finalDir = Directory(
-                p.join(cacheDir.path, extractedName, "$platform-$archName"));
+            final finalDir = Directory(p.join(cacheDir.path, extractedName));
             await _updateMetadata(finalDir, cacheDir, projectRoot, verbose);
             return finalDir.path;
           } else {

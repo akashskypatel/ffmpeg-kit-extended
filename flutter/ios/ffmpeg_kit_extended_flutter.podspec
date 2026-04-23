@@ -87,40 +87,25 @@ Pod::Spec.new do |s|
       FileUtils.rm_rf(frameworks_dir)
       FileUtils.mkdir_p(frameworks_dir)
 
-      dylib_count = 0
-      Dir.glob("#{ios_slice}/*.dylib").each do |dylib|
-        dylib_name = File.basename(dylib)
-        dest = File.join(frameworks_dir, dylib_name)
-        FileUtils.cp(dylib, dest)
-        puts "FFmpegKit: Copied #{dylib_name}"
-        dylib_count += 1
-      end
+      if xcframework_path && Dir.exist?(xcframework_path)
+        # xcframework_path is now the XCFramework root (fixed in configure.dart).
+        # Resolve to a clean absolute path before computing relative path.
+        xcframework_abs = File.realpath(xcframework_path)
+        real_dir_abs = File.realpath(real_dir)
 
-      if dylib_count > 0
-        puts "FFmpegKit: Vendoring #{dylib_count} dylib(s)"
-        s.pod_target_xcconfig = {
-          'DEFINES_MODULE' => 'YES',
-          'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
-          'LIBRARY_SEARCH_PATHS' => '"$(PODS_TARGET_SRCROOT)/Frameworks"',
-          'OTHER_LDFLAGS' => '-lffmpegkit',
-          'LD_RUNPATH_SEARCH_PATHS' => '$(inherited) @loader_path/Frameworks @executable_path/../Frameworks'
-        }
-
-        copy_script = <<~SCRIPT
-          set -e
-          TARGET_DIR="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.framework/Versions/A/Frameworks"
-          mkdir -p "$TARGET_DIR"
-          cp -Rf "${PODS_TARGET_SRCROOT}/Frameworks"/*.dylib "$TARGET_DIR/" 2>/dev/null || true
-          cp -Rf "${PODS_TARGET_SRCROOT}/Frameworks"/*.framework "$TARGET_DIR/" 2>/dev/null || true
-        SCRIPT
-        s.script_phase = {
-          :name => 'Embed FFmpegKit dylibs',
-          :script => copy_script,
-          :execution_position => :after_compile
-        }
+        relative_path = Pathname.new(xcframework_abs)
+          .relative_path_from(Pathname.new(real_dir_abs))
+          .to_s
+        puts "FFmpegKit: vendored_frameworks -> #{relative_path}"
+        s.vendored_frameworks = relative_path
       else
-        puts "FFmpegKit: ERROR - No dylibs found in #{ios_slice}"
+        puts "FFmpegKit: WARNING - XCFramework not found at #{xcframework_path}"
       end
+      s.pod_target_xcconfig = {
+        'DEFINES_MODULE' => 'YES',
+        'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386 x86_64',
+        'OTHER_LDFLAGS' => '-lffmpegkit',
+      }
     else
       puts "FFmpegKit: ERROR - iOS slice not found at #{xcframework_path}/ios-*"
       puts "FFmpegKit: Available slices:"
