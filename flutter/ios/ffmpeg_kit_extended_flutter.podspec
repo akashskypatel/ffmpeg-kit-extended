@@ -104,7 +104,12 @@ Pod::Spec.new do |s|
       s.pod_target_xcconfig = {
         'DEFINES_MODULE' => 'YES',
         'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386 x86_64',
+        'EXCLUDED_ARCHS[sdk=iphoneos*]' => 'i386 x86_64',
         'OTHER_LDFLAGS' => '-lffmpegkit',
+      }
+      s.user_target_xcconfig = {
+        'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386 x86_64',
+        'EXCLUDED_ARCHS[sdk=iphoneos*]' => 'i386 x86_64',
       }
     else
       puts "FFmpegKit: ERROR - iOS slice not found at #{xcframework_path}/ios-*"

@@ -230,6 +230,8 @@ class _HomePageState extends State<HomePage>
   Future<void> _generateTestVideo() async {
     // Use temporary directory for FFmpeg output.
     final tempDir = await getTemporaryDirectory();
+    final outputDir = Directory(tempDir.path);
+    await outputDir.create(recursive: true);
     final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
     _addLog(
         "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---");
@@ -251,6 +253,8 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _generateTestAudio() async {
     final tempDir = await getTemporaryDirectory();
+    final outputDir = Directory(tempDir.path);
+    await outputDir.create(recursive: true);
     final outputPath = path.join(tempDir.path, 'test_audio.wav');
     _addLog("--- Generating Test Audio to: $outputPath ---");
 
@@ -569,12 +573,15 @@ class _HomePageState extends State<HomePage>
       setState(() => _surface = surface);
     }
 
-    final session = await FFplayKit.executeAsync("-i \"$localPath\"",
+    final session = await FFplayKit.executeAsync(
+        "-hide_banner -loglevel verbose -autoexit -i \"$localPath\"",
         onComplete: (session) {
       _addLog("FFplay playback of $fileName finished");
     });
+    session.enableDebugLog();
     _attachPositionStream(session);
     _addLog("Playback started.");
+    _addLog(session.getDebugLog());
   }
 
   Future<void> _runCustomFFplay() async {
