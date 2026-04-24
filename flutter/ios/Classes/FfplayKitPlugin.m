@@ -318,7 +318,7 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   FfkitPixelTexture *tex = _texture;
   _texture = nil;
 
-  // 1. Stop frame delivery.
+  // 1. Stop frame delivery FIRST to prevent any new frames from arriving.
   _ffplay_set_frame_callback_fn(NULL, NULL);
 
   // 2. Drain any in-flight callback: -invalidate acquires _lock, which

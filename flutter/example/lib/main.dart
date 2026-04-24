@@ -47,12 +47,15 @@ class _HomePageState extends State<HomePage>
   late TabController _tabController;
   final TextEditingController _outputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final TextEditingController _ffmpegCommandController =
-      TextEditingController(text: "-version");
-  final TextEditingController _ffprobeCommandController =
-      TextEditingController(text: "-version");
-  final TextEditingController _ffplayCommandController =
-      TextEditingController(text: "-i test_video.mp4");
+  final TextEditingController _ffmpegCommandController = TextEditingController(
+    text: "-version",
+  );
+  final TextEditingController _ffprobeCommandController = TextEditingController(
+    text: "-version",
+  );
+  final TextEditingController _ffplayCommandController = TextEditingController(
+    text: "-i test_video.mp4",
+  );
   String? _selectedProbePath;
   String _status = 'Ready';
   final _mediaStore = AndroidMediaStore.instance;
@@ -93,20 +96,21 @@ class _HomePageState extends State<HomePage>
     _fsController = FFplayViewController(
       onEnterFullscreen:
           (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
-              ? () => windowManager.setFullScreen(true)
-              : null,
+          ? () => windowManager.setFullScreen(true)
+          : null,
       onExitFullscreen:
           (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
-              ? () => windowManager.setFullScreen(false)
-              : null,
+          ? () => windowManager.setFullScreen(false)
+          : null,
     );
     _initializePlugin();
     _currentLogLevel = FFmpegKitConfig.getLogLevel();
     final tabController = TabController(length: 3, vsync: this);
     if (Platform.isAndroid) {
       // Listen for MANAGE_MEDIA permission changes.
-      _permissionStreamSub =
-          _mediaStore.onManageMediaPermissionChanged.listen((isGranted) {
+      _permissionStreamSub = _mediaStore.onManageMediaPermissionChanged.listen((
+        isGranted,
+      ) {
         if (mounted) {
           setState(() {
             _status = isGranted
@@ -114,9 +118,9 @@ class _HomePageState extends State<HomePage>
                 : 'Manage Media Permission: Denied';
             _addLog(_status);
           });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(_status)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(_status)));
         }
       });
     }
@@ -209,11 +213,15 @@ class _HomePageState extends State<HomePage>
     _addLog("--- Running FFmpeg -version (Async) ---");
 
     // Async execution captures logs in real-time.
-    await FFmpegKit.executeAsync("-version", onLog: (log) {
-      _addLog(log.message);
-    }, onComplete: (session) {
-      _addLog("Return code: ${session.getReturnCode()}");
-    });
+    await FFmpegKit.executeAsync(
+      "-version",
+      onLog: (log) {
+        _addLog(log.message);
+      },
+      onComplete: (session) {
+        _addLog("Return code: ${session.getReturnCode()}");
+      },
+    );
   }
 
   void _runFFmpegInfoSync() {
@@ -234,21 +242,26 @@ class _HomePageState extends State<HomePage>
     await outputDir.create(recursive: true);
     final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
     _addLog(
-        "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---");
+      "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---",
+    );
 
     // Command with both video and audio streams
     const command =
         "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
 
-    await FFmpegKit.executeAsync("$command \"$tempOutputPath\"", onLog: (log) {
-      _addLog(log.message);
-    }, onComplete: (session) {
-      if (ReturnCode.isSuccess(session.getReturnCode())) {
-        _addLog("✅ Video with audio generated successfully!");
-      } else {
-        _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
-      }
-    });
+    await FFmpegKit.executeAsync(
+      "$command \"$tempOutputPath\"",
+      onLog: (log) {
+        _addLog(log.message);
+      },
+      onComplete: (session) {
+        if (ReturnCode.isSuccess(session.getReturnCode())) {
+          _addLog("✅ Video with audio generated successfully!");
+        } else {
+          _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
+        }
+      },
+    );
   }
 
   Future<void> _generateTestAudio() async {
@@ -262,15 +275,19 @@ class _HomePageState extends State<HomePage>
     const command =
         "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=10 -y";
 
-    await FFmpegKit.executeAsync("$command \"$outputPath\"", onLog: (log) {
-      _addLog(log.message);
-    }, onComplete: (session) {
-      if (ReturnCode.isSuccess(session.getReturnCode())) {
-        _addLog("✅ Audio generated successfully!");
-      } else {
-        _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
-      }
-    });
+    await FFmpegKit.executeAsync(
+      "$command \"$outputPath\"",
+      onLog: (log) {
+        _addLog(log.message);
+      },
+      onComplete: (session) {
+        if (ReturnCode.isSuccess(session.getReturnCode())) {
+          _addLog("✅ Audio generated successfully!");
+        } else {
+          _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
+        }
+      },
+    );
   }
 
   Future<void> _showSystemInfo() async {
@@ -280,7 +297,8 @@ class _HomePageState extends State<HomePage>
     _addLog("Build Date: ${FFmpegKitConfig.getBuildDate()}");
     _addLog("Package Name: ${FFmpegKitConfig.getPackageName()}");
     _addLog(
-        "Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}");
+      "Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}",
+    );
   }
 
   // Introspection API methods
@@ -326,9 +344,9 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _showNonfreeStatus() async {
     _addLog("--- Non-Free Status ---");
-    _addLog(FFmpegKitExtended.isNonfree()
-        ? "Non-free enabled"
-        : "Non-free disabled");
+    _addLog(
+      FFmpegKitExtended.isNonfree() ? "Non-free enabled" : "Non-free disabled",
+    );
   }
 
   Future<void> _showRegisteredCodecs() async {
@@ -376,9 +394,11 @@ class _HomePageState extends State<HomePage>
   Future<void> _showRegisteredBitstreamFilters() async {
     _addLog("--- Registered Bitstream Filters ---");
     final bitstreamFilters = FFmpegKitExtended.getRegisteredBitstreamFilters();
-    _addLog(bitstreamFilters.isEmpty
-        ? "No bitstream filters found"
-        : bitstreamFilters);
+    _addLog(
+      bitstreamFilters.isEmpty
+          ? "No bitstream filters found"
+          : bitstreamFilters,
+    );
   }
 
   Future<void> _showBuildConfiguration() async {
@@ -403,22 +423,29 @@ class _HomePageState extends State<HomePage>
   Future<void> _runCustomFFmpeg() async {
     final command = _ffmpegCommandController.text;
     _addLog("--- Running Custom FFmpeg: $command ---");
-    await FFmpegKit.executeAsync(command, onLog: (log) {
-      _addLog(log.message);
-    }, onComplete: (session) {
-      _addLog("Return code: ${session.getReturnCode()}");
-    });
+    await FFmpegKit.executeAsync(
+      command,
+      onLog: (log) {
+        _addLog(log.message);
+      },
+      onComplete: (session) {
+        _addLog("Return code: ${session.getReturnCode()}");
+      },
+    );
   }
 
   // --- FFprobe Examples ---
 
   Future<void> _runFFprobeVersion() async {
     _addLog("--- Running FFprobe -version (Async) ---");
-    await FFprobeKit.executeAsync("-version", onComplete: (session) {
-      final output = session.getOutput();
-      _addLog(output ?? "No output found in session object.");
-      _addLog("Return code: ${session.getReturnCode()}");
-    });
+    await FFprobeKit.executeAsync(
+      "-version",
+      onComplete: (session) {
+        final output = session.getOutput();
+        _addLog(output ?? "No output found in session object.");
+        _addLog("Return code: ${session.getReturnCode()}");
+      },
+    );
   }
 
   void _runFFprobeInfoSync() {
@@ -459,37 +486,44 @@ class _HomePageState extends State<HomePage>
 
     _addLog("--- Getting Media Information for $probePath ---");
 
-    await FFprobeKit.getMediaInformationAsync(probePath, onComplete: (session) {
-      if (session.isMediaInformationSession()) {
-        final mediaInfoSession = session as MediaInformationSession;
-        final info = mediaInfoSession.getMediaInformation();
-        if (info != null) {
-          _addLog("Format: ${info.format}");
-          _addLog("Duration: ${info.duration}s");
-          _addLog("Bitrate: ${info.bitrate}");
-          _addLog("Streams count: ${info.streams.length}");
-          _addLog("Media Information: ${info.allPropertiesJson}");
-          for (var i = 0; i < info.streams.length; i++) {
-            final stream = info.streams[i];
-            _addLog(
-                " Stream #$i: ${stream.type} (${stream.codec}) - ${stream.width}x${stream.height}");
+    await FFprobeKit.getMediaInformationAsync(
+      probePath,
+      onComplete: (session) {
+        if (session.isMediaInformationSession()) {
+          final mediaInfoSession = session as MediaInformationSession;
+          final info = mediaInfoSession.getMediaInformation();
+          if (info != null) {
+            _addLog("Format: ${info.format}");
+            _addLog("Duration: ${info.duration}s");
+            _addLog("Bitrate: ${info.bitrate}");
+            _addLog("Streams count: ${info.streams.length}");
+            _addLog("Media Information: ${info.allPropertiesJson}");
+            for (var i = 0; i < info.streams.length; i++) {
+              final stream = info.streams[i];
+              _addLog(
+                " Stream #$i: ${stream.type} (${stream.codec}) - ${stream.width}x${stream.height}",
+              );
+            }
+          } else {
+            _addLog("Failed to retrieve media information. Check logs below:");
+            _addLog(session.getLogs() ?? "Empty logs.");
           }
-        } else {
-          _addLog("Failed to retrieve media information. Check logs below:");
-          _addLog(session.getLogs() ?? "Empty logs.");
         }
-      }
-    });
+      },
+    );
   }
 
   Future<void> _runCustomFFprobe() async {
     final command = _ffprobeCommandController.text;
     _addLog("--- Running Custom FFprobe: $command ---");
-    await FFprobeKit.executeAsync(command, onComplete: (session) {
-      final output = session.getOutput();
-      if (output != null) _addLog(output);
-      _addLog("Return code: ${session.getReturnCode()}");
-    });
+    await FFprobeKit.executeAsync(
+      command,
+      onComplete: (session) {
+        final output = session.getOutput();
+        if (output != null) _addLog(output);
+        _addLog("Return code: ${session.getReturnCode()}");
+      },
+    );
   }
 
   // --- FFplay Example ---
@@ -574,14 +608,16 @@ class _HomePageState extends State<HomePage>
     }
 
     final session = await FFplayKit.executeAsync(
-        "-hide_banner -loglevel verbose -autoexit -i \"$localPath\"",
-        onComplete: (session) {
-      _addLog("FFplay playback of $fileName finished");
-    });
+      "-hide_banner -loglevel verbose -autoexit -i \"$localPath\"",
+      onComplete: (session) {
+        _addLog("FFplay playback of $fileName finished");
+        _addLog("Ffplay logs: ${session.getLogs()}");
+        _addLog(session.getDebugLog());
+      },
+    );
     session.enableDebugLog();
     _attachPositionStream(session);
     _addLog("Playback started.");
-    _addLog(session.getDebugLog());
   }
 
   Future<void> _runCustomFFplay() async {
@@ -594,11 +630,13 @@ class _HomePageState extends State<HomePage>
       setState(() => _surface = surface);
     }
 
-    final session =
-        await FFplayKit.executeAsync(command, onComplete: (session) {
-      final output = session.getOutput();
-      _addLog("FFplay playback finished. Output: $output");
-    });
+    final session = await FFplayKit.executeAsync(
+      command,
+      onComplete: (session) {
+        final output = session.getOutput();
+        _addLog("FFplay playback finished. Output: $output");
+      },
+    );
     _attachPositionStream(session);
   }
 
@@ -611,8 +649,10 @@ class _HomePageState extends State<HomePage>
 
   void _seekBackward() {
     if (_hasActiveSession) {
-      final newPosition =
-          (FFplayKit.position - 1.0).clamp(0.0, double.infinity);
+      final newPosition = (FFplayKit.position - 1.0).clamp(
+        0.0,
+        double.infinity,
+      );
       FFplayKit.seek(newPosition);
     }
   }
@@ -628,345 +668,346 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(builder: (context, constraints) {
-      final isMobile = constraints.maxWidth < 600;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
 
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(isMobile ? 'FFmpeg Kit' : 'FFmpeg Kit Extended'),
-          bottom: TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(isMobile ? 'FFmpeg Kit' : 'FFmpeg Kit Extended'),
+            bottom: TabBar(
+              controller: _tabController,
+              tabs: [
+                Tab(
                   icon: const Icon(Icons.movie),
-                  text: isMobile ? null : "FFmpeg"),
-              Tab(
+                  text: isMobile ? null : "FFmpeg",
+                ),
+                Tab(
                   icon: const Icon(Icons.info),
-                  text: isMobile ? null : "FFprobe"),
-              Tab(
+                  text: isMobile ? null : "FFprobe",
+                ),
+                Tab(
                   icon: const Icon(Icons.play_arrow),
-                  text: isMobile ? null : "FFplay"),
+                  text: isMobile ? null : "FFplay",
+                ),
+              ],
+            ),
+            actions: [
+              PopupMenuButton<LogLevel>(
+                icon: const Icon(Icons.tune),
+                tooltip: "Log Level",
+                onSelected: _setLogLevel,
+                itemBuilder: (BuildContext context) {
+                  return LogLevel.values.map((LogLevel level) {
+                    return PopupMenuItem<LogLevel>(
+                      value: level,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _currentLogLevel == level
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(level.name.toUpperCase()),
+                        ],
+                      ),
+                    );
+                  }).toList();
+                },
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.settings),
+                tooltip: "System Info",
+                onSelected: (String value) {
+                  switch (value) {
+                    case 'basic_info':
+                      _showSystemInfo();
+                      break;
+                    case 'ffmpeg_version':
+                      _showFFmpegVersion();
+                      break;
+                    case 'ffmpeg_arch':
+                      _showFFmpegArchitecture();
+                      break;
+                    case 'ffmpegkit_version':
+                      _showFFmpegKitVersion();
+                      break;
+                    case 'package_name':
+                      _showPackageName();
+                      break;
+                    case 'external_libs':
+                      _showExternalLibraries();
+                      break;
+                    case 'bundle_type':
+                      _showBundleType();
+                      break;
+                    case 'gpl_status':
+                      _showGplStatus();
+                      break;
+                    case 'nonfree_status':
+                      _showNonfreeStatus();
+                      break;
+                    case 'codecs':
+                      _showRegisteredCodecs();
+                      break;
+                    case 'encoders':
+                      _showRegisteredEncoders();
+                      break;
+                    case 'decoders':
+                      _showRegisteredDecoders();
+                      break;
+                    case 'muxers':
+                      _showRegisteredMuxers();
+                      break;
+                    case 'demuxers':
+                      _showRegisteredDemuxers();
+                      break;
+                    case 'filters':
+                      _showRegisteredFilters();
+                      break;
+                    case 'protocols':
+                      _showRegisteredProtocols();
+                      break;
+                    case 'bitstream_filters':
+                      _showRegisteredBitstreamFilters();
+                      break;
+                    case 'build_config':
+                      _showBuildConfiguration();
+                      break;
+                    case 'build_date':
+                      _showBuildDate();
+                      break;
+                  }
+                },
+                itemBuilder: (BuildContext context) {
+                  return [
+                    const PopupMenuItem<String>(
+                      value: 'basic_info',
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline),
+                          SizedBox(width: 8),
+                          Text('Basic System Info'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<String>(
+                      value: 'ffmpeg_version',
+                      child: Row(
+                        children: [
+                          Icon(Icons.verified),
+                          SizedBox(width: 8),
+                          Text('FFmpeg Version'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'ffmpeg_arch',
+                      child: Row(
+                        children: [
+                          Icon(Icons.memory),
+                          SizedBox(width: 8),
+                          Text('FFmpeg Architecture'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'ffmpegkit_version',
+                      child: Row(
+                        children: [
+                          Icon(Icons.info),
+                          SizedBox(width: 8),
+                          Text('FFmpegKit Version'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem<String>(
+                      value: 'package_name',
+                      child: Row(
+                        children: [
+                          Icon(Icons.inventory_2_outlined),
+                          SizedBox(width: 8),
+                          Text('Package Name'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'external_libs',
+                      child: Row(
+                        children: [
+                          Icon(Icons.library_books),
+                          SizedBox(width: 8),
+                          Text('External Libraries'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'bundle_type',
+                      child: Row(
+                        children: [
+                          Icon(Icons.category),
+                          SizedBox(width: 8),
+                          Text('Bundle Type'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<String>(
+                      value: 'gpl_status',
+                      child: Row(
+                        children: [
+                          Icon(Icons.gavel),
+                          SizedBox(width: 8),
+                          Text('GPL Status'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'nonfree_status',
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock),
+                          SizedBox(width: 8),
+                          Text('Non-Free Status'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<String>(
+                      value: 'codecs',
+                      child: Row(
+                        children: [
+                          Icon(Icons.video_settings),
+                          SizedBox(width: 8),
+                          Text('Registered Codecs'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'encoders',
+                      child: Row(
+                        children: [
+                          Icon(Icons.upload),
+                          SizedBox(width: 8),
+                          Text('Registered Encoders'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'decoders',
+                      child: Row(
+                        children: [
+                          Icon(Icons.download),
+                          SizedBox(width: 8),
+                          Text('Registered Decoders'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'muxers',
+                      child: Row(
+                        children: [
+                          Icon(Icons.merge_type),
+                          SizedBox(width: 8),
+                          Text('Registered Muxers'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'demuxers',
+                      child: Row(
+                        children: [
+                          Icon(Icons.call_split),
+                          SizedBox(width: 8),
+                          Text('Registered Demuxers'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'filters',
+                      child: Row(
+                        children: [
+                          Icon(Icons.filter_alt),
+                          SizedBox(width: 8),
+                          Text('Registered Filters'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'protocols',
+                      child: Row(
+                        children: [
+                          Icon(Icons.link),
+                          SizedBox(width: 8),
+                          Text('Registered Protocols'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'bitstream_filters',
+                      child: Row(
+                        children: [
+                          Icon(Icons.tune),
+                          SizedBox(width: 8),
+                          Text('Registered Bitstream Filters'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem<String>(
+                      value: 'build_config',
+                      child: Row(
+                        children: [
+                          Icon(Icons.build),
+                          SizedBox(width: 8),
+                          Text('Build Configuration'),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'build_date',
+                      child: Row(
+                        children: [
+                          Icon(Icons.date_range),
+                          SizedBox(width: 8),
+                          Text('Build Date'),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: _clearLogs,
+                tooltip: "Clear Logs",
+              ),
+              IconButton(
+                icon: const Icon(Icons.verified_user),
+                onPressed: _checkPermissions,
+                tooltip: "Check / Request Permissions",
+              ),
             ],
           ),
-          actions: [
-            PopupMenuButton<LogLevel>(
-              icon: const Icon(Icons.tune),
-              tooltip: "Log Level",
-              onSelected: _setLogLevel,
-              itemBuilder: (BuildContext context) {
-                return LogLevel.values.map((LogLevel level) {
-                  return PopupMenuItem<LogLevel>(
-                    value: level,
-                    child: Row(
-                      children: [
-                        Icon(
-                          _currentLogLevel == level
-                              ? Icons.radio_button_checked
-                              : Icons.radio_button_unchecked,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(level.name.toUpperCase()),
-                      ],
-                    ),
-                  );
-                }).toList();
-              },
-            ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.settings),
-              tooltip: "System Info",
-              onSelected: (String value) {
-                switch (value) {
-                  case 'basic_info':
-                    _showSystemInfo();
-                    break;
-                  case 'ffmpeg_version':
-                    _showFFmpegVersion();
-                    break;
-                  case 'ffmpeg_arch':
-                    _showFFmpegArchitecture();
-                    break;
-                  case 'ffmpegkit_version':
-                    _showFFmpegKitVersion();
-                    break;
-                  case 'package_name':
-                    _showPackageName();
-                    break;
-                  case 'external_libs':
-                    _showExternalLibraries();
-                    break;
-                  case 'bundle_type':
-                    _showBundleType();
-                    break;
-                  case 'gpl_status':
-                    _showGplStatus();
-                    break;
-                  case 'nonfree_status':
-                    _showNonfreeStatus();
-                    break;
-                  case 'codecs':
-                    _showRegisteredCodecs();
-                    break;
-                  case 'encoders':
-                    _showRegisteredEncoders();
-                    break;
-                  case 'decoders':
-                    _showRegisteredDecoders();
-                    break;
-                  case 'muxers':
-                    _showRegisteredMuxers();
-                    break;
-                  case 'demuxers':
-                    _showRegisteredDemuxers();
-                    break;
-                  case 'filters':
-                    _showRegisteredFilters();
-                    break;
-                  case 'protocols':
-                    _showRegisteredProtocols();
-                    break;
-                  case 'bitstream_filters':
-                    _showRegisteredBitstreamFilters();
-                    break;
-                  case 'build_config':
-                    _showBuildConfiguration();
-                    break;
-                  case 'build_date':
-                    _showBuildDate();
-                    break;
-                }
-              },
-              itemBuilder: (BuildContext context) {
-                return [
-                  const PopupMenuItem<String>(
-                    value: 'basic_info',
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline),
-                        SizedBox(width: 8),
-                        Text('Basic System Info'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'ffmpeg_version',
-                    child: Row(
-                      children: [
-                        Icon(Icons.verified),
-                        SizedBox(width: 8),
-                        Text('FFmpeg Version'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'ffmpeg_arch',
-                    child: Row(
-                      children: [
-                        Icon(Icons.memory),
-                        SizedBox(width: 8),
-                        Text('FFmpeg Architecture'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'ffmpegkit_version',
-                    child: Row(
-                      children: [
-                        Icon(Icons.info),
-                        SizedBox(width: 8),
-                        Text('FFmpegKit Version'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem<String>(
-                    value: 'package_name',
-                    child: Row(
-                      children: [
-                        Icon(Icons.inventory_2_outlined),
-                        SizedBox(width: 8),
-                        Text('Package Name'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'external_libs',
-                    child: Row(
-                      children: [
-                        Icon(Icons.library_books),
-                        SizedBox(width: 8),
-                        Text('External Libraries'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'bundle_type',
-                    child: Row(
-                      children: [
-                        Icon(Icons.category),
-                        SizedBox(width: 8),
-                        Text('Bundle Type'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'gpl_status',
-                    child: Row(
-                      children: [
-                        Icon(Icons.gavel),
-                        SizedBox(width: 8),
-                        Text('GPL Status'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'nonfree_status',
-                    child: Row(
-                      children: [
-                        Icon(Icons.lock),
-                        SizedBox(width: 8),
-                        Text('Non-Free Status'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'codecs',
-                    child: Row(
-                      children: [
-                        Icon(Icons.video_settings),
-                        SizedBox(width: 8),
-                        Text('Registered Codecs'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'encoders',
-                    child: Row(
-                      children: [
-                        Icon(Icons.upload),
-                        SizedBox(width: 8),
-                        Text('Registered Encoders'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'decoders',
-                    child: Row(
-                      children: [
-                        Icon(Icons.download),
-                        SizedBox(width: 8),
-                        Text('Registered Decoders'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'muxers',
-                    child: Row(
-                      children: [
-                        Icon(Icons.merge_type),
-                        SizedBox(width: 8),
-                        Text('Registered Muxers'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'demuxers',
-                    child: Row(
-                      children: [
-                        Icon(Icons.call_split),
-                        SizedBox(width: 8),
-                        Text('Registered Demuxers'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'filters',
-                    child: Row(
-                      children: [
-                        Icon(Icons.filter_alt),
-                        SizedBox(width: 8),
-                        Text('Registered Filters'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'protocols',
-                    child: Row(
-                      children: [
-                        Icon(Icons.link),
-                        SizedBox(width: 8),
-                        Text('Registered Protocols'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'bitstream_filters',
-                    child: Row(
-                      children: [
-                        Icon(Icons.tune),
-                        SizedBox(width: 8),
-                        Text('Registered Bitstream Filters'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'build_config',
-                    child: Row(
-                      children: [
-                        Icon(Icons.build),
-                        SizedBox(width: 8),
-                        Text('Build Configuration'),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'build_date',
-                    child: Row(
-                      children: [
-                        Icon(Icons.date_range),
-                        SizedBox(width: 8),
-                        Text('Build Date'),
-                      ],
-                    ),
-                  ),
-                ];
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _clearLogs,
-              tooltip: "Clear Logs",
-            ),
-            IconButton(
-              icon: const Icon(Icons.verified_user),
-              onPressed: _checkPermissions,
-              tooltip: "Check / Request Permissions",
-            )
-          ],
-        ),
-        body: Column(
-          children: [
-            Expanded(flex: isMobile ? 3 : 2, child: _buildTabBarView()),
-            const Divider(height: 1),
-            Expanded(flex: isMobile ? 2 : 1, child: _buildLogView()),
-          ],
-        ),
-      );
-    });
+          body: Column(
+            children: [
+              Expanded(flex: isMobile ? 3 : 2, child: _buildTabBarView()),
+              const Divider(height: 1),
+              Expanded(flex: isMobile ? 2 : 1, child: _buildLogView()),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTabBarView() {
     return TabBarView(
       controller: _tabController,
-      children: [
-        _buildFFmpegTab(),
-        _buildFFprobeTab(),
-        _buildFFplayTab(),
-      ],
+      children: [_buildFFmpegTab(), _buildFFprobeTab(), _buildFFplayTab()],
     );
   }
 
@@ -985,9 +1026,7 @@ class _HomePageState extends State<HomePage>
             fontFamily: 'monospace',
             fontSize: 12,
           ),
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-          ),
+          decoration: const InputDecoration(border: InputBorder.none),
         ),
       ),
     );
@@ -1007,16 +1046,25 @@ class _HomePageState extends State<HomePage>
               _demoButton(_generateTestAudio, Icons.audiotrack, "Gen Audio"),
               _demoButton(_runFFmpegVersion, Icons.bolt, "Async Version"),
               _demoButton(_runFFmpegInfoSync, Icons.timer, "Sync Version"),
-              _demoButton(() async {
-                _addLog("--- Running Help ---");
-                await FFmpegKit.executeAsync("-h",
-                    onLog: (l) => _addLog(l.message));
-              }, Icons.help_outline, "Help"),
+              _demoButton(
+                () async {
+                  _addLog("--- Running Help ---");
+                  await FFmpegKit.executeAsync(
+                    "-h",
+                    onLog: (l) => _addLog(l.message),
+                  );
+                },
+                Icons.help_outline,
+                "Help",
+              ),
             ],
           ),
           const SizedBox(height: 24),
-          _buildCustomCommandSection(_ffmpegCommandController, _runCustomFFmpeg,
-              "Enter FFmpeg command"),
+          _buildCustomCommandSection(
+            _ffmpegCommandController,
+            _runCustomFFmpeg,
+            "Enter FFmpeg command",
+          ),
         ],
       ),
     );
@@ -1029,9 +1077,10 @@ class _HomePageState extends State<HomePage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_selectedProbePath != null) ...[
-            Text("Selected: ${path.basename(_selectedProbePath!)}",
-                style:
-                    const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+            Text(
+              "Selected: ${path.basename(_selectedProbePath!)}",
+              style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
+            ),
             const SizedBox(height: 8),
           ],
           Wrap(
@@ -1040,14 +1089,20 @@ class _HomePageState extends State<HomePage>
             children: [
               _demoButton(_pickProbeFile, Icons.file_open, "Pick File"),
               _demoButton(
-                  _runMediaInformation, Icons.analytics, "Get Media Info"),
+                _runMediaInformation,
+                Icons.analytics,
+                "Get Media Info",
+              ),
               _demoButton(_runFFprobeVersion, Icons.bolt, "Async Version"),
               _demoButton(_runFFprobeInfoSync, Icons.timer, "Sync Version"),
             ],
           ),
           const SizedBox(height: 24),
-          _buildCustomCommandSection(_ffprobeCommandController,
-              _runCustomFFprobe, "Enter FFprobe command"),
+          _buildCustomCommandSection(
+            _ffprobeCommandController,
+            _runCustomFFprobe,
+            "Enter FFprobe command",
+          ),
         ],
       ),
     );
@@ -1101,11 +1156,16 @@ class _HomePageState extends State<HomePage>
             ),
             const SizedBox(height: 12),
           ],
-          _buildCustomCommandSection(_ffplayCommandController, _runCustomFFplay,
-              "Enter FFplay command"),
+          _buildCustomCommandSection(
+            _ffplayCommandController,
+            _runCustomFFplay,
+            "Enter FFplay command",
+          ),
           const SizedBox(height: 20),
-          const Text("1. Generate Media:",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            "1. Generate Media:",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 10,
@@ -1115,55 +1175,75 @@ class _HomePageState extends State<HomePage>
             ],
           ),
           const SizedBox(height: 20),
-          const Text("2. Play Generated:",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            "2. Play Generated:",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 10,
             children: [
-              _demoButton(() => _runFFplay('test_video.mp4'),
-                  Icons.play_circle_filled, "Play Video"),
-              _demoButton(() => _runFFplay('test_audio.wav'), Icons.music_note,
-                  "Play Audio"),
+              _demoButton(
+                () => _runFFplay('test_video.mp4'),
+                Icons.play_circle_filled,
+                "Play Video",
+              ),
+              _demoButton(
+                () => _runFFplay('test_audio.wav'),
+                Icons.music_note,
+                "Play Audio",
+              ),
             ],
           ),
           const SizedBox(height: 20),
-          const Text("Controls:",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            "Controls:",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           Row(
             children: [
               IconButton(
-                  onPressed: () => FFplayKit.pause(),
-                  icon: const Icon(Icons.pause)),
+                onPressed: () => FFplayKit.pause(),
+                icon: const Icon(Icons.pause),
+              ),
               IconButton(
-                  onPressed: () => FFplayKit.resume(),
-                  icon: const Icon(Icons.play_arrow)),
+                onPressed: () => FFplayKit.resume(),
+                icon: const Icon(Icons.play_arrow),
+              ),
               IconButton(
-                  onPressed: () => FFplayKit.stop(),
-                  icon: const Icon(Icons.stop)),
+                onPressed: () => FFplayKit.stop(),
+                icon: const Icon(Icons.stop),
+              ),
               IconButton(
-                  onPressed: () => _seekForward(),
-                  icon: const Icon(Icons.fast_forward)),
+                onPressed: () => _seekForward(),
+                icon: const Icon(Icons.fast_forward),
+              ),
               IconButton(
-                  onPressed: () => _seekBackward(),
-                  icon: const Icon(Icons.fast_rewind)),
+                onPressed: () => _seekBackward(),
+                icon: const Icon(Icons.fast_rewind),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           if (_hasActiveSession) ...[
             Text(
-                "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}"),
+              "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}",
+            ),
             Text(
-                "Position: ${_playbackPosition.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s"),
+              "Position: ${_playbackPosition.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s",
+            ),
             Slider(
-              value: (_playbackPosition /
-                      (FFplayKit.duration > 0 ? FFplayKit.duration : 1.0))
-                  .clamp(0.0, 1.0),
+              value:
+                  (_playbackPosition /
+                          (FFplayKit.duration > 0 ? FFplayKit.duration : 1.0))
+                      .clamp(0.0, 1.0),
               onChanged: (val) => FFplayKit.seek(val * FFplayKit.duration),
             ),
             const SizedBox(height: 16),
-            const Text("Volume:",
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              "Volume:",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             Row(
               children: [
                 const Icon(Icons.volume_down),
@@ -1185,8 +1265,10 @@ class _HomePageState extends State<HomePage>
                 const Icon(Icons.volume_up),
                 SizedBox(
                   width: 40,
-                  child: Text("${(_volume * 100).round()}%",
-                      textAlign: TextAlign.center),
+                  child: Text(
+                    "${(_volume * 100).round()}%",
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ),
@@ -1209,12 +1291,17 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildCustomCommandSection(
-      TextEditingController controller, VoidCallback onRun, String hint) {
+    TextEditingController controller,
+    VoidCallback onRun,
+    String hint,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Custom Command:",
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text(
+          "Custom Command:",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         Row(
           children: [

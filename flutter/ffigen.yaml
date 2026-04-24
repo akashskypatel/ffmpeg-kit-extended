@@ -2,6 +2,10 @@ name: 'FFmpegKitBindings'
 description: 'Dart bindings for FFmpegKit C Wrapper'
 output: 'lib/src/generated/ffmpeg_kit_bindings.dart'
 
+# Native Assets Support
+ffi-native:
+  asset-id: 'package:ffmpeg_kit_extended_flutter/ffmpegkit'
+
 headers:
   entry-points:
     - '.dart_tool/ffmpeg_kit_extended_flutter/include/ffmpegkit_wrapper.h'

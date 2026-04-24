@@ -25,7 +25,7 @@ import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'ffmpeg_kit_extended_flutter_loader.dart';
+import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 
 /// A session for executing FFprobe commands.
 ///
@@ -87,8 +87,7 @@ class FFprobeSession extends Session {
   static FFprobeSession create(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
-  }) =>
-      FFprobeSession(command, completeCallback: completeCallback);
+  }) => FFprobeSession(command, completeCallback: completeCallback);
 
   // ---------------------------------------------------------------------------
   // Callback accessors / mutators
@@ -116,21 +115,20 @@ class FFprobeSession extends Session {
   /// Enqueues this session for synchronous native execution and returns `this`
   /// immediately (fire-and-forget).
   FFprobeSession execute() {
-    SessionQueueManager().executeSession(
-      this,
-      () async {
-        FFmpegKitExtended.requireInitialized();
-        ffmpeg.ffprobe_kit_session_execute(handle);
-        try {
-          _completeCallback?.call(this);
-        } catch (e, st) {
-          log('FFprobeSession.execute: error in completeCallback: $e\n$st');
-        }
-        _unregister();
-      },
-    ).catchError((Object e, StackTrace st) {
-      log('FFprobeSession.execute: queue error: $e\n$st');
-    });
+    SessionQueueManager()
+        .executeSession(this, () async {
+          FFmpegKitExtended.requireInitialized();
+          ffmpeg.ffprobe_kit_session_execute(handle);
+          try {
+            _completeCallback?.call(this);
+          } catch (e, st) {
+            log('FFprobeSession.execute: error in completeCallback: $e\n$st');
+          }
+          _unregister();
+        })
+        .catchError((Object e, StackTrace st) {
+          log('FFprobeSession.execute: queue error: $e\n$st');
+        });
     return this;
   }
 
@@ -138,17 +136,19 @@ class FFprobeSession extends Session {
   static FFprobeSession executeCommand(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
-  }) =>
-      FFprobeSession.create(command, completeCallback: completeCallback)
-          .execute();
+  }) => FFprobeSession.create(
+    command,
+    completeCallback: completeCallback,
+  ).execute();
 
   /// Creates and executes a session asynchronously.
   static Future<FFprobeSession> executeCommandAsync(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
-  }) =>
-      FFprobeSession.create(command, completeCallback: completeCallback)
-          .executeAsync();
+  }) => FFprobeSession.create(
+    command,
+    completeCallback: completeCallback,
+  ).executeAsync();
 
   /// Executes this session asynchronously and returns a [Future] that
   /// resolves when execution finishes.
@@ -181,8 +181,7 @@ class FFprobeSession extends Session {
   static MediaInformationSession createMediaInformationSessionAsync(
     String path, {
     MediaInformationSessionCompleteCallback? onComplete,
-  }) =>
-      MediaInformationSession.fromPath(path, completeCallback: onComplete);
+  }) => MediaInformationSession.fromPath(path, completeCallback: onComplete);
 
   // ---------------------------------------------------------------------------
   // Session type identity
@@ -223,7 +222,9 @@ class FFprobeSession extends Session {
       try {
         userCompleteCallback?.call(s);
       } catch (e, st) {
-        log('FFprobeSession: error in completeCallback for session $sessionId: $e\n$st');
+        log(
+          'FFprobeSession: error in completeCallback for session $sessionId: $e\n$st',
+        );
       }
 
       // Complete last — everything is torn down, so any awaiter gets a fully
@@ -232,7 +233,9 @@ class FFprobeSession extends Session {
     };
 
     ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-        nativeFFprobeComplete.nativeFunction, nullptr);
+      nativeFFprobeComplete.nativeFunction,
+      nullptr,
+    );
 
     try {
       ffmpeg.ffprobe_kit_session_execute_async(handle);

@@ -77,9 +77,9 @@ enum LogLevel {
 
   /// Creates a [LogLevel] from its raw integer [value].
   static LogLevel fromValue(int value) => LogLevel.values.firstWhere(
-        (e) => e.value == value,
-        orElse: () => LogLevel.debug, // Default fallback
-      );
+    (e) => e.value == value,
+    orElse: () => LogLevel.debug, // Default fallback
+  );
 }
 
 /// Represents a single log entry emitted by FFmpeg.

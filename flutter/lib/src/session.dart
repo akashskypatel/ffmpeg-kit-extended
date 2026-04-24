@@ -26,7 +26,9 @@ import '../ffmpeg_kit_extended_flutter.dart'
         FFprobeSession,
         MediaInformationSession,
         FFmpegKitExtended;
-import 'ffmpeg_kit_extended_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart'
+    show ffmpegKitHandleReleasePtr;
+import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 import 'statistics.dart';
 
 // ---------------------------------------------------------------------------
@@ -67,9 +69,9 @@ enum SessionState {
   /// Falls back to [SessionState.failed] for any unrecognised value so that
   /// callers always receive a valid enum member rather than a runtime error.
   static SessionState fromValue(int value) => SessionState.values.firstWhere(
-        (e) => e.value == value,
-        orElse: () => SessionState.failed,
-      );
+    (e) => e.value == value,
+    orElse: () => SessionState.failed,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -146,20 +148,16 @@ abstract class Session implements Finalizable {
   static NativeFinalizer _getFinalizer() {
     if (_sharedFinalizer != null) return _sharedFinalizer!;
 
-    Pointer<NativeFunction<Void Function(Pointer<Void>)>> ptr;
-    try {
-      ptr = ffmpegLibrary
-          .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-              'ffmpeg_kit_handle_release')
-          .cast();
-    } catch (_) {
-      // Library not loaded (unit-test environment with a stub / no-op lib).
+    final ptr = ffmpegKitHandleReleasePtr;
+    if (ptr == null) {
+      // Library not loaded or symbol not resolved (unit-test environment).
       // A zero-address token is safe: NativeFinalizer will never invoke it
       // because it only runs on GC, and tests should not create sessions that
       // reach GC in this code path.
-      ptr = Pointer.fromAddress(0);
+      _sharedFinalizer = NativeFinalizer(Pointer.fromAddress(0));
+    } else {
+      _sharedFinalizer = NativeFinalizer(ptr);
     }
-    _sharedFinalizer = NativeFinalizer(ptr);
     return _sharedFinalizer!;
   }
 
@@ -181,7 +179,8 @@ abstract class Session implements Finalizable {
   SessionState getState() {
     FFmpegKitExtended.requireInitialized();
     return SessionState.fromValue(
-        ffmpeg.ffmpeg_kit_session_get_state(handle).value);
+      ffmpeg.ffmpeg_kit_session_get_state(handle).value,
+    );
   }
 
   /// Returns the native exit code.
@@ -208,7 +207,8 @@ abstract class Session implements Finalizable {
   DateTime getCreateTime() {
     FFmpegKitExtended.requireInitialized();
     return DateTime.fromMillisecondsSinceEpoch(
-        ffmpeg.ffmpeg_kit_session_get_create_time(handle));
+      ffmpeg.ffmpeg_kit_session_get_create_time(handle),
+    );
   }
 
   /// Returns the time at which execution started, or `null` if the session
@@ -256,7 +256,8 @@ abstract class Session implements Finalizable {
   String? getLogsAsString() {
     FFmpegKitExtended.requireInitialized();
     return _toDartStringAndFree(
-        ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle));
+      ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle),
+    );
   }
 
   /// Returns the failure stack trace captured when the session failed, or
@@ -264,14 +265,16 @@ abstract class Session implements Finalizable {
   String? getFailStackTrace() {
     FFmpegKitExtended.requireInitialized();
     return _toDartStringAndFree(
-        ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle));
+      ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle),
+    );
   }
 
   /// Returns the command string as reported by the C layer.
   String getCommand() {
     FFmpegKitExtended.requireInitialized();
     return _toDartStringAndFree(
-            ffmpeg.ffmpeg_kit_session_get_command(handle)) ??
+          ffmpeg.ffmpeg_kit_session_get_command(handle),
+        ) ??
         '';
   }
 
@@ -288,7 +291,8 @@ abstract class Session implements Finalizable {
   String getLogAt(int index) {
     FFmpegKitExtended.requireInitialized();
     return _toDartStringAndFree(
-            ffmpeg.ffmpeg_kit_session_get_log_at(handle, index)) ??
+          ffmpeg.ffmpeg_kit_session_get_log_at(handle, index),
+        ) ??
         '';
   }
 
@@ -310,16 +314,19 @@ abstract class Session implements Finalizable {
   /// out of range.
   Statistics? getStatisticsAt(int index) {
     FFmpegKitExtended.requireInitialized();
-    final statsHandle =
-        ffmpeg.ffmpeg_kit_session_get_statistics_at(handle, index);
+    final statsHandle = ffmpeg.ffmpeg_kit_session_get_statistics_at(
+      handle,
+      index,
+    );
     if (statsHandle == nullptr) return null;
 
     try {
-      final videoFrameNumber =
-          ffmpeg.ffmpeg_kit_statistics_get_video_frame_number(statsHandle);
+      final videoFrameNumber = ffmpeg
+          .ffmpeg_kit_statistics_get_video_frame_number(statsHandle);
       final videoFps = ffmpeg.ffmpeg_kit_statistics_get_video_fps(statsHandle);
-      final videoQuality =
-          ffmpeg.ffmpeg_kit_statistics_get_video_quality(statsHandle);
+      final videoQuality = ffmpeg.ffmpeg_kit_statistics_get_video_quality(
+        statsHandle,
+      );
       final size = ffmpeg.ffmpeg_kit_statistics_get_size(statsHandle);
       // The C API returns time in milliseconds; Statistics.time is int (milliseconds).
       final timeMs = ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle).round();

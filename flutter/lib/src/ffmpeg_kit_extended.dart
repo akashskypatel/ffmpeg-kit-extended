@@ -27,7 +27,7 @@ import 'ffmpeg_kit_extended_flutter_loader.dart';
 import 'ffmpeg_session.dart';
 import 'ffplay_session.dart';
 import 'ffprobe_session.dart';
-import 'generated/ffmpeg_kit_bindings.dart';
+import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 import 'log.dart';
 import 'media_information_session.dart';
 import 'session.dart';
@@ -116,14 +116,17 @@ class FFmpegKitExtended {
   }) {
     requireInitialized();
     _requireNonBlank(command, 'command');
-    return FFplaySession(command,
-        timeout: timeout, completeCallback: completeCallback);
+    return FFplaySession(
+      command,
+      timeout: timeout,
+      completeCallback: completeCallback,
+    );
   }
 
   /// Creates a new [MediaInformationSession] for [command].
   ///
   /// [MediaInformationSession] completion event.  It is now correctly typed
-  /// as [MediaInformationSessionCompleteCallback].
+  /// as [callback_manager.MediaInformationSessionCompleteCallback].
   ///
   /// Throws [ArgumentError] if [command] is blank.
   static MediaInformationSession createMediaInformationSession(
@@ -133,8 +136,11 @@ class FFmpegKitExtended {
   }) {
     requireInitialized();
     _requireNonBlank(command, 'command');
-    return MediaInformationSession(command,
-        timeout: timeout, completeCallback: completeCallback);
+    return MediaInformationSession(
+      command,
+      timeout: timeout,
+      completeCallback: completeCallback,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -169,7 +175,8 @@ class FFmpegKitExtended {
   static void setLogLevel(LogLevel level) {
     requireInitialized();
     ffmpeg.ffmpeg_kit_config_set_log_level(
-        FFmpegKitLogLevel.fromValue(level.value));
+      ffmpeg.FFmpegKitLogLevel.fromValue(level.value),
+    );
   }
 
   /// Returns the current global log level.
@@ -201,7 +208,9 @@ class FFmpegKitExtended {
     final mappingPtr = mapping?.toNativeUtf8() ?? nullptr;
     try {
       ffmpeg.ffmpeg_kit_config_set_font_directory(
-          pathPtr.cast(), mappingPtr.cast());
+        pathPtr.cast(),
+        mappingPtr.cast(),
+      );
     } finally {
       malloc.free(pathPtr);
       if (mappingPtr != nullptr) malloc.free(mappingPtr);
@@ -223,7 +232,8 @@ class FFmpegKitExtended {
   static String listAudioOutputDevices() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_config_list_audio_output_devices());
+      ffmpeg.ffmpeg_kit_config_list_audio_output_devices(),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -237,7 +247,9 @@ class FFmpegKitExtended {
     final valuePtr = value.toNativeUtf8();
     try {
       ffmpeg.ffmpeg_kit_config_set_environment_variable(
-          namePtr.cast(), valuePtr.cast());
+        namePtr.cast(),
+        valuePtr.cast(),
+      );
     } finally {
       malloc.free(namePtr);
       malloc.free(valuePtr);
@@ -248,7 +260,8 @@ class FFmpegKitExtended {
   static void ignoreSignal(Signal signal) {
     requireInitialized();
     ffmpeg.ffmpeg_kit_config_ignore_signal(
-        FFmpegKitSignal.fromValue(signal.value));
+      ffmpeg.FFmpegKitSignal.fromValue(signal.value),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -265,7 +278,8 @@ class FFmpegKitExtended {
   static String getFFmpegArchitecture() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_config_get_ffmpeg_architecture());
+      ffmpeg.ffmpeg_kit_config_get_ffmpeg_architecture(),
+    );
   }
 
   /// Returns the FFmpegKit library version string.
@@ -284,7 +298,8 @@ class FFmpegKitExtended {
   static String getExternalLibraries() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_external_libraries());
+      ffmpeg.ffmpeg_kit_packages_get_external_libraries(),
+    );
   }
 
   /// Returns the FFmpegKit bundle type.
@@ -309,63 +324,72 @@ class FFmpegKitExtended {
   static String getRegisteredCodecs() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_codecs());
+      ffmpeg.ffmpeg_kit_packages_get_registered_codecs(),
+    );
   }
 
   /// Returns a comma-separated list of all registered encoders.
   static String getRegisteredEncoders() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_encoders());
+      ffmpeg.ffmpeg_kit_packages_get_registered_encoders(),
+    );
   }
 
   /// Returns a comma-separated list of all registered decoders.
   static String getRegisteredDecoders() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_decoders());
+      ffmpeg.ffmpeg_kit_packages_get_registered_decoders(),
+    );
   }
 
   /// Returns a comma-separated list of all registered muxers.
   static String getRegisteredMuxers() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_muxers());
+      ffmpeg.ffmpeg_kit_packages_get_registered_muxers(),
+    );
   }
 
   /// Returns a comma-separated list of all registered demuxers.
   static String getRegisteredDemuxers() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_demuxers());
+      ffmpeg.ffmpeg_kit_packages_get_registered_demuxers(),
+    );
   }
 
   /// Returns a comma-separated list of all registered filters.
   static String getRegisteredFilters() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_filters());
+      ffmpeg.ffmpeg_kit_packages_get_registered_filters(),
+    );
   }
 
   /// Returns a comma-separated list of all registered protocols.
   static String getRegisteredProtocols() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_protocols());
+      ffmpeg.ffmpeg_kit_packages_get_registered_protocols(),
+    );
   }
 
   /// Returns a comma-separated list of all registered bitstream filters.
   static String getRegisteredBitstreamFilters() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_registered_bitstream_filters());
+      ffmpeg.ffmpeg_kit_packages_get_registered_bitstream_filters(),
+    );
   }
 
   /// Returns the FFmpeg build configuration string.
   static String getBuildConfiguration() {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_packages_get_build_configuration());
+      ffmpeg.ffmpeg_kit_packages_get_build_configuration(),
+    );
   }
 
   /// Returns the library build date.
@@ -511,65 +535,83 @@ class FFmpegKitExtended {
 
   /// Sets [logCallback] as the global log callback and registers it with the
   /// native layer.  Pass `null` to deregister.
-  static void enableLogCallback(
-      [callback_manager.FFmpegLogCallback? logCallback]) {
+  static void enableLogCallback([
+    callback_manager.FFmpegLogCallback? logCallback,
+  ]) {
     requireInitialized();
     callback_manager.CallbackManager().globalLogCallback = logCallback;
     ffmpeg.ffmpeg_kit_config_enable_log_callback(
-        callback_manager.nativeFFmpegLog.nativeFunction, nullptr);
+      callback_manager.nativeFFmpegLog.nativeFunction,
+      nullptr,
+    );
   }
 
   /// Sets [statisticsCallback] as the global statistics callback.
   /// Pass `null` to deregister.
-  static void enableStatisticsCallback(
-      [callback_manager.FFmpegStatisticsCallback? statisticsCallback]) {
+  static void enableStatisticsCallback([
+    callback_manager.FFmpegStatisticsCallback? statisticsCallback,
+  ]) {
     requireInitialized();
     callback_manager.CallbackManager().globalStatisticsCallback =
         statisticsCallback;
     ffmpeg.ffmpeg_kit_config_enable_statistics_callback(
-        callback_manager.nativeFFmpegStatistics.nativeFunction, nullptr);
+      callback_manager.nativeFFmpegStatistics.nativeFunction,
+      nullptr,
+    );
   }
 
   /// Sets [completeCallback] as the global FFmpeg session complete callback.
-  static void enableFFmpegSessionCompleteCallback(
-      [callback_manager.FFmpegSessionCompleteCallback? completeCallback]) {
+  static void enableFFmpegSessionCompleteCallback([
+    callback_manager.FFmpegSessionCompleteCallback? completeCallback,
+  ]) {
     requireInitialized();
     callback_manager.CallbackManager().globalFFmpegSessionCompleteCallback =
         completeCallback;
     ffmpeg.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-        callback_manager.nativeFFmpegComplete.nativeFunction, nullptr);
+      callback_manager.nativeFFmpegComplete.nativeFunction,
+      nullptr,
+    );
   }
 
   /// Sets [completeCallback] as the global FFprobe session complete callback.
-  static void enableFFprobeSessionCompleteCallback(
-      [callback_manager.FFprobeSessionCompleteCallback? completeCallback]) {
+  static void enableFFprobeSessionCompleteCallback([
+    callback_manager.FFprobeSessionCompleteCallback? completeCallback,
+  ]) {
     requireInitialized();
     callback_manager.CallbackManager().globalFFprobeSessionCompleteCallback =
         completeCallback;
     ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-        callback_manager.nativeFFprobeComplete.nativeFunction, nullptr);
+      callback_manager.nativeFFprobeComplete.nativeFunction,
+      nullptr,
+    );
   }
 
   /// Sets [completeCallback] as the global FFplay session complete callback.
-  static void enableFFplaySessionCompleteCallback(
-      [callback_manager.FFplaySessionCompleteCallback? completeCallback]) {
+  static void enableFFplaySessionCompleteCallback([
+    callback_manager.FFplaySessionCompleteCallback? completeCallback,
+  ]) {
     requireInitialized();
     callback_manager.CallbackManager().globalFFplaySessionCompleteCallback =
         completeCallback;
     ffmpeg.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-        callback_manager.nativeFFplayComplete.nativeFunction, nullptr);
+      callback_manager.nativeFFplayComplete.nativeFunction,
+      nullptr,
+    );
   }
 
   /// Sets [completeCallback] as the global MediaInformation session complete
   /// callback.
-  static void enableMediaInformationSessionCompleteCallback(
-      [callback_manager.MediaInformationSessionCompleteCallback?
-          completeCallback]) {
+  static void enableMediaInformationSessionCompleteCallback([
+    callback_manager.MediaInformationSessionCompleteCallback? completeCallback,
+  ]) {
     requireInitialized();
     callback_manager.CallbackManager()
-        .globalMediaInformationSessionCompleteCallback = completeCallback;
+            .globalMediaInformationSessionCompleteCallback =
+        completeCallback;
     ffmpeg.ffmpeg_kit_config_enable_media_information_session_complete_callback(
-        callback_manager.nativeMediaInfoComplete.nativeFunction, nullptr);
+      callback_manager.nativeMediaInfoComplete.nativeFunction,
+      nullptr,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -630,7 +672,10 @@ class FFmpegKitExtended {
       }
 
       ffmpeg.ffmpeg_kit_config_set_font_directory_list(
-          listPtr.cast(), count, mappingsPtr);
+        listPtr.cast(),
+        count,
+        mappingsPtr,
+      );
     } finally {
       // Free in reverse allocation order.
       if (mappingsPtr != nullptr) malloc.free(mappingsPtr);
@@ -649,8 +694,10 @@ class FFmpegKitExtended {
   static String sessionStateToString(SessionState state) {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_config_session_state_to_string(
-            FFmpegKitSessionState.fromValue(state.value)));
+      ffmpeg.ffmpeg_kit_config_session_state_to_string(
+        ffmpeg.FFmpegKitSessionState.fromValue(state.value),
+      ),
+    );
   }
 
   /// Converts [level] to its human-readable string name, or `null` if
@@ -658,7 +705,8 @@ class FFmpegKitExtended {
   static String? logLevelToString(LogLevel level) {
     requireInitialized();
     final ptr = ffmpeg.ffmpeg_kit_config_log_level_to_string(
-        FFmpegKitLogLevel.fromValue(level.value));
+      ffmpeg.FFmpegKitLogLevel.fromValue(level.value),
+    );
     if (ptr == nullptr) return null;
     final result = ptr.cast<Utf8>().toDartString();
     ffmpeg.ffmpeg_kit_free(ptr.cast());
@@ -672,7 +720,9 @@ class FFmpegKitExtended {
     final countPtr = malloc<Int64>();
     try {
       final argsPtr = ffmpeg.ffmpeg_kit_config_parse_arguments(
-          cmdPtr.cast(), countPtr.cast());
+        cmdPtr.cast(),
+        countPtr.cast(),
+      );
       if (argsPtr == nullptr) return const [];
 
       final count = countPtr.value;
@@ -705,8 +755,10 @@ class FFmpegKitExtended {
         strings.add(s);
         argsPtr[i] = s.cast();
       }
-      final resPtr =
-          ffmpeg.ffmpeg_kit_config_arguments_to_string(argsPtr.cast(), count);
+      final resPtr = ffmpeg.ffmpeg_kit_config_arguments_to_string(
+        argsPtr.cast(),
+        count,
+      );
       if (resPtr == nullptr) return '';
       final result = resPtr.cast<Utf8>().toDartString();
       ffmpeg.ffmpeg_kit_free(resPtr.cast());
@@ -751,7 +803,8 @@ class FFmpegKitExtended {
   static String getDebugLog(Session session) {
     requireInitialized();
     return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_config_get_debug_log(session.handle));
+      ffmpeg.ffmpeg_kit_config_get_debug_log(session.handle),
+    );
   }
 
   /// Clears the debug log for [session].
@@ -817,7 +870,8 @@ class FFmpegKitExtended {
 
     // Prefer the live Dart object from CallbackManager when available — it
     // carries callbacks and execution state that a fresh fromHandle would lack.
-    final existing = manager.ffmpegSessions[sessionId] ??
+    final existing =
+        manager.ffmpegSessions[sessionId] ??
         manager.mediaInformationSessions[sessionId] ??
         manager.ffprobeSessions[sessionId] ??
         manager.ffplaySessions[sessionId];
@@ -857,7 +911,7 @@ class FFmpegKitExtended {
 
     final result = <T>[];
     try {
-      for (int i = 0;; i++) {
+      for (int i = 0; ; i++) {
         final handle = ptr[i];
         if (handle == nullptr) break;
         // fromHandle attaches a NativeFinalizer for this handle, so we do not
@@ -883,7 +937,7 @@ class FFmpegKitExtended {
 
     final result = <Session>[];
     try {
-      for (int i = 0;; i++) {
+      for (int i = 0; ; i++) {
         final handle = ptr[i];
         if (handle == nullptr) break;
         final session = wrap(handle);

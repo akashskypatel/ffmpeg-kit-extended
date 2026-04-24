@@ -21,6 +21,7 @@
 
 #import <Accelerate/Accelerate.h>
 #import <CoreVideo/CoreVideo.h>
+#include <dlfcn.h>
 
 // ─── ffplay C API
 // ─────────────────────────────────────────────────────────────
@@ -28,14 +29,11 @@
 // See flutter/.dart_tool/ffmpeg_kit_extended_flutter/include/ffplay_lib.h
 
 // Forward declarations of ffplay functions
-extern void ffplay_set_frame_callback(void (*callback)(void *userdata,
-                                                       const uint8_t *pixels,
-                                                       int width, int height,
-                                                       int linesize),
-                                      void *userdata);
-
 typedef void (*FFplayFrameCb)(void *userdata, const uint8_t *pixels, int width,
                               int height, int linesize);
+typedef void (*FFplaySetFrameCallbackFn)(FFplayFrameCb callback,
+                                         void *userdata);
+static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
 
 // ─── FfkitPixelTexture
 // ────────────────────────────────────────────────────────
@@ -239,6 +237,8 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 }
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
+  _ffplay_set_frame_callback_fn =
+      dlsym(RTLD_DEFAULT, "ffplay_set_frame_callback");
   FfplayKitPlugin *instance = [[FfplayKitPlugin alloc] init];
   instance->_textureRegistry = [registrar textures];
 
@@ -287,7 +287,7 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   // Bump retain count so the object stays alive through the C void* boundary.
   // The matching release happens via __bridge_transfer in -releaseTextureState.
   _retainedTexPtr = (__bridge_retained void *)tex;
-  ffplay_set_frame_callback(ffplay_frame_cb, _retainedTexPtr);
+  _ffplay_set_frame_callback_fn(ffplay_frame_cb, _retainedTexPtr);
 
   result(@{@"textureId" : @(tid)});
 }
@@ -318,7 +318,7 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   _texture = nil;
 
   // 1. Stop frame delivery.
-  ffplay_set_frame_callback(NULL, NULL);
+  _ffplay_set_frame_callback_fn(NULL, NULL);
 
   // 2. Drain any in-flight callback: -invalidate acquires _lock, which
   //    guarantees any concurrent updateWithPixels call has fully exited.
