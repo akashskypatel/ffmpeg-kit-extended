@@ -25,7 +25,7 @@
 // Windows GetProcAddress approach used in the Windows plugin.
 extern "C" {
 typedef void (*FFplayKitFrameCallback)(void* userdata, const uint8_t* pixels,
-                                       int width, int height, int linesize);
+                                       int width, int height, int linesize, const char *format);
 __attribute__((weak)) void ffplay_kit_register_frame_callback(
     FFplayKitFrameCallback callback, void* userdata);
 __attribute__((weak)) void ffplay_kit_unregister_frame_callback(void);
@@ -146,7 +146,7 @@ static FfkitPixelTexture* ffkit_pixel_texture_new(
 // ─── Frame callback (FFplay background thread) ────────────────────────────────
 
 static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
-                               int height, int linesize) {
+                               int height, int linesize, const char* pixel_format) {
   FfkitPixelTexture* tex = FFKIT_PIXEL_TEXTURE(userdata);
   TextureState* state = tex->state;
   if (!state || !pixels || width <= 0 || height <= 0) return;
@@ -160,6 +160,12 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
     size_t size = static_cast<size_t>(linesize) * static_cast<size_t>(height);
     state->frame_buf.resize(size);
     memcpy(state->frame_buf.data(), pixels, size);
+    if (pixel_format && strcmp(pixel_format, "rgb0") == 0) {
+      uint8_t* buf = state->frame_buf.data();
+      size_t pixel_count = static_cast<size_t>(width) * height;
+      for (size_t i = 0; i < pixel_count; i++)
+        buf[i * 4 + 3] = 0xFF;
+    }
     state->width = static_cast<uint32_t>(width);
     state->height = static_cast<uint32_t>(height);
     state->has_video_frames = true;  // Mark that we have video frames

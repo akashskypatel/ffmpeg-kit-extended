@@ -21,6 +21,7 @@
 
 #import <Accelerate/Accelerate.h>
 #import <CoreVideo/CoreVideo.h>
+#import <Flutter/Flutter.h>
 #include <dlfcn.h>
 
 // ─── ffplay C API
@@ -30,10 +31,30 @@
 
 // Forward declarations of ffplay functions
 typedef void (*FFplayFrameCb)(void *userdata, const uint8_t *pixels, int width,
-                              int height, int linesize);
-typedef void (*FFplaySetFrameCallbackFn)(FFplayFrameCb callback,
-                                         void *userdata);
-static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
+                              int height, int linesize,
+                              const char *pixel_format);
+typedef void (*FFplayRegisterFrameCallbackFn)(FFplayFrameCb callback,
+                                              void *userdata);
+static FFplayRegisterFrameCallbackFn _ffplay_kit_register_frame_callback_fn =
+    NULL;
+
+static FlutterEventSink sLogEventSink = nil;
+
+@interface FfplayKitLogStreamHandler : NSObject <FlutterStreamHandler>
+@end
+
+@implementation FfplayKitLogStreamHandler
+- (FlutterError *)onListenWithArguments:(id)arguments
+                              eventSink:(FlutterEventSink)eventSink {
+  sLogEventSink = [eventSink copy];
+  return nil;
+}
+
+- (FlutterError *)onCancelWithArguments:(id)arguments {
+  sLogEventSink = nil;
+  return nil;
+}
+@end
 
 // ─── FfkitPixelTexture
 // ────────────────────────────────────────────────────────
@@ -61,7 +82,8 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
 - (void)updateWithPixels:(const uint8_t *)pixels
                    width:(int)width
                   height:(int)height
-                linesize:(int)linesize;
+                linesize:(int)linesize
+             pixelFormat:(const char *)pixelFormat;
 
 /// Acquires the lock (draining any in-flight callback), marks destroyed, and
 /// releases all CVPixelBuffer resources.
@@ -90,6 +112,17 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
   return self;
 }
 
+static void ffplaykit_log(const char *msg) {
+  NSLog(@"FFplayKitPlugin: %s", msg);
+  if (sLogEventSink) {
+    NSString *message = [NSString stringWithUTF8String:msg];
+    sLogEventSink(@{
+      @"message" : message,
+      @"timestamp" : @([[NSDate date] timeIntervalSince1970] * 1000)
+    });
+  }
+}
+
 /// Creates (or recreates) the CVPixelBufferPool when dimensions change.
 /// Must be called while _lock is held.
 - (void)_ensurePoolForWidth:(int)w height:(int)h {
@@ -116,16 +149,69 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
   };
   CVPixelBufferPoolCreate(kCFAllocatorDefault, nil,
                           (__bridge CFDictionaryRef)attrs, &_pool);
+  if (!_pool) {
+    ffplaykit_log("[ERROR] Failed to create CVPixelBufferPool");
+  }
   _poolWidth = w;
   _poolHeight = h;
+}
+
+static void getPermuteMapForFormat(const char *fmt, uint8_t map[4]) {
+  map[0] = 0;
+  map[1] = 1;
+  map[2] = 2;
+  map[3] = 3;
+  if (!fmt)
+    return;
+
+  if (strcmp(fmt, "rgb0") == 0) {
+    // src: [R][G][B][0] → dst BGRA: [B][G][R][A]
+    map[0] = 2;
+    map[1] = 1;
+    map[2] = 0;
+    map[3] = 3;
+  } else if (strcmp(fmt, "bgr0") == 0) {
+    // src: [B][G][R][0] → dst BGRA: passthrough
+    map[0] = 0;
+    map[1] = 1;
+    map[2] = 2;
+    map[3] = 3;
+  } else if (strcmp(fmt, "rgba") == 0) {
+    // src: [R][G][B][A] → dst BGRA
+    map[0] = 2;
+    map[1] = 1;
+    map[2] = 0;
+    map[3] = 3;
+  } else if (strcmp(fmt, "bgra") == 0) {
+    // src: [B][G][R][A] → dst BGRA: passthrough
+    map[0] = 0;
+    map[1] = 1;
+    map[2] = 2;
+    map[3] = 3;
+  } else if (strcmp(fmt, "argb") == 0) {
+    // src: [A][R][G][B] → dst BGRA
+    map[0] = 3;
+    map[1] = 2;
+    map[2] = 1;
+    map[3] = 0;
+  } else if (strcmp(fmt, "abgr") == 0) {
+    // src: [A][B][G][R] → dst BGRA
+    map[0] = 1;
+    map[1] = 2;
+    map[2] = 3;
+    map[3] = 0;
+  }
 }
 
 - (void)updateWithPixels:(const uint8_t *)pixels
                    width:(int)width
                   height:(int)height
-                linesize:(int)linesize {
-  if (!pixels || width <= 0 || height <= 0)
+                linesize:(int)linesize
+             pixelFormat:(const char *)pixelFormat {
+  if (!pixels || width <= 0 || height <= 0) {
+    ffplaykit_log("[ERROR] updateWithPixels early return - invalid params");
     return;
+  }
 
   [_lock lock];
 
@@ -139,6 +225,8 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
   CVPixelBufferRef newBuf = NULL;
   if (_pool) {
     CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, _pool, &newBuf);
+  } else {
+    ffplaykit_log("[ERROR] FfplayKitPlugin: Pixel buffer pool is nil");
   }
 
   if (newBuf) {
@@ -155,7 +243,8 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
                              (vImagePixelCount)width, (size_t)linesize};
     vImage_Buffer dstVBuf = {dstBase, (vImagePixelCount)height,
                              (vImagePixelCount)width, dstStride};
-    const uint8_t permuteMap[4] = {2, 1, 0, 3};
+    uint8_t permuteMap[4];
+    getPermuteMapForFormat(pixelFormat, permuteMap);
     vImagePermuteChannels_ARGB8888(&srcVBuf, &dstVBuf, permuteMap,
                                    kvImageNoFlags);
 
@@ -165,6 +254,8 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
       CVPixelBufferRelease(_latestBuffer);
     _latestBuffer =
         newBuf; // +1 refcount from CVPixelBufferPoolCreatePixelBuffer
+  } else {
+    ffplaykit_log("[ERROR] Failed to create CVPixelBuffer from pool");
   }
 
   [_lock unlock];
@@ -215,13 +306,21 @@ static FFplaySetFrameCallbackFn _ffplay_set_frame_callback_fn = NULL;
 // ─── Static C frame callback (FFplay executor thread) ────────────────────────
 
 static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
-                            int height, int linesize) {
-  if (!userdata || !pixels)
+                            int height, int linesize,
+                            const char *pixel_format) {
+  if (!userdata || !pixels) {
+    ffplaykit_log(
+        "[ERROR] ffplay_frame_cb early return - userdata or pixels is nil");
     return;
+  }
   // __bridge is safe: the object is kept alive by _retainedTexPtr until the
   // callback is unregistered and -releaseTextureState has fully completed.
   FfkitPixelTexture *tex = (__bridge FfkitPixelTexture *)userdata;
-  [tex updateWithPixels:pixels width:width height:height linesize:linesize];
+  [tex updateWithPixels:pixels
+                  width:width
+                 height:height
+               linesize:linesize
+            pixelFormat:pixel_format];
 }
 
 // ─── FfplayKitPlugin ─────────────────────────────────────────────────────────
@@ -237,9 +336,8 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 }
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
-  _ffplay_set_frame_callback_fn =
-      dlsym(RTLD_DEFAULT, "ffplay_set_frame_callback");
-
+  _ffplay_kit_register_frame_callback_fn =
+      dlsym(RTLD_DEFAULT, "ffplay_kit_register_frame_callback");
   FfplayKitPlugin *instance = [[FfplayKitPlugin alloc] init];
   instance->_textureRegistry = [registrar textures];
 
@@ -247,6 +345,12 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
       [FlutterMethodChannel methodChannelWithName:@"ffplay_kit_desktop"
                                   binaryMessenger:[registrar messenger]];
   [registrar addMethodCallDelegate:instance channel:channel];
+  FlutterEventChannel *logChannel =
+      [FlutterEventChannel eventChannelWithName:@"ffplay_kit_log"
+                                binaryMessenger:[registrar messenger]];
+  FfplayKitLogStreamHandler *streamHandler =
+      [[FfplayKitLogStreamHandler alloc] init];
+  [logChannel setStreamHandler:streamHandler];
 }
 
 - (instancetype)init {
@@ -273,7 +377,6 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 - (void)handleCreateTexture:(FlutterResult)result {
   // Release any existing texture before allocating a new one.
   [self releaseTextureState];
-
   FfkitPixelTexture *tex = [[FfkitPixelTexture alloc] init];
   int64_t tid = [_textureRegistry registerTexture:tex];
 
@@ -284,12 +387,14 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 
   _texture = tex;
   _textureId = tid;
-
   // Bump retain count so the object stays alive through the C void* boundary.
   // The matching release happens via __bridge_transfer in -releaseTextureState.
   _retainedTexPtr = (__bridge_retained void *)tex;
-  _ffplay_set_frame_callback_fn(ffplay_frame_cb, _retainedTexPtr);
-
+  if (_ffplay_kit_register_frame_callback_fn) {
+    _ffplay_kit_register_frame_callback_fn(ffplay_frame_cb, _retainedTexPtr);
+  } else {
+    ffplaykit_log("[ERROR] _ffplay_kit_register_frame_callback_fn is NULL");
+  }
   result(@{@"textureId" : @(tid)});
 }
 
@@ -318,8 +423,8 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   FfkitPixelTexture *tex = _texture;
   _texture = nil;
 
-  // 1. Stop frame delivery FIRST to prevent any new frames from arriving.
-  _ffplay_set_frame_callback_fn(NULL, NULL);
+  // 1. Stop frame delivery.
+  _ffplay_kit_register_frame_callback_fn(NULL, NULL);
 
   // 2. Drain any in-flight callback: -invalidate acquires _lock, which
   //    guarantees any concurrent updateWithPixels call has fully exited.

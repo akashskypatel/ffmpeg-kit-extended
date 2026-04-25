@@ -21,7 +21,7 @@
 // MethodChannel call arrives, so GetModuleHandle is sufficient.
 
 typedef void (*FFplayKitFrameCallback)(void* userdata, const uint8_t* pixels,
-                                       int width, int height, int linesize);
+                                       int width, int height, int linesize, const char *format);
 
 namespace {
 
@@ -102,7 +102,7 @@ namespace ffmpeg_kit_extended_flutter {
 // ─── Frame callback (FFplay background thread) ────────────────────────────────
 
 static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
-                             int height, int linesize) {
+                             int height, int linesize, const char* pixel_format) {
   auto* state = reinterpret_cast<TextureState*>(userdata);
   if (!state || !pixels || width <= 0 || height <= 0) return;
 
@@ -115,6 +115,12 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
     size_t row_bytes = static_cast<size_t>(linesize);
     state->write_buf.resize(row_bytes * static_cast<size_t>(height));
     memcpy(state->write_buf.data(), pixels, state->write_buf.size());
+    if (pixel_format && strcmp(pixel_format, "rgb0") == 0) {
+      uint8_t* buf = state->write_buf.data();
+      size_t pixel_count = static_cast<size_t>(width) * height;
+      for (size_t i = 0; i < pixel_count; i++)
+        buf[i * 4 + 3] = 0xFF;
+    }
     state->width = static_cast<uint32_t>(width);
     state->height = static_cast<uint32_t>(height);
     // Swap write_buf ↔ read_buf so the render callback always gets the latest
