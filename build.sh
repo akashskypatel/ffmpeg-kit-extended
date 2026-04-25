@@ -8,6 +8,9 @@ if [[ $1 == "android" ]]; then
 else
     platform="$1"
 fi
+if [[ $platform == "ios" ]]; then
+    platform="ios --simulator"
+fi
 if [[ -f $build_log_file ]]; then
     rm $build_log_file
 fi
@@ -19,14 +22,14 @@ if [[ $* == *"--clean"* ]]; then
     flutter clean
 fi
 
-flutter pub get && flutter pub upgrade && dart run ffmpeg_kit_extended_flutter:configure $1 --app-root=. --verbose >> $build_log_file 2>&1
+flutter pub get && flutter pub upgrade >> $build_log_file 2>&1
 cd $script_dir/flutter/example
 
 if [[ $* == *"--clean"* ]]; then
     flutter clean
 fi
 
-flutter pub get && flutter pub upgrade && dart run ffmpeg_kit_extended_flutter:configure $1 --app-root=. --verbose >> $build_log_file 2>&1
+flutter pub get && flutter pub upgrade >> $build_log_file 2>&1
 if [[ $* == *"--ffigen"* ]]; then
     cd $script_dir/flutter && dart run ffigen --config ffigen.yaml && cd example >> $build_log_file 2>&1 
 fi
