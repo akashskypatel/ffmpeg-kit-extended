@@ -10,175 +10,6 @@ library;
 
 import 'dart:ffi' as ffi;
 
-/// Initializes ffplay with command-line arguments as a string.
-///
-/// @param args_string the command-line arguments as a string
-/// @param cb the callback
-/// @return the ffplay context, or NULL on error
-@ffi.Native<
-  ffi.Pointer<FFplayContext> Function(
-    ffi.Pointer<ffi.Char>,
-    ffi.Pointer<FFplayCallbacks>,
-  )
->()
-external ffi.Pointer<FFplayContext> ffplay_init(
-  ffi.Pointer<ffi.Char> args_string,
-  ffi.Pointer<FFplayCallbacks> cb,
-);
-
-/// Starts playback.
-///
-/// @param ctx the ffplay context
-/// @return 0 on success
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_start(ffi.Pointer<FFplayContext> ctx);
-
-/// Processes one event-loop iteration. Call regularly from the host event loop.
-///
-/// @param ctx the ffplay context
-/// @return 0 if running, 1 if quit/finished
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_step(ffi.Pointer<FFplayContext> ctx);
-
-/// Seeks to a specific position in the media.
-///
-/// @param ctx the ffplay context
-/// @param seconds the seconds to seek to
-/// @param rel the relative position to seek to
-/// @return 0 on success
-@ffi.Native<
-  ffi.Int Function(ffi.Pointer<FFplayContext>, ffi.Double, ffi.Double)
->()
-external int ffplay_seek(
-  ffi.Pointer<FFplayContext> ctx,
-  double seconds,
-  double rel,
-);
-
-/// Pauses playback.
-///
-/// @param ctx the ffplay context
-/// @return 0 on success
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_pause(ffi.Pointer<FFplayContext> ctx);
-
-/// Resumes playback.
-///
-/// @param ctx the ffplay context
-/// @return 0 on success
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_resume(ffi.Pointer<FFplayContext> ctx);
-
-/// Stops playback.
-///
-/// @param ctx the ffplay context
-/// @return 0 on success
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_stop(ffi.Pointer<FFplayContext> ctx);
-
-/// Gets the playback position.
-///
-/// @param ctx the ffplay context
-/// @return the playback position
-@ffi.Native<ffi.Double Function(ffi.Pointer<FFplayContext>)>()
-external double ffplay_get_position(ffi.Pointer<FFplayContext> ctx);
-
-/// Gets the playback duration.
-///
-/// @param ctx the ffplay context
-/// @return the playback duration
-@ffi.Native<ffi.Double Function(ffi.Pointer<FFplayContext>)>()
-external double ffplay_get_duration(ffi.Pointer<FFplayContext> ctx);
-
-/// Checks if the playback is playing.
-///
-/// @param ctx the ffplay context
-/// @return 1 if playing, 0 otherwise
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_is_playing(ffi.Pointer<FFplayContext> ctx);
-
-/// Checks if the playback is paused.
-///
-/// @param ctx the ffplay context
-/// @return 1 if paused, 0 otherwise
-@ffi.Native<ffi.Int Function(ffi.Pointer<FFplayContext>)>()
-external int ffplay_is_paused(ffi.Pointer<FFplayContext> ctx);
-
-/// Sets the volume (0.0 to 1.0).
-///
-/// @param ctx the ffplay context
-/// @param volume the volume
-@ffi.Native<ffi.Void Function(ffi.Pointer<FFplayContext>, ffi.Float)>()
-external void ffplay_set_volume(ffi.Pointer<FFplayContext> ctx, double volume);
-
-/// Gets the volume.
-///
-/// @param ctx the ffplay context
-/// @return the volume
-@ffi.Native<ffi.Float Function(ffi.Pointer<FFplayContext>)>()
-external double ffplay_get_volume(ffi.Pointer<FFplayContext> ctx);
-
-/// Sets the audio output device.
-/// null for default device
-///
-/// @param device_name the name of the audio device
-@ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Char>)>()
-external void ffplay_set_audio_output_device(ffi.Pointer<ffi.Char> device_name);
-
-/// Returns a ';'-delimited string of available audio output device names.
-/// Returns NULL on error. Caller must free.
-@ffi.Native<ffi.Pointer<ffi.Char> Function()>()
-external ffi.Pointer<ffi.Char> ffplay_list_audio_devices();
-
-/// Returns the current video stream dimensions.
-/// Both values are 0 if no video stream has been opened yet.
-///
-/// @param ctx    the ffplay context
-/// @param width  out: video width in pixels
-/// @param height out: video height in pixels
-@ffi.Native<
-  ffi.Void Function(
-    ffi.Pointer<FFplayContext>,
-    ffi.Pointer<ffi.Int>,
-    ffi.Pointer<ffi.Int>,
-  )
->()
-external void ffplay_get_video_size(
-  ffi.Pointer<FFplayContext> ctx,
-  ffi.Pointer<ffi.Int> width,
-  ffi.Pointer<ffi.Int> height,
-);
-
-/// Frees all resources and stops playback.
-///
-/// @param ctx the ffplay context
-@ffi.Native<ffi.Void Function(ffi.Pointer<FFplayContext>)>()
-external void ffplay_free(ffi.Pointer<FFplayContext> ctx);
-
-/// Closes the ffplay session.
-///
-/// @param ctx the ffplay context
-@ffi.Native<ffi.Void Function(ffi.Pointer<FFplayContext>)>()
-external void ffplay_close(ffi.Pointer<FFplayContext> ctx);
-
-/// Probes [path] for at least one video stream without decoding.
-/// Uses avformat_open_input + avformat_find_stream_info. Thread-safe.
-///
-/// @param path  UTF-8 file path or URL
-/// @return  1 video present, 0 audio-only, -1 on error
-@ffi.Native<ffi.Int Function(ffi.Pointer<ffi.Char>)>()
-external int ffplay_has_video_stream(ffi.Pointer<ffi.Char> path);
-
-/// Registers a frame-ready callback for desktop video output. Call before ffplay_init().
-///
-/// @param callback  frame callback, or NULL to clear
-/// @param userdata  forwarded to every callback invocation
-@ffi.Native<ffi.Void Function(FFplayFrameCallback, ffi.Pointer<ffi.Void>)>()
-external void ffplay_set_frame_callback(
-  FFplayFrameCallback callback,
-  ffi.Pointer<ffi.Void> userdata,
-);
-
 /// Initializes the library and FFmpeg backend.
 /// Should be called once immediately after loading the DLL.
 @ffi.Native<ffi.Void Function()>()
@@ -311,8 +142,7 @@ external FFmpegSessionHandle ffmpeg_kit_create_session_from_argv(
 ///
 /// @param argc the number of arguments
 /// @param argv the argument array
-/// @param complete_cb the callback to be called when the FFmpeg session is
-/// completed
+/// @param complete_cb the callback to be called when the FFmpeg session is completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param stats_cb the callback to be called when statistics are generated
 /// @param user_data the user data to be passed to the callbacks
@@ -398,8 +228,7 @@ external void ffmpeg_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, statistics callback, and user data
-/// for all FFmpeg sessions.
+/// Sets the complete callback, log callback, statistics callback, and user data for all FFmpeg sessions.
 ///
 /// @param complete_cb the callback to be called when the FFmpeg session is
 /// completed
@@ -523,8 +352,7 @@ external FFprobeSessionHandle ffprobe_kit_create_session_from_argv(
 ///
 /// @param argc the number of arguments
 /// @param argv the argument array
-/// @param complete_cb the callback to be called when the FFprobe session is
-/// completed
+/// @param complete_cb the callback to be called when the FFprobe session is completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callbacks
 /// @return the FFprobe session handle
@@ -546,8 +374,7 @@ ffprobe_kit_create_session_from_argv_with_callbacks(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Closes and releases a session created by
-/// ffprobe_kit_create_session_from_argv.
+/// Closes and releases a session created by ffprobe_kit_create_session_from_argv.
 ///
 /// @param handle the session handle to close
 @ffi.Native<ffi.Void Function(FFprobeSessionHandle)>()
@@ -588,8 +415,7 @@ external void ffprobe_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, and user data for all FFprobe
-/// sessions.
+/// Sets the complete callback, log callback, and user data for all FFprobe sessions.
 ///
 /// @param complete_cb the callback to be called when the FFprobe session is
 /// completed
@@ -736,8 +562,7 @@ external FFplaySessionHandle ffplay_kit_create_session_from_argv(
 ///
 /// @param argc the number of arguments
 /// @param argv the argument array
-/// @param complete_cb the callback to be called when the FFplay session is
-/// completed
+/// @param complete_cb the callback to be called when the FFplay session is completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callbacks
 /// @return the FFplay session handle
@@ -799,8 +624,7 @@ external void ffplay_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, and user data for all FFplay
-/// sessions.
+/// Sets the complete callback, log callback, and user data for all FFplay sessions.
 ///
 /// @param complete_cb the callback to be called when the FFplay session is
 /// completed
@@ -1027,8 +851,7 @@ external void ffplay_kit_set_volume(double volume);
 /// Gets the volume of the current FFplay session.
 ///
 /// @return volume in [0.0, 1.0], or -1.0 if there is no active session or
-/// the native context is not yet ready. See
-/// ffplay_kit_session_get_volume.
+/// the native context is not yet ready. See ffplay_kit_session_get_volume.
 @ffi.Native<ffi.Double Function()>()
 external double ffplay_kit_get_volume();
 
@@ -1056,18 +879,15 @@ external void ffplay_kit_set_android_surface_ptr(int native_window_ptr);
 @ffi.Native<ffi.Void Function()>()
 external void ffplay_kit_clear_android_surface();
 
-/// Registers a global frame-ready callback for desktop video output
-/// (Linux/Windows).
+/// Registers a global frame-ready callback for desktop video output (Linux/Windows).
 ///
 /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
 /// On Android this is a no-op; video output is delivered to the ANativeWindow.
 ///
 /// Dart FFI usage:
-/// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback),
-/// nullptr);
+/// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback), nullptr);
 ///
-/// @param callback  frame callback function; NULL clears any previous
-/// registration
+/// @param callback  frame callback function; NULL clears any previous registration
 /// @param userdata  opaque pointer forwarded to every callback invocation
 @ffi.Native<ffi.Void Function(FFplayKitFrameCallback, ffi.Pointer<ffi.Void>)>()
 external void ffplay_kit_register_frame_callback(
@@ -1400,8 +1220,8 @@ external void media_information_kit_set_log_callback(
 
 /// Sets the complete callback for all MediaInformation sessions.
 ///
-/// @param complete_cb the callback to be called when the MediaInformation
-/// session is completed
+/// @param complete_cb the callback to be called when the MediaInformation session is
+/// completed
 /// @param user_data the user data to be passed to the callback
 @ffi.Native<
   ffi.Void Function(
@@ -1416,11 +1236,10 @@ external void media_information_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, and user data for all
-/// MediaInformation sessions.
+/// Sets the complete callback, log callback, and user data for all MediaInformation sessions.
 ///
-/// @param complete_cb the callback to be called when the MediaInformation
-/// session is completed
+/// @param complete_cb the callback to be called when the MediaInformation session is
+/// completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callbacks
 @ffi.Native<
@@ -2633,82 +2452,6 @@ typedef intmax_t = ffi.Long;
 typedef Dartintmax_t = int;
 typedef uintmax_t = ffi.UnsignedLong;
 typedef Dartuintmax_t = int;
-
-final class FFplayContext extends ffi.Opaque {}
-
-final class FFplayCallbacks extends ffi.Struct {
-  external ffi.Pointer<
-    ffi.NativeFunction<
-      ffi.Void Function(
-        ffi.Pointer<ffi.Void> userdata,
-        ffi.Pointer<ffi.Uint8> data,
-        ffi.Int width,
-        ffi.Int height,
-        ffi.Int linesize,
-      )
-    >
-  >
-  on_frame_displayed;
-
-  external ffi.Pointer<
-    ffi.NativeFunction<
-      ffi.Void Function(
-        ffi.Pointer<ffi.Void> userdata,
-        ffi.Pointer<ffi.Uint8> data,
-        ffi.Int size,
-      )
-    >
-  >
-  on_audio_samples;
-
-  external ffi.Pointer<
-    ffi.NativeFunction<
-      ffi.Void Function(ffi.Pointer<ffi.Void> userdata, ffi.Double position)
-    >
-  >
-  on_seek_complete;
-
-  external ffi.Pointer<
-    ffi.NativeFunction<
-      ffi.Void Function(
-        ffi.Pointer<ffi.Void> userdata,
-        ffi.Pointer<ffi.Char> error,
-      )
-    >
-  >
-  on_error;
-
-  external ffi.Pointer<ffi.Void> userdata;
-}
-
-typedef FFplayFrameCallbackFunction =
-    ffi.Void Function(
-      ffi.Pointer<ffi.Void> userdata,
-      ffi.Pointer<ffi.Uint8> pixels,
-      ffi.Int width,
-      ffi.Int height,
-      ffi.Int linesize,
-    );
-typedef DartFFplayFrameCallbackFunction =
-    void Function(
-      ffi.Pointer<ffi.Void> userdata,
-      ffi.Pointer<ffi.Uint8> pixels,
-      int width,
-      int height,
-      int linesize,
-    );
-
-/// Frame-ready callback for desktop video output. Fired inside ffplay_step().
-/// Pixel format: RGBA8888 ([R][G][B][A] on little-endian), linesize == width * 4.
-/// The pixel buffer is freed after the callback returns — copy if you need to retain it.
-///
-/// @param userdata  opaque pointer from ffplay_set_frame_callback()
-/// @param pixels    RGBA8888 rows, tightly packed
-/// @param width     frame width in pixels
-/// @param height    frame height in pixels
-/// @param linesize  bytes per row
-typedef FFplayFrameCallback =
-    ffi.Pointer<ffi.NativeFunction<FFplayFrameCallbackFunction>>;
 typedef FFmpegSessionHandle = ffi.Pointer<ffi.Void>;
 typedef FFprobeSessionHandle = ffi.Pointer<ffi.Void>;
 typedef FFplaySessionHandle = ffi.Pointer<ffi.Void>;
@@ -2801,48 +2544,6 @@ typedef MediaInformationSessionCompleteCallback =
     ffi.Pointer<
       ffi.NativeFunction<MediaInformationSessionCompleteCallbackFunction>
     >;
-typedef FFplayKitFrameCallbackFunction =
-    ffi.Void Function(
-      ffi.Pointer<ffi.Void> userdata,
-      ffi.Pointer<ffi.Uint8> pixels,
-      ffi.Int width,
-      ffi.Int height,
-      ffi.Int linesize,
-    );
-typedef DartFFplayKitFrameCallbackFunction =
-    void Function(
-      ffi.Pointer<ffi.Void> userdata,
-      ffi.Pointer<ffi.Uint8> pixels,
-      int width,
-      int height,
-      int linesize,
-    );
-
-/// Frame-ready callback type for desktop (Linux/Windows) video output.
-///
-/// Fired inside ffplay_step() on every rendered video frame.
-/// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
-/// with Flutter's FlutterDesktopPixelBuffer.
-/// The pixel buffer is valid only for the duration of the call — copy it
-/// (e.g. into a pre-allocated FlutterDesktopPixelBuffer) before returning.
-///
-/// WARNING: The callback is invoked while the internal ffplay API mutex is
-/// held. Do NOT call any ffplay API function (ffplay_pause, ffplay_seek,
-/// ffplay_get_position, etc.) from within the callback — doing so will
-/// deadlock. Perform only lightweight, non-blocking work (e.g. memcpy into a
-/// pre-allocated buffer and signal a separate rendering thread).
-///
-/// Not used on Android; Android video output goes to the ANativeWindow set via
-/// ffplay_kit_set_android_surface_ptr().
-///
-/// @param userdata  opaque pointer registered with
-/// ffplay_kit_register_frame_callback()
-/// @param pixels    RGBA8888 pixels, width*4 bytes per row (linesize == width*4)
-/// @param width     frame width in pixels
-/// @param height    frame height in pixels
-/// @param linesize  bytes per row
-typedef FFplayKitFrameCallback =
-    ffi.Pointer<ffi.NativeFunction<FFplayKitFrameCallbackFunction>>;
 
 enum FFmpegKitSessionState {
   FFMPEG_KIT_SESSION_STATE_CREATED(0),
@@ -2944,3 +2645,45 @@ enum FFmpegKitSignal {
     _ => throw ArgumentError('Unknown value for FFmpegKitSignal: $value'),
   };
 }
+
+typedef FFplayKitFrameCallbackFunction =
+    ffi.Void Function(
+      ffi.Pointer<ffi.Void> userdata,
+      ffi.Pointer<ffi.Uint8> pixels,
+      ffi.Int width,
+      ffi.Int height,
+      ffi.Int linesize,
+    );
+typedef DartFFplayKitFrameCallbackFunction =
+    void Function(
+      ffi.Pointer<ffi.Void> userdata,
+      ffi.Pointer<ffi.Uint8> pixels,
+      int width,
+      int height,
+      int linesize,
+    );
+
+/// Frame-ready callback type for desktop (Linux/Windows) video output.
+///
+/// Fired inside ffplay_step() on every rendered video frame.
+/// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
+/// with Flutter's FlutterDesktopPixelBuffer.
+/// The pixel buffer is valid only for the duration of the call — copy it
+/// (e.g. into a pre-allocated FlutterDesktopPixelBuffer) before returning.
+///
+/// WARNING: The callback is invoked while the internal ffplay API mutex is
+/// held. Do NOT call any ffplay API function (ffplay_pause, ffplay_seek,
+/// ffplay_get_position, etc.) from within the callback — doing so will
+/// deadlock. Perform only lightweight, non-blocking work (e.g. memcpy into a
+/// pre-allocated buffer and signal a separate rendering thread).
+///
+/// Not used on Android; Android video output goes to the ANativeWindow set via
+/// ffplay_kit_set_android_surface_ptr().
+///
+/// @param userdata  opaque pointer registered with ffplay_kit_register_frame_callback()
+/// @param pixels    RGBA8888 pixels, width*4 bytes per row (linesize == width*4)
+/// @param width     frame width in pixels
+/// @param height    frame height in pixels
+/// @param linesize  bytes per row
+typedef FFplayKitFrameCallback =
+    ffi.Pointer<ffi.NativeFunction<FFplayKitFrameCallbackFunction>>;
