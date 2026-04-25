@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:code_assets/code_assets.dart';
-import 'package:data_assets/data_assets.dart';
 import 'package:hooks/hooks.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
