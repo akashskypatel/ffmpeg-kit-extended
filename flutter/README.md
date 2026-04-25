@@ -6,14 +6,15 @@
 
 </div>
 
-`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing FFmpeg, FFprobe, and FFplay commands on Windows, Linux, and Android. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
+`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing FFmpeg, FFprobe, and FFplay commands on Android, iOS, macOS, Linux, and Windows. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
 
 ## 1. Features
 
-- **Cross-Platform Support**: Works on Windows, Linux, and Android.
-  - **iOS, and macOS**: Not yet supported.
+- **Cross-Platform Support**: Works on Android, iOS, macOS, Linux, and Windows.
   - **Android**: Full video playback support with native surface rendering.
-  - **Note**: x86 architecture is not supported as its market share is pretty much nonexistent and no longer actively supported by Google.
+  - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
+    - **iOS**: Supports both physical devices and simulators. x86_64 architecture is not supported.
+  - **Note**: x86 architecture is not supported on Android.
 - **FFmpeg, FFprobe & FFplay**: Full support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
@@ -27,13 +28,13 @@
 
 ### Platform Support
 
-| Platform | Status        | Video Playback | Architecture         |
-| -------- | ------------- | -------------- | -------------------- |
-| Android  | ✅ Supported  | ✅ Native      | armv7, arm64, x86_64 |
-| iOS      | Not Supported | ❌ N/A         |                      |
-| macOS    | Not Supported | ❌ N/A         |                      |
-| Linux    | ✅ Supported  | ✅ Texture     | x86_64               |
-| Windows  | ✅ Supported  | ✅ Texture     | x86_64               |
+| Platform | Status      | Video Playback | Architecture         |
+| -------- | ----------- | -------------- | -------------------- |
+| Android  | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 |
+| iOS      | ✅ Supported | ✅ Texture      | arm64                |
+| macOS    | ✅ Supported | ✅ Texture      | arm64, x86_64        |
+| Linux    | ✅ Supported | ✅ Texture      | x86_64               |
+| Windows  | ✅ Supported | ✅ Texture      | x86_64               |
 
 ## 🎬 Demo
 
@@ -55,12 +56,9 @@
    flutter pub add ffmpeg_kit_extended_flutter
    ```
 
-2. Add the dependency to your `pubspec.yaml` then add `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
+2. Add the `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
 
    ```yaml
-   dependencies:
-     ffmpeg_kit_extended_flutter: ^0.1.0
-
    ffmpeg_kit_extended_config:
      type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
      gpl: true # enable to include GPL libraries
@@ -70,31 +68,20 @@
      # You can specify remote or local path to libffmpegkit libraries for each platform
      # This allows you to deploy custom builds of libffmpegkit.
      # See: https://github.com/akashskypatel/ffmpeg-kit-builders
-     # Note: This will override all above options.
      # -------------------------------------------------------------
      # windows: "path/to/ffmpeg-kit/libraries"
-     # linux: "https://path/to/ffmpeg-kit/libraries"
+     # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-3. Run `dart run ffmpeg_kit_extended_flutter:configure` to generate the native libraries.
+   **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration script is required.
 
-   ```bash
-   dart run ffmpeg_kit_extended_flutter:configure
-   ```
-
-   **Configure Options**
-   - `--help`: Show this help message.
-   - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
-   - `--verbose`: Enable verbose output.
-   - `--app-root=<path>`: Specify the path to the app root.
-
-4. Import the package in your Dart code:
+3. Import the package in your Dart code:
 
    ```dart
    import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
    ```
 
-5. Initialize the plugin at application startup **before** calling any API:
+4. Initialize the plugin at application startup **before** calling any API:
 
    ```dart
    void main() async {
@@ -106,7 +93,34 @@
 
    > **Important**: Any FFmpeg, FFprobe, or FFplay API call made before `initialize()` completes will throw a `StateError`.
 
-### 2.1 Pre-bundled Builds
+### 2.1 Platform specific configuration
+
+1. **iOS and iOS Simulator** - Your app's Podfile will need to be updated to add post-install hooks to exclude building for architectures that aren't supported Add the following to your Podfile:
+
+    ```ruby
+    post_install do |installer|
+      installer.pods_project.targets.each do |target|
+        flutter_additional_ios_build_settings(target)
+        target.build_configurations.each do |config|
+          config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386 x86_64'
+          config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'i386 x86_64'
+        end
+      end
+
+      installer.generated_projects.each do |project|
+        project.targets.each do |target|
+          target.build_configurations.each do |config|
+            config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386 x86_64'
+            config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'i386 x86_64'
+            config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
+          end
+        end
+        project.save
+      end
+    end
+    ```
+
+### 2.2 Pre-bundled Builds
 
 - **base**: Basic build with core FFmpeg libraries. Does not contain any extra libraries.
 - **full**: Full build with all platform-compatible FFmpeg libraries. See: <https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries>
@@ -208,7 +222,7 @@ final ffmpegSessions = FFmpegKit.getFFmpegSessions();
 
 ### 3.5 FFplay Video Playback
 
-The plugin now supports complete video playback with a unified cross-platform surface API.
+The plugin supports complete video playback with a unified cross-platform surface API.
 
 #### Basic Video Playback
 
@@ -301,6 +315,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 The `FFplaySurface` class automatically handles platform differences:
 
 - **Android**: Uses `SurfaceTexture` backed `ANativeWindow` for native rendering
+- **iOS/macOS**: Uses `CVPixelBuffer` textures with Metal optimization
 - **Linux/Windows**: Uses pixel buffer textures with frame callbacks
 - **Audio-only**: Surface is created but not displayed, preventing crashes
 
@@ -336,10 +351,10 @@ This plugin uses a modular architecture:
 - **`session.dart`**: Abstract base class for all session types (`FFmpegSession`, `FFprobeSession`, `FFplaySession`).
 - **`callback_manager.dart`**: Handles the mapping between native function pointers and Dart callbacks.
 
-## 5. Known Issues
+## 5. Requirements
 
-- **iOS**: Not yet supported.
-- **macOS**: Not yet supported.
+- **Dart SDK**: >= 3.10.0
+- **Flutter SDK**: with native assets support (experimental)
 
 ## 6. License
 
