@@ -142,7 +142,8 @@ external FFmpegSessionHandle ffmpeg_kit_create_session_from_argv(
 ///
 /// @param argc the number of arguments
 /// @param argv the argument array
-/// @param complete_cb the callback to be called when the FFmpeg session is completed
+/// @param complete_cb the callback to be called when the FFmpeg session is
+/// completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param stats_cb the callback to be called when statistics are generated
 /// @param user_data the user data to be passed to the callbacks
@@ -228,7 +229,8 @@ external void ffmpeg_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, statistics callback, and user data for all FFmpeg sessions.
+/// Sets the complete callback, log callback, statistics callback, and user data
+/// for all FFmpeg sessions.
 ///
 /// @param complete_cb the callback to be called when the FFmpeg session is
 /// completed
@@ -352,7 +354,8 @@ external FFprobeSessionHandle ffprobe_kit_create_session_from_argv(
 ///
 /// @param argc the number of arguments
 /// @param argv the argument array
-/// @param complete_cb the callback to be called when the FFprobe session is completed
+/// @param complete_cb the callback to be called when the FFprobe session is
+/// completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callbacks
 /// @return the FFprobe session handle
@@ -374,7 +377,8 @@ ffprobe_kit_create_session_from_argv_with_callbacks(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Closes and releases a session created by ffprobe_kit_create_session_from_argv.
+/// Closes and releases a session created by
+/// ffprobe_kit_create_session_from_argv.
 ///
 /// @param handle the session handle to close
 @ffi.Native<ffi.Void Function(FFprobeSessionHandle)>()
@@ -415,7 +419,8 @@ external void ffprobe_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, and user data for all FFprobe sessions.
+/// Sets the complete callback, log callback, and user data for all FFprobe
+/// sessions.
 ///
 /// @param complete_cb the callback to be called when the FFprobe session is
 /// completed
@@ -562,7 +567,8 @@ external FFplaySessionHandle ffplay_kit_create_session_from_argv(
 ///
 /// @param argc the number of arguments
 /// @param argv the argument array
-/// @param complete_cb the callback to be called when the FFplay session is completed
+/// @param complete_cb the callback to be called when the FFplay session is
+/// completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callbacks
 /// @return the FFplay session handle
@@ -624,7 +630,8 @@ external void ffplay_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, and user data for all FFplay sessions.
+/// Sets the complete callback, log callback, and user data for all FFplay
+/// sessions.
 ///
 /// @param complete_cb the callback to be called when the FFplay session is
 /// completed
@@ -851,7 +858,8 @@ external void ffplay_kit_set_volume(double volume);
 /// Gets the volume of the current FFplay session.
 ///
 /// @return volume in [0.0, 1.0], or -1.0 if there is no active session or
-/// the native context is not yet ready. See ffplay_kit_session_get_volume.
+/// the native context is not yet ready. See
+/// ffplay_kit_session_get_volume.
 @ffi.Native<ffi.Double Function()>()
 external double ffplay_kit_get_volume();
 
@@ -879,15 +887,18 @@ external void ffplay_kit_set_android_surface_ptr(int native_window_ptr);
 @ffi.Native<ffi.Void Function()>()
 external void ffplay_kit_clear_android_surface();
 
-/// Registers a global frame-ready callback for desktop video output (Linux/Windows).
+/// Registers a global frame-ready callback for desktop video output
+/// (Linux/Windows).
 ///
 /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
 /// On Android this is a no-op; video output is delivered to the ANativeWindow.
 ///
 /// Dart FFI usage:
-/// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback), nullptr);
+/// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback),
+/// nullptr);
 ///
-/// @param callback  frame callback function; NULL clears any previous registration
+/// @param callback  frame callback function; NULL clears any previous
+/// registration
 /// @param userdata  opaque pointer forwarded to every callback invocation
 @ffi.Native<ffi.Void Function(FFplayKitFrameCallback, ffi.Pointer<ffi.Void>)>()
 external void ffplay_kit_register_frame_callback(
@@ -1220,8 +1231,8 @@ external void media_information_kit_set_log_callback(
 
 /// Sets the complete callback for all MediaInformation sessions.
 ///
-/// @param complete_cb the callback to be called when the MediaInformation session is
-/// completed
+/// @param complete_cb the callback to be called when the MediaInformation
+/// session is completed
 /// @param user_data the user data to be passed to the callback
 @ffi.Native<
   ffi.Void Function(
@@ -1236,10 +1247,11 @@ external void media_information_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback, log callback, and user data for all MediaInformation sessions.
+/// Sets the complete callback, log callback, and user data for all
+/// MediaInformation sessions.
 ///
-/// @param complete_cb the callback to be called when the MediaInformation session is
-/// completed
+/// @param complete_cb the callback to be called when the MediaInformation
+/// session is completed
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callbacks
 @ffi.Native<
@@ -2249,208 +2261,44 @@ external ffi.Pointer<ffi.Char> ffmpeg_kit_config_get_debug_log(
 @ffi.Native<ffi.Void Function(ffi.Pointer<ffi.Void>)>()
 external void ffmpeg_kit_config_clear_debug_log(ffi.Pointer<ffi.Void> session);
 
-typedef int_least8_t = ffi.Int8;
+typedef va_list = ffi.Pointer<ffi.Char>;
+typedef ptrdiff_t = ffi.LongLong;
+typedef Dartptrdiff_t = int;
+typedef int_least8_t = ffi.SignedChar;
 typedef Dartint_least8_t = int;
-typedef int_least16_t = ffi.Int16;
+typedef int_least16_t = ffi.Short;
 typedef Dartint_least16_t = int;
-typedef int_least32_t = ffi.Int32;
+typedef int_least32_t = ffi.Int;
 typedef Dartint_least32_t = int;
-typedef int_least64_t = ffi.Int64;
+typedef int_least64_t = ffi.LongLong;
 typedef Dartint_least64_t = int;
-typedef uint_least8_t = ffi.Uint8;
+typedef uint_least8_t = ffi.UnsignedChar;
 typedef Dartuint_least8_t = int;
-typedef uint_least16_t = ffi.Uint16;
+typedef uint_least16_t = ffi.UnsignedShort;
 typedef Dartuint_least16_t = int;
-typedef uint_least32_t = ffi.Uint32;
+typedef uint_least32_t = ffi.UnsignedInt;
 typedef Dartuint_least32_t = int;
-typedef uint_least64_t = ffi.Uint64;
+typedef uint_least64_t = ffi.UnsignedLongLong;
 typedef Dartuint_least64_t = int;
-typedef int_fast8_t = ffi.Int8;
+typedef int_fast8_t = ffi.SignedChar;
 typedef Dartint_fast8_t = int;
-typedef int_fast16_t = ffi.Int16;
+typedef int_fast16_t = ffi.Int;
 typedef Dartint_fast16_t = int;
-typedef int_fast32_t = ffi.Int32;
+typedef int_fast32_t = ffi.Int;
 typedef Dartint_fast32_t = int;
-typedef int_fast64_t = ffi.Int64;
+typedef int_fast64_t = ffi.LongLong;
 typedef Dartint_fast64_t = int;
-typedef uint_fast8_t = ffi.Uint8;
+typedef uint_fast8_t = ffi.UnsignedChar;
 typedef Dartuint_fast8_t = int;
-typedef uint_fast16_t = ffi.Uint16;
+typedef uint_fast16_t = ffi.UnsignedInt;
 typedef Dartuint_fast16_t = int;
-typedef uint_fast32_t = ffi.Uint32;
+typedef uint_fast32_t = ffi.UnsignedInt;
 typedef Dartuint_fast32_t = int;
-typedef uint_fast64_t = ffi.Uint64;
+typedef uint_fast64_t = ffi.UnsignedLongLong;
 typedef Dartuint_fast64_t = int;
-typedef __int8_t = ffi.SignedChar;
-typedef Dart__int8_t = int;
-typedef __uint8_t = ffi.UnsignedChar;
-typedef Dart__uint8_t = int;
-typedef __int16_t = ffi.Short;
-typedef Dart__int16_t = int;
-typedef __uint16_t = ffi.UnsignedShort;
-typedef Dart__uint16_t = int;
-typedef __int32_t = ffi.Int;
-typedef Dart__int32_t = int;
-typedef __uint32_t = ffi.UnsignedInt;
-typedef Dart__uint32_t = int;
-typedef __int64_t = ffi.LongLong;
-typedef Dart__int64_t = int;
-typedef __uint64_t = ffi.UnsignedLongLong;
-typedef Dart__uint64_t = int;
-typedef __darwin_intptr_t = ffi.Long;
-typedef Dart__darwin_intptr_t = int;
-typedef __darwin_natural_t = ffi.UnsignedInt;
-typedef Dart__darwin_natural_t = int;
-typedef __darwin_ct_rune_t = ffi.Int;
-typedef Dart__darwin_ct_rune_t = int;
-
-final class __mbstate_t extends ffi.Union {
-  @ffi.Array.multi([128])
-  external ffi.Array<ffi.Char> __mbstate8;
-
-  @ffi.LongLong()
-  external int _mbstateL;
-}
-
-typedef __darwin_mbstate_t = __mbstate_t;
-typedef __darwin_ptrdiff_t = ffi.Long;
-typedef Dart__darwin_ptrdiff_t = int;
-typedef __darwin_size_t = ffi.UnsignedLong;
-typedef Dart__darwin_size_t = int;
-typedef __builtin_va_list = ffi.Pointer<ffi.Char>;
-typedef __darwin_va_list = __builtin_va_list;
-typedef __darwin_wchar_t = ffi.Int;
-typedef Dart__darwin_wchar_t = int;
-typedef __darwin_rune_t = __darwin_wchar_t;
-typedef __darwin_wint_t = ffi.Int;
-typedef Dart__darwin_wint_t = int;
-typedef __darwin_clock_t = ffi.UnsignedLong;
-typedef Dart__darwin_clock_t = int;
-typedef __darwin_socklen_t = __uint32_t;
-typedef __darwin_ssize_t = ffi.Long;
-typedef Dart__darwin_ssize_t = int;
-typedef __darwin_time_t = ffi.Long;
-typedef Dart__darwin_time_t = int;
-typedef __darwin_blkcnt_t = __int64_t;
-typedef __darwin_blksize_t = __int32_t;
-typedef __darwin_dev_t = __int32_t;
-typedef __darwin_fsblkcnt_t = ffi.UnsignedInt;
-typedef Dart__darwin_fsblkcnt_t = int;
-typedef __darwin_fsfilcnt_t = ffi.UnsignedInt;
-typedef Dart__darwin_fsfilcnt_t = int;
-typedef __darwin_gid_t = __uint32_t;
-typedef __darwin_id_t = __uint32_t;
-typedef __darwin_ino64_t = __uint64_t;
-typedef __darwin_ino_t = __darwin_ino64_t;
-typedef __darwin_mach_port_name_t = __darwin_natural_t;
-typedef __darwin_mach_port_t = __darwin_mach_port_name_t;
-typedef __darwin_mode_t = __uint16_t;
-typedef __darwin_off_t = __int64_t;
-typedef __darwin_pid_t = __int32_t;
-typedef __darwin_sigset_t = __uint32_t;
-typedef __darwin_suseconds_t = __int32_t;
-typedef __darwin_uid_t = __uint32_t;
-typedef __darwin_useconds_t = __uint32_t;
-
-final class __darwin_pthread_handler_rec extends ffi.Struct {
-  external ffi.Pointer<
-    ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>
-  >
-  __routine;
-
-  external ffi.Pointer<ffi.Void> __arg;
-
-  external ffi.Pointer<__darwin_pthread_handler_rec> __next;
-}
-
-final class _opaque_pthread_attr_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([56])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_cond_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([40])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_condattr_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([8])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_mutex_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([56])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_mutexattr_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([8])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_once_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([8])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_rwlock_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([192])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_rwlockattr_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  @ffi.Array.multi([16])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-final class _opaque_pthread_t extends ffi.Struct {
-  @ffi.Long()
-  external int __sig;
-
-  external ffi.Pointer<__darwin_pthread_handler_rec> __cleanup_stack;
-
-  @ffi.Array.multi([8176])
-  external ffi.Array<ffi.Char> __opaque;
-}
-
-typedef __darwin_pthread_attr_t = _opaque_pthread_attr_t;
-typedef __darwin_pthread_cond_t = _opaque_pthread_cond_t;
-typedef __darwin_pthread_condattr_t = _opaque_pthread_condattr_t;
-typedef __darwin_pthread_key_t = ffi.UnsignedLong;
-typedef Dart__darwin_pthread_key_t = int;
-typedef __darwin_pthread_mutex_t = _opaque_pthread_mutex_t;
-typedef __darwin_pthread_mutexattr_t = _opaque_pthread_mutexattr_t;
-typedef __darwin_pthread_once_t = _opaque_pthread_once_t;
-typedef __darwin_pthread_rwlock_t = _opaque_pthread_rwlock_t;
-typedef __darwin_pthread_rwlockattr_t = _opaque_pthread_rwlockattr_t;
-typedef __darwin_pthread_t = ffi.Pointer<_opaque_pthread_t>;
-typedef intmax_t = ffi.Long;
+typedef intmax_t = ffi.LongLong;
 typedef Dartintmax_t = int;
-typedef uintmax_t = ffi.UnsignedLong;
+typedef uintmax_t = ffi.UnsignedLongLong;
 typedef Dartuintmax_t = int;
 typedef FFmpegSessionHandle = ffi.Pointer<ffi.Void>;
 typedef FFprobeSessionHandle = ffi.Pointer<ffi.Void>;
@@ -2544,6 +2392,51 @@ typedef MediaInformationSessionCompleteCallback =
     ffi.Pointer<
       ffi.NativeFunction<MediaInformationSessionCompleteCallbackFunction>
     >;
+typedef FFplayKitFrameCallbackFunction =
+    ffi.Void Function(
+      ffi.Pointer<ffi.Void> userdata,
+      ffi.Pointer<ffi.Uint8> pixels,
+      ffi.Int width,
+      ffi.Int height,
+      ffi.Int linesize,
+      ffi.Pointer<ffi.Char> format,
+    );
+typedef DartFFplayKitFrameCallbackFunction =
+    void Function(
+      ffi.Pointer<ffi.Void> userdata,
+      ffi.Pointer<ffi.Uint8> pixels,
+      int width,
+      int height,
+      int linesize,
+      ffi.Pointer<ffi.Char> format,
+    );
+
+/// Frame-ready callback type for desktop (Linux/Windows) video output.
+///
+/// Fired inside ffplay_step() on every rendered video frame.
+/// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
+/// with Flutter's FlutterDesktopPixelBuffer.
+/// The pixel buffer is valid only for the duration of the call — copy it
+/// (e.g. into a pre-allocated FlutterDesktopPixelBuffer) before returning.
+///
+/// WARNING: The callback is invoked while the internal ffplay API mutex is
+/// held. Do NOT call any ffplay API function (ffplay_pause, ffplay_seek,
+/// ffplay_get_position, etc.) from within the callback — doing so will
+/// deadlock. Perform only lightweight, non-blocking work (e.g. memcpy into a
+/// pre-allocated buffer and signal a separate rendering thread).
+///
+/// Not used on Android; Android video output goes to the ANativeWindow set via
+/// ffplay_kit_set_android_surface_ptr().
+///
+/// @param userdata  opaque pointer registered with
+/// ffplay_kit_register_frame_callback()
+/// @param pixels    RGBA8888 pixels, width*4 bytes per row (linesize == width*4)
+/// @param width     frame width in pixels
+/// @param height    frame height in pixels
+/// @param linesize  bytes per row
+/// @param format    pixel format string (e.g., "rgba", "bgra", etc.)
+typedef FFplayKitFrameCallback =
+    ffi.Pointer<ffi.NativeFunction<FFplayKitFrameCallbackFunction>>;
 
 enum FFmpegKitSessionState {
   FFMPEG_KIT_SESSION_STATE_CREATED(0),
@@ -2645,45 +2538,3 @@ enum FFmpegKitSignal {
     _ => throw ArgumentError('Unknown value for FFmpegKitSignal: $value'),
   };
 }
-
-typedef FFplayKitFrameCallbackFunction =
-    ffi.Void Function(
-      ffi.Pointer<ffi.Void> userdata,
-      ffi.Pointer<ffi.Uint8> pixels,
-      ffi.Int width,
-      ffi.Int height,
-      ffi.Int linesize,
-    );
-typedef DartFFplayKitFrameCallbackFunction =
-    void Function(
-      ffi.Pointer<ffi.Void> userdata,
-      ffi.Pointer<ffi.Uint8> pixels,
-      int width,
-      int height,
-      int linesize,
-    );
-
-/// Frame-ready callback type for desktop (Linux/Windows) video output.
-///
-/// Fired inside ffplay_step() on every rendered video frame.
-/// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
-/// with Flutter's FlutterDesktopPixelBuffer.
-/// The pixel buffer is valid only for the duration of the call — copy it
-/// (e.g. into a pre-allocated FlutterDesktopPixelBuffer) before returning.
-///
-/// WARNING: The callback is invoked while the internal ffplay API mutex is
-/// held. Do NOT call any ffplay API function (ffplay_pause, ffplay_seek,
-/// ffplay_get_position, etc.) from within the callback — doing so will
-/// deadlock. Perform only lightweight, non-blocking work (e.g. memcpy into a
-/// pre-allocated buffer and signal a separate rendering thread).
-///
-/// Not used on Android; Android video output goes to the ANativeWindow set via
-/// ffplay_kit_set_android_surface_ptr().
-///
-/// @param userdata  opaque pointer registered with ffplay_kit_register_frame_callback()
-/// @param pixels    RGBA8888 pixels, width*4 bytes per row (linesize == width*4)
-/// @param width     frame width in pixels
-/// @param height    frame height in pixels
-/// @param linesize  bytes per row
-typedef FFplayKitFrameCallback =
-    ffi.Pointer<ffi.NativeFunction<FFplayKitFrameCallbackFunction>>;

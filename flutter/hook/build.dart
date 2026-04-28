@@ -289,15 +289,42 @@ Future<void> _emitAssets(
       throw Exception('FFmpegKit: Could not find ABI directory $abi in AAR');
     }
 
-    for (final file in abiDir.listSync().whereType<File>()) {
-      if (file.path.endsWith('.so')) {
-        final name = p
-            .basenameWithoutExtension(file.path)
-            .replaceFirst('lib', '');
+    // Find all .so files
+    final soFiles =
+        abiDir
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.endsWith('.so'))
+            .toList()
+          ..sort((a, b) => a.path.compareTo(b.path));
+
+    // Identify the main ffmpegkit library and companion libraries
+    final mainLibrary = soFiles.firstWhere(
+      (file) => p.basename(file.path) == 'libffmpegkit.so',
+      orElse: () => soFiles.first,
+    );
+
+    // Add the main library
+    final mainName = p
+        .basenameWithoutExtension(mainLibrary.path)
+        .replaceFirst('lib', '');
+    output.assets.code.add(
+      CodeAsset(
+        package: packageName,
+        name: mainName,
+        linkMode: DynamicLoadingBundled(),
+        file: Uri.file(mainLibrary.path),
+      ),
+    );
+
+    // Add companion libraries with the 'native/' prefix
+    for (final file in soFiles) {
+      if (file.path != mainLibrary.path) {
+        final name = p.basename(file.path);
         output.assets.code.add(
           CodeAsset(
             package: packageName,
-            name: name,
+            name: 'native/$name',
             linkMode: DynamicLoadingBundled(),
             file: Uri.file(file.path),
           ),
@@ -349,17 +376,75 @@ Future<void> _emitAssets(
     final libDir = artifact.extractedDir!;
     final ext = targetOS == OS.windows ? '.dll' : '.so';
 
-    for (final entity in libDir.listSync(recursive: true)) {
-      if (entity is File && entity.path.endsWith(ext)) {
-        var name = p.basenameWithoutExtension(entity.path);
-        if (targetOS == OS.linux) name = name.replaceFirst('lib', '');
+    // Find all library files in the bin directory (where DLLs are typically located)
+    final libFiles = <File>[];
 
+    // Look for files in bin directory first (common for Windows)
+    final binDir = Directory('${libDir.path}/bin');
+    if (binDir.existsSync()) {
+      libFiles.addAll(
+        binDir
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.endsWith(ext))
+            .toList(),
+      );
+    }
+
+    // Also look in the root directory
+    libFiles.addAll(
+      libDir
+          .listSync()
+          .whereType<File>()
+          .where((file) => file.path.endsWith(ext))
+          .toList(),
+    );
+
+    // Remove duplicates and sort
+    final uniqueLibFiles = libFiles.toSet().toList()
+      ..sort((a, b) => a.path.compareTo(b.path));
+
+    if (uniqueLibFiles.isEmpty) {
+      stderr.writeln('FFmpegKit: No library files found in ${libDir.path}');
+      return;
+    }
+
+    // Identify the main ffmpegkit library and companion libraries
+    File mainLibrary;
+    try {
+      mainLibrary = uniqueLibFiles.firstWhere(
+        (file) => p.basename(file.path).toLowerCase().contains('ffmpegkit'),
+      );
+    } catch (e) {
+      // If no ffmpegkit library found, use the first library
+      mainLibrary = uniqueLibFiles.first;
+      stdout.writeln(
+        'FFmpegKit: No ffmpegkit library found, using ${p.basename(mainLibrary.path)} as main library',
+      );
+    }
+
+    // Add the main library
+    var mainName = p.basenameWithoutExtension(mainLibrary.path);
+    if (targetOS == OS.linux) mainName = mainName.replaceFirst('lib', '');
+    output.assets.code.add(
+      CodeAsset(
+        package: packageName,
+        name: mainName,
+        linkMode: DynamicLoadingBundled(),
+        file: Uri.file(mainLibrary.path),
+      ),
+    );
+
+    // Add companion libraries with the 'native/' prefix
+    for (final file in uniqueLibFiles) {
+      if (file.path != mainLibrary.path) {
+        final name = p.basename(file.path);
         output.assets.code.add(
           CodeAsset(
             package: packageName,
-            name: name,
+            name: 'native/$name',
             linkMode: DynamicLoadingBundled(),
-            file: Uri.file(entity.path),
+            file: Uri.file(file.path),
           ),
         );
       }

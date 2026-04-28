@@ -36,66 +36,6 @@
             "preLaunchTask": "Start Android Emulator (emulator-5554)"
         },
         {
-            "name": "Debug Configure (macos)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "debug",
-            "deviceId": "macos",
-            "args": [
-                "--platform=macos",
-                "--verbose"
-            ],
-            "program": "${workspaceFolder}/flutter/bin/configure.dart"
-        },
-        {
-            "name": "Debug Configure (ios)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "debug",
-            "deviceId": "macos",
-            "args": [
-                "--platform=ios",
-                "--verbose"
-            ],
-            "program": "${workspaceFolder}/flutter/bin/configure.dart"
-        },
-        {
-            "name": "Debug Configure (windows)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "debug",
-            "deviceId": "windows",
-            "args": [
-                "--platform=windows",
-                "--verbose"
-            ],
-            "program": "${workspaceFolder}/flutter/bin/configure.dart"
-        },
-        {
-            "name": "Debug Configure (linux)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "debug",
-            "deviceId": "linux",
-            "args": [
-                "--platform=linux",
-                "--verbose"
-            ],
-            "program": "${workspaceFolder}/flutter/bin/configure.dart"
-        },
-        {
-            "name": "Debug Configure (android)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "debug",
-            "deviceId": "windows",
-            "args": [
-                "--platform=android",
-                "--verbose"
-            ],
-            "program": "${workspaceFolder}/flutter/bin/configure.dart"
-        },
-        {
             "name": "Debug (iOS Simulator)",
             "request": "launch",
             "type": "dart",
