@@ -21,7 +21,6 @@
 
 #import <Accelerate/Accelerate.h>
 #import <CoreVideo/CoreVideo.h>
-#import <Flutter/Flutter.h>
 #include <dlfcn.h>
 
 // ─── ffplay C API
