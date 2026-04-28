@@ -49,9 +49,27 @@ class FFprobeSession extends Session {
     FFmpegKitExtended.requireInitialized();
     final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
+      try {
+        handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
+      } catch (e, st) {
+        log(
+          'FFprobeSession: error creating session ffprobe_kit_create_session $command',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       this.command = command;
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      try {
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      } catch (e, st) {
+        log(
+          'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
@@ -69,7 +87,16 @@ class FFprobeSession extends Session {
     FFmpegKitExtended.requireInitialized();
     this.handle = handle;
     this.command = command;
-    sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    try {
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    } catch (e, st) {
+      log(
+        'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
     registerFinalizer();
   }
 
@@ -118,7 +145,16 @@ class FFprobeSession extends Session {
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
-          ffmpeg.ffprobe_kit_session_execute(handle);
+          try {
+            ffmpeg.ffprobe_kit_session_execute(handle);
+          } catch (e, st) {
+            log(
+              'FFprobeSession.execute: error executing session ffprobe_kit_session_execute $command',
+              error: e,
+              stackTrace: st,
+            );
+            rethrow;
+          }
           try {
             _completeCallback?.call(this);
           } catch (e, st) {
@@ -231,16 +267,28 @@ class FFprobeSession extends Session {
       // settled session.
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
     };
-
-    ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-      nativeFFprobeComplete.nativeFunction,
-      nullptr,
-    );
+    try {
+      ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+        nativeFFprobeComplete.nativeFunction,
+        nullptr,
+      );
+    } catch (e, st) {
+      log(
+        'FFprobeSession: error enabling ffprobe session complete callback $command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
 
     try {
       ffmpeg.ffprobe_kit_session_execute_async(handle);
     } catch (e, st) {
-      log('FFprobeSession: error starting async session $sessionId: $e\n$st');
+      log(
+        'FFprobeSession: error starting async session $sessionId',
+        error: e,
+        stackTrace: st,
+      );
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;

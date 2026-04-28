@@ -18,6 +18,7 @@
  */
 
 import 'dart:async';
+import 'dart:developer';
 import 'dart:ffi';
 import 'dart:io';
 
@@ -127,8 +128,26 @@ class MediaInformationSession extends FFprobeSession {
 
     final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
-      handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      try {
+        handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      } catch (e, st) {
+        log(
+          'MediaInformationSession: error creating session media_information_create_session $finalCommand',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
+      try {
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      } catch (e, st) {
+        log(
+          'MediaInformationSession: error getting session id for ffmpeg_kit_session_get_session_id $finalCommand',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
@@ -150,7 +169,17 @@ class MediaInformationSession extends FFprobeSession {
     FFmpegKitExtended.requireInitialized();
     this.handle = handle;
     this.command = command;
-    sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+
+    try {
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    } catch (e, st) {
+      log(
+        'MediaInformationSession.fromHandle: error getting session id for ffmpeg_kit_session_get_session_id $command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
     registerFinalizer();
     // No callback registration: restored sessions have no active callbacks.
   }
@@ -168,12 +197,32 @@ class MediaInformationSession extends FFprobeSession {
 
     final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
-      handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      try {
+        handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      } catch (e, st) {
+        log(
+          'MediaInformationSession.fromFile: error creating session media_information_create_session $finalCommand',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
+      try {
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      } catch (e, st) {
+        log(
+          'MediaInformationSession.fromFile: error getting session id for ffmpeg_kit_session_get_session_id $finalCommand',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       registerFinalizer();
     } catch (e, st) {
-      stderr.writeln(
-        'MediaInformationSession.fromFile: failed to create session: $e\n$st',
+      log(
+        'MediaInformationSession.fromFile: failed to create session',
+        error: e,
+        stackTrace: st,
       );
       rethrow;
     } finally {
@@ -198,12 +247,32 @@ class MediaInformationSession extends FFprobeSession {
 
     final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
-      handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      try {
+        handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+      } catch (e, st) {
+        log(
+          'MediaInformationSession.fromUri: error creating session media_information_create_session $finalCommand',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
+      try {
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      } catch (e, st) {
+        log(
+          'MediaInformationSession.fromUri: error getting session id for ffmpeg_kit_session_get_session_id $finalCommand',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       registerFinalizer();
     } catch (e, st) {
-      stderr.writeln(
-        'MediaInformationSession.fromUri: failed to create session: $e\n$st',
+      log(
+        'MediaInformationSession.fromUri: failed to create session',
+        error: e,
+        stackTrace: st,
       );
       rethrow;
     } finally {
@@ -276,19 +345,32 @@ class MediaInformationSession extends FFprobeSession {
   MediaInformationSession execute() {
     SessionQueueManager()
         .executeSession(this, () async {
-          ffmpeg.media_information_session_execute(handle, _timeout);
+          try {
+            ffmpeg.media_information_session_execute(handle, _timeout);
+          } catch (e, st) {
+            log(
+              'MediaInformationSession.execute: error executing media_information_session_execute $command',
+              error: e,
+              stackTrace: st,
+            );
+            rethrow;
+          }
           try {
             _mediaInfoCompleteCallback?.call(this);
           } catch (e, st) {
-            stderr.writeln(
-              'MediaInformationSession.execute: error in completeCallback: $e\n$st',
+            log(
+              'MediaInformationSession.execute: error in completeCallback',
+              error: e,
+              stackTrace: st,
             );
           }
           _unregister();
         })
         .catchError((Object e, StackTrace st) {
-          stderr.writeln(
-            'MediaInformationSession.execute: queue error: $e\n$st',
+          log(
+            'MediaInformationSession.execute: queue error',
+            error: e,
+            stackTrace: st,
           );
         });
     return this;
@@ -365,8 +447,10 @@ class MediaInformationSession extends FFprobeSession {
             ),
           );
         } catch (e, st) {
-          stderr.writeln(
-            'MediaInformationSession: error reading chapter $i: $e\n$st',
+          log(
+            'MediaInformationSession: error reading chapter $i',
+            error: e,
+            stackTrace: st,
           );
         } finally {
           ffmpeg.ffmpeg_kit_handle_release(chapterHandle);
@@ -437,8 +521,10 @@ class MediaInformationSession extends FFprobeSession {
             ),
           );
         } catch (e, st) {
-          stderr.writeln(
-            'MediaInformationSession: error reading stream $i: $e\n$st',
+          log(
+            'MediaInformationSession: error reading stream $i',
+            error: e,
+            stackTrace: st,
           );
         } finally {
           ffmpeg.ffmpeg_kit_handle_release(streamHandle);
@@ -465,8 +551,10 @@ class MediaInformationSession extends FFprobeSession {
         chapters: chapters,
       );
     } catch (e, st) {
-      stderr.writeln(
-        'MediaInformationSession.getMediaInformation: error: $e\n$st',
+      log(
+        'MediaInformationSession.getMediaInformation',
+        error: e,
+        stackTrace: st,
       );
       rethrow;
     } finally {
@@ -513,9 +601,11 @@ class MediaInformationSession extends FFprobeSession {
       try {
         userCb?.call(s);
       } catch (e, st) {
-        stderr.writeln(
+        log(
           'MediaInformationSession: error in completeCallback for session '
-          '$sessionId: $e\n$st',
+          '$sessionId',
+          error: e,
+          stackTrace: st,
         );
       }
 
@@ -525,17 +615,30 @@ class MediaInformationSession extends FFprobeSession {
     };
 
     // Register the global native callback for media information completion.
-    ffmpeg.ffmpeg_kit_config_enable_media_information_session_complete_callback(
-      nativeMediaInfoComplete.nativeFunction,
-      nullptr,
-    );
+    try {
+      ffmpeg
+          .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+            nativeMediaInfoComplete.nativeFunction,
+            nullptr,
+          );
+    } catch (e, st) {
+      log(
+        'MediaInformationSession: error registering global callback for session ffmpeg_kit_config_enable_media_information_session_complete_callback '
+        '$sessionId',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
 
     try {
       ffmpeg.media_information_session_execute_async(handle, _timeout);
     } catch (e, st) {
-      stderr.writeln(
-        'MediaInformationSession: error starting async session '
-        '$sessionId: $e\n$st',
+      log(
+        'MediaInformationSession: error starting async session for media_information_session_execute_async '
+        '$sessionId',
+        error: e,
+        stackTrace: st,
       );
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
@@ -545,9 +648,11 @@ class MediaInformationSession extends FFprobeSession {
     try {
       await sessionCompleter.future;
     } catch (e, st) {
-      stderr.writeln(
+      log(
         'MediaInformationSession: error awaiting session '
-        '$sessionId: $e\n$st',
+        '$sessionId',
+        error: e,
+        stackTrace: st,
       );
     }
     // No post-await restore needed — already done inside the callback above.

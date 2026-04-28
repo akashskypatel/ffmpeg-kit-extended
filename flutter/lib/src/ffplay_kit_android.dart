@@ -16,6 +16,7 @@
 /// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 library;
 
+import 'dart:developer';
 import 'dart:io' show Platform;
 
 import '../ffmpeg_kit_extended_flutter.dart';
@@ -65,7 +66,15 @@ class FFplayKitAndroid {
     if (!Platform.isAndroid) return;
     _currentNativeWindowPtr = nativeWindowPtr;
     FFmpegKitExtended.requireInitialized();
-    ffmpeg.ffplay_kit_set_android_surface_ptr(nativeWindowPtr);
+    try {
+      ffmpeg.ffplay_kit_set_android_surface_ptr(nativeWindowPtr);
+    } catch (e, st) {
+      log(
+        'FFplayKitAndroid: error in native function ffplay_kit_set_android_surface_ptr',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   /// Clears Android ANativeWindow, stopping video output.
@@ -78,7 +87,15 @@ class FFplayKitAndroid {
     if (!Platform.isAndroid) return;
     _currentNativeWindowPtr = 0;
     FFmpegKitExtended.requireInitialized();
-    ffmpeg.ffplay_kit_clear_android_surface();
+    try {
+      ffmpeg.ffplay_kit_clear_android_surface();
+    } catch (e, st) {
+      log(
+        'FFplayKitAndroid: error in native function ffplay_kit_clear_android_surface',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   /// Clears Android ANativeWindow only if it matches the specified pointer.
@@ -89,7 +106,15 @@ class FFplayKitAndroid {
     if (_currentNativeWindowPtr == nativeWindowPtr) {
       _currentNativeWindowPtr = 0;
       FFmpegKitExtended.requireInitialized();
-      ffmpeg.ffplay_kit_clear_android_surface();
+      try {
+        ffmpeg.ffplay_kit_clear_android_surface();
+      } catch (e, st) {
+        log(
+          'FFplayKitAndroid: error in native function ffplay_kit_clear_android_surface',
+          error: e,
+          stackTrace: st,
+        );
+      }
     }
   }
 
