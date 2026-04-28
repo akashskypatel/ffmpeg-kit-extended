@@ -391,6 +391,18 @@ Future<void> _emitAssets(
       );
     }
 
+    // Also look in lib directory (common for Linux)
+    final libDirPath = Directory('${libDir.path}/lib');
+    if (libDirPath.existsSync()) {
+      libFiles.addAll(
+        libDirPath
+            .listSync()
+            .whereType<File>()
+            .where((file) => file.path.endsWith(ext))
+            .toList(),
+      );
+    }
+
     // Also look in the root directory
     libFiles.addAll(
       libDir
@@ -439,10 +451,19 @@ Future<void> _emitAssets(
     for (final file in uniqueLibFiles) {
       if (file.path != mainLibrary.path) {
         final name = p.basename(file.path);
+        // For Linux, remove 'lib' prefix from companion libraries as well
+        var assetName = name;
+        if (targetOS == OS.linux) {
+          assetName = assetName.replaceFirst('lib', '');
+          // Also remove the .so extension for the asset name
+          if (assetName.endsWith('.so')) {
+            assetName = assetName.substring(0, assetName.length - 3);
+          }
+        }
         output.assets.code.add(
           CodeAsset(
             package: packageName,
-            name: 'native/$name',
+            name: 'native/$assetName',
             linkMode: DynamicLoadingBundled(),
             file: Uri.file(file.path),
           ),
