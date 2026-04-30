@@ -126,6 +126,7 @@ class FFplaySession extends Session {
           error: e,
           stackTrace: st,
         );
+        rethrow;
       }
       this.command = command;
       try {
@@ -136,6 +137,7 @@ class FFplaySession extends Session {
           error: e,
           stackTrace: st,
         );
+        rethrow;
       }
       registerFinalizer();
     } finally {
