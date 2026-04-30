@@ -229,6 +229,7 @@ class FFmpegSession extends Session {
               error: e,
               stackTrace: st,
             );
+            rethrow;
           }
           _unregister();
         })
@@ -361,6 +362,7 @@ class FFmpegSession extends Session {
           error: e,
           stackTrace: st,
         );
+        rethrow;
       }
 
       // Complete last — everything is torn down, so any awaiter (test or
@@ -397,6 +399,7 @@ class FFmpegSession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     try {
       ffmpeg.ffmpeg_kit_config_enable_statistics_callback(
@@ -409,6 +412,7 @@ class FFmpegSession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
 
     // Start async native execution.
@@ -431,6 +435,7 @@ class FFmpegSession extends Session {
       await sessionCompleter.future;
     } catch (e, st) {
       log('FFmpegSession: error awaiting session $sessionId: $e\n$st');
+      rethrow;
     }
     // No post-await restore needed — already done inside the callback above.
   }
@@ -454,6 +459,7 @@ class FFmpegSession extends Session {
           'FFmpegSession: error dispatching log [$i] for session '
           '$sessionId: $e\n$st',
         );
+        rethrow;
       }
     }
     logsProcessed = count;
