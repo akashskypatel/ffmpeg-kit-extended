@@ -12,9 +12,12 @@
 
 - **Cross-Platform Support**: Works on Android, iOS, macOS, Linux, and Windows.
   - **Android**: Full video playback support with native surface rendering.
+    - **x86**: x86 architecture is not supported due to its legacy status.
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
-    - **iOS**: Supports both physical devices and simulators. x86_64 architecture is not supported.
-  - **Note**: x86 architecture is not supported on Android.
+    - **iOS**: Supports both physical devices and simulators. x86_64 architecture is not supported due to its legacy status.
+  - **Linux**: Full video playback support with OpenGL integration.
+    - **arm64**: arm64 architecture currently not supported, coming soon!
+  - **tvOS**: Coming soon!
 - **FFmpeg, FFprobe & FFplay**: Full support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
@@ -28,13 +31,16 @@
 
 ### Platform Support
 
-| Platform | Status      | Video Playback | Architecture         |
-| -------- | ----------- | -------------- | -------------------- |
-| Android  | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 |
-| iOS      | ✅ Supported | ✅ Texture      | arm64                |
-| macOS    | ✅ Supported | ✅ Texture      | arm64, x86_64        |
-| Linux    | ✅ Supported | ✅ Texture      | x86_64               |
-| Windows  | ✅ Supported | ✅ Texture      | x86_64               |
+| Platform | Status      | Video Playback | Architecture         | Minimum Requirements |
+| -------- | ----------- | -------------- | -------------------- | -------------------- |
+| Android (including Android TV) | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 | API 26+              |
+| iOS      | ✅ Supported | ✅ Texture      | arm64                | iOS 13+              |
+| macOS    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
+| Linux    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
+| Windows  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
+| tvOS     | Coming Soon! |                |                      |             |
+
+You will have to update your app's minimum requirements on your own to match the requirements above.
 
 ## 🎬 Demo
 
@@ -140,7 +146,7 @@
 | AI\*      |      |       |       |                | x\*  |
 | HTTPS     |      | x     | x     | x              | x    |
 
-- AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable AI features.
+- AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable certain AI features.
 - See [Supported External Libraries](https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries) for more information.
 
 ## 3. Usage
