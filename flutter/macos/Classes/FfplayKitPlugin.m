@@ -423,7 +423,9 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   _texture = nil;
 
   // 1. Stop frame delivery.
-  _ffplay_kit_register_frame_callback_fn(NULL, NULL);
+  if (_ffplay_kit_register_frame_callback_fn) {
+    _ffplay_kit_register_frame_callback_fn(NULL, NULL);
+  }
 
   // 2. Drain any in-flight callback: -invalidate acquires _lock, which
   //    guarantees any concurrent updateWithPixels call has fully exited.
