@@ -1,3 +1,6 @@
+import java.io.File
+import java.util.Properties
+
 group = "com.akashskypatel.ffmpeg_kit_extended_flutter"
 version = "1.0-SNAPSHOT"
 
@@ -26,25 +29,21 @@ plugins {
     id("kotlin-android")
 }
 
-// FFmpegKit Java/Kotlin classes are staged by hook/build.dart.
-// We locate the path via the generated properties file in .dart_tool.
-val appRoot = project.rootProject.projectDir.parentFile
-val propsFile = File(appRoot, ".dart_tool/ffmpeg_kit_extended_flutter/shared/android_config/paths.properties")
-var classesJar: File? = null
-
-if (propsFile.exists()) {
-    val props = java.util.Properties()
-    propsFile.inputStream().use { props.load(it) }
-    val path = props.getProperty("classes_jar")
-    if (path != null) {
-        classesJar = File(path)
-        logger.lifecycle("FFmpegKit: Found classes.jar via properties: ${classesJar!!.absolutePath}")
+fun resolveStagedClassesJar(): File? {
+    val appRoot = project.rootProject.projectDir.parentFile
+    val propsFile = File(appRoot, ".dart_tool/hooks_runner/shared/ffmpeg_kit_extended_flutter/build/android_config/paths.properties")
+    
+    if (!propsFile.exists()) {
+        logger.warn("FFmpegKit: paths.properties not found at ${propsFile.absolutePath}. This is expected on the first build.")
+        return null
     }
-}
 
-if (classesJar == null || !classesJar!!.exists()) {
-    logger.warn("FFmpegKit: ffmpegkit-classes.jar not found.")
-    logger.warn("FFmpegKit: It should be staged by hook/build.dart during 'flutter build' or 'dart run'.")
+    val props = Properties()
+    propsFile.inputStream().use { props.load(it) }
+    val path = props.getProperty("classes_jar") ?: return null
+    
+    val jarFile = File(path)
+    return if (jarFile.exists()) jarFile else null
 }
 
 android {
@@ -57,8 +56,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        jvmToolchain(17)
     }
 
     sourceSets {
@@ -82,7 +81,7 @@ android {
 
     externalNativeBuild {
         cmake {
-            path("src/main/cpp/CMakeLists.txt")
+            path = File(projectDir, "src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -103,14 +102,12 @@ android {
     }
 }
 
-
 dependencies {
-    // Include the staged classes.jar for compile-time access to FFmpegKit's Java API.
-    classesJar?.let { 
-        if (it.exists()) {
-            implementation(files(it)) 
-        }
-    }
-    testImplementation("org.jetbrains.kotlin:kotlin-test")
-    testImplementation("org.mockito:mockito-core:5.0.0")
+    // Reference the absolute path directly
+    val appRoot = project.rootProject.projectDir.parentFile
+    logger.info("FFmpegKit: App root is ${appRoot.absolutePath}")
+    val stagedJarPath = "${appRoot}/.dart_tool/hooks_runner/shared/ffmpeg_kit_extended_flutter/build/android_config/classes.jar"
+    
+    // Use files() directly. Gradle will check for the file at execution time.
+    implementation(files(stagedJarPath))
 }
