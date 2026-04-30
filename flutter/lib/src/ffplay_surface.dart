@@ -68,8 +68,8 @@ class FFplaySurface {
     required this.textureId,
     FFplayAndroidSurface? android,
     FFplayDesktopTexture? desktop,
-  })  : _android = android,
-        _desktop = desktop;
+  }) : _android = android,
+       _desktop = desktop;
 
   /// Allocates platform-appropriate video surface and wires it to FFplay.
   /// On Android, creates `SurfaceTexture`-backed `ANativeWindow` and calls
@@ -90,8 +90,10 @@ class FFplaySurface {
       s.bindToFFplay();
       return FFplaySurface._(textureId: s.textureId, android: s);
     }
-    if (Platform.isLinux || Platform.isWindows ||
-        Platform.isIOS || Platform.isMacOS) {
+    if (Platform.isLinux ||
+        Platform.isWindows ||
+        Platform.isIOS ||
+        Platform.isMacOS) {
       final t = await FFplayDesktopTexture.create();
       if (t == null) return null;
       return FFplaySurface._(textureId: t.textureId, desktop: t);
@@ -100,7 +102,8 @@ class FFplaySurface {
   }
 
   /// Returns [Widget] that composites current video frame into the tree.
-  Widget toWidget() => Texture(textureId: textureId);
+  /// Uses ValueKey to force widget recreation when textureId changes.
+  Widget toWidget() => Texture(key: ValueKey(textureId), textureId: textureId);
 
   /// Releases native resources and stops frame delivery.
   /// After calling this, discard the [FFplaySurface] instance.

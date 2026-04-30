@@ -61,6 +61,9 @@ target_include_directories(${PLUGIN_NAME} PUBLIC
 target_link_libraries(${PLUGIN_NAME} PRIVATE flutter)
 target_link_libraries(${PLUGIN_NAME} PRIVATE PkgConfig::GTK)
 
+pkg_check_modules(GLESV2 REQUIRED glesv2)
+target_link_libraries(${PLUGIN_NAME} PRIVATE ${GLESV2_LIBRARIES})
+
 # Link system libraries required by FFmpeg static builds
 target_link_libraries(${PLUGIN_NAME} PRIVATE 
     "-lz" 

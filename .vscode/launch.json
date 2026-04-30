@@ -11,6 +11,7 @@
             "flutterMode": "debug",
             "deviceId": "windows",
             "args": [
+                "windows",
                 "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
@@ -22,6 +23,7 @@
             "flutterMode": "debug",
             "deviceId": "linux",
             "args": [
+                "linux",
                 "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
@@ -50,6 +52,7 @@
             "flutterMode": "debug",
             "deviceId": "macos",
             "args": [
+                "macos",
                 "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"

@@ -185,7 +185,7 @@ class _HomePageState extends State<HomePage>
     }
   }
 
-  void _addLog(String log) {
+  void _addLog(String log, {bool printToConsole = false}) {
     setState(() {
       _outputController.text += "$log\n";
     });
@@ -199,6 +199,9 @@ class _HomePageState extends State<HomePage>
         );
       }
     });
+    if (printToConsole) {
+      print(log);
+    }
   }
 
   void _clearLogs() {
@@ -210,7 +213,7 @@ class _HomePageState extends State<HomePage>
   // --- FFmpeg Examples ---
 
   Future<void> _runFFmpegVersion() async {
-    _addLog("--- Running FFmpeg -version (Async) ---");
+    _addLog("--- Running FFmpeg -version (Async) ---", printToConsole: true);
 
     // Async execution captures logs in real-time.
     await FFmpegKit.executeAsync(
@@ -225,7 +228,7 @@ class _HomePageState extends State<HomePage>
   }
 
   void _runFFmpegInfoSync() {
-    _addLog("--- Running FFmpeg -version (Sync) ---");
+    _addLog("--- Running FFmpeg -version (Sync) ---", printToConsole: true);
     // Synchronous execution blocks the current isolate.
     final session = FFmpegKit.execute("-version");
     final output = session.getOutput();
@@ -243,11 +246,12 @@ class _HomePageState extends State<HomePage>
     final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
     _addLog(
       "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---",
+      printToConsole: true,
     );
 
     // Command with both video and audio streams
     const command =
-        "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
+        "-hide_banner -loglevel quiet -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$tempOutputPath\"",
@@ -269,11 +273,14 @@ class _HomePageState extends State<HomePage>
     final outputDir = Directory(tempDir.path);
     await outputDir.create(recursive: true);
     final outputPath = path.join(tempDir.path, 'test_audio.wav');
-    _addLog("--- Generating Test Audio to: $outputPath ---");
+    _addLog(
+      "--- Generating Test Audio to: $outputPath ---",
+      printToConsole: true,
+    );
 
     // Command from integration tests
     const command =
-        "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=10 -y";
+        "-hide_banner -loglevel quiet -f lavfi -i sine=frequency=1000:duration=10 -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$outputPath\"",
@@ -291,7 +298,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _showSystemInfo() async {
-    _addLog("--- System & Config Information ---");
+    _addLog("--- System & Config Information ---", printToConsole: true);
     _addLog("FFmpeg Version: ${FFmpegKitConfig.getFFmpegVersion()}");
     _addLog("FFmpegKit Version: ${FFmpegKitConfig.getVersion()}");
     _addLog("Build Date: ${FFmpegKitConfig.getBuildDate()}");
@@ -303,27 +310,27 @@ class _HomePageState extends State<HomePage>
 
   // Introspection API methods
   Future<void> _showFFmpegVersion() async {
-    _addLog("--- FFmpeg Version ---");
+    _addLog("--- FFmpeg Version ---", printToConsole: true);
     _addLog(FFmpegKitExtended.getFFmpegVersion());
   }
 
   Future<void> _showFFmpegArchitecture() async {
-    _addLog("--- FFmpeg Architecture ---");
+    _addLog("--- FFmpeg Architecture ---", printToConsole: true);
     _addLog(FFmpegKitExtended.getFFmpegArchitecture());
   }
 
   Future<void> _showFFmpegKitVersion() async {
-    _addLog("--- FFmpegKit Version ---");
+    _addLog("--- FFmpegKit Version ---", printToConsole: true);
     _addLog(FFmpegKitExtended.getVersion());
   }
 
   Future<void> _showPackageName() async {
-    _addLog("--- Package Name ---");
+    _addLog("--- Package Name ---", printToConsole: true);
     _addLog(FFmpegKitExtended.getPackageName());
   }
 
   Future<void> _showExternalLibraries() async {
-    _addLog("--- External Libraries ---");
+    _addLog("--- External Libraries ---", printToConsole: true);
     final libraries = FFmpegKitExtended.getExternalLibraries();
     if (libraries.isEmpty) {
       _addLog("No external libraries bundled");
@@ -333,66 +340,66 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _showBundleType() async {
-    _addLog("--- Bundle Type ---");
+    _addLog("--- Bundle Type ---", printToConsole: true);
     _addLog(FFmpegKitExtended.getBundleType());
   }
 
   Future<void> _showGplStatus() async {
-    _addLog("--- GPL Status ---");
+    _addLog("--- GPL Status ---", printToConsole: true);
     _addLog(FFmpegKitExtended.isGpl() ? "GPL enabled" : "GPL disabled");
   }
 
   Future<void> _showNonfreeStatus() async {
-    _addLog("--- Non-Free Status ---");
+    _addLog("--- Non-Free Status ---", printToConsole: true);
     _addLog(
       FFmpegKitExtended.isNonfree() ? "Non-free enabled" : "Non-free disabled",
     );
   }
 
   Future<void> _showRegisteredCodecs() async {
-    _addLog("--- Registered Codecs ---");
+    _addLog("--- Registered Codecs ---", printToConsole: true);
     final codecs = FFmpegKitExtended.getRegisteredCodecs();
     _addLog(codecs.isEmpty ? "No codecs found" : codecs);
   }
 
   Future<void> _showRegisteredEncoders() async {
-    _addLog("--- Registered Encoders ---");
+    _addLog("--- Registered Encoders ---", printToConsole: true);
     final encoders = FFmpegKitExtended.getRegisteredEncoders();
     _addLog(encoders.isEmpty ? "No encoders found" : encoders);
   }
 
   Future<void> _showRegisteredDecoders() async {
-    _addLog("--- Registered Decoders ---");
+    _addLog("--- Registered Decoders ---", printToConsole: true);
     final decoders = FFmpegKitExtended.getRegisteredDecoders();
     _addLog(decoders.isEmpty ? "No decoders found" : decoders);
   }
 
   Future<void> _showRegisteredMuxers() async {
-    _addLog("--- Registered Muxers ---");
+    _addLog("--- Registered Muxers ---", printToConsole: true);
     final muxers = FFmpegKitExtended.getRegisteredMuxers();
     _addLog(muxers.isEmpty ? "No muxers found" : muxers);
   }
 
   Future<void> _showRegisteredDemuxers() async {
-    _addLog("--- Registered Demuxers ---");
+    _addLog("--- Registered Demuxers ---", printToConsole: true);
     final demuxers = FFmpegKitExtended.getRegisteredDemuxers();
     _addLog(demuxers.isEmpty ? "No demuxers found" : demuxers);
   }
 
   Future<void> _showRegisteredFilters() async {
-    _addLog("--- Registered Filters ---");
+    _addLog("--- Registered Filters ---", printToConsole: true);
     final filters = FFmpegKitExtended.getRegisteredFilters();
     _addLog(filters.isEmpty ? "No filters found" : filters);
   }
 
   Future<void> _showRegisteredProtocols() async {
-    _addLog("--- Registered Protocols ---");
+    _addLog("--- Registered Protocols ---", printToConsole: true);
     final protocols = FFmpegKitExtended.getRegisteredProtocols();
     _addLog(protocols.isEmpty ? "No protocols found" : protocols);
   }
 
   Future<void> _showRegisteredBitstreamFilters() async {
-    _addLog("--- Registered Bitstream Filters ---");
+    _addLog("--- Registered Bitstream Filters ---", printToConsole: true);
     final bitstreamFilters = FFmpegKitExtended.getRegisteredBitstreamFilters();
     _addLog(
       bitstreamFilters.isEmpty
@@ -402,13 +409,13 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _showBuildConfiguration() async {
-    _addLog("--- Build Configuration ---");
+    _addLog("--- Build Configuration ---", printToConsole: true);
     final config = FFmpegKitExtended.getBuildConfiguration();
     _addLog(config.isEmpty ? "No build configuration found" : config);
   }
 
   Future<void> _showBuildDate() async {
-    _addLog("--- Build Date ---");
+    _addLog("--- Build Date ---", printToConsole: true);
     _addLog(FFmpegKitExtended.getBuildDate());
   }
 
@@ -422,7 +429,7 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _runCustomFFmpeg() async {
     final command = _ffmpegCommandController.text;
-    _addLog("--- Running Custom FFmpeg: $command ---");
+    _addLog("--- Running Custom FFmpeg: $command ---", printToConsole: true);
     await FFmpegKit.executeAsync(
       command,
       onLog: (log) {
@@ -437,7 +444,7 @@ class _HomePageState extends State<HomePage>
   // --- FFprobe Examples ---
 
   Future<void> _runFFprobeVersion() async {
-    _addLog("--- Running FFprobe -version (Async) ---");
+    _addLog("--- Running FFprobe -version (Async) ---", printToConsole: true);
     await FFprobeKit.executeAsync(
       "-version",
       onComplete: (session) {
@@ -449,7 +456,7 @@ class _HomePageState extends State<HomePage>
   }
 
   void _runFFprobeInfoSync() {
-    _addLog("--- Running FFprobe -version (Sync) ---");
+    _addLog("--- Running FFprobe -version (Sync) ---", printToConsole: true);
     // Capturing output from synchronous ffprobe call.
     final session = FFprobeKit.execute("-version");
     final output = session.getOutput();
@@ -484,7 +491,10 @@ class _HomePageState extends State<HomePage>
           "https://raw.githubusercontent.com/tanersener/ffmpeg-kit/master/test-data/video.mp4";
     }
 
-    _addLog("--- Getting Media Information for $probePath ---");
+    _addLog(
+      "--- Getting Media Information for $probePath ---",
+      printToConsole: true,
+    );
 
     await FFprobeKit.getMediaInformationAsync(
       probePath,
@@ -515,7 +525,7 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _runCustomFFprobe() async {
     final command = _ffprobeCommandController.text;
-    _addLog("--- Running Custom FFprobe: $command ---");
+    _addLog("--- Running Custom FFprobe: $command ---", printToConsole: true);
     await FFprobeKit.executeAsync(
       command,
       onComplete: (session) {
@@ -598,7 +608,7 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
-    _addLog("--- Starting FFplay for $localPath ---");
+    _addLog("--- Starting FFplay for $localPath ---", printToConsole: true);
 
     // Clear existing surface and create new one.
     await _prepareSurface();
@@ -608,21 +618,18 @@ class _HomePageState extends State<HomePage>
     }
 
     final session = await FFplayKit.executeAsync(
-      "-hide_banner -loglevel verbose -autoexit -i \"$localPath\"",
+      "-hide_banner -loglevel quiet -autoexit -i \"$localPath\"",
       onComplete: (session) {
         _addLog("FFplay playback of $fileName finished");
-        _addLog("Ffplay logs: ${session.getLogs()}");
-        _addLog(session.getDebugLog());
       },
     );
-    session.enableDebugLog();
     _attachPositionStream(session);
     _addLog("Playback started.");
   }
 
   Future<void> _runCustomFFplay() async {
     final command = _ffplayCommandController.text;
-    _addLog("--- Running Custom FFplay: $command ---");
+    _addLog("--- Running Custom FFplay: $command ---", printToConsole: true);
 
     await _prepareSurface();
     final surface = await FFplaySurface.create();
@@ -1048,7 +1055,7 @@ class _HomePageState extends State<HomePage>
               _demoButton(_runFFmpegInfoSync, Icons.timer, "Sync Version"),
               _demoButton(
                 () async {
-                  _addLog("--- Running Help ---");
+                  _addLog("--- Running Help ---", printToConsole: true);
                   await FFmpegKit.executeAsync(
                     "-h",
                     onLog: (l) => _addLog(l.message),

@@ -70,23 +70,32 @@ class FFplayDesktopTexture {
   /// that texture first (native side replaces global frame callback).
   /// Returns `null` on Android or if texture creation fails.
   static Future<FFplayDesktopTexture?> create() async {
-    if (!Platform.isLinux && !Platform.isWindows &&
-        !Platform.isIOS && !Platform.isMacOS) return null;
+    if (!Platform.isLinux &&
+        !Platform.isWindows &&
+        !Platform.isIOS &&
+        !Platform.isMacOS)
+      return null;
     try {
       final result = await _channel.invokeMapMethod<String, dynamic>(
         'createTexture',
       );
       if (result == null) return null;
-      return FFplayDesktopTexture._(
+      final texture = FFplayDesktopTexture._(
         textureId: (result['textureId'] as num).toInt(),
       );
+      return texture;
     } on PlatformException {
       return null;
     }
   }
 
   /// Returns [Widget] that displays this texture in Flutter widget tree.
-  Widget toWidget() => Texture(textureId: textureId);
+  /// Forces widget recreation when textureId changes OR playback state changes.
+  /// (ValueKey combines both textureId and playback context for unique widgets)
+  Widget toWidget() => Texture(
+    key: ValueKey("ffplay_${textureId}_texture"),
+    textureId: textureId,
+  );
 
   /// No-op on desktop — frame callback is wired by C++ plugin when `create` is called.
   /// Provided for API symmetry with `FFplayAndroidSurface` so callers can write
@@ -98,14 +107,36 @@ class FFplayDesktopTexture {
   /// unregistering the texture with `TextureRegistrar`.
   /// After calling this, discard the [FFplayDesktopTexture] instance.
   Future<void> release() async {
-    if (!Platform.isLinux && !Platform.isWindows &&
-        !Platform.isIOS && !Platform.isMacOS) return;
+    if (!Platform.isLinux &&
+        !Platform.isWindows &&
+        !Platform.isIOS &&
+        !Platform.isMacOS) {
+      return;
+    }
     try {
       await _channel.invokeMethod<void>('releaseTexture', {
         'textureId': textureId,
       });
     } on PlatformException {
       // Texture may already be released; ignore.
+    }
+  }
+
+  /// Resets the texture state without releasing it.
+  /// This is useful when you want to reuse the same texture ID for a new video.
+  Future<void> reset() async {
+    if (!Platform.isLinux &&
+        !Platform.isWindows &&
+        !Platform.isIOS &&
+        !Platform.isMacOS) {
+      return;
+    }
+    try {
+      await _channel.invokeMethod<void>('resetTexture', {
+        'textureId': textureId,
+      });
+    } on PlatformException {
+      // Texture may already be reset; ignore.
     }
   }
 }
