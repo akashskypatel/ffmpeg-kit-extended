@@ -1,5 +1,12 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+
+
+## Version 0.4.0
+
+- Added iOS and macOS support
+- Updated FFplay playback to use OpenGL for Linux, and direct frame rendering instead of SDL passthrough.
+
 ## Version 0.3.4
 
 - Updated README with demo link
