@@ -249,16 +249,24 @@ Future<FFmpegArtifact> _handleDownloadedFile(
     return FFmpegArtifact(file: file, isAar: true);
   }
 
-  final extractedDir = Directory(
-    p.join(cacheDir.path, p.basenameWithoutExtension(file.path)),
+  final extractRoot = Directory(
+    p.join(cacheDir.path, '${p.basenameWithoutExtension(file.path)}_extracted'),
   );
-  if (!extractedDir.existsSync() || extractedDir.listSync().isEmpty) {
-    stderr.writeln('FFmpegKit [Build Hook]: Extracting ${file.path}...');
-    if (!await _extractFile(file, cacheDir.path)) {
+  if (!extractRoot.existsSync() || extractRoot.listSync().isEmpty) {
+    extractRoot.createSync(recursive: true);
+    if (!await _extractFile(file, extractRoot.path)) {
       throw Exception('FFmpegKit [Build Hook]: Failed to extract ${file.path}');
     }
   }
-  return FFmpegArtifact(file: file, extractedDir: extractedDir);
+  // Auto-detect the xcframework directory inside
+  final finalExtractedDir = extractRoot
+      .listSync()
+      .whereType<Directory>()
+      .firstWhere(
+        (d) => p.basename(d.path).endsWith('.xcframework'),
+        orElse: () => extractRoot, // flat zip fallback
+      );
+  return FFmpegArtifact(file: file, extractedDir: finalExtractedDir);
 }
 
 Future<void> _emitAssets(
