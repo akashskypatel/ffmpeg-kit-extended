@@ -159,6 +159,7 @@ class FFprobeSession extends Session {
             _completeCallback?.call(this);
           } catch (e, st) {
             log('FFprobeSession.execute: error in completeCallback: $e\n$st');
+            rethrow;
           }
           _unregister();
         })
@@ -261,6 +262,7 @@ class FFprobeSession extends Session {
         log(
           'FFprobeSession: error in completeCallback for session $sessionId: $e\n$st',
         );
+        rethrow;
       }
 
       // Complete last — everything is torn down, so any awaiter gets a fully
@@ -298,6 +300,7 @@ class FFprobeSession extends Session {
       await sessionCompleter.future;
     } catch (e, st) {
       log('FFprobeSession: error awaiting session $sessionId: $e\n$st');
+      rethrow;
     }
     // No post-await restore needed — already done inside the callback above.
   }

@@ -363,8 +363,10 @@ class MediaInformationSession extends FFprobeSession {
               error: e,
               stackTrace: st,
             );
+            rethrow;
+          } finally {
+            _unregister();
           }
-          _unregister();
         })
         .catchError((Object e, StackTrace st) {
           log(

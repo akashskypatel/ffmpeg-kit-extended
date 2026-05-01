@@ -30,7 +30,8 @@ bool _initialized = false;
 Future<void>? _initializeFuture;
 
 /// Global pointer to the native release function, used by [NativeFinalizer].
-Pointer<NativeFunction<Void Function(Pointer<Void>)>>? ffmpegKitHandleReleasePtr;
+Pointer<NativeFunction<Void Function(Pointer<Void>)>>?
+ffmpegKitHandleReleasePtr;
 
 /// Initializes the FFmpegKit native library.
 ///
@@ -70,7 +71,9 @@ void _resolveNativeSymbols() {
       candidates.add(() => DynamicLibrary.open('libffmpegkit.so'));
     } else if (Platform.isIOS || Platform.isMacOS) {
       candidates.add(DynamicLibrary.process);
-      candidates.add(() => DynamicLibrary.open('ffmpegkit.framework/ffmpegkit'));
+      candidates.add(
+        () => DynamicLibrary.open('ffmpegkit.framework/ffmpegkit'),
+      );
     } else if (Platform.isWindows) {
       candidates.add(() => DynamicLibrary.open('libffmpegkit.dll'));
     } else {
@@ -93,6 +96,7 @@ void _resolveNativeSymbols() {
     }
   } catch (e) {
     log('[FFmpegKit] Error resolving native symbols: $e');
+    rethrow;
   }
 }
 
@@ -105,5 +109,6 @@ void _logBuildStamp() {
     );
   } catch (e) {
     log('[FFmpegKit] _logBuildStamp error: $e');
+    rethrow;
   }
 }

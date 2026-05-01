@@ -74,6 +74,7 @@ class FFplayKitAndroid {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -95,6 +96,7 @@ class FFplayKitAndroid {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -114,6 +116,7 @@ class FFplayKitAndroid {
           error: e,
           stackTrace: st,
         );
+        rethrow;
       }
     }
   }

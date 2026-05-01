@@ -101,6 +101,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     registerFinalizer();
   }
@@ -224,6 +225,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -238,6 +240,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     try {
       final pausePos = ffmpeg.ffplay_kit_session_get_position(handle);
@@ -248,6 +251,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     _positionStopwatch.reset();
     _locallyPlaying = false;
@@ -264,6 +268,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     try {
       final resumePos = ffmpeg.ffplay_kit_session_get_position(handle);
@@ -274,6 +279,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     _positionStopwatch.reset();
     _locallyPlaying = true;
@@ -290,6 +296,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -304,6 +311,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -326,6 +334,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
     // Optimistically update local position so interpolation restarts from the
     // seek target immediately, before the next native sync fires.
@@ -357,11 +366,13 @@ class FFplaySession extends Session {
               error: e,
               stackTrace: st,
             );
+            rethrow;
           }
           try {
             _completeCallback?.call(this);
           } catch (e, st) {
             log('FFplaySession.execute: error in completeCallback: $e\n$st');
+            rethrow;
           }
           _unregister();
         })
@@ -456,6 +467,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -500,6 +512,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      rethrow;
     }
   }
 
@@ -614,6 +627,7 @@ class FFplaySession extends Session {
         userCompleteCallback?.call(s);
       } catch (e, st) {
         log('FFplaySession: error in completeCallback: $e\n$st');
+        rethrow;
       }
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       _unregister();
@@ -769,6 +783,7 @@ class FFplaySession extends Session {
             error: e,
             stackTrace: st,
           );
+          _cachedDuration = 0.0;
         }
       }
 

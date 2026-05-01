@@ -101,7 +101,7 @@ class FFmpegSession extends Session {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       calloc.free(cmdPtr);
     }
@@ -215,7 +215,7 @@ class FFmpegSession extends Session {
               error: e,
               stackTrace: st,
             );
-            throw Exception(e);
+            rethrow;
           }
           // Flush any remaining log entries before invoking the callback.
           _deliverPendingLogs();

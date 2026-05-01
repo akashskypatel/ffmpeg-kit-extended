@@ -25,28 +25,38 @@ import '../ffmpeg_kit_extended_flutter.dart';
 import 'generated/ffmpeg_kit_bindings.dart';
 
 /// Native callback function types for FFmpegKit
-typedef FFmpegKitCompleteCallbackFunction = Void Function(
-    FFmpegSessionHandle, Pointer<Void>);
+typedef FFmpegKitCompleteCallbackFunction =
+    Void Function(FFmpegSessionHandle, Pointer<Void>);
 
 /// Native callback function types for FFprobeKit
-typedef FFprobeKitCompleteCallbackFunction = Void Function(
-    FFprobeSessionHandle, Pointer<Void>);
+typedef FFprobeKitCompleteCallbackFunction =
+    Void Function(FFprobeSessionHandle, Pointer<Void>);
 
 /// Native callback function types for FFplayKit
-typedef FFplayKitCompleteCallbackFunction = Void Function(
-    FFplaySessionHandle, Pointer<Void>);
+typedef FFplayKitCompleteCallbackFunction =
+    Void Function(FFplaySessionHandle, Pointer<Void>);
 
 /// Native callback function types for MediaInformationSession
-typedef MediaInformationSessionCompleteCallbackFunction = Void Function(
-    MediaInformationSessionHandle, Pointer<Void>);
+typedef MediaInformationSessionCompleteCallbackFunction =
+    Void Function(MediaInformationSessionHandle, Pointer<Void>);
 
 /// Native callback function types for FFmpegKit log callback
-typedef FFmpegKitLogCallbackFunction = Void Function(
-    FFmpegSessionHandle, Pointer<Char>, Pointer<Void>);
+typedef FFmpegKitLogCallbackFunction =
+    Void Function(FFmpegSessionHandle, Pointer<Char>, Pointer<Void>);
 
 /// Native callback function types for FFmpegKit statistics callback
-typedef FFmpegKitStatisticsCallbackFunction = Void Function(FFmpegSessionHandle,
-    Int64, Int64, Double, Double, Int64, Double, Double, Pointer<Void>);
+typedef FFmpegKitStatisticsCallbackFunction =
+    Void Function(
+      FFmpegSessionHandle,
+      Int64,
+      Int64,
+      Double,
+      Double,
+      Int64,
+      Double,
+      Double,
+      Pointer<Void>,
+    );
 
 // ---------------------------------------------------------------------------
 // Dart-side callback typedefs (user-facing)
@@ -68,8 +78,8 @@ typedef FFprobeSessionCompleteCallback = void Function(FFprobeSession session);
 typedef FFplaySessionCompleteCallback = void Function(FFplaySession session);
 
 /// Callback for [MediaInformationSession] completion.
-typedef MediaInformationSessionCompleteCallback = void Function(
-    MediaInformationSession session);
+typedef MediaInformationSessionCompleteCallback =
+    void Function(MediaInformationSession session);
 
 // ---------------------------------------------------------------------------
 // Native → Dart bridge functions
@@ -80,13 +90,16 @@ typedef MediaInformationSessionCompleteCallback = void Function(
 /// [sessionHandle] is the native session handle; its session ID is resolved
 /// through the C API.  [userData] is always nullptr (see [CallbackManager]).
 void _onFFmpegComplete(
-    FFmpegSessionHandle sessionHandle, Pointer<Void> userData) {
+  FFmpegSessionHandle sessionHandle,
+  Pointer<Void> userData,
+) {
   FFmpegKitExtended.requireInitialized();
   final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegComplete');
   log('CallbackManager: _onFFmpegComplete sessionId=$sessionId');
 
-  final session =
-      sessionId > 0 ? CallbackManager().ffmpegSessions[sessionId] : null;
+  final session = sessionId > 0
+      ? CallbackManager().ffmpegSessions[sessionId]
+      : null;
 
   if (session != null) {
     log('CallbackManager: invoking completeCallback for session $sessionId');
@@ -94,25 +107,33 @@ void _onFFmpegComplete(
       session.completeCallback?.call(session);
       CallbackManager().globalFFmpegSessionCompleteCallback?.call(session);
     } catch (e, st) {
-      log('CallbackManager: error in completeCallback for session $sessionId: '
-          '$e\n$st');
+      log(
+        'CallbackManager: error in completeCallback for session $sessionId: '
+        '$e\n$st',
+      );
+      rethrow;
     }
   } else {
     stderr.writeln(
-        'Warning: _onFFmpegComplete — no session found for sessionId=$sessionId');
+      'Warning: _onFFmpegComplete — no session found for sessionId=$sessionId',
+    );
   }
   // The Dart FFmpegSession owns this handle via its NativeFinalizer; do NOT
   // call ffmpeg_kit_handle_release here.
 }
 
 /// Handles a log notification from an FFmpeg session.
-void _onFFmpegLog(FFmpegSessionHandle sessionHandle, Pointer<Char> logPtr,
-    Pointer<Void> userData) {
+void _onFFmpegLog(
+  FFmpegSessionHandle sessionHandle,
+  Pointer<Char> logPtr,
+  Pointer<Void> userData,
+) {
   if (logPtr == nullptr) return;
 
   final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegLog');
-  final session =
-      sessionId > 0 ? CallbackManager().ffmpegSessions[sessionId] : null;
+  final session = sessionId > 0
+      ? CallbackManager().ffmpegSessions[sessionId]
+      : null;
 
   if (session != null) {
     // Poll the session's buffered log entries since the last delivery.
@@ -135,62 +156,81 @@ void _onFFmpegLog(FFmpegSessionHandle sessionHandle, Pointer<Char> logPtr,
 
 /// Handles statistics from an FFmpeg session.
 void _onFFmpegStatistics(
-    FFmpegSessionHandle sessionHandle,
-    int time,
-    int size,
-    double bitrate,
-    double speed,
-    int videoFrameNumber,
-    double videoFps,
-    double videoQuality,
-    Pointer<Void> userData) {
+  FFmpegSessionHandle sessionHandle,
+  int time,
+  int size,
+  double bitrate,
+  double speed,
+  int videoFrameNumber,
+  double videoFps,
+  double videoQuality,
+  Pointer<Void> userData,
+) {
   // Resolve session ID reliably through the C API.
   final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegStatistics');
 
-  final stats = Statistics(sessionId, time, size, bitrate, speed,
-      videoFrameNumber, videoFps, videoQuality);
+  final stats = Statistics(
+    sessionId,
+    time,
+    size,
+    bitrate,
+    speed,
+    videoFrameNumber,
+    videoFps,
+    videoQuality,
+  );
 
   CallbackManager().globalStatisticsCallback?.call(stats);
 
-  final session =
-      sessionId > 0 ? CallbackManager().ffmpegSessions[sessionId] : null;
+  final session = sessionId > 0
+      ? CallbackManager().ffmpegSessions[sessionId]
+      : null;
 
   if (session != null) {
     session.statisticsCallback?.call(stats);
   } else {
-    stderr.writeln('Warning: _onFFmpegStatistics — no session found for '
-        'sessionId=$sessionId '
-        'userData=0x${userData.address.toRadixString(16)}');
+    stderr.writeln(
+      'Warning: _onFFmpegStatistics — no session found for '
+      'sessionId=$sessionId '
+      'userData=0x${userData.address.toRadixString(16)}',
+    );
   }
 }
 
 /// Handles the completion of an FFprobe session.
 void _onFFprobeComplete(
-    FFprobeSessionHandle sessionHandle, Pointer<Void> userData) {
+  FFprobeSessionHandle sessionHandle,
+  Pointer<Void> userData,
+) {
   FFmpegKitExtended.requireInitialized();
   final sessionId = _safeGetSessionId(sessionHandle, '_onFFprobeComplete');
 
-  final session =
-      sessionId > 0 ? CallbackManager().ffprobeSessions[sessionId] : null;
+  final session = sessionId > 0
+      ? CallbackManager().ffprobeSessions[sessionId]
+      : null;
 
   if (session != null) {
     try {
       if (session is MediaInformationSession) {
         session.completeCallback?.call(session);
-        CallbackManager()
-            .globalMediaInformationSessionCompleteCallback
-            ?.call(session);
+        CallbackManager().globalMediaInformationSessionCompleteCallback?.call(
+          session,
+        );
       } else {
         session.completeCallback?.call(session);
         CallbackManager().globalFFprobeSessionCompleteCallback?.call(session);
       }
     } catch (e, st) {
-      log('CallbackManager: error in FFprobe completeCallback for session '
-          '$sessionId: $e\n$st');
+      log(
+        'CallbackManager: error in FFprobe completeCallback for session '
+        '$sessionId: $e\n$st',
+      );
+      rethrow;
     }
   } else {
     stderr.writeln(
-        'Warning: _onFFprobeComplete — no session found for sessionId=$sessionId');
+      'Warning: _onFFprobeComplete — no session found for sessionId=$sessionId',
+    );
   }
   // Do NOT release sessionHandle here — the Dart FFprobeSession owns it via
   // NativeFinalizer.  See _onFFmpegComplete for the full explanation.
@@ -198,7 +238,9 @@ void _onFFprobeComplete(
 
 /// Handles the completion of a MediaInformation session.
 void _onMediaInfoComplete(
-    MediaInformationSessionHandle sessionHandle, Pointer<Void> userData) {
+  MediaInformationSessionHandle sessionHandle,
+  Pointer<Void> userData,
+) {
   FFmpegKitExtended.requireInitialized();
   final sessionId = _safeGetSessionId(sessionHandle, '_onMediaInfoComplete');
 
@@ -209,16 +251,20 @@ void _onMediaInfoComplete(
   if (session != null) {
     try {
       session.completeCallback?.call(session);
-      CallbackManager()
-          .globalMediaInformationSessionCompleteCallback
-          ?.call(session);
+      CallbackManager().globalMediaInformationSessionCompleteCallback?.call(
+        session,
+      );
     } catch (e, st) {
-      log('CallbackManager: error in MediaInfo completeCallback for session '
-          '$sessionId: $e\n$st');
+      log(
+        'CallbackManager: error in MediaInfo completeCallback for session '
+        '$sessionId: $e\n$st',
+      );
+      rethrow;
     }
   } else {
     stderr.writeln(
-        'Warning: _onMediaInfoComplete — no session found for sessionId=$sessionId');
+      'Warning: _onMediaInfoComplete — no session found for sessionId=$sessionId',
+    );
   }
   // Do NOT release sessionHandle here — the Dart MediaInformationSession owns
   // it via NativeFinalizer.  See _onFFmpegComplete for the full explanation.
@@ -226,24 +272,31 @@ void _onMediaInfoComplete(
 
 /// Handles the completion of an FFplay session.
 void _onFFplayComplete(
-    FFplaySessionHandle sessionHandle, Pointer<Void> userData) {
+  FFplaySessionHandle sessionHandle,
+  Pointer<Void> userData,
+) {
   FFmpegKitExtended.requireInitialized();
   final sessionId = _safeGetSessionId(sessionHandle, '_onFFplayComplete');
 
-  final session =
-      sessionId > 0 ? CallbackManager().ffplaySessions[sessionId] : null;
+  final session = sessionId > 0
+      ? CallbackManager().ffplaySessions[sessionId]
+      : null;
 
   if (session != null) {
     try {
       session.completeCallback?.call(session);
       CallbackManager().globalFFplaySessionCompleteCallback?.call(session);
     } catch (e, st) {
-      log('CallbackManager: error in FFplay completeCallback for session '
-          '$sessionId: $e\n$st');
+      log(
+        'CallbackManager: error in FFplay completeCallback for session '
+        '$sessionId: $e\n$st',
+      );
+      rethrow;
     }
   } else {
     stderr.writeln(
-        'Warning: _onFFplayComplete — no session found for sessionId=$sessionId');
+      'Warning: _onFFplayComplete — no session found for sessionId=$sessionId',
+    );
   }
   // Do NOT release sessionHandle here — the Dart FFplaySession owns it via
   // NativeFinalizer.  See _onFFmpegComplete for the full explanation.
@@ -261,8 +314,10 @@ int _safeGetSessionId(Pointer<Void> handle, String caller) {
   try {
     return FFmpegKitExtended.getSessionId(handle);
   } catch (e) {
-    stderr.writeln('$caller: failed to resolve session ID from handle '
-        '(address=0x${handle.address.toRadixString(16)}): $e');
+    stderr.writeln(
+      '$caller: failed to resolve session ID from handle '
+      '(address=0x${handle.address.toRadixString(16)}): $e',
+    );
     return 0;
   }
 }
@@ -278,31 +333,37 @@ int _safeGetSessionId(Pointer<Void> handle, String caller) {
 /// lifetime so the C layer can always invoke it safely.
 final nativeFFmpegComplete =
     NativeCallable<FFmpegKitCompleteCallbackFunction>.listener(
-        _onFFmpegComplete);
+      _onFFmpegComplete,
+    );
 
 /// Native-callable for [_onFFmpegLog].
-final nativeFFmpegLog =
-    NativeCallable<FFmpegKitLogCallbackFunction>.listener(_onFFmpegLog);
+final nativeFFmpegLog = NativeCallable<FFmpegKitLogCallbackFunction>.listener(
+  _onFFmpegLog,
+);
 
 /// Native-callable for [_onFFmpegStatistics].
 final nativeFFmpegStatistics =
     NativeCallable<FFmpegKitStatisticsCallbackFunction>.listener(
-        _onFFmpegStatistics);
+      _onFFmpegStatistics,
+    );
 
 /// Native-callable for [_onFFprobeComplete].
 final nativeFFprobeComplete =
     NativeCallable<FFprobeKitCompleteCallbackFunction>.listener(
-        _onFFprobeComplete);
+      _onFFprobeComplete,
+    );
 
 /// Native-callable for [_onMediaInfoComplete].
 final nativeMediaInfoComplete =
     NativeCallable<MediaInformationSessionCompleteCallbackFunction>.listener(
-        _onMediaInfoComplete);
+      _onMediaInfoComplete,
+    );
 
 /// Native-callable for [_onFFplayComplete].
 final nativeFFplayComplete =
     NativeCallable<FFplayKitCompleteCallbackFunction>.listener(
-        _onFFplayComplete);
+      _onFFplayComplete,
+    );
 
 // ---------------------------------------------------------------------------
 // CallbackManager
@@ -358,7 +419,7 @@ class CallbackManager {
 
   /// Fires on completion of any MediaInformation session.
   MediaInformationSessionCompleteCallback?
-      globalMediaInformationSessionCompleteCallback;
+  globalMediaInformationSessionCompleteCallback;
 
   // ---- Registration -------------------------------------------------------
 

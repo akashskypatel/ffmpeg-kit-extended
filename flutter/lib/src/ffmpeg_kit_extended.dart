@@ -185,7 +185,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -200,7 +200,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -215,7 +215,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -230,7 +230,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -254,7 +254,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       malloc.free(pathPtr);
       if (mappingPtr != nullptr) malloc.free(mappingPtr);
@@ -273,7 +273,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       malloc.free(ptr);
     }
@@ -292,7 +292,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -316,7 +316,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       malloc.free(namePtr);
       malloc.free(valuePtr);
@@ -336,7 +336,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -357,7 +357,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -374,7 +374,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -389,7 +389,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -406,7 +406,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -423,7 +423,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -438,7 +438,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -453,7 +453,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -468,7 +468,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -485,7 +485,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -502,7 +502,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -519,7 +519,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -536,7 +536,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -553,7 +553,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -570,7 +570,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -587,7 +587,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -604,7 +604,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -621,7 +621,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -636,7 +636,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -655,7 +655,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -670,7 +670,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -685,7 +685,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -703,7 +703,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -721,7 +721,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -739,7 +739,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -757,7 +757,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -776,7 +776,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -791,7 +791,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -810,7 +810,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -827,7 +827,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -844,7 +844,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -861,7 +861,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -876,7 +876,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -891,7 +891,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -911,7 +911,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -937,7 +937,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -960,7 +960,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -982,7 +982,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1004,7 +1004,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     ;
   }
@@ -1027,7 +1027,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1052,7 +1052,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1076,7 +1076,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1096,7 +1096,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1142,7 +1142,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       // Free in reverse allocation order.
       if (mappingsPtr != nullptr) malloc.free(mappingsPtr);
@@ -1172,7 +1172,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1194,7 +1194,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1228,7 +1228,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       malloc.free(cmdPtr);
       malloc.free(countPtr);
@@ -1261,7 +1261,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     } finally {
       for (final s in strings) {
         malloc.free(s);
@@ -1281,7 +1281,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1300,7 +1300,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1315,7 +1315,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1330,7 +1330,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1347,7 +1347,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1362,7 +1362,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
   }
 
@@ -1395,7 +1395,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     return result;
   }
@@ -1417,7 +1417,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     return cmd;
   }
@@ -1462,7 +1462,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     if (isMediaInfoSession) {
       return MediaInformationSession.fromHandle(handle, cmd);
@@ -1476,7 +1476,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     if (isFfmpegSession) {
       return FFmpegSession.fromHandle(handle, cmd);
@@ -1490,7 +1490,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     if (isFfprobeSession) {
       return FFprobeSession.fromHandle(handle, cmd);
@@ -1504,7 +1504,7 @@ class FFmpegKitExtended {
         error: e,
         stackTrace: stack,
       );
-      throw Exception(e);
+      rethrow;
     }
     if (isFfplaySession) {
       return FFplaySession.fromHandle(handle, cmd);
@@ -1544,7 +1544,7 @@ class FFmpegKitExtended {
           error: e,
           stackTrace: stack,
         );
-        throw Exception(e);
+        rethrow;
       }
     }
     return result;
@@ -1576,7 +1576,7 @@ class FFmpegKitExtended {
           error: e,
           stackTrace: stack,
         );
-        throw Exception(e);
+        rethrow;
       }
     }
     return result;
