@@ -230,8 +230,9 @@ class FFmpegSession extends Session {
               stackTrace: st,
             );
             rethrow;
+          } finally {
+            _unregister();
           }
-          _unregister();
         })
         .catchError((Object e, StackTrace st) {
           log(

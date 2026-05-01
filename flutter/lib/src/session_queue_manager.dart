@@ -115,7 +115,6 @@ class SessionQueueManager {
       if (!queued.completer.isCompleted) {
         queued.completer.completeError(error, stackTrace);
       }
-      rethrow;
     } finally {
       _activeSessions.remove(queued.session);
       // Trigger processing for the next session in queue
