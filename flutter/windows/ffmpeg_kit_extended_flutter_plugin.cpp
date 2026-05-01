@@ -117,9 +117,11 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
     memcpy(state->write_buf.data(), pixels, state->write_buf.size());
     if (pixel_format && strcmp(pixel_format, "rgb0") == 0) {
       uint8_t* buf = state->write_buf.data();
-      size_t pixel_count = static_cast<size_t>(width) * height;
-      for (size_t i = 0; i < pixel_count; i++)
-        buf[i * 4 + 3] = 0xFF;
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          buf[y * linesize + x * 4 + 3] = 0xFF;
+        }
+      }
     }
     state->width = static_cast<uint32_t>(width);
     state->height = static_cast<uint32_t>(height);
