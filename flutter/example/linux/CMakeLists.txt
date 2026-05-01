@@ -6,10 +6,10 @@ if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "ffmpeg_kit_flutter_example")
+set(BINARY_NAME "ffmpeg_kit_extended_flutter_example")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
-set(APPLICATION_ID "com.akashskypatel.ffmpeg_kit_flutter")
+set(APPLICATION_ID "com.akashskypatel.ffmpeg_kit_extended_flutter")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
@@ -68,7 +68,7 @@ set_target_properties(${BINARY_NAME}
 )
 
 # Enable the test target.
-set(include_ffmpeg_kit_flutter_tests TRUE)
+set(include_ffmpeg_kit_extended_flutter_tests TRUE)
 
 # ==============================================================================
 # FFmpegKit Configuration

@@ -10,12 +10,9 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
     flutter pub add ffmpeg_kit_extended_flutter
     ```
 
-2. Add the dependency to your `pubspec.yaml` then add `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
+2. Add the `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
 
     ```yaml
-    dependencies:
-      ffmpeg_kit_extended_flutter: ^0.1.0
-
     ffmpeg_kit_extended_config:
       type: "base" # pre-bundled builds: base, full, audio, video, streaming, video_hw
       gpl: true # enable to include GPL libraries
@@ -23,32 +20,17 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
       # == OR ==
       # -------------------------------------------------------------
       # You can specify remote or local path to libffmpegkit libraries for each platform
-      # This allows you to deploy custom builds of libffmpegkit.
-      # See: https://github.com/akashskypatel/ffmpeg-kit-builders
-      # Note: This will override all above options.
-      # -------------------------------------------------------------
       # windows: "path/to/ffmpeg-kit/libraries"
-      # linux: "https://path/to/ffmpeg-kit/libraries"
+      # ios: "https://path/to/bundle.xcframework.zip"
     ```
+
+    **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration step is required.
 
 3. Import the package in your Dart code:
 
     ```dart
     import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
     ```
-
-4. Run `dart run ffmpeg_kit_extended_flutter:configure` to generate the native libraries.
-
-    ```bash
-    dart run ffmpeg_kit_extended_flutter:configure
-    ```
-
-    **Configure Options**
-    - `--help`: Show this help message.
-    - `--platform=<platform1,platform2>`: Specify platforms to configure (e.g., `windows,linux`).
-    - `--verbose`: Enable verbose output.
-    - `--debug`: Enable debug mode. (Fetches remote bundles with debug symbols. Only base bundle is published with debug symbols. You can deploy your own using [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders))
-    - `--app-root=<path>`: Specify the path to the app root.
 
 ## Initialize the Plugin
 
@@ -383,143 +365,6 @@ void robustConversion(String input, String output) {
 }
 ```
 
-## Complete Example: Video Converter App
-
-Here's a complete example of a simple video converter:
-
-```dart
-import 'package:flutter/material.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
-import 'package:file_picker/file_picker.dart';
-
-class VideoConverterPage extends StatefulWidget {
-  @override
-  _VideoConverterPageState createState() => _VideoConverterPageState();
-}
-
-class _VideoConverterPageState extends State<VideoConverterPage> {
-  String? _inputPath;
-  String? _outputPath;
-  double _progress = 0.0;
-  bool _isConverting = false;
-  String _status = 'Ready';
-  
-  Future<void> _pickInputFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.video,
-    );
-    
-    if (result != null) {
-      setState(() {
-        _inputPath = result.files.single.path;
-        _outputPath = _inputPath!.replaceAll('.mp4', '_converted.mp4');
-      });
-    }
-  }
-  
-  Future<void> _startConversion() async {
-    if (_inputPath == null || _outputPath == null) return;
-    
-    setState(() {
-      _isConverting = true;
-      _progress = 0.0;
-      _status = 'Getting video information...';
-    });
-    
-    // Get video duration for progress calculation
-    final probeSession = FFprobeKit.getMediaInformation(_inputPath!);
-    double totalDuration = 0.0;
-    
-    if (probeSession is MediaInformationSession) {
-      final info = probeSession.getMediaInformation();
-      totalDuration = double.tryParse(info?.duration ?? '0') ?? 0.0;
-    }
-    
-    setState(() => _status = 'Converting...');
-    
-    // Start conversion
-    await FFmpegKit.executeAsync(
-      '-i $_inputPath -c:v libx264 -preset medium -crf 23 $_outputPath',
-      onStatistics: (stats) {
-        if (totalDuration > 0) {
-          setState(() {
-            _progress = (stats.time / 1000 / totalDuration).clamp(0.0, 1.0);
-            _status = 'Converting... ${(_progress * 100).toStringAsFixed(1)}%';
-          });
-        }
-      },
-      onComplete: (session) {
-        setState(() {
-          _isConverting = false;
-          
-          if (ReturnCode.isSuccess(session.getReturnCode())) {
-            _status = 'Conversion complete!';
-            _progress = 1.0;
-          } else {
-            _status = 'Conversion failed';
-            _progress = 0.0;
-          }
-        });
-      },
-    );
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Video Converter')),
-      body: Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Input file
-            ElevatedButton(
-              onPressed: _isConverting ? null : _pickInputFile,
-              child: Text('Select Video'),
-            ),
-            
-            if (_inputPath != null) ...[
-              SizedBox(height: 8),
-              Text('Input: $_inputPath', style: TextStyle(fontSize: 12)),
-              Text('Output: $_outputPath', style: TextStyle(fontSize: 12)),
-            ],
-            
-            SizedBox(height: 24),
-            
-            // Convert button
-            ElevatedButton(
-              onPressed: (_inputPath != null && !_isConverting)
-                  ? _startConversion
-                  : null,
-              child: Text('Convert'),
-            ),
-            
-            SizedBox(height: 24),
-            
-            // Progress
-            if (_isConverting) ...[
-              LinearProgressIndicator(value: _progress),
-              SizedBox(height: 8),
-            ],
-            
-            // Status
-            Text(
-              _status,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-```
-
 ## Configuration
 
 ### Set Global Log Level
@@ -597,12 +442,6 @@ await FFmpegKit.executeAsync('...', onComplete: (session) {
   // This will be called
 });
 ```
-
-## Known Issues
-
-- **Android**: FFplay video and audio output are supported. Requires binding a surface via `FFplayKitAndroid.setAndroidSurface()` before playback.
-- **iOS**: Not yet supported.
-- **macOS**: Not yet supported.
 
 ## Tips
 

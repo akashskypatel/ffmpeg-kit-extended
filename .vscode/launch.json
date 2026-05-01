@@ -11,6 +11,7 @@
             "flutterMode": "debug",
             "deviceId": "windows",
             "args": [
+                "windows",
                 "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
@@ -22,6 +23,7 @@
             "flutterMode": "debug",
             "deviceId": "linux",
             "args": [
+                "linux",
                 "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"
@@ -36,15 +38,24 @@
             "preLaunchTask": "Start Android Emulator (emulator-5554)"
         },
         {
-            "name": "Debug Configure",
+            "name": "Debug (iOS Simulator)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "debug",
-            "deviceId": "windows",
+            "deviceId": "82CE0151-227E-4A29-831E-DDB9348EF8AE",
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+        },
+        {
+            "name": "Debug (macOS)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "macos",
             "args": [
-                "--verbose"
+                "macos",
+                "--debug"
             ],
-            "program": "${workspaceFolder}/flutter/bin/configure.dart"
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
         },
         {
             "name": "Launch Android Emulator",

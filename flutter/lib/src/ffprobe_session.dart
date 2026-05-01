@@ -25,7 +25,7 @@ import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 
 /// A session for executing FFprobe commands.
 ///
@@ -49,9 +49,27 @@ class FFprobeSession extends Session {
     FFmpegKitExtended.requireInitialized();
     final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
+      try {
+        handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
+      } catch (e, st) {
+        log(
+          'FFprobeSession: error creating session ffprobe_kit_create_session $command',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       this.command = command;
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      try {
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      } catch (e, st) {
+        log(
+          'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
       registerFinalizer();
     } finally {
       calloc.free(cmdPtr);
@@ -69,7 +87,16 @@ class FFprobeSession extends Session {
     FFmpegKitExtended.requireInitialized();
     this.handle = handle;
     this.command = command;
-    sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    try {
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    } catch (e, st) {
+      log(
+        'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
     registerFinalizer();
   }
 
@@ -87,8 +114,7 @@ class FFprobeSession extends Session {
   static FFprobeSession create(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
-  }) =>
-      FFprobeSession(command, completeCallback: completeCallback);
+  }) => FFprobeSession(command, completeCallback: completeCallback);
 
   // ---------------------------------------------------------------------------
   // Callback accessors / mutators
@@ -116,21 +142,30 @@ class FFprobeSession extends Session {
   /// Enqueues this session for synchronous native execution and returns `this`
   /// immediately (fire-and-forget).
   FFprobeSession execute() {
-    SessionQueueManager().executeSession(
-      this,
-      () async {
-        FFmpegKitExtended.requireInitialized();
-        ffmpeg.ffprobe_kit_session_execute(handle);
-        try {
-          _completeCallback?.call(this);
-        } catch (e, st) {
-          log('FFprobeSession.execute: error in completeCallback: $e\n$st');
-        }
-        _unregister();
-      },
-    ).catchError((Object e, StackTrace st) {
-      log('FFprobeSession.execute: queue error: $e\n$st');
-    });
+    SessionQueueManager()
+        .executeSession(this, () async {
+          FFmpegKitExtended.requireInitialized();
+          try {
+            ffmpeg.ffprobe_kit_session_execute(handle);
+          } catch (e, st) {
+            log(
+              'FFprobeSession.execute: error executing session ffprobe_kit_session_execute $command',
+              error: e,
+              stackTrace: st,
+            );
+            rethrow;
+          }
+          try {
+            _completeCallback?.call(this);
+          } catch (e, st) {
+            log('FFprobeSession.execute: error in completeCallback: $e\n$st');
+            rethrow;
+          }
+          _unregister();
+        })
+        .catchError((Object e, StackTrace st) {
+          log('FFprobeSession.execute: queue error: $e\n$st');
+        });
     return this;
   }
 
@@ -138,17 +173,19 @@ class FFprobeSession extends Session {
   static FFprobeSession executeCommand(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
-  }) =>
-      FFprobeSession.create(command, completeCallback: completeCallback)
-          .execute();
+  }) => FFprobeSession.create(
+    command,
+    completeCallback: completeCallback,
+  ).execute();
 
   /// Creates and executes a session asynchronously.
   static Future<FFprobeSession> executeCommandAsync(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
-  }) =>
-      FFprobeSession.create(command, completeCallback: completeCallback)
-          .executeAsync();
+  }) => FFprobeSession.create(
+    command,
+    completeCallback: completeCallback,
+  ).executeAsync();
 
   /// Executes this session asynchronously and returns a [Future] that
   /// resolves when execution finishes.
@@ -181,8 +218,7 @@ class FFprobeSession extends Session {
   static MediaInformationSession createMediaInformationSessionAsync(
     String path, {
     MediaInformationSessionCompleteCallback? onComplete,
-  }) =>
-      MediaInformationSession.fromPath(path, completeCallback: onComplete);
+  }) => MediaInformationSession.fromPath(path, completeCallback: onComplete);
 
   // ---------------------------------------------------------------------------
   // Session type identity
@@ -223,21 +259,38 @@ class FFprobeSession extends Session {
       try {
         userCompleteCallback?.call(s);
       } catch (e, st) {
-        log('FFprobeSession: error in completeCallback for session $sessionId: $e\n$st');
+        log(
+          'FFprobeSession: error in completeCallback for session $sessionId: $e\n$st',
+        );
+        rethrow;
       }
 
       // Complete last — everything is torn down, so any awaiter gets a fully
       // settled session.
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
     };
-
-    ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-        nativeFFprobeComplete.nativeFunction, nullptr);
+    try {
+      ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+        nativeFFprobeComplete.nativeFunction,
+        nullptr,
+      );
+    } catch (e, st) {
+      log(
+        'FFprobeSession: error enabling ffprobe session complete callback $command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
 
     try {
       ffmpeg.ffprobe_kit_session_execute_async(handle);
     } catch (e, st) {
-      log('FFprobeSession: error starting async session $sessionId: $e\n$st');
+      log(
+        'FFprobeSession: error starting async session $sessionId',
+        error: e,
+        stackTrace: st,
+      );
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
@@ -247,6 +300,7 @@ class FFprobeSession extends Session {
       await sessionCompleter.future;
     } catch (e, st) {
       log('FFprobeSession: error awaiting session $sessionId: $e\n$st');
+      rethrow;
     }
     // No post-await restore needed — already done inside the callback above.
   }

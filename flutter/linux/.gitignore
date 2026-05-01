@@ -17,3 +17,4 @@ x86/
 !*.[Cc]ache/
 ffmpeg_kit_bundle/
 config.cmake
+header_paths.cmake

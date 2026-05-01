@@ -38,6 +38,7 @@ export 'src/ffplay_kit.dart';
 export 'src/ffplay_kit_android.dart';
 export 'src/ffplay_session.dart';
 export 'src/ffplay_surface.dart';
+export 'src/ffplay_view.dart';
 export 'src/ffprobe_kit.dart';
 export 'src/ffprobe_session.dart';
 export 'src/log.dart';

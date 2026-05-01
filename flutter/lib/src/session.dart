@@ -17,6 +17,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+import 'dart:developer';
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import '../ffmpeg_kit_extended_flutter.dart'
@@ -26,7 +27,8 @@ import '../ffmpeg_kit_extended_flutter.dart'
         FFprobeSession,
         MediaInformationSession,
         FFmpegKitExtended;
-import 'ffmpeg_kit_flutter_loader.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart' show ffmpegKitHandleReleasePtr;
+import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 import 'statistics.dart';
 
 // ---------------------------------------------------------------------------
@@ -67,9 +69,9 @@ enum SessionState {
   /// Falls back to [SessionState.failed] for any unrecognised value so that
   /// callers always receive a valid enum member rather than a runtime error.
   static SessionState fromValue(int value) => SessionState.values.firstWhere(
-        (e) => e.value == value,
-        orElse: () => SessionState.failed,
-      );
+    (e) => e.value == value,
+    orElse: () => SessionState.failed,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -146,20 +148,16 @@ abstract class Session implements Finalizable {
   static NativeFinalizer _getFinalizer() {
     if (_sharedFinalizer != null) return _sharedFinalizer!;
 
-    Pointer<NativeFunction<Void Function(Pointer<Void>)>> ptr;
-    try {
-      ptr = ffmpegLibrary
-          .lookup<NativeFunction<Void Function(Pointer<Void>)>>(
-              'ffmpeg_kit_handle_release')
-          .cast();
-    } catch (_) {
-      // Library not loaded (unit-test environment with a stub / no-op lib).
+    final ptr = ffmpegKitHandleReleasePtr;
+    if (ptr == null) {
+      // Library not loaded or symbol not resolved (unit-test environment).
       // A zero-address token is safe: NativeFinalizer will never invoke it
       // because it only runs on GC, and tests should not create sessions that
       // reach GC in this code path.
-      ptr = Pointer.fromAddress(0);
+      _sharedFinalizer = NativeFinalizer(Pointer.fromAddress(0));
+    } else {
+      _sharedFinalizer = NativeFinalizer(ptr);
     }
-    _sharedFinalizer = NativeFinalizer(ptr);
     return _sharedFinalizer!;
   }
 
@@ -180,8 +178,18 @@ abstract class Session implements Finalizable {
   /// Returns the current lifecycle state of this session.
   SessionState getState() {
     FFmpegKitExtended.requireInitialized();
-    return SessionState.fromValue(
-        ffmpeg.ffmpeg_kit_session_get_state(handle).value);
+    try {
+      return SessionState.fromValue(
+        ffmpeg.ffmpeg_kit_session_get_state(handle).value,
+      );
+    } catch (e, st) {
+      log(
+        'Session.getState: error getting state ffmpeg_kit_session_get_state',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the native exit code.
@@ -190,7 +198,16 @@ abstract class Session implements Finalizable {
   /// [SessionState.failed].  Returns 0 while the session is still running.
   int getReturnCode() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffmpeg_kit_session_get_return_code(handle);
+    try {
+      return ffmpeg.ffmpeg_kit_session_get_return_code(handle);
+    } catch (e, st) {
+      log(
+        'Session.getReturnCode: error getting return code ffmpeg_kit_session_get_return_code',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the unique session ID assigned by the C layer.
@@ -199,7 +216,16 @@ abstract class Session implements Finalizable {
   /// the original FFmpegKit Java/ObjC SDK.
   int getSessionId() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    try {
+      return ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    } catch (e, st) {
+      log(
+        'Session.getSessionId: error getting session id ffmpeg_kit_session_get_session_id',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // ---- Timing -------------------------------------------------------------
@@ -207,24 +233,52 @@ abstract class Session implements Finalizable {
   /// Returns the time at which the session object was created.
   DateTime getCreateTime() {
     FFmpegKitExtended.requireInitialized();
-    return DateTime.fromMillisecondsSinceEpoch(
-        ffmpeg.ffmpeg_kit_session_get_create_time(handle));
+    try {
+      return DateTime.fromMillisecondsSinceEpoch(
+        ffmpeg.ffmpeg_kit_session_get_create_time(handle),
+      );
+    } catch (e, st) {
+      log(
+        'Session.getCreateTime: error getting create time ffmpeg_kit_session_get_create_time',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the time at which execution started, or `null` if the session
   /// has not yet been executed.
   DateTime? getStartTime() {
     FFmpegKitExtended.requireInitialized();
-    final ms = ffmpeg.ffmpeg_kit_session_get_start_time(handle);
-    return ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    try {
+      final ms = ffmpeg.ffmpeg_kit_session_get_start_time(handle);
+      return ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    } catch (e, st) {
+      log(
+        'Session.getStartTime: error getting start time ffmpeg_kit_session_get_start_time',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the time at which execution ended, or `null` if the session has
   /// not yet completed.
   DateTime? getEndTime() {
     FFmpegKitExtended.requireInitialized();
-    final ms = ffmpeg.ffmpeg_kit_session_get_end_time(handle);
-    return ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    try {
+      final ms = ffmpeg.ffmpeg_kit_session_get_end_time(handle);
+      return ms == 0 ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+    } catch (e, st) {
+      log(
+        'Session.getEndTime: error getting end time ffmpeg_kit_session_get_end_time',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the wall-clock execution duration in milliseconds.
@@ -232,7 +286,16 @@ abstract class Session implements Finalizable {
   /// Returns 0 if the session has not yet completed.
   int getDuration() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffmpeg_kit_session_get_duration(handle);
+    try {
+      return ffmpeg.ffmpeg_kit_session_get_duration(handle);
+    } catch (e, st) {
+      log(
+        'Session.getDuration: error getting duration ffmpeg_kit_session_get_duration',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // ---- Output & logs ------------------------------------------------------
@@ -241,44 +304,101 @@ abstract class Session implements Finalizable {
   /// output is available yet.
   String? getOutput() {
     FFmpegKitExtended.requireInitialized();
-    return _toDartStringAndFree(ffmpeg.ffmpeg_kit_session_get_output(handle));
+    try {
+      return _toDartStringAndFree(ffmpeg.ffmpeg_kit_session_get_output(handle));
+    } catch (e, st) {
+      log(
+        'Session.getOutput: error getting output ffmpeg_kit_session_get_output',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns all buffered log entries concatenated into a single string, or
   /// `null` if no log entries exist.  Equivalent to [getLogsAsString].
   String? getLogs() {
     FFmpegKitExtended.requireInitialized();
-    return getLogsAsString();
+    try {
+      return getLogsAsString();
+    } catch (e, st) {
+      log(
+        'Session.getLogs: error getting logs ffmpeg_kit_session_get_logs_as_string',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns all buffered log entries concatenated into a single string, or
   /// `null` if no log entries exist.
   String? getLogsAsString() {
     FFmpegKitExtended.requireInitialized();
-    return _toDartStringAndFree(
-        ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle));
+    try {
+      return _toDartStringAndFree(
+        ffmpeg.ffmpeg_kit_session_get_logs_as_string(handle),
+      );
+    } catch (e, st) {
+      log(
+        'Session.getLogsAsString: error getting logs as string ffmpeg_kit_session_get_logs_as_string',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the failure stack trace captured when the session failed, or
   /// `null` if the session did not fail or no trace is available.
   String? getFailStackTrace() {
     FFmpegKitExtended.requireInitialized();
-    return _toDartStringAndFree(
-        ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle));
+    try {
+      return _toDartStringAndFree(
+        ffmpeg.ffmpeg_kit_session_get_fail_stack_trace(handle),
+      );
+    } catch (e, st) {
+      log(
+        'Session.getFailStackTrace: error getting fail stack trace ffmpeg_kit_session_get_fail_stack_trace',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the command string as reported by the C layer.
   String getCommand() {
     FFmpegKitExtended.requireInitialized();
-    return _toDartStringAndFree(
-            ffmpeg.ffmpeg_kit_session_get_command(handle)) ??
-        '';
+    try {
+      return _toDartStringAndFree(
+            ffmpeg.ffmpeg_kit_session_get_command(handle),
+          ) ??
+          '';
+    } catch (e, st) {
+      log(
+        'Session.getCommand: error getting command ffmpeg_kit_session_get_command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the number of log entries buffered for this session.
   int getLogsCount() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffmpeg_kit_session_get_logs_count(handle);
+    try {
+      return ffmpeg.ffmpeg_kit_session_get_logs_count(handle);
+    } catch (e, st) {
+      log(
+        'Session.getLogsCount: error getting logs count ffmpeg_kit_session_get_logs_count',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the log message at [index].
@@ -287,15 +407,34 @@ abstract class Session implements Finalizable {
   /// returns a null pointer.
   String getLogAt(int index) {
     FFmpegKitExtended.requireInitialized();
-    return _toDartStringAndFree(
-            ffmpeg.ffmpeg_kit_session_get_log_at(handle, index)) ??
-        '';
+    try {
+      return _toDartStringAndFree(
+            ffmpeg.ffmpeg_kit_session_get_log_at(handle, index),
+          ) ??
+          '';
+    } catch (e, st) {
+      log(
+        'Session.getLogAt: error getting log at index $index ffmpeg_kit_session_get_log_at',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the log level for the entry at [index].
   int getLogLevelAt(int index) {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffmpeg_kit_session_get_log_level_at(handle, index);
+    try {
+      return ffmpeg.ffmpeg_kit_session_get_log_level_at(handle, index);
+    } catch (e, st) {
+      log(
+        'Session.getLogLevelAt: error getting log level at index $index ffmpeg_kit_session_get_log_level_at',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // ---- Statistics ---------------------------------------------------------
@@ -303,23 +442,35 @@ abstract class Session implements Finalizable {
   /// Returns the number of statistics snapshots buffered for this session.
   int getStatisticsCount() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.ffmpeg_kit_session_get_statistics_count(handle);
+    try {
+      return ffmpeg.ffmpeg_kit_session_get_statistics_count(handle);
+    } catch (e, st) {
+      log(
+        'Session.getStatisticsCount: error getting statistics count ffmpeg_kit_session_get_statistics_count',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the [Statistics] snapshot at [index], or `null` if the index is
   /// out of range.
   Statistics? getStatisticsAt(int index) {
     FFmpegKitExtended.requireInitialized();
-    final statsHandle =
-        ffmpeg.ffmpeg_kit_session_get_statistics_at(handle, index);
+    final statsHandle = ffmpeg.ffmpeg_kit_session_get_statistics_at(
+      handle,
+      index,
+    );
     if (statsHandle == nullptr) return null;
 
     try {
-      final videoFrameNumber =
-          ffmpeg.ffmpeg_kit_statistics_get_video_frame_number(statsHandle);
+      final videoFrameNumber = ffmpeg
+          .ffmpeg_kit_statistics_get_video_frame_number(statsHandle);
       final videoFps = ffmpeg.ffmpeg_kit_statistics_get_video_fps(statsHandle);
-      final videoQuality =
-          ffmpeg.ffmpeg_kit_statistics_get_video_quality(statsHandle);
+      final videoQuality = ffmpeg.ffmpeg_kit_statistics_get_video_quality(
+        statsHandle,
+      );
       final size = ffmpeg.ffmpeg_kit_statistics_get_size(statsHandle);
       // The C API returns time in milliseconds; Statistics.time is int (milliseconds).
       final timeMs = ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle).round();
@@ -360,8 +511,16 @@ abstract class Session implements Finalizable {
         _isCancelled) {
       return;
     }
-
-    ffmpeg.ffmpeg_kit_cancel_session(sessionId);
+    try {
+      ffmpeg.ffmpeg_kit_cancel_session(sessionId);
+    } catch (e, st) {
+      log(
+        'Session.cancel: error cancelling session ffmpeg_kit_cancel_session',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
     _isCancelled = true;
   }
 
@@ -374,25 +533,61 @@ abstract class Session implements Finalizable {
   /// Returns `true` if this session is an [FFmpegSession].
   bool isFFmpegSession() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.session_is_ffmpeg_session(handle);
+    try {
+      return ffmpeg.session_is_ffmpeg_session(handle);
+    } catch (e, st) {
+      log(
+        'Session.isFFmpegSession: error checking if session is ffmpeg session session_is_ffmpeg_session',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns `true` if this session is an [FFplaySession].
   bool isFFplaySession() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.session_is_ffplay_session(handle);
+    try {
+      return ffmpeg.session_is_ffplay_session(handle);
+    } catch (e, st) {
+      log(
+        'Session.isFFplaySession: error checking if session is ffplay session session_is_ffplay_session',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns `true` if this session is an [FFprobeSession].
   bool isFFprobeSession() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.session_is_ffprobe_session(handle);
+    try {
+      return ffmpeg.session_is_ffprobe_session(handle);
+    } catch (e, st) {
+      log(
+        'Session.isFFprobeSession: error checking if session is ffprobe session session_is_ffprobe_session',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns `true` if this session is a [MediaInformationSession].
   bool isMediaInformationSession() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.session_is_media_information_session(handle);
+    try {
+      return ffmpeg.session_is_media_information_session(handle);
+    } catch (e, st) {
+      log(
+        'Session.isMediaInformationSession: error checking if session is media information session session_is_media_information_session',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // ---- Debug log ----------------------------------------------------------
@@ -400,32 +595,77 @@ abstract class Session implements Finalizable {
   /// Enables per-session debug logging in the C layer.
   void enableDebugLog() {
     FFmpegKitExtended.requireInitialized();
-    ffmpeg.session_enable_debug_log(handle);
+    try {
+      ffmpeg.session_enable_debug_log(handle);
+    } catch (e, st) {
+      log(
+        'Session.enableDebugLog: error enabling debug log session_enable_debug_log',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Disables per-session debug logging in the C layer.
   void disableDebugLog() {
     FFmpegKitExtended.requireInitialized();
-    ffmpeg.session_disable_debug_log(handle);
+    try {
+      ffmpeg.session_disable_debug_log(handle);
+    } catch (e, st) {
+      log(
+        'Session.disableDebugLog: error disabling debug log session_disable_debug_log',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns `true` if per-session debug logging is currently enabled.
   bool isDebugLogEnabled() {
     FFmpegKitExtended.requireInitialized();
-    return ffmpeg.session_is_debug_log_enabled(handle);
+    try {
+      return ffmpeg.session_is_debug_log_enabled(handle);
+    } catch (e, st) {
+      log(
+        'Session.isDebugLogEnabled: error checking if debug log is enabled session_is_debug_log_enabled',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Returns the accumulated debug log for this session, or an empty string
   /// if none is available.
   String getDebugLog() {
     FFmpegKitExtended.requireInitialized();
-    return _toDartStringAndFree(ffmpeg.session_get_debug_log(handle)) ?? '';
+    try {
+      return _toDartStringAndFree(ffmpeg.session_get_debug_log(handle)) ?? '';
+    } catch (e, st) {
+      log(
+        'Session.getDebugLog: error getting debug log session_get_debug_log',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Clears the accumulated debug log in the C layer.
   void clearDebugLog() {
     FFmpegKitExtended.requireInitialized();
-    ffmpeg.session_clear_debug_log(handle);
+    try {
+      ffmpeg.session_clear_debug_log(handle);
+    } catch (e, st) {
+      log(
+        'Session.clearDebugLog: error clearing debug log session_clear_debug_log',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   // ---- Private helpers ----------------------------------------------------
@@ -437,9 +677,18 @@ abstract class Session implements Finalizable {
   /// distinguish "no value" from an empty string.
   String? _toDartStringAndFree(Pointer<Char> ptr) {
     FFmpegKitExtended.requireInitialized();
-    if (ptr == nullptr) return null;
-    final result = ptr.cast<Utf8>().toDartString();
-    ffmpeg.ffmpeg_kit_free(ptr.cast());
-    return result;
+    try {
+      if (ptr == nullptr) return null;
+      final result = ptr.cast<Utf8>().toDartString();
+      ffmpeg.ffmpeg_kit_free(ptr.cast());
+      return result;
+    } catch (e, st) {
+      log(
+        'Session._toDartStringAndFree: error converting string and freeing memory',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 }

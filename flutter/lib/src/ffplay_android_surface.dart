@@ -89,7 +89,8 @@ class FFplayAndroidSurface {
   }
 
   /// Returns [Widget] that displays this surface in Flutter widget tree.
-  Widget toWidget() => Texture(textureId: textureId);
+  /// Uses ValueKey to force widget recreation when textureId changes.
+  Widget toWidget() => Texture(key: ValueKey(textureId), textureId: textureId);
 
   /// Registers surface as FFplay video output target.
   /// Must be called **before** `FFplayKit.executeAsync`.

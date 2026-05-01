@@ -285,6 +285,138 @@ Future<void> _startPlaybackWithErrorHandling() async {
 }
 ```
 
+## Fullscreen Mode
+
+`FFplayView` and `FFplayViewController` provide decoupled fullscreen control. The widget has no built-in button — the consuming widget decides how and when to trigger fullscreen (button, keyboard shortcut, gesture, etc.).
+
+### Setup
+
+```dart
+import 'dart:io' show Platform;
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+import 'package:window_manager/window_manager.dart'; // desktop only
+```
+
+Add `window_manager: ^0.4.3` to `pubspec.yaml` (desktop targets only), then initialise in `main()`:
+
+```dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+  }
+  await FFmpegKitExtended.initialize();
+  runApp(const MyApp());
+}
+```
+
+### Controller Setup
+
+```dart
+class _VideoPlayerState extends State<VideoPlayerWidget> {
+  FFplaySurface? _surface;
+  late final FFplayViewController _fsController;
+  int _videoWidth = 0;
+  int _videoHeight = 0;
+  bool _hasVideo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fsController = FFplayViewController(
+      onEnterFullscreen: (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+          ? () => windowManager.setFullScreen(true)
+          : null,
+      onExitFullscreen: (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+          ? () => windowManager.setFullScreen(false)
+          : null,
+    );
+  }
+
+  @override
+  void dispose() {
+    _fsController.dispose();
+    _surface?.release();
+    super.dispose();
+  }
+}
+```
+
+### Widget Layout
+
+Wrap `FFplayView` in a `Stack` and place the fullscreen button via `Positioned`. This anchors the button to the video's actual rendered dimensions, not the app window:
+
+```dart
+Widget _buildVideoDisplay() {
+  if (!_hasVideo || _surface == null) return const SizedBox.shrink();
+
+  return Center(
+    child: Stack(
+      children: [
+        FFplayView(
+          surface: _surface!,
+          controller: _fsController,
+          aspectRatio: _videoWidth > 0 && _videoHeight > 0
+              ? _videoWidth / _videoHeight
+              : null,
+          videoWidth: _videoWidth > 0 ? _videoWidth : null,
+          videoHeight: _videoHeight > 0 ? _videoHeight : null,
+        ),
+        Positioned(
+          right: 8,
+          bottom: 8,
+          child: ListenableBuilder(
+            listenable: _fsController,
+            builder: (ctx, _) => IconButton(
+              icon: Icon(
+                _fsController.isFullscreen
+                    ? Icons.fullscreen_exit
+                    : Icons.fullscreen,
+              ),
+              color: Colors.white,
+              style: IconButton.styleFrom(backgroundColor: Colors.black45),
+              onPressed: () => _fsController.isFullscreen
+                  ? _fsController.exitFullscreen()
+                  : _fsController.enterFullscreen(ctx),
+              tooltip: _fsController.isFullscreen
+                  ? 'Exit fullscreen'
+                  : 'Fullscreen',
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+```
+
+### Keyboard Shortcut (Desktop)
+
+```dart
+// Inside a Focus widget or using keyboard shortcuts:
+shortcuts: {
+  const SingleActivator(LogicalKeyboardKey.keyF): EnterFullscreenIntent(),
+},
+actions: {
+  EnterFullscreenIntent: CallbackAction<EnterFullscreenIntent>(
+    onInvoke: (_) => _fsController.isFullscreen
+        ? _fsController.exitFullscreen()
+        : _fsController.enterFullscreen(context),
+  ),
+},
+```
+
+### Fullscreen Page Behaviour
+
+When in fullscreen:
+- The video fills the screen maintaining its aspect ratio (letterboxed / pillarboxed as needed)
+- Tap anywhere to reveal an exit button (top-right corner)
+- Press back / Escape to exit
+- On mobile: status bar and navigation bar are hidden (`SystemUiMode.immersiveSticky`)
+- On desktop: the OS window goes truly fullscreen when `onEnterFullscreen` is wired to `window_manager`
+
+---
+
 ## Platform-Specific Considerations
 
 ### Android Performance Tips
