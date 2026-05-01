@@ -116,9 +116,12 @@ static void ffplaykit_log(const char *msg) {
   NSLog(@"FFplayKitPlugin: %s", msg);
   if (sLogEventSink) {
     NSString *message = [NSString stringWithUTF8String:msg];
-    sLogEventSink(@{
-      @"message" : message,
-      @"timestamp" : @([[NSDate date] timeIntervalSince1970] * 1000)
+    NSNumber *timestamp = @([[NSDate date] timeIntervalSince1970] * 1000);
+    dispatch_async(dispatch_get_main_queue(), ^{
+      FlutterEventSink sink = sLogEventSink;
+      if (sink) {
+        sink(@{@"message" : message, @"timestamp" : timestamp});
+      }
     });
   }
 }
