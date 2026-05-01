@@ -715,14 +715,20 @@ String _getAppleArch(Architecture arch) {
 
 Future<bool> _downloadFile(String url, File target) async {
   final client = HttpClient();
+  final tempTarget = File('${target.path}.downloading');
   try {
     final request = await client.getUrl(Uri.parse(url));
     final response = await request.close();
     if (response.statusCode == 200) {
-      await response.pipe(target.openWrite());
+      await response.pipe(tempTarget.openWrite());
+      tempTarget.renameSync(target.path);
       return true;
     }
     return false;
+  } catch (e) {
+    // Clean up partial download
+    if (tempTarget.existsSync()) tempTarget.deleteSync();
+    rethrow;
   } finally {
     client.close();
   }
