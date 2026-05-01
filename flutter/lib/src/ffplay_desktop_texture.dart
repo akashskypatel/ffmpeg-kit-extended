@@ -121,22 +121,4 @@ class FFplayDesktopTexture {
       // Texture may already be released; ignore.
     }
   }
-
-  /// Resets the texture state without releasing it.
-  /// This is useful when you want to reuse the same texture ID for a new video.
-  Future<void> reset() async {
-    if (!Platform.isLinux &&
-        !Platform.isWindows &&
-        !Platform.isIOS &&
-        !Platform.isMacOS) {
-      return;
-    }
-    try {
-      await _channel.invokeMethod<void>('resetTexture', {
-        'textureId': textureId,
-      });
-    } on PlatformException {
-      // Texture may already be reset; ignore.
-    }
-  }
 }
