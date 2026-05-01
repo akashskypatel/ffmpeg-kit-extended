@@ -244,7 +244,7 @@ Future<FFmpegArtifact> _handleDownloadedFile(
   }
 
   final extractRoot = Directory(
-    p.join(cacheDir.path, '${p.basenameWithoutExtension(file.path)}_extracted'),
+    p.join(cacheDir.path, p.basenameWithoutExtension(file.path)),
   );
   if (!extractRoot.existsSync() || extractRoot.listSync().isEmpty) {
     extractRoot.createSync(recursive: true);
@@ -258,7 +258,9 @@ Future<FFmpegArtifact> _handleDownloadedFile(
       .whereType<Directory>()
       .firstWhere(
         (d) => p.basename(d.path).endsWith('.xcframework'),
-        orElse: () => extractRoot, // flat zip fallback
+        orElse: () => Directory(
+          p.join(extractRoot.path, p.basename(extractRoot.path)),
+        ), // flat zip fallback
       );
   return FFmpegArtifact(file: file, extractedDir: finalExtractedDir);
 }
