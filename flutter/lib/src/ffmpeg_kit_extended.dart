@@ -1006,7 +1006,6 @@ class FFmpegKitExtended {
       );
       rethrow;
     }
-    ;
   }
 
   /// Sets [completeCallback] as the global FFplay session complete callback.

@@ -73,8 +73,9 @@ class FFplayDesktopTexture {
     if (!Platform.isLinux &&
         !Platform.isWindows &&
         !Platform.isIOS &&
-        !Platform.isMacOS)
+        !Platform.isMacOS) {
       return null;
+    }
     try {
       final result = await _channel.invokeMapMethod<String, dynamic>(
         'createTexture',

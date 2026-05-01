@@ -92,7 +92,7 @@ void _resolveNativeSymbols() {
     }
 
     if (lastError != null) {
-      throw lastError;
+      throw Exception(lastError);
     }
   } catch (e) {
     log('[FFmpegKit] Error resolving native symbols: $e');

@@ -58,10 +58,7 @@ import 'ffplay_surface.dart';
 ///
 /// Always [dispose] the controller when the owning widget is disposed.
 class FFplayViewController extends ChangeNotifier {
-  FFplayViewController({
-    this.onEnterFullscreen,
-    this.onExitFullscreen,
-  });
+  FFplayViewController({this.onEnterFullscreen, this.onExitFullscreen});
 
   /// Called just before the fullscreen route is pushed.
   /// On desktop, pass `() => windowManager.setFullScreen(true)`.
@@ -201,13 +198,18 @@ class _FFplayViewState extends State<FFplayView> {
 
   Future<void> _enterFullscreen(BuildContext context) async {
     if (_fullscreenNav != null) return; // already in fullscreen
+    // Capture the Navigator synchronously before any awaits — using
+    // `context` after an async gap would risk referencing a deactivated
+    // element and trips the use_build_context_synchronously lint.
+    final navigator = Navigator.of(context);
     if (_isMobile) {
       await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
     await widget.controller?.onEnterFullscreen?.call();
+    if (!mounted) return;
     widget.controller?._setIsFullscreen(true);
 
-    _fullscreenNav = Navigator.of(context);
+    _fullscreenNav = navigator;
     await _fullscreenNav!.push(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
@@ -248,13 +250,16 @@ class _FFplayViewState extends State<FFplayView> {
     if (ar == null) return SizedBox.expand(child: video);
 
     if (nativeW != null) {
-      return LayoutBuilder(builder: (_, constraints) {
-        final maxW =
-            constraints.maxWidth.isFinite ? constraints.maxWidth : nativeW;
-        final w = min(maxW, nativeW);
-        final h = w / ar;
-        return SizedBox(width: w, height: h, child: video);
-      });
+      return LayoutBuilder(
+        builder: (_, constraints) {
+          final maxW = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : nativeW;
+          final w = min(maxW, nativeW);
+          final h = w / ar;
+          return SizedBox(width: w, height: h, child: video);
+        },
+      );
     }
 
     return AspectRatio(aspectRatio: ar, child: video);
@@ -293,43 +298,45 @@ class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
     final video = widget.surface.toWidget();
     final ar = widget.aspectRatio;
     if (ar != null) {
-      return Center(child: AspectRatio(aspectRatio: ar, child: video));
+      return Center(
+        child: AspectRatio(aspectRatio: ar, child: video),
+      );
     }
     return Center(child: video);
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: widget.backgroundColor,
-        body: GestureDetector(
-          onTap: _toggleControls,
-          child: Stack(
-            children: [
-              _buildVideo(),
-              Positioned(
-                top: 0,
-                right: 0,
-                child: AnimatedOpacity(
-                  opacity: _controlsVisible ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: IgnorePointer(
-                    ignoring: !_controlsVisible,
-                    child: SafeArea(
-                      child: IconButton(
-                        icon: const Icon(Icons.fullscreen_exit),
-                        color: Colors.white,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black45,
-                        ),
-                        onPressed: () => Navigator.of(context).pop(),
-                        tooltip: 'Exit fullscreen',
-                      ),
+    backgroundColor: widget.backgroundColor,
+    body: GestureDetector(
+      onTap: _toggleControls,
+      child: Stack(
+        children: [
+          _buildVideo(),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: AnimatedOpacity(
+              opacity: _controlsVisible ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: IgnorePointer(
+                ignoring: !_controlsVisible,
+                child: SafeArea(
+                  child: IconButton(
+                    icon: const Icon(Icons.fullscreen_exit),
+                    color: Colors.white,
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black45,
                     ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    tooltip: 'Exit fullscreen',
                   ),
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }

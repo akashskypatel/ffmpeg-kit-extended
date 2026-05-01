@@ -250,9 +250,22 @@ static void getPermuteMapForFormat(const char *fmt, uint8_t map[4]) {
     getPermuteMapForFormat(pixelFormat, permuteMap);
     vImagePermuteChannels_ARGB8888(&srcVBuf, &dstVBuf, permuteMap,
                                    kvImageNoFlags);
-
+    // For padded formats (rgb0/bgr0) the 4th source byte is always 0x00, so
+    // the permuted BGRA buffer has alpha=0 (fully transparent). Fix it up to
+    // match the Windows/Linux behavior. Iterate per-row using dstStride to
+    // respect any IOSurface row padding.
+    if (pixelFormat &&
+        (strcmp(pixelFormat, "rgb0") == 0 ||
+         strcmp(pixelFormat, "bgr0") == 0)) {
+      uint8_t *row = (uint8_t *)dstBase;
+      for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+          row[x * 4 + 3] = 0xFF;
+        }
+        row += dstStride;
+      }
+    }
     CVPixelBufferUnlockBaseAddress(newBuf, 0);
-
     if (_latestBuffer)
       CVPixelBufferRelease(_latestBuffer);
     _latestBuffer =

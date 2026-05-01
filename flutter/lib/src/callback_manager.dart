@@ -111,7 +111,6 @@ void _onFFmpegComplete(
         'CallbackManager: error in completeCallback for session $sessionId: '
         '$e\n$st',
       );
-      rethrow;
     }
   } else {
     stderr.writeln(
@@ -225,7 +224,6 @@ void _onFFprobeComplete(
         'CallbackManager: error in FFprobe completeCallback for session '
         '$sessionId: $e\n$st',
       );
-      rethrow;
     }
   } else {
     stderr.writeln(
@@ -259,7 +257,6 @@ void _onMediaInfoComplete(
         'CallbackManager: error in MediaInfo completeCallback for session '
         '$sessionId: $e\n$st',
       );
-      rethrow;
     }
   } else {
     stderr.writeln(
@@ -291,7 +288,6 @@ void _onFFplayComplete(
         'CallbackManager: error in FFplay completeCallback for session '
         '$sessionId: $e\n$st',
       );
-      rethrow;
     }
   } else {
     stderr.writeln(
