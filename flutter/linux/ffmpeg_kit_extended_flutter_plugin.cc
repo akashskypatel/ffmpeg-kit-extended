@@ -260,8 +260,8 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
     state->width = width;
     state->height = height;
 
-    // Fix alpha channel for rgb0/rgba
-    bool is_rgb0 = pixel_format && (strcmp(pixel_format, "rgb0") == 0 || strcmp(pixel_format, "rgba") == 0);
+    // Fix alpha channel for rgb0
+    bool is_rgb0 = pixel_format && (strcmp(pixel_format, "rgb0") == 0);
     if (is_rgb0) {
       uint8_t* buf = state->write_buf.data();
       size_t pixel_count = static_cast<size_t>(linesize / 4) * static_cast<size_t>(height);

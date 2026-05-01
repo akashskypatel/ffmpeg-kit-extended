@@ -202,13 +202,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
       url =
           "https://repo1.maven.org/maven2/$groupIdPath/$artifactId/$version/$filename";
     } else if (targetOS == OS.iOS || targetOS == OS.macOS) {
-      final parts = [
-        'bundle',
-        currentType,
-        platformName,
-        'universal',
-        'shared',
-      ];
+      final parts = ['bundle', currentType, platformName, 'universal'];
       if (type != 'debug' && small) parts.add('small');
       parts.add(license);
       filename = "${parts.join('-')}.xcframework.zip";
