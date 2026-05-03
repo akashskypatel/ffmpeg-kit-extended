@@ -6,19 +6,18 @@
 
 </div>
 
-`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing `FFmpeg`, `FFprobe`, and `FFplay` `8.1 API` commands on Android, iOS, macOS, Linux, and Windows. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
+`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing `FFmpeg`, `FFprobe`, and `FFplay` `8.1 API` commands on `Android`, `iOS`, `macOS`, `Linux`, and `Windows`. It leverages Dart `FFI` to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
 
 ## 1. Features
 
-- **Cross-Platform Support**: Works on Android, iOS, macOS, Linux, and Windows.
+- **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `Linux`, and `Windows`.
   - **Android**: Full video playback support with native surface rendering.
-    - **x86**: x86 architecture is not supported due to its legacy status.
+    - **x86**: `x86` architecture is not supported due to its legacy status.
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
-    - **iOS**: Supports both physical devices and simulators. x86_64 architecture is not supported due to its legacy status.
-  - **Linux**: Full video playback support with OpenGL integration.
-    - **arm64**: arm64 architecture currently not supported, coming soon!
-  - **tvOS**: Coming soon!
-- **FFmpeg, FFprobe & FFplay**: [Latest `8.1 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
+    - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
+  - **Linux**: Full video playback support with `OpenGL` integration.
+    - **arm64**: `arm64` architecture currently not supported, coming soon!
+- **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `8.1 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
 - **Dart FFI**: Direct native bindings for optimal performance.
@@ -38,7 +37,6 @@
 | macOS    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
 | Linux    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
 | Windows  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
-| tvOS     | Coming Soon! |                |                      |             |
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
 
