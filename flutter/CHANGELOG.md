@@ -1,6 +1,8 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.4.1
 
+- Added Swift Package Manager support for iOS and macOS
 
 ## Version 0.4.0
 
