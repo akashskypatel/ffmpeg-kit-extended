@@ -6,7 +6,7 @@
 
 </div>
 
-`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing FFmpeg, FFprobe, and FFplay commands on Android, iOS, macOS, Linux, and Windows. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
+`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing `FFmpeg`, `FFprobe`, and `FFplay` `8.1 API` commands on Android, iOS, macOS, Linux, and Windows. It leverages Dart FFI to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
 
 ## 1. Features
 
@@ -18,7 +18,7 @@
   - **Linux**: Full video playback support with OpenGL integration.
     - **arm64**: arm64 architecture currently not supported, coming soon!
   - **tvOS**: Coming soon!
-- **FFmpeg, FFprobe & FFplay**: Full support for media manipulation, information retrieval, and audio/video playback.
+- **FFmpeg, FFprobe & FFplay**: [Latest `8.1 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
 - **Dart FFI**: Direct native bindings for optimal performance.
@@ -33,8 +33,8 @@
 
 | Platform | Status      | Video Playback | Architecture         | Minimum Requirements |
 | -------- | ----------- | -------------- | -------------------- | -------------------- |
-| Android (including Android TV) | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 | API 26+              |
-| iOS      | ✅ Supported | ✅ Texture      | arm64                | iOS 13+              |
+| Android (and Android TV) | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 | API 26+              |
+| iOS (and Simulator)      | ✅ Supported | ✅ Texture      | arm64                | iOS 13+              |
 | macOS    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
 | Linux    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
 | Windows  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
@@ -348,20 +348,10 @@ print('Playing: ${session.isPlaying()}');
 print('Paused: ${session.isPaused()}');
 ```
 
-## 4. Architecture
-
-This plugin uses a modular architecture:
-
-- **`ffmpeg_kit_extended.dart`**: The core FFI wrapper that interfaces with the native C library.
-- **`ffmpeg_kit_config.dart`**: Manages global configurations (log levels, font directories, etc.).
-- **`session.dart`**: Abstract base class for all session types (`FFmpegSession`, `FFprobeSession`, `FFplaySession`).
-- **`callback_manager.dart`**: Handles the mapping between native function pointers and Dart callbacks.
-
-## 5. Requirements
-
-- **Dart SDK**: >= 3.10.0
-- **Flutter SDK**: with native assets support (experimental)
-
-## 6. License
+## 4. License
 
 This project is licensed under the LGPL v3.0 by default. However, depending on the underlying FFmpeg build configuration and external libraries used, the effective license may be GPL v3.0. Please review the licenses of the included libraries.
+
+Understand the difference between LGPL and GPL licenses before using this plugin in your project.
+
+Using GPL licensed components in your application may require your application to also be licensed under GPL.

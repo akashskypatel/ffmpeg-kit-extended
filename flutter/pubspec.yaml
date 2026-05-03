@@ -29,8 +29,15 @@ flutter:
         pluginClass: FfmpegKitExtendedFlutterPlugin
       ios:
         pluginClass: FfmpegKitExtendedFlutterPlugin
+<<<<<<< Updated upstream
       macos:
         pluginClass: FfmpegKitExtendedFlutterPlugin
+=======
+        fileName: FfmpegKitExtendedFlutterPlugin.h
+      macos:
+        pluginClass: FfmpegKitExtendedFlutterPlugin
+        fileName: FfmpegKitExtendedFlutterPlugin.h
+>>>>>>> Stashed changes
 
 dependencies:
   code_assets: ^1.0.0

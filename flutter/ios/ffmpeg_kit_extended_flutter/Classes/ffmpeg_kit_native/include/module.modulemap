@@ -1,0 +1,5 @@
+module ffmpeg_kit_extended_flutter [system] {
+    header "FfmpegKitExtendedFlutterPlugin.h"
+    header "FfplayKitPlugin.h"
+    export *
+}
