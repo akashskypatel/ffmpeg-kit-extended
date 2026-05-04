@@ -94,12 +94,12 @@ ConfigResult _loadConfig(BuildInput input) {
 
   // 3. Last Resort: Default Configuration
   stderr.writeln(
-    'FFmpegKit [Build Hook]: No configuration found. Using default "full" build.',
+    'FFmpegKit [Build Hook]: No configuration found. Using default "base" lgpl small build.',
   );
   return ConfigResult({
-    'type': 'full',
-    'gpl': true,
-    'small': false,
+    'type': 'base',
+    'gpl': false,
+    'small': true,
   }, packageRoot);
 }
 

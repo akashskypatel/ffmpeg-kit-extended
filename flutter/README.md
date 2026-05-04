@@ -30,13 +30,13 @@
 
 ### Platform Support
 
-| Platform | Status      | Video Playback | Architecture         | Minimum Requirements |
-| -------- | ----------- | -------------- | -------------------- | -------------------- |
+| Platform                 | Status      | Video Playback | Architecture         | Minimum Requirements |
+| ------------------------ | ----------- | -------------- | -------------------- | -------------------- |
 | Android (and Android TV) | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 | API 26+              |
 | iOS (and Simulator)      | ✅ Supported | ✅ Texture      | arm64                | iOS 13+              |
-| macOS    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
-| Linux    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
-| Windows  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
+| macOS                    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
+| Linux                    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
+| Windows                  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
 
@@ -130,7 +130,6 @@ You will have to update your app's minimum requirements on your own to match the
 - **full**: Full build with all platform-compatible FFmpeg libraries. See: <https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries>
 - **audio**: Build with audio-only FFmpeg libraries.
 - **video**: Build with video-only FFmpeg libraries.
-- **streaming**: Build with streaming FFmpeg libraries.
 - **video_hw**: Build with hardware-accelerated video FFmpeg libraries.
 
 ### 2.2 Feature Matrix
@@ -143,6 +142,9 @@ You will have to update your app's minimum requirements on your own to match the
 | Hardware  |      |       |       | x              | x    |
 | AI\*      |      |       |       |                | x\*  |
 | HTTPS     |      | x     | x     | x              | x    |
+| Platform* | x    | x     | x     | x              | x    |
+
+*Platform features are built-in platform libraries that FFmpeg support like AVFounation, VideoToolbox, etc. on apple platforms or DirectX, MediaFoundation on Windows.
 
 - AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable certain AI features.
 - See [Supported External Libraries](https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries) for more information.

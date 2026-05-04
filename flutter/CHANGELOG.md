@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.4.2
+
+- Change default package to base-lgpl-small if no configuration is provided
+
 ## Version 0.4.1
 
 - Added Swift Package Manager support for iOS and macOS
