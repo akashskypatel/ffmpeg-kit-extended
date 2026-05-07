@@ -32,6 +32,8 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
     import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
     ```
 
+**Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
+
 ## Initialize the Plugin
 
 **Before calling any FFmpeg, FFprobe, or FFplay API**, you must initialize the plugin once at application startup. This loads the native library and sets up the FFI bindings.

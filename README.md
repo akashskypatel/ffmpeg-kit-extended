@@ -79,6 +79,8 @@ You will have to update your app's minimum requirements on your own to match the
 
    **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration script is required.
 
+**Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
+
 3. Import the package in your Dart code:
 
    ```dart

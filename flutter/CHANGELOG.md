@@ -1,5 +1,10 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.4.3
+
+- Added release file SHA verification for added security
+- Updated installation instructions to clarify bundle config changes and re-build requirements
+
 ## Version 0.4.2
 
 - Change default package to base-lgpl-small if no configuration is provided

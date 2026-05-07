@@ -32,6 +32,8 @@ This guide describes how to install and configure FFmpeg Kit Extended Flutter in
     import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
     ```
 
+**Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
+
 ## 2. Initialize the Plugin
 
 Before using any API, call `FFmpegKitExtended.initialize()` once at application startup. This loads the native library and initializes required symbols.

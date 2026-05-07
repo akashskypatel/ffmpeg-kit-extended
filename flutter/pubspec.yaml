@@ -36,6 +36,7 @@ flutter:
 
 dependencies:
   code_assets: ^1.0.0
+  crypto: ^3.0.3
   ffi: ^2.2.0
   flutter:
     sdk: flutter

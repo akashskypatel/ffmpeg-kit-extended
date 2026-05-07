@@ -1,5 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
+
 import 'package:code_assets/code_assets.dart';
+import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
@@ -8,6 +11,12 @@ const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
 const String version = "0.10.0";
+
+void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
+Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
+
+late final OS targetOS;
+late final Architecture targetArch;
 
 class ConfigResult {
   final dynamic config;
@@ -18,31 +27,24 @@ class ConfigResult {
 void main(List<String> args) async {
   await build(args, (input, output) async {
     final packageName = input.packageName;
-    final targetOS = input.config.code.targetOS;
-    final targetArch = input.config.code.targetArchitecture;
+    targetOS = input.config.code.targetOS;
+    targetArch = input.config.code.targetArchitecture;
 
-    stderr.writeln(
-      'FFmpegKit [Build Hook]: Build Hook for $packageName on ${targetOS.name}-${targetArch.name}',
-    );
+    _log('Build Hook for $packageName on ${targetOS.name}-${targetArch.name}');
 
     // 1. Load Configuration
     final configResult = _loadConfig(input);
 
     // 2. Resolve Artifact
-    final artifact = await _resolveArtifact(
-      configResult,
-      targetOS,
-      targetArch,
-      input,
-    );
+    final artifact = await _resolveArtifact(configResult, input);
     if (artifact == null) {
-      throw Exception(
-        'FFmpegKit [Build Hook]: Failed to resolve artifact for ${targetOS.name}-${targetArch.name}',
+      throw _exception(
+        'Failed to resolve artifact for ${targetOS.name}-${targetArch.name}',
       );
     }
 
     // 3. Emit Assets
-    await _emitAssets(artifact, input, output, targetOS);
+    await _emitAssets(artifact, input, output);
   });
 }
 
@@ -50,10 +52,8 @@ ConfigResult _loadConfig(BuildInput input) {
   final packageRoot = p.normalize(input.packageRoot.toFilePath());
   final packageConfig = Platform.packageConfig;
 
-  stderr.writeln('FFmpegKit [Build Hook]: input.packageRoot: $packageRoot');
-  stderr.writeln(
-    'FFmpegKit [Build Hook]: Platform.packageConfig: $packageConfig',
-  );
+  _log('input.packageRoot: $packageRoot');
+  _log('Platform.packageConfig: $packageConfig');
 
   // 1. Prefer consuming app config via Platform.packageConfig anchor
   if (packageConfig != null) {
@@ -68,14 +68,10 @@ ConfigResult _loadConfig(BuildInput input) {
     if (appPubspec.existsSync()) {
       final config = _parsePubspec(appPubspec);
       if (config != null) {
-        stderr.writeln(
-          'FFmpegKit [Build Hook]: Using app configuration from ${appPubspec.path}',
-        );
+        _log('Using app configuration from ${appPubspec.path}');
         return ConfigResult(config, appRoot);
       }
-      stderr.writeln(
-        'FFmpegKit [Build Hook]: Found app pubspec at $appRoot but no ffmpeg_kit_extended_config',
-      );
+      _log('Found app pubspec at $appRoot but no ffmpeg_kit_extended_config');
     }
   }
 
@@ -85,9 +81,7 @@ ConfigResult _loadConfig(BuildInput input) {
   if (pkgPubspec.existsSync()) {
     final config = _parsePubspec(pkgPubspec);
     if (config != null) {
-      stderr.writeln(
-        'FFmpegKit [Build Hook]: Using package-local configuration from ${pkgPubspec.path}',
-      );
+      _log('Using package-local configuration from ${pkgPubspec.path}');
       return ConfigResult(config, packageRoot);
     }
   }
@@ -133,15 +127,13 @@ class AppleRuntimeLayout {
 
 Future<FFmpegArtifact?> _resolveArtifact(
   ConfigResult configResult,
-  OS targetOS,
-  Architecture targetArch,
   BuildInput input,
 ) async {
   final config = configResult.config;
   String type = config['type']?.toString() ?? "full";
   if (type == "streaming") type = "video";
   if (!_validTypes.contains(type)) {
-    stderr.writeln(
+    _log(
       'Invalid bundle type: $type. Valid types are: ${_validTypes.join(', ')}',
     );
     exit(1);
@@ -159,7 +151,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
   );
   if (!cacheDir.existsSync()) cacheDir.createSync(recursive: true);
 
-  String filename;
+  String filename = '';
   String url = '';
 
   if (overrideUrl != null) {
@@ -178,10 +170,10 @@ Future<FFmpegArtifact?> _resolveArtifact(
             cacheFile.lengthSync() != localFile.lengthSync()) {
           localFile.copySync(cacheFile.path);
         }
-        return _handleDownloadedFile(cacheFile, cacheDir, targetOS, input);
+        return _handleDownloadedFile(cacheFile, cacheDir, input);
       }
-      throw Exception(
-        'FFmpegKit [Build Hook]: Local override not found: $overrideUrl (resolved from ${configResult.baseDir})',
+      throw _exception(
+        'Local override not found: $overrideUrl (resolved from ${configResult.baseDir})',
       );
     }
   } else {
@@ -224,19 +216,29 @@ Future<FFmpegArtifact?> _resolveArtifact(
 
   final targetFile = File(p.join(cacheDir.path, filename));
   if (!targetFile.existsSync()) {
-    stderr.writeln('FFmpegKit [Build Hook]: Downloading $url...');
+    _log('Downloading $url...');
     if (!await _downloadFile(url, targetFile)) {
-      throw Exception('FFmpegKit [Build Hook]: Failed to download $url');
+      throw _exception('Failed to download $url');
     }
   }
 
-  return _handleDownloadedFile(targetFile, cacheDir, targetOS, input);
+  _log('Verifying SHA256 hash from $url');
+
+  final expectedHash = await _fetchSha256Hash(url);
+  final calculatedHash = await _computeFileSha256(targetFile);
+  if (expectedHash != calculatedHash) {
+    throw _exception(
+      'SHA256 hash mismatch: expected $expectedHash, got $calculatedHash',
+    );
+  }
+  _log('SHA256 verification passed');
+
+  return _handleDownloadedFile(targetFile, cacheDir, input);
 }
 
 Future<FFmpegArtifact> _handleDownloadedFile(
   File file,
   Directory cacheDir,
-  OS targetOS,
   BuildInput input,
 ) async {
   if (file.path.endsWith('.aar')) {
@@ -249,7 +251,7 @@ Future<FFmpegArtifact> _handleDownloadedFile(
   if (!extractRoot.existsSync() || extractRoot.listSync().isEmpty) {
     extractRoot.createSync(recursive: true);
     if (!await _extractFile(file, extractRoot.path)) {
-      throw Exception('FFmpegKit [Build Hook]: Failed to extract ${file.path}');
+      throw _exception('Failed to extract ${file.path}');
     }
   }
   // Auto-detect the xcframework directory inside
@@ -269,7 +271,6 @@ Future<void> _emitAssets(
   FFmpegArtifact artifact,
   BuildInput input,
   BuildOutputBuilder output,
-  OS targetOS,
 ) async {
   final packageName = input.packageName;
 
@@ -282,29 +283,21 @@ Future<void> _emitAssets(
     tempDir.createSync(recursive: true);
 
     if (await _extractFile(artifact.file, tempDir.path)) {
-      stderr.writeln(
-        'FFmpegKit [Build Hook]: Extracted ${artifact.file.path} to ${tempDir.path}',
-      );
+      _log('Extracted ${artifact.file.path} to ${tempDir.path}');
     } else {
-      throw Exception(
-        'FFmpegKit [Build Hook]: Failed to extract ${artifact.file.path}',
-      );
+      throw _exception('Failed to extract ${artifact.file.path}');
     }
     output.dependencies.add(artifact.file.uri);
     // Find jniLibs
     final jniDir = Directory(p.join(tempDir.path, 'jni'));
     if (!jniDir.existsSync()) {
-      throw Exception(
-        'FFmpegKit [Build Hook]: Could not find jni directory in AAR',
-      );
+      throw _exception('Could not find jni directory in AAR');
     }
 
-    final abi = _getAndroidAbi(input.config.code.targetArchitecture);
+    final abi = _getAndroidAbi();
     final abiDir = Directory(p.join(jniDir.path, abi));
     if (!abiDir.existsSync()) {
-      throw Exception(
-        'FFmpegKit [Build Hook]: Could not find ABI directory $abi in AAR',
-      );
+      throw _exception('Could not find ABI directory $abi in AAR');
     }
 
     // Find all .so files
@@ -370,15 +363,12 @@ Future<void> _emitAssets(
       final safePath = sharedJar.path.replaceAll('\\', '/');
       propsFile.writeAsStringSync('classes_jar=$safePath\n');
 
-      stderr.writeln(
-        'FFmpegKit [Build Hook]: Staged shared classes.jar to ${sharedJar.path}',
-      );
+      _log('Staged shared classes.jar to ${sharedJar.path}');
     }
   } else if (targetOS == OS.iOS || targetOS == OS.macOS) {
     final runtimeLayout = await _buildAppleRuntimeFramework(
       artifact: artifact,
       input: input,
-      targetOS: targetOS,
     );
 
     output.assets.code.add(
@@ -446,9 +436,7 @@ Future<void> _emitAssets(
       ..sort((a, b) => a.path.compareTo(b.path));
 
     if (uniqueLibFiles.isEmpty) {
-      stderr.writeln(
-        'FFmpegKit [Build Hook]: No library files found in ${libDir.path}',
-      );
+      _log('No library files found in ${libDir.path}');
       return;
     }
 
@@ -461,8 +449,8 @@ Future<void> _emitAssets(
     } catch (e) {
       // If no ffmpegkit library found, use the first library
       mainLibrary = uniqueLibFiles.first;
-      stderr.writeln(
-        'FFmpegKit [Build Hook]: No ffmpegkit library found, using ${p.basename(mainLibrary.path)} as main library',
+      _log(
+        'No ffmpegkit library found, using ${p.basename(mainLibrary.path)} as main library',
       );
     }
 
@@ -507,10 +495,9 @@ Future<void> _emitAssets(
 Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   required FFmpegArtifact artifact,
   required BuildInput input,
-  required OS targetOS,
 }) async {
   final libDir = artifact.extractedDir!;
-  final archStr = _getAppleArch(input.config.code.targetArchitecture);
+  final archStr = _getAppleArch();
   final slicePrefix = targetOS == OS.iOS ? 'ios-' : 'macos-';
   final sliceDir = Directory(
     libDir
@@ -519,9 +506,11 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
         .map((d) => d.path)
         .firstWhere(
           (path) => p.basename(path).startsWith(slicePrefix),
-          orElse: () => throw Exception(
-            'FFmpegKit [Build Hook]: Could not find Apple slice starting with $slicePrefix in ${libDir.path}',
-          ),
+          orElse: () {
+            throw _exception(
+              'Could not find Apple slice starting with $slicePrefix in ${libDir.path}',
+            );
+          },
         ),
   );
 
@@ -536,9 +525,9 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
 
   final sourceMainDylib = sourceDylibs.firstWhere(
     (f) => p.basename(f.path) == 'libffmpegkit.dylib',
-    orElse: () => throw Exception(
-      'FFmpegKit [Build Hook]: libffmpegkit.dylib not found in ${sliceDir.path}',
-    ),
+    orElse: () {
+      throw _exception('libffmpegkit.dylib not found in ${sliceDir.path}');
+    },
   );
 
   final frameworkRoot = Directory(
@@ -592,7 +581,7 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   }
 
   final infoPlist = File(p.join(resourcesDir.path, 'Info.plist'));
-  infoPlist.writeAsStringSync(_appleFrameworkInfoPlist(targetOS));
+  infoPlist.writeAsStringSync(_appleFrameworkInfoPlist());
 
   if (targetOS == OS.macOS) {
     _createFrameworkSymlink(
@@ -625,9 +614,7 @@ Future<void> _thinOrCopyAppleBinary({
   required String archStr,
 }) async {
   destination.parent.createSync(recursive: true);
-  stderr.writeln(
-    'FFmpegKit [Build Hook]: Thinning ${p.basename(source.path)} to $archStr...',
-  );
+  _log('Thinning ${p.basename(source.path)} to $archStr...');
 
   final lipoRes = await Process.run('lipo', [
     source.path,
@@ -671,7 +658,7 @@ void _createFrameworkSymlink(
   link.createSync(target);
 }
 
-String _appleFrameworkInfoPlist(OS targetOS) {
+String _appleFrameworkInfoPlist() {
   final platform = targetOS == OS.macOS ? 'MacOSX' : 'iPhoneOS';
   return '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -703,17 +690,17 @@ String _appleFrameworkInfoPlist(OS targetOS) {
 ''';
 }
 
-String _getAndroidAbi(Architecture arch) {
-  if (arch == Architecture.arm) return 'armeabi-v7a';
-  if (arch == Architecture.arm64) return 'arm64-v8a';
-  if (arch == Architecture.ia32) return 'x86';
-  if (arch == Architecture.x64) return 'x86_64';
+String _getAndroidAbi() {
+  if (targetArch == Architecture.arm) return 'armeabi-v7a';
+  if (targetArch == Architecture.arm64) return 'arm64-v8a';
+  if (targetArch == Architecture.ia32) return 'x86';
+  if (targetArch == Architecture.x64) return 'x86_64';
   return 'arm64-v8a';
 }
 
-String _getAppleArch(Architecture arch) {
-  if (arch == Architecture.arm64) return 'arm64';
-  if (arch == Architecture.x64) return 'x86_64';
+String _getAppleArch() {
+  if (targetArch == Architecture.arm64) return 'arm64';
+  if (targetArch == Architecture.x64) return 'x86_64';
   return 'arm64';
 }
 
@@ -755,13 +742,11 @@ Future<bool> _extractFile(File zipFile, String destPath) async {
         'Expand-Archive -Path "${zipFile.path}" -DestinationPath "$destPath" -Force',
       ]);
       if (res.exitCode != 0) {
-        stderr.writeln(
-          'FFmpegKit [Build Hook]: Command: Expand-Archive -Path "${zipFile.path}" -DestinationPath "$destPath" -Force',
+        _log(
+          'Command: Expand-Archive -Path "${zipFile.path}" -DestinationPath "$destPath" -Force',
         );
-        stderr.writeln(
-          'FFmpegKit [Build Hook]: Failed to extract ${zipFile.path}',
-        );
-        stderr.writeln('FFmpegKit [Build Hook]: Error: ${res.stderr}');
+        _log('Failed to extract ${zipFile.path}');
+        _log('Error: ${res.stderr}');
       }
       return res.exitCode == 0;
     } else {
@@ -779,13 +764,9 @@ Future<bool> _extractFile(File zipFile, String destPath) async {
           destPath,
         ]);
         if (res2.exitCode != 0) {
-          stderr.writeln(
-            'FFmpegKit [Build Hook]: Command: tar -xf ${zipFile.path} -C $destPath',
-          );
-          stderr.writeln(
-            'FFmpegKit [Build Hook]: Failed to extract ${zipFile.path}',
-          );
-          stderr.writeln('FFmpegKit [Build Hook]: Error: ${res2.stderr}');
+          _log('Command: tar -xf ${zipFile.path} -C $destPath');
+          _log('Failed to extract ${zipFile.path}');
+          _log('Error: ${res2.stderr}');
         }
         return res2.exitCode == 0;
       }
@@ -807,4 +788,63 @@ bool _isUri(String path) {
   } catch (e) {
     return false;
   }
+}
+
+Future<String?> _fetchSha256Hash(String url) async {
+  final client = HttpClient();
+  try {
+    // if github, use github api to get the file hash
+    // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
+    if (targetOS != OS.android) {
+      // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
+      // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/${tag}
+      final tag = "v$version-${targetOS.name}";
+      final releaseName = p.basename(url);
+      final request = await client.getUrl(
+        Uri.parse(
+          'https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/$tag',
+        ),
+      );
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        //parse json response to extract asset url
+        final content = await response.transform(utf8.decoder).join();
+        final json = jsonDecode(content);
+        final assets = json['assets'] as List;
+        for (final asset in assets) {
+          if (asset['name'] == releaseName) {
+            final digest = asset['digest'] as String;
+            // parse 'sha256:...' format
+            final parts = digest.split(':');
+            if (parts.length == 2) {
+              return parts[1].toLowerCase();
+            }
+            return digest.toLowerCase();
+          }
+        }
+      }
+    } else {
+      final request = await client.getUrl(Uri.parse('$url.sha256'));
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final content = await response.transform(utf8.decoder).join();
+        // Extract hash from standard sha256sum format: "hash  filename" or just "hash"
+        final parts = content.trim().split(RegExp(r'\s+'));
+        if (parts.isNotEmpty) {
+          return parts[0].toLowerCase();
+        }
+      }
+    }
+    return null;
+  } catch (e) {
+    return null;
+  } finally {
+    client.close();
+  }
+}
+
+Future<String> _computeFileSha256(File file) async {
+  final stream = file.openRead();
+  final hash = await sha256.bind(stream).first;
+  return hash.toString();
 }
