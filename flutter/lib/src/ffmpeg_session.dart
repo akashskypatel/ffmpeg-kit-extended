@@ -49,6 +49,9 @@ class FFmpegSession extends Session {
   FFmpegSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
   FFmpegStatisticsCallback? _statisticsCallback;
+  StreamController<List<Log>>? _logBatchStreamController;
+  Stream<Log>? _logStream;
+  int? _expectedTranscodingDurationMs;
 
   // Whether this session is currently registered with CallbackManager.
   bool _registered = false;
@@ -66,6 +69,9 @@ class FFmpegSession extends Session {
     this.handle = handle;
     this.command = command;
     sessionId = FFmpegKitExtended.getSessionId(handle);
+    _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
+      FFmpegKitExtended.parseArguments(command),
+    );
     registerFinalizer();
     // No registration: restored sessions are not expected to fire native
     // callbacks unless the caller explicitly sets callbacks and re-executes.
@@ -106,6 +112,57 @@ class FFmpegSession extends Session {
       calloc.free(cmdPtr);
     }
 
+    _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
+      FFmpegKitExtended.parseArguments(command),
+    );
+    _completeCallback = completeCallback;
+    _logCallback = logCallback;
+    _statisticsCallback = statisticsCallback;
+    CallbackManager().registerFFmpegSession(this);
+    _registered = true;
+  }
+
+  /// Creates a new [FFmpegSession] from an explicit argument list.
+  ///
+  /// This bypasses command-string reparsing and is the safest way to build
+  /// Windows paths and other arguments that should be passed to FFmpeg
+  /// verbatim.
+  FFmpegSession.fromArguments(
+    List<String> arguments, {
+    FFmpegSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
+    FFmpegStatisticsCallback? statisticsCallback,
+  }) {
+    FFmpegKitExtended.requireInitialized();
+    final argv = calloc<Pointer<Char>>(arguments.length);
+    final nativeStrings = <Pointer<Utf8>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final nativeString = arguments[i].toNativeUtf8(allocator: calloc);
+        nativeStrings.add(nativeString);
+        argv[i] = nativeString.cast<Char>();
+      }
+
+      handle = ffmpeg.ffmpeg_kit_create_session_from_argv(
+        arguments.length,
+        argv,
+      );
+      if (handle == nullptr) {
+        throw StateError('Failed to create FFmpeg session from arguments.');
+      }
+
+      command = FFmpegKitExtended.argumentsToString(arguments);
+      sessionId = FFmpegKitExtended.getSessionId(handle);
+      _expectedTranscodingDurationMs =
+          _deriveExpectedTranscodingDurationMs(arguments);
+      registerFinalizer();
+    } finally {
+      for (final nativeString in nativeStrings) {
+        calloc.free(nativeString);
+      }
+      calloc.free(argv);
+    }
+
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
@@ -130,6 +187,19 @@ class FFmpegSession extends Session {
     statisticsCallback: statisticsCallback,
   );
 
+  /// Equivalent to [FFmpegSession.fromArguments]; provided for API symmetry.
+  static FFmpegSession createFromArguments(
+    List<String> arguments, {
+    FFmpegSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
+    FFmpegStatisticsCallback? statisticsCallback,
+  }) => FFmpegSession.fromArguments(
+    arguments,
+    completeCallback: completeCallback,
+    logCallback: logCallback,
+    statisticsCallback: statisticsCallback,
+  );
+
   // ---------------------------------------------------------------------------
   // Callback accessors
   // ---------------------------------------------------------------------------
@@ -142,6 +212,50 @@ class FFmpegSession extends Session {
 
   /// The callback invoked periodically with encoding statistics.
   FFmpegStatisticsCallback? get statisticsCallback => _statisticsCallback;
+
+  /// The best-known effective media duration for progress estimation.
+  int? get expectedTranscodingDurationMs => _expectedTranscodingDurationMs;
+
+  /// A batched stream of buffered logs drained from the native session.
+  ///
+  /// Each event contains every log line that accumulated since the previous
+  /// drain. This is the preferred API for high-volume sessions because it keeps
+  /// Dart-side dispatch and UI work off the per-line hot path.
+  Stream<List<Log>> get logBatchStream {
+    final controller =
+        _logBatchStreamController ??= StreamController<List<Log>>.broadcast(
+          onListen: () {
+            _ensureRegistered();
+            dispatchPendingLogs();
+          },
+        );
+    return controller.stream;
+  }
+
+  /// A per-log view over [logBatchStream].
+  ///
+  /// This is convenient when call sites still prefer line-by-line handling,
+  /// but [logBatchStream] is more efficient for UI and file sinks.
+  Stream<Log> get logStream =>
+      _logStream ??= logBatchStream.expand((batch) => batch);
+
+  /// Overrides the effective duration used to compute transcoding progress.
+  void setExpectedTranscodingDuration(Duration? duration) {
+    _expectedTranscodingDurationMs = duration?.inMilliseconds;
+  }
+
+  /// Computes normalized transcoding progress from processed media time.
+  double? calculateTranscodingProgress(int processedTimeMs) {
+    final expected = _expectedTranscodingDurationMs;
+    if (expected == null || expected <= 0) {
+      return null;
+    }
+    final normalized = processedTimeMs / expected;
+    if (normalized.isNaN || normalized.isInfinite) {
+      return null;
+    }
+    return normalized.clamp(0.0, 1.0);
+  }
 
   // ---------------------------------------------------------------------------
   // Callback mutators
@@ -206,6 +320,7 @@ class FFmpegSession extends Session {
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
+          _enableNativeLogCallback();
           // Blocking native call — returns only after FFmpeg finishes.
           try {
             ffmpeg.ffmpeg_kit_session_execute(handle);
@@ -218,7 +333,7 @@ class FFmpegSession extends Session {
             rethrow;
           }
           // Flush any remaining log entries before invoking the callback.
-          _deliverPendingLogs();
+          dispatchPendingLogs();
           // Invoke the completion callback so callers using fire-and-forget
           // still receive the notification.
           try {
@@ -231,6 +346,7 @@ class FFmpegSession extends Session {
             );
             rethrow;
           } finally {
+            _closeLogStreams();
             _unregister();
           }
         })
@@ -330,29 +446,24 @@ class FFmpegSession extends Session {
     // wrapper so we can restore it after execution.
     final userCompleteCallback = _completeCallback;
 
-    Timer? logPoller;
-
     // Install an internal completion wrapper that:
-    //   1. Cancels the log poller.
-    //   2. Flushes any remaining buffered log entries.
-    //   3. Restores the original callback and unregisters — fully settling the
+    //   1. Flushes any remaining buffered log entries.
+    //   2. Restores the original callback and unregisters — fully settling the
     //      session BEFORE the user callback or completer fire, so any awaiter
     //      sees a completely torn-down session.
-    //   4. Invokes the original user callback.
-    //   5. Completes sessionCompleter last — guaranteeing that by the time
+    //   3. Invokes the original user callback.
+    //   4. Completes sessionCompleter last — guaranteeing that by the time
     //      `await executeAsync` resumes, the session is fully settled.
     //
     // This wrapper is visible to the native _onFFmpegComplete handler via
     // CallbackManager (the session is keyed by sessionId).
     _completeCallback = (FFmpegSession s) {
-      logPoller?.cancel();
-      logPoller = null;
-
-      _deliverPendingLogs();
+      dispatchPendingLogs();
 
       // Restore and unregister before calling user code or completing the
       // future, so the session is fully settled from any observer's perspective.
       _completeCallback = userCompleteCallback;
+      _closeLogStreams();
       _unregister();
 
       try {
@@ -373,19 +484,7 @@ class FFmpegSession extends Session {
       }
     };
 
-    // Start the log poller only if there is a listener.
-    if (_logCallback != null || CallbackManager().globalLogCallback != null) {
-      logPoller = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-        _deliverPendingLogs();
-
-        final state = getState();
-        if (state == SessionState.completed ||
-            state == SessionState.failed ||
-            isCancelled) {
-          timer.cancel();
-        }
-      });
-    }
+    _enableNativeLogCallback();
 
     // Enable the global native completion and statistics callbacks so the C
     // layer can post events back to Dart.  These calls are idempotent.
@@ -425,7 +524,7 @@ class FFmpegSession extends Session {
         error: e,
         stackTrace: st,
       );
-      logPoller?.cancel();
+      _closeLogStreams();
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
@@ -441,29 +540,52 @@ class FFmpegSession extends Session {
     // No post-await restore needed — already done inside the callback above.
   }
 
-  /// Dispatches all buffered log entries that have not yet been delivered.
-  ///
-  /// Called by the log poller (every 100 ms) and as a final flush inside the
-  /// completion wrapper to ensure no entries are dropped if the poller races
-  /// with the completion event.
-  void _deliverPendingLogs() {
-    final count = getLogsCount();
-    for (int i = logsProcessed; i < count; i++) {
-      final message = getLogAt(i);
-      final level = getLogLevelAt(i);
-      final logObj = Log(sessionId, level, message);
+  @override
+  void onLogsDispatched(List<Log> batch) {
+    if (batch.isEmpty) {
+      return;
+    }
+
+    final controller = _logBatchStreamController;
+    if (controller != null && !controller.isClosed && controller.hasListener) {
+      controller.add(List<Log>.unmodifiable(batch));
+    }
+
+    for (final logObj in batch) {
       try {
         CallbackManager().globalLogCallback?.call(logObj);
         _logCallback?.call(logObj);
       } catch (e, st) {
         log(
-          'FFmpegSession: error dispatching log [$i] for session '
+          'FFmpegSession: error dispatching log for session '
           '$sessionId: $e\n$st',
         );
         rethrow;
       }
     }
-    logsProcessed = count;
+  }
+
+  void _enableNativeLogCallback() {
+    try {
+      ffmpeg.ffmpeg_kit_config_enable_log_callback(
+        nativeFFmpegLog.nativeFunction,
+        nullptr,
+      );
+    } catch (e, st) {
+      log(
+        'FFmpegSession: error enabling ffmpeg log callback for session $sessionId',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
+  void _closeLogStreams() {
+    final controller = _logBatchStreamController;
+    if (controller != null && !controller.isClosed) {
+      controller.close();
+    }
   }
 
   /// Ensures the session is registered with [CallbackManager].
@@ -492,8 +614,95 @@ class FFmpegSession extends Session {
   void _unregisterIfIdle() {
     if (_completeCallback == null &&
         _logCallback == null &&
-        _statisticsCallback == null) {
+        _statisticsCallback == null &&
+        !(_logBatchStreamController?.hasListener ?? false)) {
       _unregister();
+    }
+  }
+
+  static int? _deriveExpectedTranscodingDurationMs(List<String> arguments) {
+    int? startMs;
+    int? endMs;
+    int? durationMs;
+
+    for (var i = 0; i < arguments.length; i++) {
+      if (i + 1 >= arguments.length) {
+        break;
+      }
+
+      switch (arguments[i]) {
+        case '-ss':
+          startMs = _parseFfmpegTimeToMs(arguments[i + 1]);
+          i++;
+          break;
+        case '-to':
+          endMs = _parseFfmpegTimeToMs(arguments[i + 1]);
+          i++;
+          break;
+        case '-t':
+          durationMs = _parseFfmpegTimeToMs(arguments[i + 1]);
+          i++;
+          break;
+      }
+    }
+
+    if (durationMs != null && durationMs > 0) {
+      return durationMs;
+    }
+    if (startMs != null && endMs != null && endMs > startMs) {
+      return endMs - startMs;
+    }
+    if (endMs != null && endMs > 0) {
+      return endMs;
+    }
+    return null;
+  }
+
+  static int? _parseFfmpegTimeToMs(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final sexagesimal =
+        RegExp(r'^(-)?(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$').firstMatch(trimmed);
+    if (sexagesimal != null) {
+      final sign = sexagesimal.group(1) == '-' ? -1 : 1;
+      final hours = int.tryParse(sexagesimal.group(2) ?? '0') ?? 0;
+      final minutes = int.tryParse(sexagesimal.group(3) ?? '0') ?? 0;
+      final seconds = double.tryParse(sexagesimal.group(4) ?? '');
+      if (seconds == null) {
+        return null;
+      }
+      final totalMs =
+          ((hours * 3600) + (minutes * 60)) * 1000 + (seconds * 1000).round();
+      return sign * totalMs;
+    }
+
+    final unitMatch =
+        RegExp(r'^(-?\d+(?:\.\d+)?)(us|ms|s|m|h)?$').firstMatch(trimmed);
+    if (unitMatch == null) {
+      return null;
+    }
+
+    final magnitude = double.tryParse(unitMatch.group(1)!);
+    if (magnitude == null) {
+      return null;
+    }
+
+    switch (unitMatch.group(2) ?? 's') {
+      case 'us':
+        return (magnitude / 1000).round();
+      case 'ms':
+        return magnitude.round();
+      case 's':
+        return (magnitude * 1000).round();
+      case 'm':
+        return (magnitude * 60 * 1000).round();
+      case 'h':
+        return (magnitude * 60 * 60 * 1000).round();
+      default:
+        return null;
     }
   }
 }

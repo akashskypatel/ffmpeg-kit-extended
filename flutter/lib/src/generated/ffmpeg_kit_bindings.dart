@@ -2049,6 +2049,20 @@ external double ffmpeg_kit_statistics_get_bitrate(StatisticsHandle handle);
 @ffi.Native<ffi.Double Function(StatisticsHandle)>()
 external double ffmpeg_kit_statistics_get_speed(StatisticsHandle handle);
 
+/// Gets the duplicated frame count.
+///
+/// @param handle the statistics handle
+/// @return the duplicated frame count
+@ffi.Native<ffi.Int64 Function(StatisticsHandle)>()
+external int ffmpeg_kit_statistics_get_dup_frames(StatisticsHandle handle);
+
+/// Gets the dropped frame count.
+///
+/// @param handle the statistics handle
+/// @return the dropped frame count
+@ffi.Native<ffi.Int64 Function(StatisticsHandle)>()
+external int ffmpeg_kit_statistics_get_drop_frames(StatisticsHandle handle);
+
 /// Gets the start time.
 ///
 /// @param handle the handle
@@ -2367,6 +2381,8 @@ typedef FFmpegKitStatisticsCallbackFunction =
       ffi.Int64 videoFrameNumber,
       ffi.Double videoFps,
       ffi.Double videoQuality,
+      ffi.Int64 dupFrames,
+      ffi.Int64 dropFrames,
       ffi.Pointer<ffi.Void> user_data,
     );
 typedef DartFFmpegKitStatisticsCallbackFunction =
@@ -2380,6 +2396,8 @@ typedef DartFFmpegKitStatisticsCallbackFunction =
       int videoFrameNumber,
       double videoFps,
       double videoQuality,
+      int dupFrames,
+      int dropFrames,
       ffi.Pointer<ffi.Void> user_data,
     );
 typedef FFmpegKitStatisticsCallback =

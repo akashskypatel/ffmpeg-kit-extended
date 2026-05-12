@@ -36,6 +36,9 @@ import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 /// Deprecated static helpers still work but bypass tracking.
 class FFplaySession extends Session {
   FFplaySessionCompleteCallback? _completeCallback;
+  FFmpegLogCallback? _logCallback;
+  StreamController<List<Log>>? _logBatchStreamController;
+  Stream<Log>? _logStream;
 
   bool _registered = false;
 
@@ -187,9 +190,34 @@ class FFplaySession extends Session {
   /// The callback invoked once when playback ends.
   FFplaySessionCompleteCallback? get completeCallback => _completeCallback;
 
+  /// The callback invoked for each log line produced by FFplay.
+  FFmpegLogCallback? get logCallback => _logCallback;
+
+  /// A batched stream of buffered logs drained from the native session.
+  Stream<List<Log>> get logBatchStream {
+    final controller =
+        _logBatchStreamController ??= StreamController<List<Log>>.broadcast(
+          onListen: () {
+            _ensureRegistered();
+            dispatchPendingLogs();
+          },
+        );
+    return controller.stream;
+  }
+
+  /// A per-log view over [logBatchStream].
+  Stream<Log> get logStream =>
+      _logStream ??= logBatchStream.expand((batch) => batch);
+
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFplaySessionCompleteCallback? completeCallback) {
     _completeCallback = completeCallback;
+    _ensureRegistered();
+  }
+
+  /// Sets or replaces the log callback.
+  void setLogCallback(FFmpegLogCallback? logCallback) {
+    _logCallback = logCallback;
     _ensureRegistered();
   }
 
@@ -197,7 +225,13 @@ class FFplaySession extends Session {
   /// [CallbackManager] if no other callbacks remain.
   void removeCompleteCallback() {
     _completeCallback = null;
-    _unregister();
+    _unregisterIfIdle();
+  }
+
+  /// Clears the log callback.
+  void removeLogCallback() {
+    _logCallback = null;
+    _unregisterIfIdle();
   }
 
   // ---------------------------------------------------------------------------
@@ -358,6 +392,7 @@ class FFplaySession extends Session {
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
+          _enableNativeLogCallback();
           try {
             ffmpeg.ffplay_kit_session_execute(handle, _timeout);
           } catch (e, st) {
@@ -368,12 +403,14 @@ class FFplaySession extends Session {
             );
             rethrow;
           }
+          dispatchPendingLogs();
           try {
             _completeCallback?.call(this);
           } catch (e, st) {
             log('FFplaySession.execute: error in completeCallback: $e\n$st');
             rethrow;
           }
+          _closeLogStreams();
           _unregister();
         })
         .catchError((Object e, StackTrace st) {
@@ -399,21 +436,24 @@ class FFplaySession extends Session {
   static Future<FFplaySession> executeCommandAsync(
     String command, {
     FFplaySessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
     int timeout = 500,
   }) => FFplaySession.create(
     command,
     timeout: timeout,
     completeCallback: completeCallback,
-  ).executeAsync();
+  ).executeAsync(logCallback: logCallback);
 
   /// Executes this session asynchronously and returns a [Future] that
   /// resolves once playback finishes or is cancelled.
   Future<FFplaySession> executeAsync({
     int? timeout,
     FFplaySessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
   }) async {
     if (timeout != null) _timeout = timeout;
     if (completeCallback != null) _completeCallback = completeCallback;
+    if (logCallback != null) _logCallback = logCallback;
     _ensureRegistered();
 
     await SessionQueueManager().executeSession(this, _runAsync);
@@ -623,6 +663,7 @@ class FFplaySession extends Session {
     final userCompleteCallback = _completeCallback;
 
     _completeCallback = (FFplaySession s) {
+      dispatchPendingLogs();
       try {
         userCompleteCallback?.call(s);
       } catch (e, st) {
@@ -630,11 +671,13 @@ class FFplaySession extends Session {
         rethrow;
       }
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+      _closeLogStreams();
       _unregister();
       _stopPositionStream();
       _stopVideoSizeStream();
     };
 
+    _enableNativeLogCallback();
     try {
       ffmpeg.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
         nativeFFplayComplete.nativeFunction,
@@ -643,6 +686,7 @@ class FFplaySession extends Session {
     } catch (e, st) {
       log('FFplaySession: error enabling complete callback: $e\n$st');
       _completeCallback = userCompleteCallback;
+      _closeLogStreams();
       _unregister();
       _stopPositionStream();
       _stopVideoSizeStream();
@@ -659,6 +703,7 @@ class FFplaySession extends Session {
         stackTrace: st,
       );
       _completeCallback = userCompleteCallback;
+      _closeLogStreams();
       _unregister();
       _stopPositionStream();
       _stopVideoSizeStream();
@@ -681,11 +726,67 @@ class FFplaySession extends Session {
     _registered = true;
   }
 
+  @override
+  void onLogsDispatched(List<Log> batch) {
+    if (batch.isEmpty) {
+      return;
+    }
+
+    final controller = _logBatchStreamController;
+    if (controller != null && !controller.isClosed && controller.hasListener) {
+      controller.add(batch);
+    }
+
+    for (final logObj in batch) {
+      try {
+        CallbackManager().globalLogCallback?.call(logObj);
+        _logCallback?.call(logObj);
+      } catch (e, st) {
+        log(
+          'FFplaySession: error dispatching log for session '
+          '$sessionId: $e\n$st',
+        );
+        rethrow;
+      }
+    }
+  }
+
+  void _enableNativeLogCallback() {
+    try {
+      ffmpeg.ffmpeg_kit_config_enable_log_callback(
+        nativeFFmpegLog.nativeFunction,
+        nullptr,
+      );
+    } catch (e, st) {
+      log(
+        'FFplaySession: error enabling ffmpeg log callback for session $sessionId',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
+  void _closeLogStreams() {
+    final controller = _logBatchStreamController;
+    if (controller != null && !controller.isClosed) {
+      controller.close();
+    }
+  }
+
   /// Unregisters session from the callback manager.
   void _unregister() {
     if (!_registered) return;
     _registered = false;
     CallbackManager().unregisterFFplaySession(sessionId);
+  }
+
+  void _unregisterIfIdle() {
+    if (_completeCallback == null &&
+        _logCallback == null &&
+        !(_logBatchStreamController?.hasListener ?? false)) {
+      _unregister();
+    }
   }
 
   /// Starts the position stream.

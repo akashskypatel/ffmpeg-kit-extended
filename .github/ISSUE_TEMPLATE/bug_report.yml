@@ -18,7 +18,7 @@ body:
     id: reproduction
     attributes:
       label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
+      description: Steps to reproduce the behavior and minimal code to reproduce the issue.
       placeholder: |
         1. ...
         2. ...
@@ -29,7 +29,14 @@ body:
     id: expected-behavior
     attributes:
       label: Expected behavior
-      description: A clear and concise description of what you expected to happen.
+      description: A clear and concise description of what you expected to happen. Don't just say "works" or "doesn't work", explain what should happen and the intent of your code and ffmpeg command(s).
+    validations:
+      required: true
+  - type: textarea
+    id: ffmpeg-command
+    attributes:
+      label: Raw FFmpeg command(s) being executed in your code
+      description: The FFmpeg command(s) that caused the issue as a string.
     validations:
       required: true
   - type: textarea
@@ -45,12 +52,16 @@ body:
       required: true
   - type: textarea
     id: logs
+    validations:
+      required: true
     attributes:
       label: Relevant Log Output
       description: Please copy and paste any relevant log output.
       render: shell
   - type: textarea
     id: pubspec
+    validations:
+      required: true
     attributes:
       label: pubspec.yaml
       description: Please copy and paste your pubspec.yaml.
@@ -62,9 +73,13 @@ body:
       options:
         - label: I have searched for existing issues.
           required: true
+        - label: I have checked the documentation.
+          required: true
         - label: I have updated to the latest version of the plugin.
           required: true
         - label: I have provided a minimal reproduction case.
           required: true
         - label: I have provided a copy of pubspec.yaml.
+          required: true
+        - label: I understand that I have filled in all required fields and that leaving any field empty will result in the issue being closed or ignored.
           required: true

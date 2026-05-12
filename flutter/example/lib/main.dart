@@ -42,6 +42,19 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+class _RemoteRecordingScenarioJob {
+  _RemoteRecordingScenarioJob({required this.label, required this.outputPath});
+
+  final String label;
+  final String outputPath;
+  FFmpegSession? session;
+  int? sessionId;
+  final Completer<void> startedWriting = Completer<void>();
+  bool completed = false;
+  bool requestedCancel = false;
+  int? returnCode;
+}
+
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
@@ -55,6 +68,11 @@ class _HomePageState extends State<HomePage>
   );
   final TextEditingController _ffplayCommandController = TextEditingController(
     text: "-i test_video.mp4",
+  );
+  final TextEditingController
+  _remoteStreamUrlController = TextEditingController(
+    text:
+        "https://cdn.flowplayer.com/a30bd6bc-f98b-47bc-abf5-97633d4faea0/hls/de3f6ca7-2db3-4689-8160-0f574a5996ad/playlist.m3u8",
   );
   String? _selectedProbePath;
   String _status = 'Ready';
@@ -76,6 +94,25 @@ class _HomePageState extends State<HomePage>
   int _videoHeight = 0;
   bool _hasVideo = false;
 
+  final List<_RemoteRecordingScenarioJob> _remoteScenarioJobs = [];
+  bool _remoteScenarioRunning = false;
+  String? _remoteScenarioLogPath;
+  Future<void> _remoteScenarioLogQueue = Future.value();
+  String _pendingOutputLogs = '';
+  Timer? _outputLogFlushTimer;
+  bool _outputScrollScheduled = false;
+  String _pendingRemoteScenarioFileLogs = '';
+  Timer? _remoteScenarioFileFlushTimer;
+  DateTime _lastRemoteScenarioStatsUiUpdate =
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  // Transcode state
+  double _transcodeProgress = 0.0;
+  bool _isTranscoding = false;
+  String _transcodeStatus = '';
+  String? _transcodeInputPath;
+  String? _transcodeOutputPath;
+
   // Unified video surface for Android, Linux, Windows
   FFplaySurface? _surface;
   late FFplayViewController _fsController;
@@ -85,6 +122,9 @@ class _HomePageState extends State<HomePage>
     _permissionStreamSub?.cancel();
     _positionSub?.cancel();
     _videoSizeSub?.cancel();
+    _outputLogFlushTimer?.cancel();
+    _remoteScenarioFileFlushTimer?.cancel();
+    _remoteStreamUrlController.dispose();
     _surface?.release();
     _fsController.dispose();
     super.dispose();
@@ -105,7 +145,7 @@ class _HomePageState extends State<HomePage>
     );
     _initializePlugin();
     _currentLogLevel = FFmpegKitConfig.getLogLevel();
-    final tabController = TabController(length: 3, vsync: this);
+    final tabController = TabController(length: 5, vsync: this);
     if (Platform.isAndroid) {
       // Listen for MANAGE_MEDIA permission changes.
       _permissionStreamSub = _mediaStore.onManageMediaPermissionChanged.listen((
@@ -186,22 +226,75 @@ class _HomePageState extends State<HomePage>
   }
 
   void _addLog(String log, {bool printToConsole = false}) {
-    setState(() {
-      _outputController.text += "$log\n";
-    });
-    // Scroll to bottom
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    });
     if (printToConsole) {
       print(log);
     }
+    _pendingOutputLogs += "$log\n";
+    _outputLogFlushTimer ??= Timer(
+      const Duration(milliseconds: 150),
+      _flushOutputLogs,
+    );
+  }
+
+  void _flushOutputLogs() {
+    _outputLogFlushTimer?.cancel();
+    _outputLogFlushTimer = null;
+    if (_pendingOutputLogs.isEmpty) {
+      return;
+    }
+
+    final chunk = _pendingOutputLogs;
+    _pendingOutputLogs = '';
+    _outputController.text += chunk;
+
+    if (_outputScrollScheduled) {
+      return;
+    }
+
+    _outputScrollScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _outputScrollScheduled = false;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  void _logRemoteScenario(String message) {
+    _addLog(message, printToConsole: true);
+    _queueRemoteScenarioLog(message);
+  }
+
+  void _queueRemoteScenarioLog(String message) {
+    final logPath = _remoteScenarioLogPath;
+    if (logPath == null) {
+      return;
+    }
+
+    final stamp = DateTime.now().toIso8601String();
+    _pendingRemoteScenarioFileLogs += '[$stamp] $message\n';
+    _remoteScenarioFileFlushTimer ??= Timer(
+      const Duration(milliseconds: 250),
+      () => _flushRemoteScenarioLogQueue(logPath),
+    );
+  }
+
+  void _flushRemoteScenarioLogQueue(String logPath) {
+    _remoteScenarioFileFlushTimer?.cancel();
+    _remoteScenarioFileFlushTimer = null;
+    if (_pendingRemoteScenarioFileLogs.isEmpty) {
+      return;
+    }
+
+    final chunk = _pendingRemoteScenarioFileLogs;
+    _pendingRemoteScenarioFileLogs = '';
+    _remoteScenarioLogQueue = _remoteScenarioLogQueue
+        .then((_) async {
+          await File(
+            logPath,
+          ).writeAsString(chunk, mode: FileMode.append, flush: true);
+        })
+        .catchError((_) {});
   }
 
   void _clearLogs() {
@@ -241,9 +334,11 @@ class _HomePageState extends State<HomePage>
   Future<void> _generateTestVideo() async {
     // Use temporary directory for FFmpeg output.
     final tempDir = await getTemporaryDirectory();
-    final outputDir = Directory(tempDir.path);
-    await outputDir.create(recursive: true);
-    final tempOutputPath = path.join(tempDir.path, 'test_video.mp4');
+    final exampleDir = Directory(
+      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
+    );
+    await exampleDir.create(recursive: true);
+    final tempOutputPath = path.join(exampleDir.path, 'test_video.mp4');
     _addLog(
       "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---",
       printToConsole: true,
@@ -270,9 +365,11 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _generateTestAudio() async {
     final tempDir = await getTemporaryDirectory();
-    final outputDir = Directory(tempDir.path);
-    await outputDir.create(recursive: true);
-    final outputPath = path.join(tempDir.path, 'test_audio.wav');
+    final exampleDir = Directory(
+      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
+    );
+    await exampleDir.create(recursive: true);
+    final outputPath = path.join(exampleDir.path, 'test_audio.wav');
     _addLog(
       "--- Generating Test Audio to: $outputPath ---",
       printToConsole: true,
@@ -292,6 +389,110 @@ class _HomePageState extends State<HomePage>
           _addLog("✅ Audio generated successfully!");
         } else {
           _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
+        }
+      },
+    );
+  }
+
+  Future<void> _pickTranscodeFile() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.video);
+    if (result != null && result.files.single.path != null) {
+      final pickedPath = result.files.single.path!;
+      final pickedDir = path.dirname(pickedPath);
+      final baseName = path.basenameWithoutExtension(pickedPath);
+      setState(() {
+        _transcodeInputPath = pickedPath;
+        _transcodeOutputPath = path.join(
+          pickedDir,
+          '${baseName}_transcoded.avi',
+        );
+      });
+      _addLog("Selected file: $pickedPath");
+    }
+  }
+
+  Future<void> _transcodeVideo() async {
+    if (_isTranscoding) {
+      _addLog("Transcode already in progress.");
+      return;
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final exampleDir = Directory(
+      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
+    );
+    await exampleDir.create(recursive: true);
+
+    // Use picked file or generate test video
+    String inputPath;
+    String outputPath;
+
+    if (_transcodeInputPath != null &&
+        File(_transcodeInputPath!).existsSync()) {
+      inputPath = _transcodeInputPath!;
+      outputPath =
+          _transcodeOutputPath ?? path.join(exampleDir.path, 'test_video.avi');
+    } else {
+      inputPath = path.join(exampleDir.path, 'test_video.mp4');
+      outputPath = path.join(exampleDir.path, 'test_video.avi');
+
+      // Check if source file exists
+      if (!File(inputPath).existsSync()) {
+        _addLog("⚠️ Source video not found. Generating test video first...");
+        await _generateTestVideo();
+        // Wait a bit for generation to complete (simplified approach)
+        await Future.delayed(const Duration(seconds: 6));
+      }
+
+      if (!File(inputPath).existsSync()) {
+        _addLog("❌ Failed to generate source video.");
+        return;
+      }
+    }
+
+    setState(() {
+      _isTranscoding = true;
+      _transcodeProgress = 0.0;
+      _transcodeStatus = 'Starting transcode...';
+    });
+
+    _addLog(
+      "--- Transcoding: $inputPath → $outputPath ---",
+      printToConsole: true,
+    );
+
+    final command =
+        "-hide_banner -i \"$inputPath\" -c:v mpeg4 -c:a aac -b:v 2M -y \"$outputPath\"";
+
+    await FFmpegKit.executeAsync(
+      command,
+      onLog: (log) {
+        _addLog(log.message);
+      },
+      onStatistics: (statistics) {
+        if (mounted) {
+          setState(() {
+            _transcodeProgress = statistics.transcodingProgress ?? 0.0;
+            _transcodeStatus =
+                'Time: ${(statistics.time / 1000).toStringAsFixed(1)}s | '
+                'Speed: ${statistics.speed.toStringAsFixed(2)}x | '
+                'Frame: ${statistics.videoFrameNumber}';
+          });
+        }
+      },
+      onComplete: (session) {
+        if (mounted) {
+          setState(() {
+            _isTranscoding = false;
+            if (ReturnCode.isSuccess(session.getReturnCode())) {
+              _transcodeProgress = 1.0;
+              _transcodeStatus = '✅ Transcode complete!';
+              _addLog("✅ Video transcoded successfully to AVI!");
+            } else {
+              _transcodeStatus = '❌ Transcode failed.';
+              _addLog("❌ Transcode failed. Code: ${session.getReturnCode()}");
+            }
+          });
         }
       },
     );
@@ -441,6 +642,206 @@ class _HomePageState extends State<HomePage>
     );
   }
 
+  Future<void> _runRemoteRecordingScenario() async {
+    if (_remoteScenarioRunning) {
+      _addLog("Remote recording scenario is already running.");
+      return;
+    }
+
+    final url = _remoteStreamUrlController.text.trim();
+    if (url.isEmpty) {
+      _addLog("Remote stream URL is empty.");
+      return;
+    }
+
+    _remoteScenarioRunning = true;
+    _remoteScenarioJobs.clear();
+    _remoteScenarioLogQueue = Future.value();
+    if (mounted) {
+      setState(() {});
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final scenarioDir = Directory(
+      path.join(tempDir.path, "ffmpeg_kit_extended_flutter_example"),
+    );
+    await scenarioDir.create(recursive: true);
+
+    for (final entity in scenarioDir.listSync()) {
+      if (entity is File) {
+        await entity.delete();
+      }
+    }
+
+    final logFile = File(
+      path.join(scenarioDir.path, "ffmpeg_kit_extended_flutter_example.log"),
+    );
+    await logFile.writeAsString('', flush: true);
+    _remoteScenarioLogPath = logFile.path;
+
+    _logRemoteScenario("--- Running remote stream recording ---");
+    _logRemoteScenario("Source: $url");
+    _logRemoteScenario("Output dir: ${scenarioDir.path}");
+    _logRemoteScenario("Log file: ${logFile.path}");
+
+    final jobs = [
+      _startRemoteRecordingJob(
+        label: "A",
+        url: url,
+        outputPath: path.join(scenarioDir.path, "remote_recording.ts"),
+      ),
+    ];
+
+    _remoteScenarioJobs.addAll(jobs);
+    if (mounted) {
+      setState(() {});
+    }
+
+    for (final job in jobs) {
+      _launchRemoteRecordingJob(job);
+    }
+  }
+
+  _RemoteRecordingScenarioJob _startRemoteRecordingJob({
+    required String label,
+    required String url,
+    required String outputPath,
+    VoidCallback? onFirstComplete,
+  }) {
+    final job = _RemoteRecordingScenarioJob(
+      label: label,
+      outputPath: outputPath,
+    );
+
+    final normalizedOutputPath = _normalizeFfmpegPath(outputPath);
+    final outputFile = File(normalizedOutputPath);
+    if (outputFile.existsSync()) {
+      outputFile.deleteSync();
+    }
+
+    final command = [
+      '-y',
+      '-nostdin',
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-reconnect',
+      '1',
+      '-reconnect_at_eof',
+      '1',
+      '-reconnect_streamed',
+      '1',
+      '-reconnect_delay_max',
+      '5',
+      '-rw_timeout',
+      '5000000',
+      '-max_delay',
+      '5000000',
+      '-i',
+      '"$url"',
+      '-map',
+      '0',
+      '-c',
+      'copy',
+      '-f',
+      'mpegts',
+      '"$normalizedOutputPath"',
+    ].join(' ');
+
+    final session = FFmpegKit.createSession(command);
+    job.session = session;
+    job.sessionId = session.getSessionId();
+
+    session.setLogCallback((log) {
+      _queueRemoteScenarioLog(
+        "[$label][log][session=${log.sessionId}] ${log.message}",
+      );
+      if (log.logLevel.value <= LogLevel.warning.value) {
+        _addLog("[$label] ${log.message}", printToConsole: true);
+      }
+    });
+
+    session.setStatisticsCallback((statistics) {
+      job.sessionId = statistics.sessionId;
+      _queueRemoteScenarioLog(
+        "[$label][stats][session=${statistics.sessionId}] "
+        "time=${statistics.time} size=${statistics.size} "
+        "bitrate=${statistics.bitrate} speed=${statistics.speed} "
+        "fps=${statistics.videoFps} frame=${statistics.videoFrameNumber}",
+      );
+      if (statistics.size > 0 && !job.startedWriting.isCompleted) {
+        job.startedWriting.complete();
+        _logRemoteScenario(
+          "[$label] started writing output (${statistics.size} bytes)",
+        );
+      }
+
+      final now = DateTime.now();
+      if (mounted &&
+          now.difference(_lastRemoteScenarioStatsUiUpdate) >=
+              const Duration(milliseconds: 500)) {
+        _lastRemoteScenarioStatsUiUpdate = now;
+        setState(() {});
+      }
+    });
+
+    session.setCompleteCallback((completedSession) {
+      job.completed = true;
+      job.returnCode = completedSession.getReturnCode();
+      final returnCode = completedSession.getReturnCode();
+      _logRemoteScenario(
+        "[$label] complete. sessionId=${completedSession.getSessionId()} returnCode=$returnCode",
+      );
+      if (mounted) {
+        setState(() {});
+      }
+
+      if (onFirstComplete != null) {
+        onFirstComplete();
+      }
+
+      _logRemoteScenario(
+        "[$label] complete callback fired. sessionId=${completedSession.getSessionId()} returnCode=${completedSession.getReturnCode()}",
+      );
+    });
+
+    _logRemoteScenario(
+      "[$label] session started. sessionId=${job.sessionId} output=${job.outputPath}",
+    );
+    if (mounted) {
+      setState(() {});
+    }
+    return job;
+  }
+
+  void _launchRemoteRecordingJob(_RemoteRecordingScenarioJob job) {
+    final session = job.session;
+    if (session == null) {
+      return;
+    }
+
+    unawaited(() async {
+      try {
+        await session.executeAsync();
+      } catch (error, stackTrace) {
+        _logRemoteScenario(
+          "[${job.label}] session execution failed: $error\n$stackTrace",
+        );
+        job.completed = true;
+        if (mounted) {
+          setState(() {});
+        }
+      }
+    }());
+  }
+
+  String _normalizeFfmpegPath(String input) {
+    if (Platform.isWindows) {
+      return input.replaceAll('\\', '/');
+    }
+    return input;
+  }
+
   // --- FFprobe Examples ---
 
   Future<void> _runFFprobeVersion() async {
@@ -479,7 +880,11 @@ class _HomePageState extends State<HomePage>
   Future<void> _runMediaInformation() async {
     // Use picked file, local test video, or remote URL fallback.
     final tempDir = await getTemporaryDirectory();
-    final localTestPath = path.join(tempDir.path, 'test_video.mp4');
+    final exampleDir = Directory(
+      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
+    );
+    await exampleDir.create(recursive: true);
+    final localTestPath = path.join(exampleDir.path, 'test_video.mp4');
 
     final String probePath;
     if (_selectedProbePath != null && File(_selectedProbePath!).existsSync()) {
@@ -601,7 +1006,11 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _runFFplay(String fileName) async {
     final tempDir = await getTemporaryDirectory();
-    final localPath = path.join(tempDir.path, fileName);
+    final exampleDir = Directory(
+      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
+    );
+    await exampleDir.create(recursive: true);
+    final localPath = path.join(exampleDir.path, fileName);
 
     if (!File(localPath).existsSync()) {
       _addLog("⚠️ File not found: $localPath. Please generate it first!");
@@ -690,12 +1099,20 @@ class _HomePageState extends State<HomePage>
                   text: isMobile ? null : "FFmpeg",
                 ),
                 Tab(
+                  icon: const Icon(Icons.sensors),
+                  text: isMobile ? null : "Stream",
+                ),
+                Tab(
                   icon: const Icon(Icons.info),
                   text: isMobile ? null : "FFprobe",
                 ),
                 Tab(
                   icon: const Icon(Icons.play_arrow),
                   text: isMobile ? null : "FFplay",
+                ),
+                Tab(
+                  icon: const Icon(Icons.transform),
+                  text: isMobile ? null : "Transcode",
                 ),
               ],
             ),
@@ -1014,7 +1431,13 @@ class _HomePageState extends State<HomePage>
   Widget _buildTabBarView() {
     return TabBarView(
       controller: _tabController,
-      children: [_buildFFmpegTab(), _buildFFprobeTab(), _buildFFplayTab()],
+      children: [
+        _buildFFmpegTab(),
+        _buildStreamScenarioTab(),
+        _buildFFprobeTab(),
+        _buildFFplayTab(),
+        _buildTranscodeTab(),
+      ],
     );
   }
 
@@ -1072,6 +1495,20 @@ class _HomePageState extends State<HomePage>
             _runCustomFFmpeg,
             "Enter FFmpeg command",
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreamScenarioTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildRemoteRecordingScenarioSection(),
+          const SizedBox(height: 20),
+          _buildActiveSessionsPanel(),
         ],
       ),
     );
@@ -1282,6 +1719,336 @@ class _HomePageState extends State<HomePage>
           ] else
             const Text("No active playback."),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTranscodeTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Video Transcode (MP4 → AVI)",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Converts a video from MP4 to AVI format with progress tracking.",
+            style: TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          // File picker section
+          Card(
+            elevation: 1,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Input File",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_transcodeInputPath != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[800],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.video_file, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              path.basename(_transcodeInputPath!),
+                              style: const TextStyle(fontSize: 12),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            onPressed: _isTranscoding
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _transcodeInputPath = null;
+                                      _transcodeOutputPath = null;
+                                    });
+                                  },
+                            tooltip: "Clear selection",
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Output: ${path.basename(_transcodeOutputPath ?? 'output.avi')}",
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    ),
+                  ] else
+                    Text(
+                      "No file selected (will use generated test video)",
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _isTranscoding ? null : _pickTranscodeFile,
+                    icon: const Icon(Icons.file_open, size: 18),
+                    label: const Text("Pick Video File"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Progress section
+          if (_isTranscoding || _transcodeProgress > 0) ...[
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _isTranscoding ? 'Transcoding...' : 'Complete',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          '${(_transcodeProgress * 100).toStringAsFixed(1)}%',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(
+                        value: _transcodeProgress,
+                        minHeight: 12,
+                        backgroundColor: Colors.grey[800],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _transcodeProgress >= 1.0
+                              ? Colors.green
+                              : Colors.blue,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _transcodeStatus,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[400],
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
+          // Action buttons
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _demoButton(
+                _transcodeVideo,
+                Icons.transform,
+                _isTranscoding ? "Transcoding..." : "Transcode MP4 → AVI",
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          // Info card
+          Card(
+            elevation: 1,
+            color: Colors.grey[900],
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "About Transcoding",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "• Input: test_video.mp4 (generated via FFmpeg testsrc)",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Text(
+                    "• Output: [input_name]_transcoded.avi (MPEG-4 video, AAC audio)",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Text(
+                    "• Progress tracked via FFmpegKit statistics callback",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Text(
+                    "• Shows: time elapsed, processing speed, frame count",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  const Text(
+                    "• Optional: pick your own video file to transcode",
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRemoteRecordingScenarioSection() {
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Remote Stream Recording",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Stream a remote URL and record it to local files.",
+              style: TextStyle(fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _remoteStreamUrlController,
+              decoration: const InputDecoration(
+                labelText: "Remote stream URL",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _demoButton(
+                  () async {
+                    await _runRemoteRecordingScenario();
+                  },
+                  Icons.cloud_download,
+                  "Record Stream",
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveSessionsPanel() {
+    final activeSessions =
+        _remoteScenarioJobs
+            .where((job) => job.session != null && !job.completed)
+            .toList()
+          ..sort((a, b) => (a.sessionId ?? 0).compareTo(b.sessionId ?? 0));
+
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Currently Running Sessions",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            if (activeSessions.isEmpty)
+              const Text("No active streaming jobs.")
+            else
+              Column(
+                children: activeSessions.map((job) {
+                  final session = job.session!;
+                  final command = session.getCommand();
+                  final isRunning = !job.completed;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Session ${job.sessionId ?? session.getSessionId()} • ${job.requestedCancel ? 'cancelling' : 'running'}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                command.length > 120
+                                    ? '${command.substring(0, 120)}...'
+                                    : command,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                job.startedWriting.isCompleted
+                                    ? "Output started"
+                                    : "Waiting for output",
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: isRunning
+                              ? () {
+                                  job.requestedCancel = true;
+                                  FFmpegKit.cancel(session);
+                                  _addLog(
+                                    "Requested cancel for session ${job.sessionId ?? session.getSessionId()}",
+                                  );
+                                  if (mounted) {
+                                    setState(() {});
+                                  }
+                                }
+                              : null,
+                          icon: const Icon(Icons.cancel, size: 18),
+                          label: const Text("Cancel"),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
       ),
     );
   }

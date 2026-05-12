@@ -1196,6 +1196,9 @@ void main() async {
         30,
         29.97,
         23.0,
+        2,
+        1,
+        0.5,
       );
 
       expect(stats.sessionId, 1);
@@ -1207,6 +1210,10 @@ void main() async {
       expect(stats.videoFrameNumber, 30);
       expect(stats.videoFps, 29.97);
       expect(stats.videoQuality, 23.0);
+      expect(stats.dupFrames, 2);
+      expect(stats.dropFrames, 1);
+      expect(stats.transcodingProgress, 0.5);
+      expect(stats.transcodingProgressPercent, 50);
 
       if (kDebugMode) print(stats.toString());
     });

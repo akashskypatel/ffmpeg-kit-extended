@@ -42,14 +42,23 @@ class FFprobeKit {
 
   /// Executes an FFprobe [command] asynchronously.
   static Future<FFprobeSession> executeAsync(String command,
-          {callback_manager.FFprobeSessionCompleteCallback? onComplete}) =>
-      FFprobeSession.executeCommandAsync(command, completeCallback: onComplete);
+          {callback_manager.FFprobeSessionCompleteCallback? onComplete,
+          callback_manager.FFmpegLogCallback? onLog}) =>
+      FFprobeSession.executeCommandAsync(
+        command,
+        completeCallback: onComplete,
+        logCallback: onLog,
+      );
 
   /// Creates a new [FFprobeSession] without executing it.
   /// Use [execute] or [executeAsync] to execute the session.
   static FFprobeSession createSession(String command,
-          {callback_manager.FFprobeSessionCompleteCallback? onComplete}) =>
-      FFprobeSession(command, completeCallback: onComplete);
+          {callback_manager.FFprobeSessionCompleteCallback? onComplete,
+          callback_manager.FFmpegLogCallback? onLog}) =>
+      FFprobeSession(
+        command,
+        completeCallback: onComplete,
+      )..setLogCallback(onLog);
 
   /// Lists all active FFprobe sessions.
   static List<FFprobeSession> getFFprobeSessions() =>

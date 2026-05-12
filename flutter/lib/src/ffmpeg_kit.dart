@@ -49,6 +49,10 @@ class FFmpegKit {
   static FFmpegSession createSession(String command) =>
       FFmpegKitExtended.createFFmpegSession(command);
 
+  /// Creates a new [FFmpegSession] from an explicit FFmpeg argument list.
+  static FFmpegSession createSessionFromArguments(List<String> arguments) =>
+      FFmpegSession.createFromArguments(arguments);
+
   /// Returns the last executed FFmpeg session.
   static FFmpegSession? getLastFFmpegSession() =>
       FFmpegKitExtended.getLastFFmpegSession();

@@ -2,10 +2,20 @@
 
 ## Version 0.5.0
 
-- Added `timeElapsed` field to `Statistics` class for enhanced timing information
+- **Breaking changes:**
+  - FFmpeg, FFprobe, and FFplay log delivery now drains through a Dart-managed session buffer instead of the previous per-line callback dispatch path. Code that implicitly relied on one callback invocation per native log notification should migrate to `logBatchStream` / `logStream` or tolerate batched delivery timing.
+  - `FFprobeKit.executeAsync`, `FFprobeKit.createSession`, `FFplayKit.executeAsync`, and `FFplayKit.createSession` now accept `onLog`, and those callbacks follow the same buffered drain semantics as direct session listeners. Existing consumers may observe different callback grouping and timing under heavy log output.
+  - Added `timeElapsed`, `dupFrames`, `dropFrames`, and `transcodingProgress` fields to `Statistics` class for enhanced statistics information
+
 - Updated statistics callback signatures to include elapsed time parameter
 - Added `ffmpeg_kit_statistics_get_time_elapsed` native binding
 - Enhanced test callbacks to support new timeElapsed parameter
+- Refactored FFmpeg log delivery to a Dart-managed stream over the existing native session log buffer instead of relying on per-line callback dispatch.
+- Added `logBatchStream` and `logStream` to `FFmpegSession`, `FFprobeSession`, and `FFplaySession` for buffered and per-line log consumption.
+- Extended `FFprobeSession` and `FFplaySession` with session-level log callbacks and wired `FFprobeKit` / `FFplayKit` convenience APIs to accept `onLog`.
+- Unified log draining across FFmpeg, FFprobe, FFplay, and MediaInformation sessions through the shared Dart callback manager while preserving the existing native buffering model.
+- Reduced example-app UI stalls during remote recording scenarios by batching log rendering and file writes, throttling stats-driven repainting, and avoiding high-volume debug log mirroring into the visible console.
+
 
 ## Version 0.4.4
 

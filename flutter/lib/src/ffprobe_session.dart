@@ -32,6 +32,9 @@ import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
 /// Use this class to retrieve media metadata and stream information.
 class FFprobeSession extends Session {
   FFprobeSessionCompleteCallback? _completeCallback;
+  FFmpegLogCallback? _logCallback;
+  StreamController<List<Log>>? _logBatchStreamController;
+  Stream<Log>? _logStream;
 
   bool _registered = false;
 
@@ -123,16 +126,47 @@ class FFprobeSession extends Session {
   /// The callback invoked once when execution completes.
   FFprobeSessionCompleteCallback? get completeCallback => _completeCallback;
 
+  /// The callback invoked for each log line produced by FFprobe.
+  FFmpegLogCallback? get logCallback => _logCallback;
+
+  /// A batched stream of buffered logs drained from the native session.
+  Stream<List<Log>> get logBatchStream {
+    final controller =
+        _logBatchStreamController ??= StreamController<List<Log>>.broadcast(
+          onListen: () {
+            _ensureRegistered();
+            dispatchPendingLogs();
+          },
+        );
+    return controller.stream;
+  }
+
+  /// A per-log view over [logBatchStream].
+  Stream<Log> get logStream =>
+      _logStream ??= logBatchStream.expand((batch) => batch);
+
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFprobeSessionCompleteCallback? completeCallback) {
     _completeCallback = completeCallback;
     _ensureRegistered();
   }
 
+  /// Sets or replaces the log callback.
+  void setLogCallback(FFmpegLogCallback? logCallback) {
+    _logCallback = logCallback;
+    _ensureRegistered();
+  }
+
   /// Clears the completion callback and unregisters from [CallbackManager].
   void removeCompleteCallback() {
     _completeCallback = null;
-    _unregister();
+    _unregisterIfIdle();
+  }
+
+  /// Clears the log callback.
+  void removeLogCallback() {
+    _logCallback = null;
+    _unregisterIfIdle();
   }
 
   // ---------------------------------------------------------------------------
@@ -145,6 +179,7 @@ class FFprobeSession extends Session {
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
+          _enableNativeLogCallback();
           try {
             ffmpeg.ffprobe_kit_session_execute(handle);
           } catch (e, st) {
@@ -155,12 +190,14 @@ class FFprobeSession extends Session {
             );
             rethrow;
           }
+          dispatchPendingLogs();
           try {
             _completeCallback?.call(this);
           } catch (e, st) {
             log('FFprobeSession.execute: error in completeCallback: $e\n$st');
             rethrow;
           }
+          _closeLogStreams();
           _unregister();
         })
         .catchError((Object e, StackTrace st) {
@@ -182,17 +219,20 @@ class FFprobeSession extends Session {
   static Future<FFprobeSession> executeCommandAsync(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
   }) => FFprobeSession.create(
     command,
     completeCallback: completeCallback,
-  ).executeAsync();
+  ).executeAsync(logCallback: logCallback);
 
   /// Executes this session asynchronously and returns a [Future] that
   /// resolves when execution finishes.
   Future<FFprobeSession> executeAsync({
     FFprobeSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
   }) async {
     if (completeCallback != null) _completeCallback = completeCallback;
+    if (logCallback != null) _logCallback = logCallback;
     _ensureRegistered();
 
     await SessionQueueManager().executeSession(this, _runAsync);
@@ -251,9 +291,11 @@ class FFprobeSession extends Session {
     final userCompleteCallback = _completeCallback;
 
     _completeCallback = (FFprobeSession s) {
+      dispatchPendingLogs();
       // Restore and unregister before calling user code or completing the
       // future, so the session is fully settled from any observer's perspective.
       _completeCallback = userCompleteCallback;
+      _closeLogStreams();
       _unregister();
 
       try {
@@ -269,6 +311,7 @@ class FFprobeSession extends Session {
       // settled session.
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
     };
+    _enableNativeLogCallback();
     try {
       ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
         nativeFFprobeComplete.nativeFunction,
@@ -291,6 +334,7 @@ class FFprobeSession extends Session {
         error: e,
         stackTrace: st,
       );
+      _closeLogStreams();
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
@@ -312,10 +356,66 @@ class FFprobeSession extends Session {
     _registered = true;
   }
 
+  @override
+  void onLogsDispatched(List<Log> batch) {
+    if (batch.isEmpty) {
+      return;
+    }
+
+    final controller = _logBatchStreamController;
+    if (controller != null && !controller.isClosed && controller.hasListener) {
+      controller.add(batch);
+    }
+
+    for (final logObj in batch) {
+      try {
+        CallbackManager().globalLogCallback?.call(logObj);
+        _logCallback?.call(logObj);
+      } catch (e, st) {
+        log(
+          'FFprobeSession: error dispatching log for session '
+          '$sessionId: $e\n$st',
+        );
+        rethrow;
+      }
+    }
+  }
+
+  void _enableNativeLogCallback() {
+    try {
+      ffmpeg.ffmpeg_kit_config_enable_log_callback(
+        nativeFFmpegLog.nativeFunction,
+        nullptr,
+      );
+    } catch (e, st) {
+      log(
+        'FFprobeSession: error enabling ffmpeg log callback for session $sessionId',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+  }
+
+  void _closeLogStreams() {
+    final controller = _logBatchStreamController;
+    if (controller != null && !controller.isClosed) {
+      controller.close();
+    }
+  }
+
   /// Unregisters this session from the callback manager.
   void _unregister() {
     if (!_registered) return;
     _registered = false;
     CallbackManager().unregisterFFprobeSession(sessionId);
+  }
+
+  void _unregisterIfIdle() {
+    if (_completeCallback == null &&
+        _logCallback == null &&
+        !(_logBatchStreamController?.hasListener ?? false)) {
+      _unregister();
+    }
   }
 }

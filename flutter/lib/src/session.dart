@@ -29,6 +29,7 @@ import '../ffmpeg_kit_extended_flutter.dart'
         FFmpegKitExtended;
 import 'ffmpeg_kit_extended_flutter_loader.dart' show ffmpegKitHandleReleasePtr;
 import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'log.dart';
 import 'statistics.dart';
 
 // ---------------------------------------------------------------------------
@@ -437,6 +438,29 @@ abstract class Session implements Finalizable {
     }
   }
 
+  /// Dispatches all buffered log entries that have not yet been delivered.
+  ///
+  /// Concrete session types override [onLogsDispatched] to decide how these
+  /// batches are surfaced to Dart listeners.
+  void dispatchPendingLogs() {
+    final count = getLogsCount();
+    if (count <= logsProcessed) {
+      return;
+    }
+
+    final batch = <Log>[];
+    for (int i = logsProcessed; i < count; i++) {
+      batch.add(Log(sessionId, getLogLevelAt(i), getLogAt(i)));
+    }
+    logsProcessed = count;
+    onLogsDispatched(List<Log>.unmodifiable(batch));
+  }
+
+  /// Called after [dispatchPendingLogs] drains a batch from the native buffer.
+  ///
+  /// Subclasses can override this to push logs into streams and callbacks.
+  void onLogsDispatched(List<Log> batch) {}
+
   // ---- Statistics ---------------------------------------------------------
 
   /// Returns the number of statistics snapshots buffered for this session.
@@ -479,6 +503,16 @@ abstract class Session implements Finalizable {
       final timeMs = ffmpeg.ffmpeg_kit_statistics_get_time(statsHandle).round();
       final bitrate = ffmpeg.ffmpeg_kit_statistics_get_bitrate(statsHandle);
       final speed = ffmpeg.ffmpeg_kit_statistics_get_speed(statsHandle);
+      final dupFrames = ffmpeg.ffmpeg_kit_statistics_get_dup_frames(
+        statsHandle,
+      );
+      final dropFrames = ffmpeg.ffmpeg_kit_statistics_get_drop_frames(
+        statsHandle,
+      );
+      final transcodingProgress =
+          this is FFmpegSession
+              ? (this as FFmpegSession).calculateTranscodingProgress(timeMs)
+              : null;
 
       return Statistics(
         sessionId,
@@ -490,6 +524,9 @@ abstract class Session implements Finalizable {
         videoFrameNumber,
         videoFps,
         videoQuality,
+        dupFrames,
+        dropFrames,
+        transcodingProgress,
       );
     } finally {
       // Release after extraction, even if a getter call threw.

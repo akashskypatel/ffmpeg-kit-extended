@@ -8,7 +8,7 @@ This example application demonstrates the core features of the `ffmpeg_kit_exten
 
 - **Flutter SDK**
 - **C++ Compiler** (GCC/Clang) for native library linking
-- **Platform**: Windows or Linux (x86_64)
+- **Platform**: Android, iOS, macOS, Windows or Linux
 
 ### 1. Install Dependencies
 
@@ -18,15 +18,7 @@ From the example directory, fetch the Flutter packages:
 flutter pub get
 ```
 
-### 2. Configure Native Libraries
-
-This plugin requires a configuration step to download or link the native FFmpeg binaries specified in the `pubspec.yaml`. Run the following command:
-
-```bash
-dart run ffmpeg_kit_extended_flutter:configure
-```
-
-### 3. Run the App
+### 2. Run the App
 
 ```bash
 flutter run

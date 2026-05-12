@@ -20,6 +20,7 @@
 import 'dart:async';
 
 import '../ffmpeg_kit_extended_flutter.dart';
+import 'callback_manager.dart' as callback_manager;
 
 // Only one FFplay session can be active at a time.
 FFplaySession? _activeFFplaySession;
@@ -42,6 +43,7 @@ class FFplayKit {
   static Future<FFplaySession> executeAsync(
     String command, {
     FFplaySessionCompleteCallback? onComplete,
+    callback_manager.FFmpegLogCallback? onLog,
   }) async {
     _sessionCompleter = Completer<void>();
 
@@ -58,6 +60,9 @@ class FFplayKit {
       command,
       completeCallback: wrappedCallback,
     );
+    if (onLog != null) {
+      _activeFFplaySession!.setLogCallback(onLog);
+    }
     final session = _activeFFplaySession!;
     unawaited(session.executeAsync());
     return session;
@@ -68,6 +73,7 @@ class FFplayKit {
   static Future<FFplaySession> createSession(
     String command, {
     FFplaySessionCompleteCallback? onComplete,
+    callback_manager.FFmpegLogCallback? onLog,
   }) async {
     // Create a new completer for this session
     _sessionCompleter = Completer<void>();
@@ -90,6 +96,9 @@ class FFplayKit {
       command,
       completeCallback: wrappedCallback,
     );
+    if (onLog != null) {
+      _activeFFplaySession!.setLogCallback(onLog);
+    }
     return _activeFFplaySession!;
   }
 

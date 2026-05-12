@@ -49,6 +49,8 @@ typedef NativeStatisticsCallback =
       Int64 videoFrameNumber,
       Double videoFps,
       Double videoQuality,
+      Int64 dupFrames,
+      Int64 dropFrames,
       Pointer<Void> userData,
     );
 
@@ -2808,6 +2810,8 @@ void main() {
           int videoFrameNumber,
           double videoFps,
           double videoQuality,
+          int dupFrames,
+          int dropFrames,
           Pointer<Void> userData,
         ) {
           capturer.statsCalled = true;
@@ -2946,6 +2950,8 @@ void main() {
           int videoFrameNumber,
           double videoFps,
           double videoQuality,
+          int dupFrames,
+          int dropFrames,
           Pointer<Void> userData,
         ) {
           capturer.statsCalled = true;
@@ -3078,6 +3084,8 @@ void main() {
               int vf,
               double vfps,
               double vq,
+              int dupFrames,
+              int dropFrames,
               Pointer<Void> _,
             ) => statsCalled = true,
           );
@@ -3244,6 +3252,8 @@ void main() {
               int vf,
               double vfps,
               double vq,
+              int dupFrames,
+              int dropFrames,
               Pointer<Void> _,
             ) => statsCalled = true,
           );

@@ -394,11 +394,15 @@ class MediaInformationSession extends FFprobeSession {
   @override
   Future<MediaInformationSession> executeAsync({
     FFprobeSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
   }) async {
     // Accept the base-class typed callback for call-site compatibility;
     // wrap it into the correct MediaInformation type.
     if (completeCallback != null) {
       _mediaInfoCompleteCallback = (s) => completeCallback(s);
+    }
+    if (logCallback != null) {
+      setLogCallback(logCallback);
     }
     _ensureRegistered();
 
