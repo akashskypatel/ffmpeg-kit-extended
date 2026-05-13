@@ -69,11 +69,10 @@ class _HomePageState extends State<HomePage>
   final TextEditingController _ffplayCommandController = TextEditingController(
     text: "-i test_video.mp4",
   );
-  final TextEditingController
-  _remoteStreamUrlController = TextEditingController(
-    text:
-        "https://cdn.flowplayer.com/a30bd6bc-f98b-47bc-abf5-97633d4faea0/hls/de3f6ca7-2db3-4689-8160-0f574a5996ad/playlist.m3u8",
-  );
+  final TextEditingController _remoteStreamUrlController =
+      TextEditingController(
+        text: "https://endpnt.com/hls/nasa4k/playlist.m3u8",
+      );
   String? _selectedProbePath;
   String _status = 'Ready';
   final _mediaStore = AndroidMediaStore.instance;
@@ -95,7 +94,6 @@ class _HomePageState extends State<HomePage>
   bool _hasVideo = false;
 
   final List<_RemoteRecordingScenarioJob> _remoteScenarioJobs = [];
-  bool _remoteScenarioRunning = false;
   String? _remoteScenarioLogPath;
   Future<void> _remoteScenarioLogQueue = Future.value();
   String _pendingOutputLogs = '';
@@ -105,6 +103,7 @@ class _HomePageState extends State<HomePage>
   Timer? _remoteScenarioFileFlushTimer;
   DateTime _lastRemoteScenarioStatsUiUpdate =
       DateTime.fromMillisecondsSinceEpoch(0);
+  int _recordingCounter = 1;
 
   // Transcode state
   double _transcodeProgress = 0.0;
@@ -643,19 +642,12 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runRemoteRecordingScenario() async {
-    if (_remoteScenarioRunning) {
-      _addLog("Remote recording scenario is already running.");
-      return;
-    }
-
     final url = _remoteStreamUrlController.text.trim();
     if (url.isEmpty) {
       _addLog("Remote stream URL is empty.");
       return;
     }
 
-    _remoteScenarioRunning = true;
-    _remoteScenarioJobs.clear();
     _remoteScenarioLogQueue = Future.value();
     if (mounted) {
       setState(() {});
@@ -666,12 +658,6 @@ class _HomePageState extends State<HomePage>
       path.join(tempDir.path, "ffmpeg_kit_extended_flutter_example"),
     );
     await scenarioDir.create(recursive: true);
-
-    for (final entity in scenarioDir.listSync()) {
-      if (entity is File) {
-        await entity.delete();
-      }
-    }
 
     final logFile = File(
       path.join(scenarioDir.path, "ffmpeg_kit_extended_flutter_example.log"),
@@ -684,22 +670,27 @@ class _HomePageState extends State<HomePage>
     _logRemoteScenario("Output dir: ${scenarioDir.path}");
     _logRemoteScenario("Log file: ${logFile.path}");
 
-    final jobs = [
-      _startRemoteRecordingJob(
-        label: "A",
-        url: url,
-        outputPath: path.join(scenarioDir.path, "remote_recording.ts"),
-      ),
-    ];
+    final outputFile = path.join(
+      scenarioDir.path,
+      "remote_recording_${_recordingCounter++}.ts",
+    );
 
-    _remoteScenarioJobs.addAll(jobs);
+    if (File(outputFile).existsSync()) {
+      File(outputFile).deleteSync();
+    }
+
+    final job = _startRemoteRecordingJob(
+      label: _recordingCounter.toString(),
+      url: url,
+      outputPath: outputFile,
+    );
+
+    _remoteScenarioJobs.add(job);
     if (mounted) {
       setState(() {});
     }
 
-    for (final job in jobs) {
-      _launchRemoteRecordingJob(job);
-    }
+    _launchRemoteRecordingJob(job);
   }
 
   _RemoteRecordingScenarioJob _startRemoteRecordingJob({
@@ -1985,6 +1976,42 @@ class _HomePageState extends State<HomePage>
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "Sessions: ${activeSessions.length}",
+                    style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: () {
+                    final sessions = FFmpegKitExtended.listSessions();
+                    for (final session in sessions) {
+                      debugPrint(
+                        "Session ID: ${session.getSessionId()}, State: ${session.getState()}",
+                      );
+                    }
+                    for (final job in _remoteScenarioJobs) {
+                      if (job.session != null) {
+                        final sessionId = job.session!.getSessionId();
+                        final isActive = sessions.any(
+                          (s) => s.getSessionId() == sessionId,
+                        );
+                        if (!isActive) {
+                          job.completed = true;
+                        }
+                      }
+                    }
+                    _addLog("Refreshed sessions: ${sessions.length} active");
+                    setState(() {});
+                  },
+                  tooltip: "Refresh session list",
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             if (activeSessions.isEmpty)
               const Text("No active streaming jobs.")
             else
