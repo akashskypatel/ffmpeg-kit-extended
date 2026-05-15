@@ -149,6 +149,7 @@ class FFmpegKitExtended {
   // ---------------------------------------------------------------------------
 
   /// Cancels the session identified by [sessionId].
+  /// IMPORTANT: passing a 0 will cancel all sessions.
   static void cancelSession(int sessionId) {
     requireInitialized();
     getSession(sessionId)?.cancel();
