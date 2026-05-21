@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.1
+
+- Update `hooks` package to latest version: 2.0.0
+
 ## Version 0.5.0
 
 - **Breaking changes:**

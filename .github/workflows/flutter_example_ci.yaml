@@ -1,0 +1,156 @@
+name: Flutter Example App CI
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'flutter/example/**'
+      - '.github/workflows/flutter_example_ci.yaml'
+  pull_request:
+    paths:
+      - 'flutter/example/**'
+      - '.github/workflows/flutter_example_ci.yaml'
+
+concurrency:
+  group: flutter-example-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-latest
+            artifact_name: app-release.apk
+            build_command: flutter build apk --release
+          - platform: ios
+            os: macos-latest
+            artifact_name: Runner.app
+            build_command: flutter build ios --simulator --no-codesign
+          - platform: windows
+            os: windows-latest
+            artifact_name: build\windows\x64\runner\Release
+            build_command: flutter build windows --release
+          - platform: linux
+            os: ubuntu-latest
+            artifact_name: build/linux/x64/release/bundle
+            build_command: flutter build linux --release
+          - platform: macos
+            os: macos-latest
+            artifact_name: build/macos/Build/Products/Release
+            build_command: flutter build macos --release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Set path for WSL builds
+        if: matrix.platform == 'windows'
+        run: |
+          echo "$WINDIR\\System32" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Configure Android SDK
+        if: matrix.platform == 'android'
+        run: |
+          flutter config --no-analytics
+          flutter doctor --android-licenses 2>&1 | Out-Null
+
+      - name: Configure iOS licenses
+        if: matrix.platform == 'ios' || matrix.platform == 'macos'
+        run: |
+          flutter config --no-analytics
+          sudo xcodebuild -license accept 2>/dev/null || true
+
+      - name: Configure Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          flutter config --no-analytics
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgtk-3-dev pkg-config cmake ninja-build liblzma-dev libstdc++-12-dev
+
+      - name: Install bundle dependencies
+        working-directory: flutter/example
+        run: flutter pub get
+
+      - name: Get Flutter dependencies
+        working-directory: flutter/example
+        run: flutter pub get --offline 2>/dev/null || true
+
+      - name: Build ${{ matrix.platform }}
+        working-directory: flutter/example
+        run: ${{ matrix.build_command }}
+
+      - name: Upload artifacts
+        if: matrix.platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/build/app/outputs/flutter-apk/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload artifacts (iOS Simulator)
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/build/ios/iphonesimulator/
+          retention-days: 7
+
+      - name: Upload artifacts (macOS)
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/${{ matrix.artifact_name }}
+          retention-days: 7
+
+  analyze:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        working-directory: flutter/example
+        run: flutter pub get
+
+      - name: Run Flutter analyze
+        working-directory: flutter/example
+        run: flutter analyze --no-fatal-infos

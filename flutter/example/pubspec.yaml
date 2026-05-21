@@ -13,7 +13,8 @@ dependencies:
     sdk: flutter
 
   ffmpeg_kit_extended_flutter:
-    path: ../
+    ^0.5.0
+    # path: ../
 
   cupertino_icons: ^1.0.8
   path: ^1.9.1
