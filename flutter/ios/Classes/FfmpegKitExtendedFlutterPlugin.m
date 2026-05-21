@@ -24,35 +24,29 @@
 // FfplayKitPlugin.  This file exists only to satisfy GeneratedPluginRegistrant,
 // which calls +[FfmpegKitExtendedFlutterPlugin registerWithRegistrar:].
 
-#import "include/FFmpegKitExtendedFlutterPlugin.h"
-#import "include/FfplayKitPlugin.h"
+#import "FfmpegKitExtendedFlutterPlugin.h"
+#import "FfplayKitPlugin.h"
 #include <dlfcn.h>
 
 static NSString *const kFFmpegKitCompanionAssetsDir =
-    @"App.framework/Versions/A/Resources/flutter_assets/packages/"
-    @"ffmpeg_kit_extended_flutter/native";
+    @"Frameworks/App.framework/flutter_assets/packages/ffmpeg_kit_extended_flutter/native";
 
-static NSArray<NSString *> *
-FFmpegKitCompanionDirectoryCandidates(NSBundle *mainBundle) {
+static NSArray<NSString *> *FFmpegKitCompanionDirectoryCandidates(NSBundle *mainBundle) {
   NSMutableArray<NSString *> *directories = [NSMutableArray array];
+  [directories addObject:[[mainBundle bundlePath]
+                             stringByAppendingPathComponent:kFFmpegKitCompanionAssetsDir]];
   NSString *privateFrameworksPath = [mainBundle privateFrameworksPath];
   if (privateFrameworksPath.length > 0) {
-    [directories
-        addObject:[privateFrameworksPath stringByAppendingPathComponent:
-                                             kFFmpegKitCompanionAssetsDir]];
+    [directories addObject:[privateFrameworksPath
+                               stringByAppendingPathComponent:
+                                   @"App.framework/flutter_assets/packages/ffmpeg_kit_extended_flutter/native"]];
   }
-  [directories addObject:[[mainBundle bundlePath]
-                             stringByAppendingPathComponent:
-                                 @"Contents/Frameworks/App.framework/Versions/"
-                                 @"A/Resources/flutter_assets/packages/"
-                                 @"ffmpeg_kit_extended_flutter/native"]];
   return directories;
 }
 
 static void FFmpegKitPreloadLibrariesAtDirectory(NSString *directoryPath) {
   NSFileManager *fileManager = [NSFileManager defaultManager];
-  NSArray<NSString *> *entries =
-      [fileManager contentsOfDirectoryAtPath:directoryPath error:nil];
+  NSArray<NSString *> *entries = [fileManager contentsOfDirectoryAtPath:directoryPath error:nil];
   if (entries.count == 0) {
     return;
   }
@@ -60,13 +54,11 @@ static void FFmpegKitPreloadLibrariesAtDirectory(NSString *directoryPath) {
   NSMutableArray<NSString *> *pendingLibraries = [NSMutableArray array];
   for (NSString *entry in entries) {
     if ([entry.pathExtension isEqualToString:@"dylib"]) {
-      [pendingLibraries
-          addObject:[directoryPath stringByAppendingPathComponent:entry]];
+      [pendingLibraries addObject:[directoryPath stringByAppendingPathComponent:entry]];
     }
   }
 
-  [pendingLibraries
-      sortUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
+  [pendingLibraries sortUsingSelector:@selector(localizedCaseInsensitiveCompare:)];
 
   while (pendingLibraries.count > 0) {
     BOOL loadedAnyLibrary = NO;
@@ -77,9 +69,6 @@ static void FFmpegKitPreloadLibrariesAtDirectory(NSString *directoryPath) {
         NSLog(@"[FFmpegKit] Preloaded companion library: %@", libraryPath);
         [pendingLibraries removeObject:libraryPath];
         loadedAnyLibrary = YES;
-      } else {
-        NSLog(@"[FFmpegKit] dlopen failed: %s", dlerror());
-        // Handle gracefully - don't crash if library is optional
       }
     }
 
@@ -94,36 +83,28 @@ static void FFmpegKitPreloadLibrariesAtDirectory(NSString *directoryPath) {
 }
 
 @implementation FfmpegKitExtendedFlutterPlugin
+
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
   // Promote libffmpegkit to RTLD_GLOBAL so Dart FFI and plugin-side dlsym
   // calls can resolve its symbols through RTLD_DEFAULT.
   NSBundle *bundle = [NSBundle bundleForClass:[self class]];
   NSBundle *mainBundle = [NSBundle mainBundle];
-
+  
   NSMutableArray<NSString *> *candidatePaths = [NSMutableArray arrayWithArray:@[
-    [[bundle bundlePath]
-        stringByAppendingPathComponent:
-            @"Versions/A/Frameworks/ffmpegkit.framework/Versions/A/ffmpegkit"],
-    [[bundle bundlePath] stringByAppendingPathComponent:
-                             @"Versions/A/Frameworks/libffmpegkit.dylib"],
-    [[bundle bundlePath]
-        stringByAppendingPathComponent:
-            @"Frameworks/ffmpegkit.framework/Versions/A/ffmpegkit"],
-    [[bundle bundlePath]
-        stringByAppendingPathComponent:@"Frameworks/libffmpegkit.dylib"],
-    [[bundle bundlePath] stringByAppendingPathComponent:
-                             @"ffmpegkit.framework/Versions/A/ffmpegkit"],
+    [[bundle bundlePath] stringByAppendingPathComponent:@"Frameworks/ffmpegkit.framework/ffmpegkit"],
+    [[bundle bundlePath] stringByAppendingPathComponent:@"Frameworks/libffmpegkit.dylib"],
+    [[bundle bundlePath] stringByAppendingPathComponent:@"ffmpegkit.framework/ffmpegkit"],
     [[bundle bundlePath] stringByAppendingPathComponent:@"libffmpegkit.dylib"],
+    [[[bundle bundlePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"libffmpegkit.dylib"],
+    // Native assets location on iOS
+    [[mainBundle bundlePath] stringByAppendingPathComponent:@"Frameworks/ffmpegkit.framework/ffmpegkit"],
+    [[mainBundle bundlePath] stringByAppendingPathComponent:@"Frameworks/libffmpegkit.dylib"],
     // Native assets location on macOS
-    [[mainBundle bundlePath]
-        stringByAppendingPathComponent:
-            @"Contents/Frameworks/ffmpegkit.framework/Versions/A/ffmpegkit"],
-    [[mainBundle bundlePath] stringByAppendingPathComponent:
-                                 @"Contents/Frameworks/libffmpegkit.dylib"],
+    [[mainBundle bundlePath] stringByAppendingPathComponent:@"Contents/Frameworks/ffmpegkit.framework/ffmpegkit"],
+    [[mainBundle bundlePath] stringByAppendingPathComponent:@"Contents/Frameworks/libffmpegkit.dylib"],
   ]];
 
-  for (NSString *companionDirectory in FFmpegKitCompanionDirectoryCandidates(
-           mainBundle)) {
+  for (NSString *companionDirectory in FFmpegKitCompanionDirectoryCandidates(mainBundle)) {
     if ([[NSFileManager defaultManager] fileExistsAtPath:companionDirectory]) {
       FFmpegKitPreloadLibrariesAtDirectory(companionDirectory);
     }
@@ -131,13 +112,12 @@ static void FFmpegKitPreloadLibrariesAtDirectory(NSString *directoryPath) {
 
   for (NSString *candidatePath in candidatePaths) {
     if ([[NSFileManager defaultManager] fileExistsAtPath:candidatePath]) {
-      void *handle = dlopen([candidatePath UTF8String], RTLD_GLOBAL | RTLD_NOW);
+      void* handle = dlopen([candidatePath UTF8String], RTLD_GLOBAL | RTLD_NOW);
       if (handle) {
         NSLog(@"[FFmpegKit] Successfully preloaded: %@", candidatePath);
         break;
       } else {
-        NSLog(@"[FFmpegKit] dlopen failed for %@: %s", candidatePath,
-              dlerror());
+        NSLog(@"[FFmpegKit] dlopen failed for %@: %s", candidatePath, dlerror());
       }
     }
   }
