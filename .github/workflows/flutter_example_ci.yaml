@@ -100,9 +100,7 @@ jobs:
 
       - name: Build ${{ matrix.platform }}
         working-directory: flutter/example
-        run: |
-          cat '/Users/runner/work/ffmpeg-kit-extended/ffmpeg-kit-extended/flutter/example/ios/Runner/GeneratedPluginRegistrant.m'
-          ${{ matrix.build_command }}
+        run: ${{ matrix.build_command }}
 
       - name: Upload artifacts
         if: matrix.platform == 'android'
