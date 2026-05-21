@@ -13,8 +13,6 @@ let package = Package(
         )
     ],
     dependencies: [
-        // FlutterFramework is still needed for FlutterPlugin protocol
-        .package(name: "FlutterFramework", path: "../FlutterFramework")
     ],
     targets: [
         // Objective-C Target - contains the actual plugin implementation

@@ -72,6 +72,7 @@ jobs:
         if: matrix.platform == 'ios' || matrix.platform == 'macos'
         run: |
           flutter config --no-analytics
+          flutter config --no-enable-swift-package-manager
           sudo xcodebuild -license accept 2>/dev/null || true
 
       - name: Configure Linux dependencies
@@ -85,9 +86,17 @@ jobs:
         working-directory: flutter/example
         run: flutter pub get
 
+      - name: Clean generated Apple build state
+        if: matrix.platform == 'ios' || matrix.platform == 'macos'
+        working-directory: flutter/example
+        run: |
+          flutter clean
+          rm -rf ios/Pods ios/Podfile.lock ios/Flutter/ephemeral
+          rm -rf macos/Pods macos/Podfile.lock macos/Flutter/ephemeral
+
       - name: Get Flutter dependencies
         working-directory: flutter/example
-        run: flutter pub get --offline 2>/dev/null || true
+        run: flutter pub get --offline || true
 
       - name: Build ${{ matrix.platform }}
         working-directory: flutter/example
