@@ -146,14 +146,15 @@ jobs:
         if: matrix.platform == 'macos'
         working-directory: flutter/example/macos
         run: |
-          xcodebuild \
-            -workspace Runner.xcworkspace \
+          /usr/bin/env xcrun xcodebuild \
+            -workspace "$GITHUB_WORKSPACE/flutter/example/macos/Runner.xcworkspace" \
             -scheme Runner \
             -configuration Debug \
-            -derivedDataPath ../build/macos \
-            -destination 'platform=macOS' \
-            OBJROOT=../build/macos/Build/Intermediates.noindex \
-            SYMROOT=../build/macos/Build/Products \
+            -derivedDataPath "$GITHUB_WORKSPACE/flutter/example/build/macos" \
+            -destination 'platform=macOS,arch=arm64' \
+            OBJROOT="$GITHUB_WORKSPACE/flutter/example/build/macos/Build/Intermediates.noindex" \
+            SYMROOT="$GITHUB_WORKSPACE/flutter/example/build/macos/Build/Products" \
+            VERBOSE_SCRIPT_LOGGING=YES \
             COMPILER_INDEX_STORE_ENABLE=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
