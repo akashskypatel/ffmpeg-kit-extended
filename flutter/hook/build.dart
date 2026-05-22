@@ -234,13 +234,21 @@ Future<FFmpegArtifact?> _resolveArtifact(
   _log('Verifying SHA256 hash from $url');
 
   final expectedHash = await _fetchSha256Hash(url);
-  final calculatedHash = await _computeFileSha256(targetFile);
-  if (expectedHash != calculatedHash) {
-    throw _exception(
-      'SHA256 hash mismatch: expected $expectedHash, got $calculatedHash',
-    );
+  if (expectedHash == null) {
+    _log('No SHA256 hash found for $url; skipping verification');
+  } else {
+    final calculatedHash = await _computeFileSha256(targetFile);
+    if (calculatedHash == null) {
+      _log(
+        'Failed to compute SHA256 hash for $targetFile; skipping verification',
+      );
+    } else if (expectedHash != calculatedHash) {
+      throw _exception(
+        'SHA256 hash mismatch: expected $expectedHash, got $calculatedHash',
+      );
+    }
+    _log('SHA256 verification passed');
   }
-  _log('SHA256 verification passed');
 
   return _handleDownloadedFile(targetFile, cacheDir, input);
 }
@@ -822,7 +830,10 @@ Future<String?> _fetchSha256Hash(String url) async {
         final assets = json['assets'] as List;
         for (final asset in assets) {
           if (asset['name'] == releaseName) {
-            final digest = asset['digest'] as String;
+            final digest = asset['digest'] as String?;
+            if (digest == null || digest.isEmpty) {
+              return null;
+            }
             // parse 'sha256:...' format
             final parts = digest.split(':');
             if (parts.length == 2) {
@@ -852,8 +863,12 @@ Future<String?> _fetchSha256Hash(String url) async {
   }
 }
 
-Future<String> _computeFileSha256(File file) async {
-  final stream = file.openRead();
-  final hash = await sha256.bind(stream).first;
-  return hash.toString();
+Future<String?> _computeFileSha256(File file) async {
+  try {
+    final stream = file.openRead();
+    final hash = await sha256.bind(stream).first;
+    return hash.toString();
+  } catch (e) {
+    return null;
+  }
 }

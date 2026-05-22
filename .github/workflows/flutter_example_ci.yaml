@@ -1,0 +1,199 @@
+name: Flutter Example App CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "flutter/example/**"
+      - ".github/workflows/flutter_example_ci.yaml"
+      - "**.dart"
+      - "**.yaml"
+      - "**.yml"
+      - "**.gradle"
+      - "**.kt"
+      - "**.swift"
+      - "**.m"
+      - "**.h"
+      - "**.mm"
+      - "**.podspec"
+      - "!**.md"
+      - "!flutter/doc/**"
+  pull_request:
+    paths:
+      - "flutter/example/**"
+      - ".github/workflows/flutter_example_ci.yaml"
+      - "**.dart"
+      - "**.yaml"
+      - "**.yml"
+      - "**.gradle"
+      - "**.kt"
+      - "**.swift"
+      - "**.m"
+      - "**.h"
+      - "**.mm"
+      - "**.podspec"
+      - "!**.md"
+      - "!flutter/doc/**"
+
+concurrency:
+  group: flutter-example-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-latest
+            artifact_name: app-release.apk
+            build_command: flutter build apk --debug
+          - platform: ios
+            os: macos-latest
+            artifact_name: Runner.app
+            build_command: flutter build ios --simulator --debug --no-codesign
+          - platform: windows
+            os: windows-latest
+            artifact_name: build\windows\x64\runner\Debug
+            build_command: flutter build windows --debug
+          - platform: linux
+            os: ubuntu-latest
+            artifact_name: build/linux/x64/debug/bundle
+            build_command: flutter build linux --debug
+          - platform: macos
+            os: macos-latest
+            artifact_name: build/macos/Build/Products/Debug
+            build_command: flutter build macos --debug
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          channel: "stable"
+          cache: true
+
+      - name: Set path for WSL builds
+        if: matrix.platform == 'windows'
+        run: |
+          echo "$WINDIR\\System32" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Configure Android SDK
+        if: matrix.platform == 'android'
+        run: |
+          flutter config --no-analytics
+          yes | flutter doctor --android-licenses >/dev/null
+
+      - name: Configure Apple build
+        if: matrix.platform == 'ios' || matrix.platform == 'macos'
+        run: |
+          flutter config --no-analytics
+          flutter config --enable-swift-package-manager
+          sudo xcodebuild -license accept 2>/dev/null || true
+
+      - name: Cache CocoaPods
+        if: matrix.platform == 'ios' || matrix.platform == 'macos'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cocoapods/repos
+            flutter/example/ios/Pods
+            flutter/example/macos/Pods
+          key: ${{ runner.os }}-pods-${{ matrix.platform }}-${{ hashFiles('flutter/example/ios/Podfile.lock', 'flutter/example/macos/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-${{ matrix.platform }}-
+
+      - name: Configure Linux dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          flutter config --no-analytics
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgtk-3-dev pkg-config cmake ninja-build liblzma-dev libstdc++-12-dev
+
+      - name: Install bundle dependencies
+        working-directory: flutter/example
+        run: flutter pub get
+
+      - name: Get Flutter dependencies
+        working-directory: flutter/example
+        run: flutter pub get --offline || true
+
+      - name: Unlock keychain
+        if: matrix.platform == 'ios'
+        run: |
+          security default-keychain -s login.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ~/Library/Keychains/login.keychain
+          security set-keychain-settings -lut 21600 ~/Library/Keychains/login.keychain
+
+      - name: Build ${{ matrix.platform }}
+        working-directory: flutter/example
+        run: ${{ matrix.build_command }}
+
+      - name: Upload artifacts
+        if: matrix.platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/build/app/outputs/flutter-apk/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload artifacts (Windows)
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload artifacts (Linux)
+        if: matrix.platform == 'linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/${{ matrix.artifact_name }}
+          retention-days: 7
+
+      - name: Upload artifacts (iOS Simulator)
+        if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/build/ios/iphonesimulator/
+          retention-days: 7
+
+      - name: Upload artifacts (macOS)
+        if: matrix.platform == 'macos'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/${{ matrix.artifact_name }}
+          retention-days: 7
+
+  analyze:
+    name: Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          channel: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: flutter/example
+        run: flutter pub get
+
+      - name: Run Flutter analyze
+        working-directory: flutter/example
+        run: flutter analyze --no-fatal-infos
