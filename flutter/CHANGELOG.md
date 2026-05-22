@@ -1,5 +1,11 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.3
+
+- Updates minimum supported SDK version to Flutter 3.44/Dart 3.12.
+- Migrates Android Gradle configuration for built-in Kotlin (AGP 9+) with an AGP 8 fallback.
+- Removes Java 17 toolchain requirement that blocked builds with only Java 21 installed.
+
 ## Version 0.5.2
 
 - Fix Apple Swift Package Manager configuration

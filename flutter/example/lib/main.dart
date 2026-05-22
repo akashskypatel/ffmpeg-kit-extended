@@ -394,7 +394,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _pickTranscodeFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.video);
+    final result = await FilePicker.pickFiles(type: FileType.video);
     if (result != null && result.files.single.path != null) {
       final pickedPath = result.files.single.path!;
       final pickedDir = path.dirname(pickedPath);
@@ -859,7 +859,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _pickProbeFile() async {
-    final result = await FilePicker.platform.pickFiles();
+    final result = await FilePicker.pickFiles();
     if (result != null && result.files.single.path != null) {
       setState(() {
         _selectedProbePath = result.files.single.path;
