@@ -1,5 +1,11 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.4
+
+- Export chapter and stream information
+- Add build hook guard when not building code assets
+- Update binary version to 0.10.3 to fix statistics callback issues
+
 ## Version 0.5.3
 
 - Updates minimum supported SDK version to Flutter 3.44/Dart 3.12.
