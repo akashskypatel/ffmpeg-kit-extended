@@ -460,26 +460,44 @@ class _HomePageState extends State<HomePage>
       printToConsole: true,
     );
 
+    final mediaInfoSession = FFprobeKit.getMediaInformation(inputPath);
+    final mediaInfo = mediaInfoSession.getMediaInformation();
+    final duration =
+        (double.tryParse((mediaInfo?.duration ?? "0")) ?? 0) * 1000;
+
     final command =
         "-hide_banner -i \"$inputPath\" -c:v mpeg4 -c:a aac -b:v 2M -y \"$outputPath\"";
 
-    await FFmpegKit.executeAsync(
-      command,
-      onLog: (log) {
+    final session = FFmpegKit.createSession(command);
+    session.setExpectedTranscodingDuration(
+      Duration(milliseconds: duration.toInt()),
+    );
+
+    await session.executeAsync(
+      logCallback: (log) {
         _addLog(log.message);
       },
-      onStatistics: (statistics) {
+      statisticsCallback: (statistics) {
         if (mounted) {
           setState(() {
             _transcodeProgress = statistics.transcodingProgress ?? 0.0;
             _transcodeStatus =
                 'Time: ${(statistics.time / 1000).toStringAsFixed(1)}s | '
+                'Time Elapsed: ${(statistics.timeElapsed / 1000).toStringAsFixed(1)}s | '
                 'Speed: ${statistics.speed.toStringAsFixed(2)}x | '
-                'Frame: ${statistics.videoFrameNumber}';
+                'Frame: ${statistics.videoFrameNumber} | '
+                'Quality: ${statistics.videoQuality.toStringAsFixed(2)} | '
+                'Progress: ${(statistics.transcodingProgressPercent ?? 0.0).toStringAsFixed(1)}% | '
+                'Transcoding Progress: ${(statistics.transcodingProgress ?? 0.0).toStringAsFixed(1)} | '
+                'Video Bitrate: ${statistics.bitrate} | '
+                'Video FPS: ${statistics.videoFps} | '
+                'Drop Frames: ${statistics.dropFrames} | '
+                'Dup Frames: ${statistics.dupFrames}';
+            _addLog(_transcodeStatus);
           });
         }
       },
-      onComplete: (session) {
+      completeCallback: (session) {
         if (mounted) {
           setState(() {
             _isTranscoding = false;
