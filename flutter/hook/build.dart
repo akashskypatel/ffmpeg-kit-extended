@@ -26,6 +26,10 @@ class ConfigResult {
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
+    // Flutter fires an assetless hook invocation (build_asset_types: []) with no
+    // code config present. input.config.code throws on it, so bail early when no
+    // code assets are requested. See HookConfig.buildCodeAssets.
+    if (!input.config.buildCodeAssets) return;
     final packageName = input.packageName;
     targetOS = input.config.code.targetOS;
     targetArch = input.config.code.targetArchitecture;
