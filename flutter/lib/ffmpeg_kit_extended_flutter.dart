@@ -28,6 +28,7 @@ export 'src/callback_manager.dart'
         FFmpegStatisticsCallback,
         FFprobeSessionCompleteCallback,
         FFplaySessionCompleteCallback;
+export 'src/chapter_information.dart';
 export 'src/ffmpeg_kit.dart';
 export 'src/ffmpeg_kit_config.dart';
 export 'src/ffmpeg_kit_extended.dart';
@@ -49,3 +50,4 @@ export 'src/session_queue_manager.dart'
     show SessionQueueManager, SessionCancelledException;
 export 'src/signal.dart';
 export 'src/statistics.dart';
+export 'src/stream_information.dart';
