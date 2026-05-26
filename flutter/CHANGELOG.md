@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.5
+
+- Cleanup unnecessary imports
+
 ## Version 0.5.4
 
 - Export chapter and stream information

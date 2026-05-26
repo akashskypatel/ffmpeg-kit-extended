@@ -27,9 +27,7 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'chapter_information.dart';
 import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
-import 'stream_information.dart';
 
 /// A specialised [FFprobeSession] for retrieving detailed media information.
 ///
