@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.6
+
+- **Android**: Fix Android app-bundle build from scratch. FFplayKitAndroid is integrated into native code and no longer needs to be added as a separate dependency via classes.jar staging.
+
 ## Version 0.5.5
 
 - Cleanup unnecessary imports
