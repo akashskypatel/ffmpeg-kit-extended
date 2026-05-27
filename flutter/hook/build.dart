@@ -360,29 +360,6 @@ Future<void> _emitAssets(
         );
       }
     }
-
-    final configDir = Directory(
-      p.fromUri(input.outputDirectoryShared.resolve('android_config/')),
-    );
-    if (!configDir.existsSync()) configDir.createSync(recursive: true);
-
-    // Define a stable path in the shared directory
-    final sharedJar = File(p.join(configDir.path, 'classes.jar'));
-    final extractedJar = File(p.join(tempDir.path, 'classes.jar'));
-
-    // Only copy and write the property if the shared JAR doesn't exist yet.
-    // This ensures all architectures reference the same stable file.
-    if (extractedJar.existsSync() && !sharedJar.existsSync()) {
-      extractedJar.copySync(sharedJar.path);
-
-      final propsFile = File(p.join(configDir.path, 'paths.properties'));
-      // Use forward slashes for Java Properties compatibility
-      output.dependencies.add(sharedJar.uri);
-      final safePath = sharedJar.path.replaceAll('\\', '/');
-      propsFile.writeAsStringSync('classes_jar=$safePath\n');
-
-      _log('Staged shared classes.jar to ${sharedJar.path}');
-    }
   } else if (targetOS == OS.iOS || targetOS == OS.macOS) {
     final runtimeLayout = await _buildAppleRuntimeFramework(
       artifact: artifact,

@@ -43,7 +43,7 @@ android {
 
     sourceSets {
         getByName("main") {
-            java.srcDirs("src/main/kotlin")
+            java.srcDirs("src/main/kotlin", "src/java")
         }
 
         getByName("test") {
@@ -87,12 +87,4 @@ project.extensions.configure(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjec
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
-}
-
-dependencies {
-    val appRoot = project.rootProject.projectDir.parentFile
-    logger.info("FFmpegKit: App root is ${appRoot.absolutePath}")
-    val stagedJarPath = "${appRoot}/.dart_tool/hooks_runner/shared/ffmpeg_kit_extended_flutter/build/android_config/classes.jar"
-
-    implementation(files(stagedJarPath))
 }
