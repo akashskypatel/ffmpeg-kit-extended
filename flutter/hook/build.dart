@@ -494,20 +494,42 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   final libDir = artifact.extractedDir!;
   final archStr = _getAppleArch();
   final slicePrefix = targetOS == OS.iOS ? 'ios-' : 'macos-';
-  final sliceDir = Directory(
-    libDir
-        .listSync(followLinks: false)
-        .whereType<Directory>()
-        .map((d) => d.path)
-        .firstWhere(
-          (path) => p.basename(path).startsWith(slicePrefix),
-          orElse: () {
-            throw _exception(
-              'Could not find Apple slice starting with $slicePrefix in ${libDir.path}',
-            );
-          },
-        ),
-  );
+
+  // Determine if we need a simulator or device slice.
+  // For iOS, check the target SDK to disambiguate between
+  // e.g. ios-arm64 and ios-arm64-simulator.
+  final bool wantsSimulator =
+      targetOS == OS.iOS &&
+      input.config.code.iOS.targetSdk == IOSSdk.iPhoneSimulator;
+
+  final sliceDirs = libDir
+      .listSync(followLinks: false)
+      .whereType<Directory>()
+      .map((d) => d.path)
+      .where((path) => p.basename(path).startsWith(slicePrefix))
+      .toList();
+
+  String? selectedSliceDir;
+  if (targetOS == OS.iOS) {
+    // iOS: disambiguate by -simulator suffix
+    selectedSliceDir = sliceDirs.cast<String?>().firstWhere((path) {
+      final basename = p.basename(path!);
+      return wantsSimulator
+          ? basename.endsWith('-simulator')
+          : !basename.endsWith('-simulator');
+    }, orElse: () => null);
+  } else {
+    // macOS: only one slice expected
+    selectedSliceDir = sliceDirs.isNotEmpty ? sliceDirs.first : null;
+  }
+
+  if (selectedSliceDir == null) {
+    throw _exception(
+      'Could not find Apple slice${targetOS == OS.iOS ? ' (${wantsSimulator ? 'simulator' : 'device'})' : ''} starting with $slicePrefix in ${libDir.path}',
+    );
+  }
+
+  final sliceDir = Directory(selectedSliceDir);
 
   final sourceDylibs =
       sliceDir
