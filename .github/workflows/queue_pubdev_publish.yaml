@@ -1,0 +1,113 @@
+name: Queue pub.dev Publish
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+concurrency:
+  group: queue-pubdev-publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  queue:
+    name: Tag unpublished pub.dev version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read package metadata
+        id: package
+        working-directory: flutter
+        shell: bash
+        run: |
+          package_name="$(sed -n 's/^name: //p' pubspec.yaml | head -n 1 | tr -d '\r')"
+          version="$(sed -n 's/^version: //p' pubspec.yaml | head -n 1 | tr -d '\r')"
+
+          if [[ -z "$package_name" || -z "$version" ]]; then
+            echo "::error::Unable to read package name and version from flutter/pubspec.yaml"
+            exit 1
+          fi
+
+          echo "name=$package_name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether version is already published
+        id: pubdev
+        shell: bash
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          status_code="$(curl -sS -o pubdev-package.json -w '%{http_code}' "https://pub.dev/api/packages/${PACKAGE_NAME}")"
+
+          case "$status_code" in
+            200)
+              published="$(python3 - <<'PY'
+import json
+import os
+
+package_version = os.environ["PACKAGE_VERSION"]
+with open("pubdev-package.json", encoding="utf-8") as fh:
+    data = json.load(fh)
+
+versions = {entry["version"] for entry in data.get("versions", [])}
+print("true" if package_version in versions else "false")
+PY
+)"
+              ;;
+            404)
+              published="false"
+              ;;
+            *)
+              echo "::error::Unexpected pub.dev response code: ${status_code}"
+              exit 1
+              ;;
+          esac
+
+          echo "published=${published}" >> "$GITHUB_OUTPUT"
+
+      - name: Check whether release tag already exists
+        if: steps.pubdev.outputs.published != 'true'
+        id: tag_state
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.package.outputs.tag }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/${TAG_NAME}" >/dev/null; then
+            exists="true"
+          elif git ls-remote --exit-code --tags origin "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
+            exists="true"
+          else
+            exists="false"
+          fi
+
+          echo "exists=${exists}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push release tag
+        if: steps.pubdev.outputs.published != 'true' && steps.tag_state.outputs.exists != 'true'
+        shell: bash
+        env:
+          TAG_NAME: ${{ steps.package.outputs.tag }}
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}
+          TAG_PUSH_TOKEN: ${{ secrets.PUBDEV_TAG_PUSH_TOKEN }}
+        run: |
+          if [[ -z "${TAG_PUSH_TOKEN}" ]]; then
+            echo "::error::Missing PUBDEV_TAG_PUSH_TOKEN secret. Use a PAT or GitHub App token with contents:write so the pushed tag can trigger the publish workflow."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG_NAME}" -m "Publish ${PACKAGE_NAME} ${PACKAGE_VERSION}"
+          git remote set-url origin "https://x-access-token:${TAG_PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "${TAG_NAME}"
