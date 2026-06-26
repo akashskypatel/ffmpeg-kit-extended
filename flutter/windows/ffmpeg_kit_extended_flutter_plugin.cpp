@@ -14,7 +14,7 @@
 #include <cstring>
 #include <mutex>
 
-// ─── FFmpegKit ABI (runtime-resolved) ────────────────────────────────────────
+// --- FFmpegKit ABI (runtime-resolved) ----------------------------------------
 // Resolve the frame-callback symbols at runtime via GetProcAddress so that the
 // plugin DLL has no link-time dependency on the libffmpegkit.dll import library
 // for these symbols.  The DLL is already loaded in the process by the time any
@@ -99,7 +99,7 @@ static void ffplay_kit_unregister_frame_callback() {
 
 namespace ffmpeg_kit_extended_flutter {
 
-// ─── Frame callback (FFplay background thread) ────────────────────────────────
+// --- Frame callback (FFplay background thread) --------------------------------
 
 static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
                              int height, int linesize, const char* pixel_format) {
@@ -132,7 +132,7 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
   }
 }
 
-// ─── CopyPixelBuffer callback (Flutter render thread) ────────────────────────
+// --- CopyPixelBuffer callback (Flutter render thread) ------------------------
 
 static const FlutterDesktopPixelBuffer* CopyPixelBuffer(size_t /*width*/,
                                                          size_t /*height*/,
@@ -153,7 +153,7 @@ static const FlutterDesktopPixelBuffer* CopyPixelBuffer(size_t /*width*/,
   return &state->pixel_buffer;
 }
 
-// ─── Plugin implementation ────────────────────────────────────────────────────
+// --- Plugin implementation ----------------------------------------------------
 
 // static
 void FfmpegKitExtendedFlutterPlugin::RegisterWithRegistrar(

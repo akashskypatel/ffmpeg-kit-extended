@@ -23,8 +23,8 @@
 #import <CoreVideo/CoreVideo.h>
 #include <dlfcn.h>
 
-// ─── ffplay C API
-// ─────────────────────────────────────────────────────────────
+// --- ffplay C API
+// -------------------------------------------------------------
 // Non-Android path only; pixel format: RGBA8888, linesize == width * 4.
 // See flutter/.dart_tool/ffmpeg_kit_extended_flutter/include/ffplay_lib.h
 
@@ -55,11 +55,11 @@ static FlutterEventSink sLogEventSink = nil;
 }
 @end
 
-// ─── FfkitPixelTexture
-// ────────────────────────────────────────────────────────
+// --- FfkitPixelTexture
+// --------------------------------------------------------
 //
 // Threading model
-// ───────────────
+// ---------------
 // • updateWithPixels: fires from the FFplay executor thread.
 //   Copies decoded RGBA pixels into a CVPixelBuffer (with RGBA→BGRA permute
 //   via Accelerate), swaps it into _latestBuffer under _lock, then calls
@@ -318,7 +318,7 @@ static void getPermuteMapForFormat(const char *fmt, uint8_t map[4]) {
 
 @end
 
-// ─── Static C frame callback (FFplay executor thread) ────────────────────────
+// --- Static C frame callback (FFplay executor thread) ------------------------
 
 static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
                             int height, int linesize,
@@ -338,7 +338,7 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
             pixelFormat:pixel_format];
 }
 
-// ─── FfplayKitPlugin ─────────────────────────────────────────────────────────
+// --- FfplayKitPlugin ---------------------------------------------------------
 
 @implementation FfplayKitPlugin {
   NSObject<FlutterTextureRegistry> *_textureRegistry;

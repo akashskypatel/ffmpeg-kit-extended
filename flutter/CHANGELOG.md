@@ -1,5 +1,11 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+
+## Version 0.5.9
+
+- Updated FFmpeg to v8.1.2
+  - Fixes critical FFmpeg vulnerability CVE-2026-8461
+
 ## Version 0.5.8
 
 - **Android** Fix Android dummy library to force C++ linking to 16kb page size instead of 4kb.

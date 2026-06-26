@@ -29,7 +29,7 @@ FLUTTER_PLUGIN_EXPORT void FfmpegKitExtendedFlutterPluginRegisterWithRegistrar(
 
 namespace ffmpeg_kit_extended_flutter {
 
-// ─── Pixel-buffer texture state ───────────────────────────────────────────────
+// --- Pixel-buffer texture state -----------------------------------------------
 
 // Holds the mutable state shared between the FFplay frame callback (background
 // thread) and Flutter's CopyPixelBuffer callback (render thread).
@@ -56,7 +56,7 @@ struct TextureState {
   bool destroyed = false;            // Flag to indicate texture is being destroyed
 };
 
-// ─── Plugin class ─────────────────────────────────────────────────────────────
+// --- Plugin class -------------------------------------------------------------
 
 class FfmpegKitExtendedFlutterPlugin : public flutter::Plugin {
  public:

@@ -41,7 +41,7 @@ std::string GetCurrentDateTime() {
 #define FFKIT_LOG_T(fmt, ...) \
   g_printerr("[%s] [FFKit] [%p] " fmt "\n", GetCurrentDateTime().c_str(), (void*)pthread_self(), ##__VA_ARGS__)
 
-// ─── FFmpegKit ABI (runtime-resolved) ────────────────────────────────────────
+// --- FFmpegKit ABI (runtime-resolved) ----------------------------------------
 typedef void (*FFplayKitFrameCallback)(void* userdata, const uint8_t* pixels,
                                        int width, int height, int linesize,
                                        const char* format);
@@ -86,7 +86,7 @@ static void ffplay_kit_unregister_frame_callback() {
     g_unregister_fn(); 
 }
 
-// ─── TextureState (Double-Buffered & Thread-Safe) ────────────────────────────
+// --- TextureState (Double-Buffered & Thread-Safe) ----------------------------
 struct TextureState {
   FlTextureRegistrar* registrar = nullptr;
   std::mutex mutex;
@@ -105,7 +105,7 @@ struct TextureState {
   bool gl_initialized = false;
 };
 
-// ─── FfkitGlTexture (FlTextureGL subtype) ────────────────────────────────────
+// --- FfkitGlTexture (FlTextureGL subtype) ------------------------------------
 typedef struct _FfkitGlTexture FfkitGlTexture;
 typedef struct _FfkitGlTextureClass FfkitGlTextureClass;
 struct _FfkitGlTexture {
@@ -213,7 +213,7 @@ static FfkitGlTexture *ffkit_gl_texture_new(FlTextureRegistrar* registrar) {
   return tex;
 }
 
-// ─── Main Thread Callbacks ───────────────────────────────────────────────────
+// --- Main Thread Callbacks ---------------------------------------------------
 static gboolean mark_frame_idle_cb(gpointer user_data) {
   FfkitGlTexture* tex = FFKIT_GL_TEXTURE(user_data);
   if (!tex || !tex->state) {
@@ -240,7 +240,7 @@ static gboolean mark_frame_idle_cb(gpointer user_data) {
   return G_SOURCE_REMOVE;
 }
 
-// ─── Frame callback (FFmpeg thread) ──────────────────────────────────────────
+// --- Frame callback (FFmpeg thread) ------------------------------------------
 static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
                               int height, int linesize, const char* pixel_format) {
   if (!userdata || !pixels || width <= 0 || height <= 0) return;
@@ -281,7 +281,7 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
   }
 }
 
-// ─── Plugin Method Handlers ──────────────────────────────────────────────────
+// --- Plugin Method Handlers --------------------------------------------------
 struct _FfmpegKitExtendedFlutterPlugin {
   GObject parent_instance;
   FlTextureRegistrar* texture_registrar;
