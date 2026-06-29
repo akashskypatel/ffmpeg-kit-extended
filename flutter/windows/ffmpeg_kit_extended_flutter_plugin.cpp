@@ -66,7 +66,7 @@ static void ResolveFFplayProcs() {
 
       char msg[512];
       ::snprintf(msg, sizeof(msg),
-                 "[ffmpegkit_plugin] symbol probe — "
+                 "[ffmpegkit_plugin] symbol probe - "
                  "register_frame_callback: %s  "
                  "unregister_frame_callback: %s  "
                  "session_get_video_width: %s  "
@@ -125,7 +125,7 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
     }
     state->width = static_cast<uint32_t>(width);
     state->height = static_cast<uint32_t>(height);
-    // Swap write_buf ↔ read_buf so the render callback always gets the latest
+    // Swap write_buf <-> read_buf so the render callback always gets the latest
     // complete frame without blocking the decoder thread.
     std::swap(state->write_buf, state->read_buf);
     state->texture_registrar->MarkTextureFrameAvailable(state->texture_id);
@@ -212,7 +212,7 @@ void FfmpegKitExtendedFlutterPlugin::HandleCreateTexture(
   state->texture_id =
       texture_registrar_->RegisterTexture(state->texture_variant.get());
 
-  // Register frame callback — decoded frames will now flow into this texture.
+  // Register frame callback - decoded frames will now flow into this texture.
   ffplay_kit_register_frame_callback(OnFrameCallback, state_ptr);
 
   texture_state_ = std::move(state);

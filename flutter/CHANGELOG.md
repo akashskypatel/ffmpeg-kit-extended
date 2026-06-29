@@ -1,5 +1,8 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.10
+
+- Remove non-ascii chars from c source, bump dependencies, fix android and windows example app builds,
 
 ## Version 0.5.9
 

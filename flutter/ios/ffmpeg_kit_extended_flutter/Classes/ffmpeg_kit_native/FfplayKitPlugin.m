@@ -141,7 +141,7 @@ static void ffplaykit_log(const char *msg) {
     _latestBuffer = NULL;
   }
 
-  // kCVPixelFormatType_32BGRA — the native Metal format on Apple platforms.
+  // kCVPixelFormatType_32BGRA - the native Metal format on Apple platforms.
   // IOSurface backing ensures GPU accessibility without extra copies.
   NSDictionary *attrs = @{
     (id)kCVPixelBufferPixelFormatTypeKey : @(kCVPixelFormatType_32BGRA),

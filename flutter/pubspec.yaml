@@ -4,7 +4,7 @@ repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
 documentation: https://github.com/akashskypatel/ffmpeg-kit-extended/tree/master/flutter/doc
-version: 0.5.9
+version: 0.5.10
 
 topics:
   - ffmpeg
@@ -35,14 +35,14 @@ flutter:
         fileName: FfmpegKitExtendedFlutterPlugin.h
 
 dependencies:
-  code_assets: ^1.0.0
+  code_assets: ^1.2.1
   crypto: ^3.0.7
   ffi: ^2.2.0
   flutter:
     sdk: flutter
-  hooks: ^2.0.0
+  hooks: ^2.0.2
   logging: ^1.3.0
-  meta: ^1.17.0
+  meta: ^1.18.0
   path: ^1.9.1
   yaml: ^3.1.3
 

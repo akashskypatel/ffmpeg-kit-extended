@@ -2,8 +2,8 @@
 // Copyright (C) 2026 Akash Patel
 //
 // The plugin is implemented in Objective-C:
-//   FfmpegKitExtendedFlutterPlugin.h/.m  — FFmpegKit/FFprobe channels
-//   FfplayKitPlugin.h/.m                 — ffplay_kit_desktop texture channel
+//   FfmpegKitExtendedFlutterPlugin.h/.m  - FFmpegKit/FFprobe channels
+//   FfplayKitPlugin.h/.m                 - ffplay_kit_desktop texture channel
 //
 // This file is intentionally empty; the Xcode build includes it only to
 // satisfy the CocoaPods Swift source-file requirement.
