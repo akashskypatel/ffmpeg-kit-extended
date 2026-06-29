@@ -1,6 +1,7 @@
 name: Flutter Example App CI
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
