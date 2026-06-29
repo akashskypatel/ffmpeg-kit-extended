@@ -6,7 +6,7 @@ on:
     branches:
       - main
     paths:
-      - "flutter/example/**"
+      - "flutter/**"
       - ".github/workflows/flutter_example_ci.yaml"
       - "**.dart"
       - "**.yaml"
@@ -17,12 +17,16 @@ on:
       - "**.m"
       - "**.h"
       - "**.mm"
+      - "**.hpp"
+      - "**.c"
+      - "**.cpp"
+      - "**.cc"
       - "**.podspec"
       - "!**.md"
       - "!flutter/doc/**"
   pull_request:
     paths:
-      - "flutter/example/**"
+      - "flutter/**"
       - ".github/workflows/flutter_example_ci.yaml"
       - "**.dart"
       - "**.yaml"
@@ -34,6 +38,10 @@ on:
       - "**.h"
       - "**.mm"
       - "**.podspec"
+      - "**.hpp"
+      - "**.c"
+      - "**.cpp"
+      - "**.cc"
       - "!**.md"
       - "!flutter/doc/**"
 
