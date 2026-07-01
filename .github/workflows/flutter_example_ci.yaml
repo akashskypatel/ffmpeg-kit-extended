@@ -65,6 +65,10 @@ jobs:
           - platform: ios
             os: macos-latest
             artifact_name: Runner.app
+            build_command: flutter build ios --debug --no-codesign
+          - platform: ios-simulator
+            os: macos-latest
+            artifact_name: Runner.app
             build_command: flutter build ios --simulator --debug --no-codesign
           - platform: windows
             os: windows-latest
@@ -170,8 +174,16 @@ jobs:
           path: flutter/example/${{ matrix.artifact_name }}
           retention-days: 7
 
-      - name: Upload artifacts (iOS Simulator)
+      - name: Upload artifacts (iOS)
         if: matrix.platform == 'ios'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-app
+          path: flutter/example/build/ios/iphoneos/
+          retention-days: 7
+
+      - name: Upload artifacts (iOS Simulator)
+        if: matrix.platform == 'ios-simulator'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-app

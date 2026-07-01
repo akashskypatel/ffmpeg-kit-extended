@@ -115,3 +115,5 @@ mempalace.yaml
 FlutterFramework
 .aider*
 .devin/
+## User settings
+xcuserdata/
