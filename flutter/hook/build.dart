@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
 import 'package:hooks/hooks.dart';
+import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -11,6 +12,7 @@ const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
 const String version = "0.10.4";
+const String _extractMarkerFileName = '.extract_complete';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
@@ -124,6 +126,83 @@ class AppleRuntimeLayout {
     required this.frameworkBinary,
     required this.companionLibraries,
   });
+}
+
+@visibleForTesting
+File tempDownloadFileFor(File target) => File('${target.path}.downloading');
+
+@visibleForTesting
+Directory extractRootFor(File file, Directory cacheDir) =>
+    Directory(p.join(cacheDir.path, p.basenameWithoutExtension(file.path)));
+
+@visibleForTesting
+File extractCompletionMarkerFor(Directory extractRoot) =>
+    File(p.join(extractRoot.path, _extractMarkerFileName));
+
+@visibleForTesting
+void cleanupStaleDownload(File target, {void Function(String message)? log}) {
+  final tempTarget = tempDownloadFileFor(target);
+  if (tempTarget.existsSync()) {
+    log?.call('Removing stale partial download ${tempTarget.path}');
+    tempTarget.deleteSync();
+  }
+}
+
+@visibleForTesting
+void deleteIfExists(FileSystemEntity entity) {
+  if (entity.existsSync()) {
+    entity.deleteSync(recursive: true);
+  }
+}
+
+@visibleForTesting
+void deleteCorruptArtifact(File targetFile, {void Function(String message)? log}) {
+  if (targetFile.existsSync()) {
+    log?.call('Deleting corrupt artifact ${targetFile.path}');
+    targetFile.deleteSync();
+  }
+}
+
+@visibleForTesting
+Future<Directory> prepareExtractedArtifact(
+  File file,
+  Directory cacheDir,
+  Future<bool> Function(File zipFile, String destPath) extractFile,
+) async {
+  final extractRoot = extractRootFor(file, cacheDir);
+  final marker = extractCompletionMarkerFor(extractRoot);
+  final hasPayload =
+      extractRoot.existsSync() &&
+      extractRoot.listSync().any(
+        (entity) => p.basename(entity.path) != _extractMarkerFileName,
+      );
+
+  final hasCompletedExtract = extractRoot.existsSync() && marker.existsSync() && hasPayload;
+  if (hasCompletedExtract) {
+    return extractRoot;
+  }
+
+  if (extractRoot.existsSync()) {
+    deleteIfExists(extractRoot);
+  }
+
+  final tempExtractRoot = Directory('${extractRoot.path}.extracting');
+  deleteIfExists(tempExtractRoot);
+  tempExtractRoot.createSync(recursive: true);
+
+  try {
+    final extracted = await extractFile(file, tempExtractRoot.path);
+    if (!extracted) {
+      throw _exception('Failed to extract ${file.path}');
+    }
+
+    File(p.join(tempExtractRoot.path, _extractMarkerFileName)).createSync();
+    tempExtractRoot.renameSync(extractRoot.path);
+    return extractRoot;
+  } catch (_) {
+    deleteIfExists(tempExtractRoot);
+    rethrow;
+  }
 }
 
 Future<FFmpegArtifact?> _resolveArtifact(
@@ -244,6 +323,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
         'Failed to compute SHA256 hash for $targetFile; skipping verification',
       );
     } else if (expectedHash != calculatedHash) {
+      deleteCorruptArtifact(targetFile, log: _log);
       throw _exception(
         'SHA256 hash mismatch: expected $expectedHash, got $calculatedHash',
       );
@@ -263,15 +343,7 @@ Future<FFmpegArtifact> _handleDownloadedFile(
     return FFmpegArtifact(file: file, isAar: true);
   }
 
-  final extractRoot = Directory(
-    p.join(cacheDir.path, p.basenameWithoutExtension(file.path)),
-  );
-  if (!extractRoot.existsSync() || extractRoot.listSync().isEmpty) {
-    extractRoot.createSync(recursive: true);
-    if (!await _extractFile(file, extractRoot.path)) {
-      throw _exception('Failed to extract ${file.path}');
-    }
-  }
+  final extractRoot = await prepareExtractedArtifact(file, cacheDir, _extractFile);
   // Auto-detect the xcframework directory inside
   final finalExtractedDir = extractRoot
       .listSync()
@@ -723,7 +795,8 @@ String _getAppleArch() {
 
 Future<bool> _downloadFile(String url, File target) async {
   final client = HttpClient();
-  final tempTarget = File('${target.path}.downloading');
+  cleanupStaleDownload(target, log: _log);
+  final tempTarget = tempDownloadFileFor(target);
   try {
     final request = await client.getUrl(Uri.parse(url));
     final response = await request.close();
