@@ -11,7 +11,7 @@ import 'package:yaml/yaml.dart';
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
-const String version = "0.10.4";
+const String version = "0.10.5";
 const String _extractMarkerFileName = '.extract_complete';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
@@ -156,7 +156,10 @@ void deleteIfExists(FileSystemEntity entity) {
 }
 
 @visibleForTesting
-void deleteCorruptArtifact(File targetFile, {void Function(String message)? log}) {
+void deleteCorruptArtifact(
+  File targetFile, {
+  void Function(String message)? log,
+}) {
   if (targetFile.existsSync()) {
     log?.call('Deleting corrupt artifact ${targetFile.path}');
     targetFile.deleteSync();
@@ -177,7 +180,8 @@ Future<Directory> prepareExtractedArtifact(
         (entity) => p.basename(entity.path) != _extractMarkerFileName,
       );
 
-  final hasCompletedExtract = extractRoot.existsSync() && marker.existsSync() && hasPayload;
+  final hasCompletedExtract =
+      extractRoot.existsSync() && marker.existsSync() && hasPayload;
   if (hasCompletedExtract) {
     return extractRoot;
   }
@@ -210,8 +214,16 @@ Future<FFmpegArtifact?> _resolveArtifact(
   BuildInput input,
 ) async {
   final config = configResult.config;
-  String type = config['type']?.toString() ?? "full";
+  String type = config['type']?.toString() ?? "base";
   if (type == "streaming") type = "video";
+  if (type == "full") {
+    _log(
+      "Full bundle is a heavyweight package and may increase your app size significantly. "
+      "Please review all included libraries to make sure you need all bundled features. "
+      "Bundle content: https://github.com/akashskypatel/ffmpeg-kit-extended#supported-external-libraries "
+      "If you don't need all the libraries included in full bundle, consider using other bundles for smaller app sizes.",
+    );
+  }
   if (!_validTypes.contains(type)) {
     _log(
       'Invalid bundle type: $type. Valid types are: ${_validTypes.join(', ')}',
@@ -343,7 +355,11 @@ Future<FFmpegArtifact> _handleDownloadedFile(
     return FFmpegArtifact(file: file, isAar: true);
   }
 
-  final extractRoot = await prepareExtractedArtifact(file, cacheDir, _extractFile);
+  final extractRoot = await prepareExtractedArtifact(
+    file,
+    cacheDir,
+    _extractFile,
+  );
   // Auto-detect the xcframework directory inside
   final finalExtractedDir = extractRoot
       .listSync()

@@ -4,7 +4,7 @@ repository: https://github.com/akashskypatel/ffmpeg-kit-extended
 issue_tracker: https://github.com/akashskypatel/ffmpeg-kit-extended/issues
 homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
 publish_to: "none"
-version: 0.5.10+1
+version: 0.5.11+1
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
@@ -38,9 +38,9 @@ flutter:
   uses-material-design: true
 
 ffmpeg_kit_extended_config:
-  type: "base"
+  type: "debug"
   gpl: true
-  small: true
+  small: false
   # macos: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-macos-universal-gpl.xcframework.zip"
   # ios: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-ios-universal-gpl.xcframework.zip"
   # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-video-windows-x86_64-shared-gpl.zip"
