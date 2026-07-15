@@ -118,3 +118,4 @@ FlutterFramework
 ## User settings
 xcuserdata/
 .codebase-memory/
+.DS_Store
