@@ -78,7 +78,7 @@ You will have to update your app's minimum requirements on your own to match the
    ```yaml
    ffmpeg_kit_extended_config:
      type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
-     gpl: true # enable to include GPL libraries
+     gpl: true # enable to include GPL libraries. WARNING: Make sure you understand what GPL license means before enabling. Check https://www.ffmpeg.org/legal.html for more information.
      small: true # enable to use smaller builds
      # == OR ==
      # -------------------------------------------------------------
