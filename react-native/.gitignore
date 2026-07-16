@@ -1,0 +1,139 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+lib/
+dist/
+build/
+coverage/
+
+# React Native Codegen
+android/generated/
+ios/generated/
+
+# Metro
+.metro-health-check*
+.metro-cache/
+**/.metro-cache/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Android / Gradle
+.gradle/
+**/.gradle/
+android/build/
+android/.cxx/
+android/.externalNativeBuild/
+android/local.properties
+android/app/build/
+android/app/.cxx/
+android/app/.externalNativeBuild/
+
+# Nested example Android build
+example/android/build/
+example/android/.gradle/
+example/android/.cxx/
+example/android/.externalNativeBuild/
+example/android/local.properties
+example/android/app/build/
+example/android/app/.cxx/
+example/android/app/.externalNativeBuild/
+
+# Android signing
+*.jks
+*.keystore
+!debug.keystore
+
+# iOS / Xcode
+ios/build/
+ios/Pods/
+ios/Podfile.lock
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# Nested example iOS build
+example/ios/build/
+example/ios/Pods/
+example/ios/Podfile.lock
+example/ios/*.xcworkspace/
+example/ios/**/xcuserdata/
+
+# CocoaPods
+Pods/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Native build artifacts
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.pdb
+
+# Test / coverage
+.nyc_output/
+coverage/
+junit.xml
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.tmp/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDEs / editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+Desktop.ini
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
+
+# pnpm
+.pnpm-store/
+
+# TypeScript
+*.tsbuildinfo

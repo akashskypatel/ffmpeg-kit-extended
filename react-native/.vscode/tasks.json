@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Android Emulator (emulator-5554)",
+      "type": "shell",
+      "command": "adb devices | grep -q 'emulator-5554' || emulator -avd Medium_Phone_API_36.1 -gpu swiftshader_indirect",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^.*$",
+          "file": 1,
+          "location": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*emulator.*$",
+          "endsPattern": "^.*Boot completed.*$"
+        }
+      },
+      "presentation": {
+        "reveal": "silent"
+      }
+    },
+    {
+      "label": "Logcat",
+      "type": "shell",
+      "command": "adb logcat -s FFplayLib:* FFmpegKitAndroid:* | grep -E 'ffplay|FFplay|executeFFplay'",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Logcat (Clear and restream)",
+      "type": "shell",
+      "command": "adb logcat -c && adb logcat -v threadtime *:V",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

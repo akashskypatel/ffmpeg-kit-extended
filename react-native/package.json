@@ -1,0 +1,96 @@
+{
+  "name": "ffmpeg-kit-extended",
+  "version": "0.1.0",
+  "description": "React Native TurboModule bindings for FFmpegKit Extended",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "react-native": "./src/index.ts",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.ts",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "android",
+    "ios",
+    "cpp",
+    "*.podspec",
+    "react-native.config.js"
+  ],
+  "scripts": {
+    "clean": "del-cli android/build ios/build lib",
+    "prepare": "bob build",
+    "typecheck": "tsc --noEmit",
+    "example:android": "npm --prefix example run android",
+    "example:ios": "npm --prefix example run ios",
+    "example:start": "npm --prefix example run start"
+  },
+  "keywords": [
+    "react-native",
+    "ffmpeg",
+    "ffprobe",
+    "ffplay",
+    "turbo-module"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akashskypatel/ffmpeg-kit-extended.git"
+  },
+  "author": "Akash Patel <akashskypatel@gmail.com> (https://github.com/akashskypatel)",
+  "license": "LGPL-2.1-or-later",
+  "bugs": {
+    "url": "https://github.com/akashskypatel/ffmpeg-kit-extended/issues"
+  },
+  "homepage": "https://github.com/akashskypatel/ffmpeg-kit-extended#readme",
+  "devDependencies": {
+    "@react-native-community/cli": "^20.1.2",
+    "@react-native/babel-preset": "0.86.0",
+    "@types/react": "^19.2.0",
+    "del-cli": "^7.0.0",
+    "react": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-builder-bob": "^0.41.0",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": ">=0.76"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ],
+      "codegen"
+    ]
+  },
+  "codegenConfig": {
+    "name": "FFmpegKitExtendedSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "outputDir": {
+      "ios": "ios/generated",
+      "android": "android/generated"
+    },
+    "android": {
+      "javaPackageName": "com.akashskypatel.ffmpegkitextended"
+    },
+    "includesGeneratedCode": true
+  }
+}
