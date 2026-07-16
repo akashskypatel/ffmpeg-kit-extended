@@ -618,6 +618,9 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   }
 
   final sliceDir = Directory(selectedSliceDir);
+  final sourceFrameworkBinary = File(
+    p.join(sliceDir.path, 'ffmpegkit.framework', 'ffmpegkit'),
+  );
 
   final sourceDylibs =
       sliceDir
@@ -628,12 +631,16 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
 
-  final sourceMainDylib = sourceDylibs.firstWhere(
-    (f) => p.basename(f.path) == 'libffmpegkit.dylib',
-    orElse: () {
-      throw _exception('libffmpegkit.dylib not found in ${sliceDir.path}');
-    },
-  );
+  final sourceMainDylib = sourceFrameworkBinary.existsSync()
+      ? sourceFrameworkBinary
+      : sourceDylibs.firstWhere(
+          (f) => p.basename(f.path) == 'libffmpegkit.dylib',
+          orElse: () {
+            throw _exception(
+              'ffmpegkit.framework/ffmpegkit or libffmpegkit.dylib not found in ${sliceDir.path}',
+            );
+          },
+        );
 
   final frameworkRoot = Directory(
     p.fromUri(input.outputDirectory.resolve('ffmpegkit.framework/')),
@@ -680,7 +687,9 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
     companionLibraries.add(destination);
   }
 
-  final sourceHeadersDir = Directory(p.join(sliceDir.path, 'Headers'));
+  final sourceHeadersDir = sourceFrameworkBinary.existsSync()
+      ? Directory(p.join(sliceDir.path, 'ffmpegkit.framework', 'Headers'))
+      : Directory(p.join(sliceDir.path, 'Headers'));
   if (sourceHeadersDir.existsSync()) {
     await _copyDirectory(sourceHeadersDir, headersDir);
   }

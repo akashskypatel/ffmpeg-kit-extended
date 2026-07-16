@@ -72,8 +72,20 @@ void _resolveNativeSymbols() {
     } else if (Platform.isIOS || Platform.isMacOS) {
       candidates.add(DynamicLibrary.process);
       candidates.add(
+        () => DynamicLibrary.open('@rpath/ffmpegkit.framework/ffmpegkit'),
+      );
+      if (Platform.isMacOS) {
+        candidates.add(
+          () => DynamicLibrary.open(
+            '@rpath/ffmpegkit.framework/Versions/A/ffmpegkit',
+          ),
+        );
+      }
+      candidates.add(
         () => DynamicLibrary.open('ffmpegkit.framework/ffmpegkit'),
       );
+      candidates.add(() => DynamicLibrary.open('@rpath/libffmpegkit.dylib'));
+      candidates.add(() => DynamicLibrary.open('libffmpegkit.dylib'));
     } else if (Platform.isWindows) {
       candidates.add(() => DynamicLibrary.open('libffmpegkit.dll'));
     } else {
