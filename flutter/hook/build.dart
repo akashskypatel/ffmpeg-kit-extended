@@ -411,7 +411,7 @@ Future<void> _emitAssets(
         abiDir
             .listSync()
             .whereType<File>()
-            .where((file) => file.path.endsWith('.so'))
+            .where((file) => file.path.contains('.so'))
             .toList()
           ..sort((a, b) => a.path.compareTo(b.path));
 
@@ -488,7 +488,7 @@ Future<void> _emitAssets(
         binDir
             .listSync()
             .whereType<File>()
-            .where((file) => file.path.endsWith(ext))
+            .where((file) => file.path.contains(ext))
             .toList(),
       );
     }
@@ -558,7 +558,7 @@ Future<void> _emitAssets(
         if (targetOS == OS.linux) {
           assetName = assetName.replaceFirst('lib', '');
           // Also remove the .so extension for the asset name
-          if (assetName.endsWith('.so')) {
+          if (assetName.contains('.so')) {
             assetName = assetName.substring(0, assetName.length - 3);
           }
         }
