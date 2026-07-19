@@ -1,0 +1,45 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+
+// Keep the native FFmpegKit dependency configurable so applications can select
+// another published bundle without modifying this package.
+def ffmpegKitVersion = project.findProperty("ffmpegKitVersion") ?: "0.10.5"
+def ffmpegKitAndroidArtifact = project.findProperty("ffmpegKitAndroidArtifact") ?: "bundle-base-shared-small-lgpl"
+
+android {
+    namespace "com.akashskypatel.ffmpegkitextended"
+
+    compileSdk rootProject.ext.has("compileSdkVersion")
+            ? rootProject.ext.compileSdkVersion
+            : 36
+
+    defaultConfig {
+        minSdk rootProject.ext.has("minSdkVersion")
+                ? rootProject.ext.minSdkVersion
+                : 24
+        targetSdk rootProject.ext.has("targetSdkVersion")
+                ? rootProject.ext.targetSdkVersion
+                : 36
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets {
+        main {
+            java.srcDirs += ["generated/java"]
+        }
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation("io.github.akashskypatel.ffmpegkit:${ffmpegKitAndroidArtifact}:${ffmpegKitVersion}")
+}

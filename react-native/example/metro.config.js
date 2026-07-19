@@ -1,30 +1,49 @@
 const path = require('path');
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+const {
+  getDefaultConfig,
+  mergeConfig,
+} = require('@react-native/metro-config');
 
-const projectRoot = __dirname;
-const libraryRoot = path.resolve(projectRoot, '..');
+const libraryRoot = path.resolve(__dirname, '..');
+const exampleNodeModules = path.resolve(__dirname, 'node_modules');
 
+/**
+ * Metro configuration
+ *
+ * The example consumes source files directly from the parent library.
+ * Force both the library and example app to share the example app's
+ * React and React Native runtime instances.
+ *
+ * @type {import('metro-config').MetroConfig}
+ */
 const config = {
   watchFolders: [
     libraryRoot,
   ],
 
   resolver: {
+    // Do not let imports from ../src resolve against
+    // ../node_modules before reaching example/node_modules.
+    disableHierarchicalLookup: true,
+
     nodeModulesPaths: [
-      path.resolve(projectRoot, 'node_modules'),
-      path.resolve(libraryRoot, 'node_modules'),
+      exampleNodeModules,
     ],
 
-    // Ensure the example's React/React Native instances are used
-    // instead of potentially resolving duplicate copies from the library root.
     extraNodeModules: {
-      react: path.resolve(projectRoot, 'node_modules/react'),
-      'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+      react: path.resolve(
+        exampleNodeModules,
+        'react',
+      ),
+      'react-native': path.resolve(
+        exampleNodeModules,
+        'react-native',
+      ),
     },
   },
 };
 
 module.exports = mergeConfig(
-  getDefaultConfig(projectRoot),
-  config
+  getDefaultConfig(__dirname),
+  config,
 );

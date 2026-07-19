@@ -337,6 +337,7 @@ export class MediaInformationSession extends Session {
 
 export class FFplaySession extends Session {
   private completeCallback?: (session: FFplaySession) => void;
+  private cachedVolume = 1.0;
   private logCallback?: (log: Log, session: FFplaySession) => void;
   private timeoutMs: number;
 
@@ -425,11 +426,17 @@ export class FFplaySession extends Session {
   }
 
   setVolume(volume: number): void {
-    NativeFFmpegKitExtended.ffplaySetVolume(this.sessionId, volume);
+    const clamped = Math.max(0, Math.min(1, volume));
+    this.cachedVolume = clamped;
+    NativeFFmpegKitExtended.ffplaySetVolume(this.sessionId, clamped);
   }
 
   getVolume(): number {
-    return NativeFFmpegKitExtended.ffplayGetVolume(this.sessionId);
+    const nativeVolume = NativeFFmpegKitExtended.ffplayGetVolume(this.sessionId);
+    if (nativeVolume >= 0) {
+      this.cachedVolume = nativeVolume;
+    }
+    return this.cachedVolume;
   }
 }
 

@@ -34,7 +34,7 @@ import {
   FFmpegKitExtended,
   FFmpegKit,
   ReturnCode,
-} from 'ffmpeg-kit-extended';
+} from 'react-native-ffmpeg-kit-extended';
 
 FFmpegKitExtended.initialize();
 
@@ -54,7 +54,7 @@ if (session.getReturnCode() === ReturnCode.Success) {
 Media information follows the same abstraction as Flutter:
 
 ```ts
-import {FFprobeKit} from 'ffmpeg-kit-extended';
+import {FFprobeKit} from 'react-native-ffmpeg-kit-extended';
 
 const session = await FFprobeKit.getMediaInformation('/path/to/video.mp4');
 const media = session.getMediaInformation();
@@ -63,17 +63,35 @@ console.log(media?.format);
 console.log(media?.streams);
 ```
 
-FFplay session controls are also exposed:
+FFplay video and audio playback are supported on Android. Mount `FFplayView` before starting video playback so its native `TextureView` can bind an Android `Surface` to FFplay. Audio-only playback does not require a video surface.
+
+```tsx
+import {FFplayKit, FFplayView} from 'react-native-ffmpeg-kit-extended';
+
+export function Player() {
+  const play = async () => {
+    const session = FFplayKit.createSession(
+      '-hide_banner -autoexit -i "/path/to/video.mp4"',
+    );
+    await session.executeAsync();
+  };
+
+  return (
+    <>
+      <FFplayView style={{width: '100%', aspectRatio: 16 / 9}} />
+      {/* Call play() after the view is mounted. */}
+    </>
+  );
+}
+```
+
+Playback controls remain session based:
 
 ```ts
-import {FFplayKit} from 'ffmpeg-kit-extended';
-
-const session = FFplayKit.createSession('-i /path/to/video.mp4');
-void session.executeAsync();
-
 session.pause();
 session.seek(10);
 session.resume();
+session.setVolume(0.5);
 ```
 
 ## Native runtime packaging
@@ -82,16 +100,20 @@ The TurboModule does **not** compile or statically link FFmpegKit itself. The ap
 
 ### Android
 
-Package `libffmpegkit.so` and its native dependencies for each target ABI so Android can load them at runtime. A conventional layout is:
+The Android library depends on the published FFmpegKit Extended AAR and defaults to:
 
 ```text
-android/app/src/main/jniLibs/
-  arm64-v8a/libffmpegkit.so
-  armeabi-v7a/libffmpegkit.so
-  x86_64/libffmpegkit.so
+io.github.akashskypatel.ffmpegkit:bundle-base-shared-small-lgpl:0.10.5
 ```
 
-A consuming AAR may provide the same libraries instead. The bridge loads `libffmpegkit.so` with `dlopen`.
+The artifact and version can be overridden with Gradle properties:
+
+```properties
+ffmpegKitAndroidArtifact=bundle-video-shared-small-lgpl
+ffmpegKitVersion=0.10.5
+```
+
+The C++ TurboModule loads `libffmpegkit.so` with `dlopen`. `FFplayView` uses a native Android `TextureView`, converts its `Surface` to FFplay's `ANativeWindow` through the FFmpegKit JNI bridge, and clears the surface when the React Native view is destroyed. Audio output is handled directly by FFplay/SDL and works for both video and audio-only sessions.
 
 ### iOS
 
@@ -141,13 +163,12 @@ Implemented native coverage includes:
 
 ## Intentionally deferred
 
-The Flutter package has rendering-specific abstractions that need React Native UI components rather than plain TurboModule methods:
+Rendering-specific work that remains outside the Android implementation:
 
-- Flutter `FFplayAndroidSurface` / `FFplayView` equivalent for Android `ANativeWindow` binding.
 - Desktop frame callback/texture rendering.
-- Any future iOS FFplay rendering surface integration.
+- iOS FFplay rendering surface integration.
 
-Those should be implemented as a Fabric Native Component that owns the platform view/surface and attaches it to an `FFplaySession`. The command/session bindings in this package can remain unchanged.
+Android video rendering is implemented by `FFplayView`; Android audio playback uses FFplay's native audio backend and requires no view.
 
 Global native callback registration is also not exposed because per-session callbacks are dispatched by the TypeScript polling layer. This avoids duplicate callback paths and cross-thread JavaScript invocation.
 
@@ -174,4 +195,4 @@ npm run android
 npm run ios
 ```
 
-The FFplay tab currently uses a video placeholder because the TurboModule binding does not yet include the deferred Fabric `FFplayView` surface component. Playback/session controls are still exercised by the example.
+The FFplay tab mounts the native Android `FFplayView`, generates sample video/audio media, exercises video and audio-only playback, and exposes pause/resume/stop/seek/volume controls.

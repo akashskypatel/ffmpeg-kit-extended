@@ -9,3 +9,4 @@ export * from './media-information';
 export * from './session';
 export * from './session-queue-manager';
 export * from './types';
+export * from './ffplay-view';

@@ -38,7 +38,7 @@ flutter:
   uses-material-design: true
 
 ffmpeg_kit_extended_config:
-  type: "debug"
+  type: "full"
   gpl: true
   small: false
   # macos: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-macos-universal-gpl.xcframework.zip"

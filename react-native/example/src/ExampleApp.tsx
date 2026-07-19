@@ -1,12 +1,14 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
@@ -23,6 +25,7 @@ import {
   FFmpegKitConfig,
   FFmpegKitExtended,
   FFplayKit,
+  FFplayView,
   FFprobeKit,
   LogLevel,
   ReturnCode,
@@ -46,6 +49,13 @@ type RemoteRecordingJob = {
 };
 
 const TABS: TabName[] = ['FFmpeg', 'Stream', 'FFprobe', 'FFplay', 'Transcode'];
+const TAB_SYMBOLS: Record<TabName, string> = {
+  FFmpeg: '▣',
+  Stream: '≋',
+  FFprobe: 'ⓘ',
+  FFplay: '▶',
+  Transcode: '⇄',
+};
 const EXAMPLE_DIR = `${Dirs.CacheDir}/ffmpeg_kit_extended_react_native_example`;
 const TEST_VIDEO_PATH = `${EXAMPLE_DIR}/test_video.mp4`;
 const TEST_AUDIO_PATH = `${EXAMPLE_DIR}/test_audio.wav`;
@@ -55,7 +65,10 @@ const MEDIA_INFO_FALLBACK =
   'https://raw.githubusercontent.com/tanersener/ffmpeg-kit/master/test-data/video.mp4';
 
 const LOG_LEVELS = [
+  LogLevel.Stderr,
   LogLevel.Quiet,
+  LogLevel.Panic,
+  LogLevel.Fatal,
   LogLevel.Error,
   LogLevel.Warning,
   LogLevel.Info,
@@ -64,10 +77,36 @@ const LOG_LEVELS = [
   LogLevel.Trace,
 ];
 
+const SYSTEM_INFO_ITEMS = [
+  ['Basic System Info', 'basic', 'ⓘ'],
+  ['FFmpeg Version', 'ffmpeg-version', '✓'],
+  ['FFmpeg Architecture', 'architecture', '▦'],
+  ['FFmpegKit Version', 'ffmpegkit-version', 'ⓘ'],
+  ['Package Name', 'package-name', '▣'],
+  ['External Libraries', 'libraries', '▤'],
+  ['Bundle Type', 'bundle', '◆'],
+  ['GPL Status', 'gpl', '⚖'],
+  ['Non-Free Status', 'nonfree', '▰'],
+  ['Registered Codecs', 'codecs', '▣'],
+  ['Registered Encoders', 'encoders', '↑'],
+  ['Registered Decoders', 'decoders', '↓'],
+  ['Registered Muxers', 'muxers', '↗'],
+  ['Registered Demuxers', 'demuxers', '↘'],
+  ['Registered Filters', 'filters', '▼'],
+  ['Registered Protocols', 'protocols', '∞'],
+  ['Registered Bitstream Filters', 'bsfs', '☷'],
+  ['Build Configuration', 'build', '⌕'],
+  ['Build Date', 'build-date', '□'],
+] as const;
+
 export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): React.JSX.Element {
+  const {width} = useWindowDimensions();
+  const isMobile = width < 600;
   const [activeTab, setActiveTab] = useState<TabName>('FFmpeg');
   const [initialized, setInitialized] = useState(false);
   const [status, setStatus] = useState('Initializing...');
+  const [logLevelMenuVisible, setLogLevelMenuVisible] = useState(false);
+  const [systemInfoMenuVisible, setSystemInfoMenuVisible] = useState(false);
   const [logs, setLogs] = useState('');
   const [ffmpegCommand, setFfmpegCommand] = useState('-version');
   const [ffprobeCommand, setFfprobeCommand] = useState('-version');
@@ -88,6 +127,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
   const [playbackState, setPlaybackState] = useState('Stopped');
   const [videoSize, setVideoSize] = useState({width: 0, height: 0});
   const [volume, setVolume] = useState(0.5);
+  const videoSurfaceReadyRef = useRef(false);
   const logScrollRef = useRef<ScrollView>(null);
 
   const appendLog = useCallback((message: string) => {
@@ -137,9 +177,15 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         const duration = playbackSession.getMediaDuration();
         const width = playbackSession.getVideoWidth();
         const height = playbackSession.getVideoHeight();
-        setPlaybackPosition(position);
-        setPlaybackDuration(duration);
-        setVideoSize({width, height});
+        if (position >= 0) {
+          setPlaybackPosition(position);
+        }
+        if (duration >= 0) {
+          setPlaybackDuration(duration);
+        }
+        if (width > 0 && height > 0) {
+          setVideoSize({width, height});
+        }
         setPlaybackState(
           playbackSession.isPlaying()
             ? 'Playing'
@@ -233,12 +279,25 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
             `Log Level: ${FFmpegKitConfig.logLevelToString(FFmpegKitConfig.getLogLevel())}`,
           );
           return;
+        case 'ffmpeg-version':
+          appendLog(`FFmpeg Version: ${FFmpegKitExtended.getFFmpegVersion()}`);
+          return;
         case 'architecture':
           appendLog(`FFmpeg Architecture: ${FFmpegKitExtended.getFFmpegArchitecture()}`);
           return;
+        case 'ffmpegkit-version':
+          appendLog(`FFmpegKit Version: ${FFmpegKitExtended.getVersion()}`);
+          return;
+        case 'package-name':
+          appendLog(`Package Name: ${FFmpegKitExtended.getPackageName()}`);
+          return;
         case 'bundle':
           appendLog(`Bundle Type: ${FFmpegKitExtended.getBundleType()}`);
+          return;
+        case 'gpl':
           appendLog(`GPL: ${FFmpegKitExtended.isGpl() ? 'enabled' : 'disabled'}`);
+          return;
+        case 'nonfree':
           appendLog(`Non-free: ${FFmpegKitExtended.isNonfree() ? 'enabled' : 'disabled'}`);
           return;
         case 'libraries':
@@ -272,6 +331,9 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
           return;
         case 'build':
           appendLog(`Build Configuration:\n${FFmpegKitExtended.getBuildConfiguration() || 'None'}`);
+          return;
+        case 'build-date':
+          appendLog(`Build Date: ${FFmpegKitExtended.getBuildDate()}`);
           return;
       }
     } catch (error) {
@@ -499,8 +561,26 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
     appendLog(`Return code: ${session.getReturnCode()}`);
   }, [appendLog, ffprobeCommand]);
 
+  const waitForAndroidVideoSurface = useCallback(async () => {
+    if (platformName !== 'Android') {
+      return;
+    }
+
+    const timeoutAt = Date.now() + 2000;
+    while (!videoSurfaceReadyRef.current && Date.now() < timeoutAt) {
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+
+    if (!videoSurfaceReadyRef.current) {
+      throw new Error('FFplay video surface is not ready. Open the FFplay tab and try again.');
+    }
+
+    // Let Android finish publishing the TextureView Surface to the native bridge.
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }, [platformName]);
+
   const startPlayback = useCallback(
-    async (command: string, label: string) => {
+    async (command: string, label: string, requiresVideoSurface = true) => {
       if (playbackSession) {
         try {
           playbackSession.stop();
@@ -508,14 +588,21 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
           // Ignore stale session cleanup.
         }
       }
+      if (requiresVideoSurface) {
+        await waitForAndroidVideoSurface();
+      }
       appendLog(`--- Starting FFplay: ${label} ---`);
+      appendLog(`Command: ${command}`);
       const session = FFplayKit.createSession(command);
       setPlaybackSession(session);
       setPlaybackPosition(0);
       setPlaybackDuration(0);
       setPlaybackState('Starting');
       setVideoSize({width: 0, height: 0});
-      setVolume(session.getVolume());
+      const initialVolume = session.getVolume();
+      if (initialVolume >= 0) {
+        setVolume(initialVolume);
+      }
       void session
         .executeAsync({
           logCallback: log => appendLog(log.message),
@@ -529,18 +616,19 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         })
         .catch(error => appendLog(`FFplay failed: ${String(error)}`));
     },
-    [appendLog, playbackSession],
+    [appendLog, playbackSession, waitForAndroidVideoSurface],
   );
 
   const playGenerated = useCallback(
-    async (path: string) => {
+    async (path: string, hasVideo: boolean) => {
       if (!(await FileSystem.exists(path))) {
         appendLog(`File not found: ${path}. Generate it first.`);
         return;
       }
       await startPlayback(
-        `-hide_banner -loglevel quiet -autoexit -i ${quote(path)}`,
+        `-hide_banner -loglevel info -autoexit -i ${quote(path)}`,
         path,
+        hasVideo,
       );
     },
     [appendLog, startPlayback],
@@ -661,31 +749,15 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
               <DemoButton label="Gen Video" onPress={() => void runGuarded('Generate video', generateTestVideo)} />
               <DemoButton label="Gen Audio" onPress={() => void runGuarded('Generate audio', generateTestAudio)} />
               <DemoButton label="Async Version" onPress={() => void runGuarded('FFmpeg version', runFfmpegVersion)} />
-              <DemoButton label="Awaited Version" onPress={() => void runGuarded('FFmpeg execute', runFfmpegAwaited)} />
+              <DemoButton label="Sync Version" onPress={() => void runGuarded('FFmpeg execute', runFfmpegAwaited)} />
               <DemoButton label="Help" onPress={() => void runGuarded('FFmpeg help', runHelp)} />
             </ButtonGrid>
             <CommandSection
-              label="Custom FFmpeg Command"
+              label="Enter FFmpeg command"
               value={ffmpegCommand}
               onChange={setFfmpegCommand}
               onRun={() => void runGuarded('Custom FFmpeg', runCustomFfmpeg)}
             />
-            <Text style={styles.subheading}>System / Build Information</Text>
-            <ButtonGrid>
-              <DemoButton label="Basic Info" onPress={() => logSystemInfo('basic')} />
-              <DemoButton label="Architecture" onPress={() => logSystemInfo('architecture')} />
-              <DemoButton label="Bundle / License" onPress={() => logSystemInfo('bundle')} />
-              <DemoButton label="Libraries" onPress={() => logSystemInfo('libraries')} />
-              <DemoButton label="Codecs" onPress={() => logSystemInfo('codecs')} />
-              <DemoButton label="Encoders" onPress={() => logSystemInfo('encoders')} />
-              <DemoButton label="Decoders" onPress={() => logSystemInfo('decoders')} />
-              <DemoButton label="Muxers" onPress={() => logSystemInfo('muxers')} />
-              <DemoButton label="Demuxers" onPress={() => logSystemInfo('demuxers')} />
-              <DemoButton label="Filters" onPress={() => logSystemInfo('filters')} />
-              <DemoButton label="Protocols" onPress={() => logSystemInfo('protocols')} />
-              <DemoButton label="Bitstream Filters" onPress={() => logSystemInfo('bsfs')} />
-              <DemoButton label="Build Config" onPress={() => logSystemInfo('build')} />
-            </ButtonGrid>
           </View>
         );
       case 'Stream':
@@ -736,10 +808,10 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
               <DemoButton label="Pick File" onPress={() => void runGuarded('Pick probe file', pickProbeFile)} />
               <DemoButton label="Get Media Info" onPress={() => void runGuarded('Media information', runMediaInformation)} />
               <DemoButton label="Async Version" onPress={() => void runGuarded('FFprobe version', runFfprobeVersion)} />
-              <DemoButton label="Awaited Version" onPress={() => void runGuarded('FFprobe execute', runFfprobeAwaited)} />
+              <DemoButton label="Sync Version" onPress={() => void runGuarded('FFprobe execute', runFfprobeAwaited)} />
             </ButtonGrid>
             <CommandSection
-              label="Custom FFprobe Command"
+              label="Enter FFprobe command"
               value={ffprobeCommand}
               onChange={setFfprobeCommand}
               onRun={() => void runGuarded('Custom FFprobe', runCustomFfprobe)}
@@ -749,34 +821,50 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       case 'FFplay':
         return (
           <View style={styles.section}>
-            <View style={styles.videoPlaceholder}>
-              <Text style={styles.videoPlaceholderTitle}>FFplay Native Video Surface</Text>
-              <Text style={styles.videoPlaceholderText}>
-                {videoSize.width > 0 && videoSize.height > 0
-                  ? `Decoded video: ${videoSize.width}x${videoSize.height}`
-                  : 'No video frame surface attached'}
-              </Text>
-              <Text style={styles.videoPlaceholderText}>
-                The TurboModule exposes playback controls. Rendering will appear here after the Fabric FFplayView component is implemented.
-              </Text>
-            </View>
+            {platformName === 'Android' ? (
+              <>
+                <View style={styles.videoContainer}>
+                  <FFplayView
+                    style={styles.ffplayView}
+                    onLayout={() => {
+                      videoSurfaceReadyRef.current = true;
+                    }}
+                  />
+                </View>
+                <Text style={styles.help}>
+                  {videoSize.width > 0 && videoSize.height > 0
+                    ? `Decoded video: ${videoSize.width}x${videoSize.height}`
+                    : 'FFplay video surface ready. Audio-only playback does not require video output.'}
+                </Text>
+              </>
+            ) : playbackSession && videoSize.width > 0 && videoSize.height > 0 ? (
+              <View style={styles.videoPlaceholder}>
+                <Text style={styles.videoPlaceholderTitle}>FFplay Video Surface</Text>
+                <Text style={styles.videoPlaceholderText}>
+                  Decoded video: {videoSize.width}x{videoSize.height}
+                </Text>
+                <Text style={styles.videoPlaceholderText}>
+                  Native FFplay video rendering is currently implemented on Android.
+                </Text>
+              </View>
+            ) : null}
             <CommandSection
-              label="Custom FFplay Command"
+              label="Enter FFplay command"
               value={ffplayCommand}
               onChange={setFfplayCommand}
               onRun={() => void runGuarded('Custom FFplay', runCustomFfplay)}
             />
-            <Text style={styles.subheading}>1. Generate Media</Text>
+            <Text style={styles.subheading}>1. Generate Media:</Text>
             <ButtonGrid>
               <DemoButton label="Gen Video" onPress={() => void runGuarded('Generate video', generateTestVideo)} />
               <DemoButton label="Gen Audio" onPress={() => void runGuarded('Generate audio', generateTestAudio)} />
             </ButtonGrid>
-            <Text style={styles.subheading}>2. Play Generated</Text>
+            <Text style={styles.subheading}>2. Play Generated:</Text>
             <ButtonGrid>
-              <DemoButton label="Play Video" onPress={() => void runGuarded('Play video', () => playGenerated(TEST_VIDEO_PATH))} />
-              <DemoButton label="Play Audio" onPress={() => void runGuarded('Play audio', () => playGenerated(TEST_AUDIO_PATH))} />
+              <DemoButton label="Play Video" onPress={() => void runGuarded('Play video', () => playGenerated(TEST_VIDEO_PATH, true))} />
+              <DemoButton label="Play Audio" onPress={() => void runGuarded('Play audio', () => playGenerated(TEST_AUDIO_PATH, false))} />
             </ButtonGrid>
-            <Text style={styles.subheading}>Controls</Text>
+            <Text style={styles.subheading}>Controls:</Text>
             <ButtonGrid>
               <DemoButton label="Pause" onPress={() => playbackSession?.pause()} compact />
               <DemoButton label="Resume" onPress={() => playbackSession?.resume()} compact />
@@ -789,6 +877,10 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
               Position: {playbackPosition.toFixed(1)}s / {playbackDuration.toFixed(1)}s
             </Text>
             <Slider
+              style={styles.playbackSlider}
+              minimumTrackTintColor="#d0a7ff"
+              maximumTrackTintColor="#4a444f"
+              thumbTintColor="#d0a7ff"
               minimumValue={0}
               maximumValue={Math.max(1, playbackDuration)}
               value={Math.min(playbackPosition, Math.max(1, playbackDuration))}
@@ -800,6 +892,10 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
             />
             <Text style={styles.bodyStrong}>Volume: {Math.round(volume * 100)}%</Text>
             <Slider
+              style={styles.playbackSlider}
+              minimumTrackTintColor="#d0a7ff"
+              maximumTrackTintColor="#4a444f"
+              thumbTintColor="#d0a7ff"
               minimumValue={0}
               maximumValue={1}
               step={0.05}
@@ -873,50 +969,80 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
   })();
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.header}>
-        <View style={styles.flexOne}>
-          <Text style={styles.title}>FFmpeg Kit Extended</Text>
-          <Text style={styles.status}>{status}</Text>
-        </View>
-        {!initialized ? <ActivityIndicator /> : null}
-        <DemoButton label="Clear Logs" compact onPress={() => setLogs('')} />
-      </View>
+    <View style={styles.root} accessibilityLabel={status}>
+      <StatusBar barStyle="light-content" backgroundColor="#24212b" />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.logLevelRow}>
-        <Text style={styles.logLevelLabel}>Log:</Text>
-        {LOG_LEVELS.map(level => (
-          <Pressable
-            key={level}
-            style={[styles.levelButton, currentLogLevel === level && styles.levelButtonActive]}
-            onPress={() => setLogLevel(level)}>
-            <Text style={styles.levelButtonText}>{FFmpegKitConfig.logLevelToString(level)}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      <View style={styles.appBar}>
+        <Text style={styles.title}>{isMobile ? 'FFmpeg Kit' : 'FFmpeg Kit Extended'}</Text>
+        <View style={styles.appBarActions}>
+          {!initialized ? <ActivityIndicator size="small" /> : null}
+          <IconButton symbol="☷" label="Log Level" onPress={() => setLogLevelMenuVisible(true)} />
+          <IconButton symbol="⚙" label="System Info" onPress={() => setSystemInfoMenuVisible(true)} />
+          <IconButton symbol="⌫" label="Clear Logs" onPress={() => setLogs('')} />
+        </View>
+      </View>
 
       <View style={styles.tabs}>
         {TABS.map(tab => (
           <Pressable
             key={tab}
+            accessibilityRole="tab"
+            accessibilityState={{selected: activeTab === tab}}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}>
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            <Text style={[styles.tabIcon, activeTab === tab && styles.tabTextActive]}>{TAB_SYMBOLS[tab]}</Text>
+            {!isMobile ? (
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+            ) : null}
           </Pressable>
         ))}
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled">
         {content}
       </ScrollView>
 
+      <View style={styles.divider} />
+
       <View style={styles.logPane}>
-        <Text style={styles.logTitle}>Logs</Text>
-        <ScrollView ref={logScrollRef} style={styles.logScroll}>
-          <Text selectable style={styles.logText}>{logs || 'No output yet.'}</Text>
+        <ScrollView ref={logScrollRef} style={styles.logScroll} contentContainerStyle={styles.logScrollContent}>
+          <Text selectable style={styles.logText}>{logs}</Text>
         </ScrollView>
       </View>
+
+      <PopupMenu visible={logLevelMenuVisible} onClose={() => setLogLevelMenuVisible(false)} width={220}>
+        {LOG_LEVELS.map(level => {
+          const selected = currentLogLevel === level;
+          return (
+            <MenuRow
+              key={level}
+              leading={selected ? '◉' : '○'}
+              label={FFmpegKitConfig.logLevelToString(level).toUpperCase()}
+              onPress={() => {
+                setLogLevel(level);
+                setLogLevelMenuVisible(false);
+              }}
+            />
+          );
+        })}
+      </PopupMenu>
+
+      <PopupMenu visible={systemInfoMenuVisible} onClose={() => setSystemInfoMenuVisible(false)} width={300} scrollable>
+        {SYSTEM_INFO_ITEMS.map(([label, kind, leading]) => (
+          <MenuRow
+            key={kind}
+            leading={leading}
+            label={label}
+            onPress={() => {
+              setSystemInfoMenuVisible(false);
+              logSystemInfo(kind);
+            }}
+          />
+        ))}
+      </PopupMenu>
     </View>
   );
 }
@@ -950,7 +1076,76 @@ function DemoButton({
         disabled && styles.demoButtonDisabled,
         pressed && !disabled && styles.demoButtonPressed,
       ]}>
+      <Text style={styles.demoButtonIcon}>{buttonSymbol(label)}</Text>
       <Text style={styles.demoButtonText}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function IconButton({
+  symbol,
+  label,
+  onPress,
+}: {
+  symbol: string;
+  label: string;
+  onPress: () => void;
+}): React.JSX.Element {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={8}
+      onPress={onPress}
+      style={({pressed}) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+      <Text style={styles.iconButtonText}>{symbol}</Text>
+    </Pressable>
+  );
+}
+
+function PopupMenu({
+  visible,
+  onClose,
+  width,
+  scrollable = false,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  width: number;
+  scrollable?: boolean;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const menu = <View style={[styles.popupMenu, {width}]}>{children}</View>;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.popupBackdrop} onPress={onClose}>
+        <Pressable style={styles.popupAnchor} onPress={event => event.stopPropagation()}>
+          {scrollable ? (
+            <ScrollView style={styles.popupScroll} contentContainerStyle={styles.popupScrollContent}>
+              {menu}
+            </ScrollView>
+          ) : menu}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+function MenuRow({
+  leading,
+  label,
+  onPress,
+}: {
+  leading: string;
+  label: string;
+  onPress: () => void;
+}): React.JSX.Element {
+  return (
+    <Pressable style={({pressed}) => [styles.menuRow, pressed && styles.menuRowPressed]} onPress={onPress}>
+      <Text style={styles.menuRowLeading}>{leading}</Text>
+      <Text style={styles.menuRowText}>{label}</Text>
     </Pressable>
   );
 }
@@ -968,17 +1163,69 @@ function CommandSection({
 }): React.JSX.Element {
   return (
     <View style={styles.commandSection}>
-      <Text style={styles.subheading}>{label}</Text>
-      <TextInput
-        style={[styles.input, styles.commandInput]}
-        value={value}
-        onChangeText={onChange}
-        autoCapitalize="none"
-        autoCorrect={false}
-      />
-      <DemoButton label="Run" onPress={onRun} />
+      <Text style={styles.commandLabel}>Custom Command:</Text>
+      <View style={styles.commandRow}>
+        <TextInput
+          style={[styles.input, styles.commandInput]}
+          value={value}
+          placeholder={label}
+          placeholderTextColor="#77727f"
+          onChangeText={onChange}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <DemoButton label="Run" onPress={onRun} compact />
+      </View>
     </View>
   );
+}
+
+function buttonSymbol(label: string): string {
+  switch (label) {
+    case 'Gen Video':
+      return '▣';
+    case 'Gen Audio':
+      return '♪';
+    case 'Async Version':
+      return 'ϟ';
+    case 'Sync Version':
+      return '◷';
+    case 'Help':
+      return '?';
+    case 'Pick File':
+    case 'Pick Video File':
+      return '▤';
+    case 'Get Media Info':
+      return '◉';
+    case 'Record Stream':
+      return '⇩';
+    case 'Play Video':
+    case 'Run':
+      return '▶';
+    case 'Play Audio':
+      return '♪';
+    case 'Pause':
+      return 'Ⅱ';
+    case 'Resume':
+      return '▶';
+    case 'Stop':
+      return '■';
+    case '-1s':
+      return '↤';
+    case '+1s':
+      return '↦';
+    case 'Refresh':
+      return '↻';
+    case 'Cancel':
+      return '×';
+    case 'Transcode MP4 → AVI':
+    case 'Transcoding...':
+      return '⇄';
+    case 'Clear Selection':
+      return '×';
+    default:
+      return '•';
+  }
 }
 
 function quote(value: string): string {
@@ -1003,56 +1250,317 @@ function formatRemoteStatistics(label: string, statistics: Statistics): string {
 }
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: '#101114'},
-  header: {
-    minHeight: 62,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  root: {
+    flex: 1,
+    backgroundColor: '#141218',
+  },
+  flexOne: {
+    flex: 1,
+  },
+  appBar: {
+    height: 56,
+    paddingLeft: 16,
+    paddingRight: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#17191e',
+    backgroundColor: '#25222c',
   },
-  flexOne: {flex: 1},
-  title: {fontSize: 19, fontWeight: '700', color: '#f3f4f6'},
-  status: {fontSize: 12, color: '#9ca3af', marginTop: 2},
-  tabs: {flexDirection: 'row', backgroundColor: '#17191e', borderBottomWidth: 1, borderBottomColor: '#30333a'},
-  tab: {flex: 1, paddingVertical: 11, alignItems: 'center'},
-  tabActive: {borderBottomWidth: 2, borderBottomColor: '#60a5fa'},
-  tabText: {fontSize: 12, color: '#9ca3af'},
-  tabTextActive: {color: '#f3f4f6', fontWeight: '700'},
-  content: {flex: 3},
-  contentContainer: {paddingBottom: 24},
-  section: {padding: 14, gap: 16},
-  heading: {fontSize: 20, fontWeight: '700', color: '#f3f4f6'},
-  subheading: {fontSize: 15, fontWeight: '700', color: '#e5e7eb', marginBottom: 8},
-  bodyStrong: {fontSize: 13, fontWeight: '600', color: '#e5e7eb'},
-  help: {fontSize: 12, color: '#9ca3af', lineHeight: 18},
-  monoSmall: {fontSize: 11, color: '#a7f3d0', fontFamily: 'monospace', marginTop: 10},
-  card: {backgroundColor: '#1b1e24', borderRadius: 10, padding: 14, gap: 8, borderWidth: 1, borderColor: '#30333a'},
-  buttonGrid: {flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center'},
-  demoButton: {backgroundColor: '#2563eb', borderRadius: 7, paddingHorizontal: 13, paddingVertical: 9, alignSelf: 'flex-start'},
-  demoButtonCompact: {paddingHorizontal: 10, paddingVertical: 7},
-  demoButtonDisabled: {opacity: 0.45},
-  demoButtonPressed: {opacity: 0.75},
-  demoButtonText: {fontSize: 12, fontWeight: '700', color: '#ffffff'},
-  commandSection: {gap: 8},
-  input: {backgroundColor: '#111318', color: '#f3f4f6', borderWidth: 1, borderColor: '#3f434c', borderRadius: 7, paddingHorizontal: 10, paddingVertical: 9},
-  commandInput: {fontFamily: 'monospace'},
-  rowBetween: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8},
-  jobRow: {flexDirection: 'row', gap: 10, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#3f434c'},
-  videoPlaceholder: {minHeight: 180, backgroundColor: '#000000', borderRadius: 8, padding: 18, justifyContent: 'center', alignItems: 'center', gap: 8},
-  videoPlaceholderTitle: {color: '#f3f4f6', fontWeight: '700'},
-  videoPlaceholderText: {color: '#9ca3af', fontSize: 12, textAlign: 'center', lineHeight: 17},
-  progressTrack: {height: 12, borderRadius: 6, backgroundColor: '#30333a', overflow: 'hidden'},
-  progressValue: {height: '100%', backgroundColor: '#3b82f6'},
-  logPane: {flex: 2, minHeight: 150, backgroundColor: '#000000', borderTopWidth: 1, borderTopColor: '#30333a'},
-  logTitle: {fontSize: 11, color: '#9ca3af', paddingHorizontal: 10, paddingTop: 7},
-  logScroll: {paddingHorizontal: 10, paddingVertical: 6},
-  logText: {fontFamily: 'monospace', fontSize: 11, lineHeight: 15, color: '#86efac'},
-  logLevelRow: {paddingHorizontal: 10, paddingVertical: 7, gap: 6, alignItems: 'center', backgroundColor: '#111318'},
-  logLevelLabel: {color: '#9ca3af', fontSize: 11, marginRight: 2},
-  levelButton: {borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: '#2a2d34'},
-  levelButtonActive: {backgroundColor: '#1d4ed8'},
-  levelButtonText: {color: '#e5e7eb', fontSize: 10},
+  appBarActions: {
+    marginLeft: 'auto',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: '#f2edf6',
+  },
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonPressed: {
+    backgroundColor: '#3b3544',
+  },
+  iconButtonText: {
+    color: '#eee8f2',
+    fontSize: 20,
+    lineHeight: 24,
+  },
+  tabs: {
+    height: 50,
+    flexDirection: 'row',
+    backgroundColor: '#211e27',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#39343f',
+  },
+  tab: {
+    flex: 1,
+    minWidth: 48,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: '#d0a7ff',
+    backgroundColor: '#2b2732',
+  },
+  tabIcon: {
+    fontSize: 17,
+    color: '#bcb4c3',
+    lineHeight: 20,
+  },
+  tabText: {
+    marginTop: 1,
+    fontSize: 10,
+    color: '#aaa2b1',
+  },
+  tabTextActive: {
+    color: '#d9baff',
+    fontWeight: '700',
+  },
+  content: {
+    flex: 3,
+    backgroundColor: '#141218',
+  },
+  contentContainer: {
+    paddingBottom: 24,
+  },
+  section: {
+    padding: 16,
+    gap: 22,
+  },
+  heading: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f2edf6',
+  },
+  subheading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#eee8f2',
+  },
+  bodyStrong: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#eee8f2',
+  },
+  help: {
+    fontSize: 12,
+    color: '#b8b0bd',
+    lineHeight: 17,
+  },
+  monoSmall: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#69f0ae',
+    fontFamily: 'monospace',
+  },
+  card: {
+    padding: 16,
+    gap: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#45404a',
+    backgroundColor: '#1d1b20',
+  },
+  buttonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    alignItems: 'center',
+  },
+  demoButton: {
+    minHeight: 34,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    borderRadius: 17,
+    backgroundColor: '#30283d',
+  },
+  demoButtonCompact: {
+    minHeight: 32,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+  },
+  demoButtonDisabled: {
+    opacity: 0.42,
+  },
+  demoButtonPressed: {
+    backgroundColor: '#463755',
+  },
+  demoButtonIcon: {
+    fontSize: 12,
+    color: '#d8b9ff',
+  },
+  demoButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#eadcff',
+  },
+  commandSection: {
+    gap: 8,
+  },
+  commandLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#eee8f2',
+  },
+  commandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  input: {
+    minHeight: 40,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: '#6d6672',
+    borderRadius: 4,
+    backgroundColor: '#141218',
+    color: '#f2edf6',
+    fontSize: 13,
+  },
+  commandInput: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: 'monospace',
+    fontSize: 12,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  jobRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#45404a',
+  },
+  videoContainer: {
+    width: '100%',
+    aspectRatio: 16 / 9,
+    overflow: 'hidden',
+    borderRadius: 4,
+    backgroundColor: '#000000',
+  },
+  ffplayView: {
+    width: '100%',
+    height: '100%',
+  },
+  playbackSlider: {
+    width: '100%',
+    height: 40,
+  },
+  videoPlaceholder: {
+    minHeight: 170,
+    padding: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 4,
+    backgroundColor: '#000000',
+  },
+  videoPlaceholderTitle: {
+    color: '#f2edf6',
+    fontWeight: '700',
+  },
+  videoPlaceholderText: {
+    color: '#b8b0bd',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#39343f',
+    overflow: 'hidden',
+  },
+  progressValue: {
+    height: '100%',
+    backgroundColor: '#d0a7ff',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#4a444f',
+  },
+  logPane: {
+    flex: 2,
+    minHeight: 140,
+    backgroundColor: '#000000',
+  },
+  logScroll: {
+    flex: 1,
+  },
+  logScrollContent: {
+    padding: 8,
+  },
+  logText: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#69f0ae',
+  },
+  popupBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  popupAnchor: {
+    position: 'absolute',
+    top: 46,
+    right: 8,
+    maxHeight: '88%',
+    alignItems: 'flex-end',
+  },
+  popupScroll: {
+    maxHeight: 650,
+  },
+  popupScrollContent: {
+    alignItems: 'flex-end',
+  },
+  popupMenu: {
+    paddingVertical: 6,
+    borderRadius: 4,
+    backgroundColor: '#302d35',
+    shadowColor: '#000000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: {width: 0, height: 6},
+    elevation: 12,
+  },
+  menuRow: {
+    minHeight: 42,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuRowPressed: {
+    backgroundColor: '#443e4a',
+  },
+  menuRowLeading: {
+    width: 20,
+    color: '#d6cde0',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  menuRowText: {
+    flex: 1,
+    color: '#f2edf6',
+    fontSize: 13,
+  },
 });
