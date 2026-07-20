@@ -280,7 +280,6 @@ Future<FFmpegArtifact?> _resolveArtifact(
     final currentType = type == 'debug' ? 'base' : type;
 
     if (targetOS == OS.android) {
-      const groupIdPath = 'io/github/akashskypatel/ffmpegkit';
       final parts = ['bundle', currentType, 'shared'];
       if (type == 'debug') {
         parts.add('debug');
@@ -289,9 +288,9 @@ Future<FFmpegArtifact?> _resolveArtifact(
       }
       parts.add(license);
       final artifactId = parts.join('-');
-      filename = "$artifactId-$version.aar";
-      url =
-          "https://repo1.maven.org/maven2/$groupIdPath/$artifactId/$version/$filename";
+      filename = "$artifactId-release.aar";
+      final tag = "v$version-$platformName";
+      url = "$_baseUrlTemplate/$tag/$filename";
     } else if (targetOS == OS.iOS || targetOS == OS.macOS) {
       final parts = ['bundle', currentType, platformName, 'universal'];
       if (type != 'debug' && small) parts.add('small');
@@ -830,6 +829,7 @@ Future<bool> _downloadFile(String url, File target) async {
       tempTarget.renameSync(target.path);
       return true;
     }
+    await response.drain<void>();
     return false;
   } catch (e) {
     // Clean up partial download
@@ -940,6 +940,8 @@ Future<String?> _fetchSha256Hash(String url) async {
             return digest.toLowerCase();
           }
         }
+      } else {
+        await response.drain<void>();
       }
     } else {
       final request = await client.getUrl(Uri.parse('$url.sha256'));
@@ -951,6 +953,8 @@ Future<String?> _fetchSha256Hash(String url) async {
         if (parts.isNotEmpty) {
           return parts[0].toLowerCase();
         }
+      } else {
+        await response.drain<void>();
       }
     }
     return null;
