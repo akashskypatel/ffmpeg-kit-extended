@@ -118,3 +118,9 @@ FlutterFramework
 ## User settings
 xcuserdata/
 .codebase-memory/
+.DS_Store
+ffmpegkit_wrapper.h
+**/*.zip
+**/node_modules/
+**/.tools/*
+**/vendor/*

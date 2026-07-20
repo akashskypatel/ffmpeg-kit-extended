@@ -1,5 +1,13 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.11
+
+- Fix iOS static analysis issue during publishing
+- Add additional supported libraries:
+  - libOpenColorIO (video bundle)
+  - libsvtjpegxs (video bundle)
+- Fix build hook extraction and download cleanup logic
+
 ## Version 0.5.10
 
 - Remove non-ascii chars from c source, bump dependencies, fix android and windows example app builds,

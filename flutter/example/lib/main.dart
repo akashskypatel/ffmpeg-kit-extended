@@ -344,8 +344,8 @@ class _HomePageState extends State<HomePage>
     );
 
     // Command with both video and audio streams
-    const command =
-        "-hide_banner -loglevel quiet -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
+    final command =
+        "-hide_banner -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$tempOutputPath\"",
@@ -375,8 +375,8 @@ class _HomePageState extends State<HomePage>
     );
 
     // Command from integration tests
-    const command =
-        "-hide_banner -loglevel quiet -f lavfi -i sine=frequency=1000:duration=10 -y";
+    final command =
+        "-hide_banner -loglevel ${_currentLogLevel.name} -f lavfi -i sine=frequency=1000:duration=10 -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$outputPath\"",
@@ -1036,10 +1036,12 @@ class _HomePageState extends State<HomePage>
     }
 
     final session = await FFplayKit.executeAsync(
-      "-hide_banner -loglevel quiet -autoexit -i \"$localPath\"",
+      "-hide_banner -loglevel ${_currentLogLevel.name} "
+      "-autoexit -i \"$localPath\"",
       onComplete: (session) {
         _addLog("FFplay playback of $fileName finished");
       },
+      onLog: (log) => _addLog("FFplay: ${log.message}"),
     );
     _attachPositionStream(session);
     _addLog("Playback started.");
