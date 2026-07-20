@@ -132,7 +132,9 @@ void _onFFmpegLog(
 ) {
   if (logPtr == nullptr) return;
 
-  final sessionId = _safeGetSessionId(sessionHandle, '_onFFmpegLog');
+  // Native global log callbacks pass the numeric session id in the callback's
+  // first pointer-sized argument, not a session handle.
+  final sessionId = sessionHandle.address;
   final session = sessionId > 0
       ? CallbackManager().ffmpegSessions[sessionId] ??
             CallbackManager().ffprobeSessions[sessionId] ??

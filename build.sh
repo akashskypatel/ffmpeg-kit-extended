@@ -18,16 +18,19 @@ touch $build_log_file
 echo "Log file created at $build_log_file"
 cd $script_dir/flutter
 
-if [[ $* == *"--clean"* ]]; then
+if [[ $* == *"--clean-build"* ]]; then
+    rm -rf example/.dart_tool/hooks_runner/shared/ffmpeg_kit_extended_flutter
+    rm -rf example/.dart_tool/hooks_runner/ffmpeg_kit_extended_flutter
+    rm -rf example/build
+elif [[ $* == *"--clean"* ]]; then
     flutter clean
+    cd $script_dir/flutter/example
+    flutter clean
+    cd $script_dir/flutter
 fi
 
 flutter pub get && flutter pub upgrade >> $build_log_file 2>&1
 cd $script_dir/flutter/example
-
-if [[ $* == *"--clean"* ]]; then
-    flutter clean
-fi
 
 flutter pub get && flutter pub upgrade >> $build_log_file 2>&1
 if [[ $* == *"--ffigen"* ]]; then

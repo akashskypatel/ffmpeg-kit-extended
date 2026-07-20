@@ -11,7 +11,7 @@ import 'package:yaml/yaml.dart';
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
-const String version = "0.10.4";
+const String version = "0.10.5";
 const String _extractMarkerFileName = '.extract_complete';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
@@ -156,7 +156,10 @@ void deleteIfExists(FileSystemEntity entity) {
 }
 
 @visibleForTesting
-void deleteCorruptArtifact(File targetFile, {void Function(String message)? log}) {
+void deleteCorruptArtifact(
+  File targetFile, {
+  void Function(String message)? log,
+}) {
   if (targetFile.existsSync()) {
     log?.call('Deleting corrupt artifact ${targetFile.path}');
     targetFile.deleteSync();
@@ -177,7 +180,8 @@ Future<Directory> prepareExtractedArtifact(
         (entity) => p.basename(entity.path) != _extractMarkerFileName,
       );
 
-  final hasCompletedExtract = extractRoot.existsSync() && marker.existsSync() && hasPayload;
+  final hasCompletedExtract =
+      extractRoot.existsSync() && marker.existsSync() && hasPayload;
   if (hasCompletedExtract) {
     return extractRoot;
   }
@@ -210,8 +214,16 @@ Future<FFmpegArtifact?> _resolveArtifact(
   BuildInput input,
 ) async {
   final config = configResult.config;
-  String type = config['type']?.toString() ?? "full";
+  String type = config['type']?.toString() ?? "base";
   if (type == "streaming") type = "video";
+  if (type == "full") {
+    _log(
+      "Full bundle is a heavyweight package and may increase your app size significantly. "
+      "Please review all included libraries to make sure you need all bundled features. "
+      "Bundle content: https://github.com/akashskypatel/ffmpeg-kit-extended#supported-external-libraries "
+      "If you don't need all the libraries included in full bundle, consider using other bundles for smaller app sizes.",
+    );
+  }
   if (!_validTypes.contains(type)) {
     _log(
       'Invalid bundle type: $type. Valid types are: ${_validTypes.join(', ')}',
@@ -268,7 +280,6 @@ Future<FFmpegArtifact?> _resolveArtifact(
     final currentType = type == 'debug' ? 'base' : type;
 
     if (targetOS == OS.android) {
-      const groupIdPath = 'io/github/akashskypatel/ffmpegkit';
       final parts = ['bundle', currentType, 'shared'];
       if (type == 'debug') {
         parts.add('debug');
@@ -277,9 +288,9 @@ Future<FFmpegArtifact?> _resolveArtifact(
       }
       parts.add(license);
       final artifactId = parts.join('-');
-      filename = "$artifactId-$version.aar";
-      url =
-          "https://repo1.maven.org/maven2/$groupIdPath/$artifactId/$version/$filename";
+      filename = "$artifactId-release.aar";
+      final tag = "v$version-$platformName";
+      url = "$_baseUrlTemplate/$tag/$filename";
     } else if (targetOS == OS.iOS || targetOS == OS.macOS) {
       final parts = ['bundle', currentType, platformName, 'universal'];
       if (type != 'debug' && small) parts.add('small');
@@ -343,7 +354,11 @@ Future<FFmpegArtifact> _handleDownloadedFile(
     return FFmpegArtifact(file: file, isAar: true);
   }
 
-  final extractRoot = await prepareExtractedArtifact(file, cacheDir, _extractFile);
+  final extractRoot = await prepareExtractedArtifact(
+    file,
+    cacheDir,
+    _extractFile,
+  );
   // Auto-detect the xcframework directory inside
   final finalExtractedDir = extractRoot
       .listSync()
@@ -395,7 +410,7 @@ Future<void> _emitAssets(
         abiDir
             .listSync()
             .whereType<File>()
-            .where((file) => file.path.endsWith('.so'))
+            .where((file) => file.path.contains('.so'))
             .toList()
           ..sort((a, b) => a.path.compareTo(b.path));
 
@@ -472,7 +487,7 @@ Future<void> _emitAssets(
         binDir
             .listSync()
             .whereType<File>()
-            .where((file) => file.path.endsWith(ext))
+            .where((file) => file.path.contains(ext))
             .toList(),
       );
     }
@@ -542,7 +557,7 @@ Future<void> _emitAssets(
         if (targetOS == OS.linux) {
           assetName = assetName.replaceFirst('lib', '');
           // Also remove the .so extension for the asset name
-          if (assetName.endsWith('.so')) {
+          if (assetName.contains('.so')) {
             assetName = assetName.substring(0, assetName.length - 3);
           }
         }
@@ -602,6 +617,9 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   }
 
   final sliceDir = Directory(selectedSliceDir);
+  final sourceFrameworkBinary = File(
+    p.join(sliceDir.path, 'ffmpegkit.framework', 'ffmpegkit'),
+  );
 
   final sourceDylibs =
       sliceDir
@@ -612,12 +630,16 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
           .toList()
         ..sort((a, b) => a.path.compareTo(b.path));
 
-  final sourceMainDylib = sourceDylibs.firstWhere(
-    (f) => p.basename(f.path) == 'libffmpegkit.dylib',
-    orElse: () {
-      throw _exception('libffmpegkit.dylib not found in ${sliceDir.path}');
-    },
-  );
+  final sourceMainDylib = sourceFrameworkBinary.existsSync()
+      ? sourceFrameworkBinary
+      : sourceDylibs.firstWhere(
+          (f) => p.basename(f.path) == 'libffmpegkit.dylib',
+          orElse: () {
+            throw _exception(
+              'ffmpegkit.framework/ffmpegkit or libffmpegkit.dylib not found in ${sliceDir.path}',
+            );
+          },
+        );
 
   final frameworkRoot = Directory(
     p.fromUri(input.outputDirectory.resolve('ffmpegkit.framework/')),
@@ -664,7 +686,9 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
     companionLibraries.add(destination);
   }
 
-  final sourceHeadersDir = Directory(p.join(sliceDir.path, 'Headers'));
+  final sourceHeadersDir = sourceFrameworkBinary.existsSync()
+      ? Directory(p.join(sliceDir.path, 'ffmpegkit.framework', 'Headers'))
+      : Directory(p.join(sliceDir.path, 'Headers'));
   if (sourceHeadersDir.existsSync()) {
     await _copyDirectory(sourceHeadersDir, headersDir);
   }
@@ -805,6 +829,7 @@ Future<bool> _downloadFile(String url, File target) async {
       tempTarget.renameSync(target.path);
       return true;
     }
+    await response.drain<void>();
     return false;
   } catch (e) {
     // Clean up partial download
@@ -915,6 +940,8 @@ Future<String?> _fetchSha256Hash(String url) async {
             return digest.toLowerCase();
           }
         }
+      } else {
+        await response.drain<void>();
       }
     } else {
       final request = await client.getUrl(Uri.parse('$url.sha256'));
@@ -926,6 +953,8 @@ Future<String?> _fetchSha256Hash(String url) async {
         if (parts.isNotEmpty) {
           return parts[0].toLowerCase();
         }
+      } else {
+        await response.drain<void>();
       }
     }
     return null;
