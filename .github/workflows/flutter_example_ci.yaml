@@ -112,18 +112,6 @@ jobs:
           flutter config --enable-swift-package-manager
           sudo xcodebuild -license accept 2>/dev/null || true
 
-      - name: Cache CocoaPods
-        if: matrix.platform == 'ios' || matrix.platform == 'macos'
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cocoapods/repos
-            flutter/example/ios/Pods
-            flutter/example/macos/Pods
-          key: ${{ runner.os }}-pods-${{ matrix.platform }}-${{ hashFiles('flutter/example/ios/Podfile.lock', 'flutter/example/macos/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-${{ matrix.platform }}-
-
       - name: Configure Linux dependencies
         if: matrix.platform == 'linux'
         run: |

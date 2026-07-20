@@ -32,26 +32,3 @@ Runner/GeneratedPluginRegistrant.*
 !default.mode2v3
 !default.pbxuser
 !default.perspectivev3
-
-# Xcode project & workspace user state
-*.xcodeproj/*
-!*.xcodeproj/project.pbxproj
-!*.xcodeproj/xcshareddata/
-!*.xcworkspace/contents.xcworkspacedata
-*.xcworkspace/*
-
-# Xcode local user data & build artifacts
-xcuserdata/
-DerivedData/
-*.pbxuser
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.apinotes
-
-# CocoaPods artifacts (if any remain)
-/Pods/
-/Podfile.lock
-
-# macOS system clutter
-.DS_Store

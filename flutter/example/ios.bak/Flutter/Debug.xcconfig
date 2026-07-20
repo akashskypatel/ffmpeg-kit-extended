@@ -1,0 +1,3 @@
+#include "Generated.xcconfig"
+EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386 x86_64
+EXCLUDED_ARCHS[sdk=iphoneos*]=i386 x86_64
