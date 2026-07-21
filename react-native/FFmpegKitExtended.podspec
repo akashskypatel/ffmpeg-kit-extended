@@ -21,7 +21,7 @@ Pod::Spec.new do |s|
   s.source_files = \
     "ios/**/*.{h,m,mm}",
     "cpp/**/*.{hpp,cpp,c,h}",
-    "ios/generated/*.{h,cpp,mm}"
+    "ios/generated/**/*.{h,cpp,mm}"
 
   s.private_header_files = "ios/**/*.h"
 
@@ -29,27 +29,36 @@ Pod::Spec.new do |s|
     set -e
 
     ARTIFACT="bundle-base-ios-universal-small-lgpl"
+    FRAMEWORK_NAME="ffmpegkit"
     URL="https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download/v0.10.5-ios/${ARTIFACT}.xcframework.zip"
 
     mkdir -p vendor
 
-    if [ ! -d "vendor/${ARTIFACT}.xcframework" ]; then
-      echo "Downloading FFmpegKit Extended binary..."
-      curl -fL "$URL" -o "vendor/${ARTIFACT}.xcframework.zip"
+    if [ ! -d "vendor/${FRAMEWORK_NAME}.xcframework" ]; then
+      if [ ! -d "vendor/${ARTIFACT}.xcframework" ]; then
+        echo "Downloading FFmpegKit Extended binary..."
+        curl -fL "$URL" -o "vendor/${ARTIFACT}.xcframework.zip"
 
-      echo "Extracting FFmpegKit Extended binary..."
-      ditto \
-        -x \
-        -k \
-        "vendor/${ARTIFACT}.xcframework.zip" \
-        "vendor"
+        echo "Extracting FFmpegKit Extended binary..."
+        ditto \
+          -x \
+          -k \
+          "vendor/${ARTIFACT}.xcframework.zip" \
+          "vendor"
 
-      rm -f "vendor/${ARTIFACT}.xcframework.zip"
+        rm -f "vendor/${ARTIFACT}.xcframework.zip"
+      fi
+
+      if [ -d "vendor/${ARTIFACT}.xcframework" ]; then
+        mv \
+          "vendor/${ARTIFACT}.xcframework" \
+          "vendor/${FRAMEWORK_NAME}.xcframework"
+      fi
     fi
   CMD
 
   s.vendored_frameworks =
-    "vendor/bundle-base-ios-universal-small-lgpl.xcframework"
+    "vendor/ffmpegkit.xcframework"
 
   s.frameworks = [
     "AVFoundation",

@@ -156,6 +156,50 @@ build_android() {
   fi
 }
 
+ensure_ios_binary() {
+  local artifact="bundle-base-ios-universal-small-lgpl"
+  local framework_name="ffmpegkit"
+  local vendor_dir="$script_dir/vendor"
+
+  local artifact_dir="${vendor_dir}/${artifact}.xcframework"
+  local framework_dir="${vendor_dir}/${framework_name}.xcframework"
+
+  local url="https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download/v0.10.5-ios/${artifact}.xcframework.zip"
+
+  mkdir -p "$vendor_dir"
+
+  if [[ -d "$framework_dir" ]]; then
+    return
+  fi
+
+  if [[ ! -d "$artifact_dir" ]]; then
+    echo "Downloading FFmpegKit Extended iOS binary..."
+
+    curl -fL \
+      "$url" \
+      -o "${vendor_dir}/${artifact}.xcframework.zip"
+
+    ditto \
+      -x \
+      -k \
+      "${vendor_dir}/${artifact}.xcframework.zip" \
+      "$vendor_dir"
+
+    rm -f \
+      "${vendor_dir}/${artifact}.xcframework.zip"
+  fi
+
+  if [[ ! -d "$artifact_dir" ]]; then
+    echo "FFmpegKit XCFramework was not found after extraction." >&2
+    exit 1
+  fi
+
+  echo "Normalizing FFmpegKit XCFramework name..."
+  mv \
+    "$artifact_dir" \
+    "$framework_dir"
+}
+
 build_ios() {
   if [[ "$host_os" != "Darwin" ]]; then
     echo "Skipping iOS: iOS builds require macOS."
@@ -168,6 +212,7 @@ build_ios() {
   echo "========================================"
 
   ensure_dependencies "$script_dir/example"
+  ensure_ios_binary
 
   (
     cd "$script_dir/example/ios"
@@ -189,6 +234,8 @@ build_ios() {
       -configuration "$configuration" \
       -sdk iphonesimulator \
       -destination 'generic/platform=iOS Simulator' \
+      ARCHS=arm64 \
+      ONLY_ACTIVE_ARCH=YES \
       CODE_SIGNING_ALLOWED=NO \
       build
   )
