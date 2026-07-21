@@ -437,9 +437,7 @@ print('Paused: ${session.isPaused()}');
 | avisynth<sup>[10](#gpl-info)</sup>                                    |         | v+    | v+      |     | v+    |
 | **Hardware Acceleration**                                             |         |       |         |     |       |
 | amf, libglslang, libmfx, libplacebo, libshaderc, libvpl               | h+      | h+    | h+      | h+  | h+    |
-| libnpp, opencl, opengl, vulkan, vulkan-static                         | h+      | h+    | h+      | h+  | h+    |
-| ffnvcodec, cuvid, nvdec, nvenc<sup>[12](#redist-info)</sup>           |         | h+    | h+      |     |       |
-| cuda-llvm, cuda-nvcc<sup>[12](#redist-info)</sup>                     |         | h+    | h+      |     |       |
+| opencl, opengl, vulkan, vulkan-static                                 | h+      | h+    | h+      | h+  | h+    |
 | libdrm, vaapi, rkmpp, vdpau                                           |         | h+    |         |     |       |
 | v4l2-m2m<sup>[10](#gpl-info)</sup>                                    |         | h+    |         |     |       |
 | **AI** *(Full bundle only)*                                           |         |       |         |     |       |
