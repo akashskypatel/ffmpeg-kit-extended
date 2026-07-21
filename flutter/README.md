@@ -56,12 +56,12 @@ You will have to update your app's minimum requirements on your own to match the
 ## 🎬 Demo
 
 <div align="center">
-<a href="https://github.com/akashskypatel/ffmpeg-kit-extended/raw/master/doc/demo.gif">Click here if the image doesn't load</a>
+<a href="https://raw.githubusercontent.com/akashskypatel/ffmpeg-kit-extended/master/flutter/doc/demo.gif">Click here if the image doesn't load</a>
 <br>
-<img width="378" height="672" src="https://github.com/akashskypatel/ffmpeg-kit-extended/raw/master/doc/demo.gif?raw=true" alt="Demo" style="border-radius: 10px;" />
+<img width="378" height="672" src="https://raw.githubusercontent.com/akashskypatel/ffmpeg-kit-extended/master/flutter/doc/demo.gif" alt="Demo" style="border-radius: 10px;" />
 <br>
 
-[_Video demonstration of FFmpegKit Extended Flutter plugin showing real-time video playback, FFmpeg command execution, and the comprehensive introspection API interface._](https://github.com/akashskypatel/ffmpeg-kit-extended/raw/master/doc/demo.gif)
+[_Video demonstration of FFmpegKit Extended Flutter plugin showing real-time video playback, FFmpeg command execution, and the comprehensive introspection API interface._](https://raw.githubusercontent.com/akashskypatel/ffmpeg-kit-extended/master/flutter/doc/demo.gif)
 
 </div>
 
