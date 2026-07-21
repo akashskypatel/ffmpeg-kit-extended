@@ -184,8 +184,15 @@ export abstract class Session {
           }
         }
 
-        options.completeCallback?.(self);
-        return self;
+        try {
+          options.completeCallback?.(self);
+          return self;
+        } finally {
+          // Native C API session handles are owning. Keep the original handle
+          // alive for the whole execution, then release it only after the
+          // terminal state and final log/statistics pass have been observed.
+          NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
+        }
       }
 
       await sleep(pollIntervalMs);

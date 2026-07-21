@@ -16,6 +16,7 @@ void executeSessionAsync(double sessionId, double timeoutMs);
 void cancelSession(double sessionId);
 
 std::string getSessionJson(double sessionId);
+void releaseSessionHandle(double sessionId);
 std::string getSessionsJson(const std::string &kind);
 std::string getLastSessionJson(const std::string &kind);
 std::string getLogsJson(double sessionId, double fromIndex);

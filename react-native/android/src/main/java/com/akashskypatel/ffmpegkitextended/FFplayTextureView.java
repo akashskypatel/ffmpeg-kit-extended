@@ -6,6 +6,7 @@
 package com.akashskypatel.ffmpegkitextended;
 
 import android.graphics.SurfaceTexture;
+import android.graphics.drawable.Drawable;
 import android.view.Surface;
 import android.view.TextureView;
 
@@ -38,6 +39,27 @@ final class FFplayTextureView extends TextureView implements TextureView.Surface
         if (isAvailable() && getSurfaceTexture() != null) {
             bindSurface(getSurfaceTexture());
         }
+    }
+
+    /**
+     * TextureView rejects background drawables. React Native may apply a
+     * background while resolving ViewProps/style, so ignore those calls and
+     * let callers put any desired background on a parent View instead.
+     */
+    @Override
+    public void setBackgroundColor(int color) {
+        // Intentionally ignored.
+    }
+
+    @Override
+    public void setBackground(Drawable background) {
+        // Intentionally ignored.
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public void setBackgroundDrawable(Drawable background) {
+        // Intentionally ignored.
     }
 
     private void bindSurface(SurfaceTexture surfaceTexture) {
@@ -96,6 +118,14 @@ final class FFplayTextureView extends TextureView implements TextureView.Surface
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
         // No-op. Frames are written directly by FFplay to the ANativeWindow.
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (isAvailable() && getSurfaceTexture() != null && surface == null) {
+            bindSurface(getSurfaceTexture());
+        }
     }
 
     @Override

@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
   Modal,
+  PanResponder,
   Pressable,
   ScrollView,
   StatusBar,
@@ -100,7 +101,7 @@ const SYSTEM_INFO_ITEMS = [
 ] as const;
 
 export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): React.JSX.Element {
-  const {width} = useWindowDimensions();
+  const {width, height} = useWindowDimensions();
   const isMobile = width < 600;
   const [activeTab, setActiveTab] = useState<TabName>('FFmpeg');
   const [initialized, setInitialized] = useState(false);
@@ -127,8 +128,46 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
   const [playbackState, setPlaybackState] = useState('Stopped');
   const [videoSize, setVideoSize] = useState({width: 0, height: 0});
   const [volume, setVolume] = useState(0.5);
+  const [logPaneHeight, setLogPaneHeight] = useState(() =>
+    Math.max(96, Math.min(180, height * 0.18)),
+  );
   const videoSurfaceReadyRef = useRef(false);
+  const logResizeStartRef = useRef(logPaneHeight);
   const logScrollRef = useRef<ScrollView>(null);
+
+  const maxLogPaneHeight = Math.max(160, height * 0.65);
+  const videoAspectRatio =
+    videoSize.width > 0 && videoSize.height > 0
+      ? videoSize.width / videoSize.height
+      : 16 / 9;
+  const videoMaxDimension = Math.max(1, Math.min(width, height) - 32);
+  const videoDisplaySize =
+    videoAspectRatio >= 1
+      ? {
+          width: videoMaxDimension,
+          height: videoMaxDimension / videoAspectRatio,
+        }
+      : {
+          width: videoMaxDimension * videoAspectRatio,
+          height: videoMaxDimension,
+        };
+
+  const logResizePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dy) > 2,
+        onPanResponderGrant: () => {
+          logResizeStartRef.current = logPaneHeight;
+        },
+        onPanResponderMove: (_, gestureState) => {
+          const nextHeight = logResizeStartRef.current - gestureState.dy;
+          setLogPaneHeight(Math.max(96, Math.min(maxLogPaneHeight, nextHeight)));
+        },
+      }),
+    [logPaneHeight, maxLogPaneHeight],
+  );
 
   const appendLog = useCallback((message: string) => {
     const line = message.endsWith('\n') ? message : `${message}\n`;
@@ -199,6 +238,12 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
     }, 250);
     return () => clearInterval(timer);
   }, [playbackSession]);
+
+  useEffect(() => {
+    setLogPaneHeight(current =>
+      Math.max(96, Math.min(maxLogPaneHeight, current)),
+    );
+  }, [maxLogPaneHeight]);
 
   useEffect(() => {
     logScrollRef.current?.scrollToEnd({animated: false});
@@ -823,7 +868,14 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
           <View style={styles.section}>
             {platformName === 'Android' ? (
               <>
-                <View style={styles.videoContainer}>
+                <View
+                  style={[
+                    styles.videoContainer,
+                    {
+                      width: videoDisplaySize.width,
+                      height: videoDisplaySize.height,
+                    },
+                  ]}>
                   <FFplayView
                     style={styles.ffplayView}
                     onLayout={() => {
@@ -1005,9 +1057,15 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         {content}
       </ScrollView>
 
-      <View style={styles.divider} />
+      <View
+        accessibilityLabel="Resize log output"
+        accessibilityRole="adjustable"
+        style={styles.logResizeHandle}
+        {...logResizePanResponder.panHandlers}>
+        <View style={styles.logResizeGrip} />
+      </View>
 
-      <View style={styles.logPane}>
+      <View style={[styles.logPane, {height: logPaneHeight}]}>
         <ScrollView ref={logScrollRef} style={styles.logScroll} contentContainerStyle={styles.logScrollContent}>
           <Text selectable style={styles.logText}>{logs}</Text>
         </ScrollView>
@@ -1451,8 +1509,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#45404a',
   },
   videoContainer: {
-    width: '100%',
-    aspectRatio: 16 / 9,
+    alignSelf: 'center',
     overflow: 'hidden',
     borderRadius: 4,
     backgroundColor: '#000000',
@@ -1494,13 +1551,23 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#d0a7ff',
   },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#4a444f',
+  logResizeHandle: {
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: '#4a444f',
+    backgroundColor: '#1d1b20',
+  },
+  logResizeGrip: {
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#77727f',
   },
   logPane: {
-    flex: 2,
-    minHeight: 140,
+    flexShrink: 0,
     backgroundColor: '#000000',
   },
   logScroll: {

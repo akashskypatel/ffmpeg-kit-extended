@@ -14,6 +14,7 @@ export interface Spec extends TurboModule {
   cancelSession(sessionId: Double): void;
 
   getSessionJson(sessionId: Double): string;
+  releaseSessionHandle(sessionId: Double): void;
   getSessionsJson(kind: string): string;
   getLastSessionJson(kind: string): string;
   getLogsJson(sessionId: Double, fromIndex: Double): string;

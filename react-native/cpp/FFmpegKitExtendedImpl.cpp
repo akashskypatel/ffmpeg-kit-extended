@@ -18,6 +18,7 @@ void FFmpegKitExtendedImpl::executeSessionAsync(jsi::Runtime &, double sessionId
 void FFmpegKitExtendedImpl::cancelSession(jsi::Runtime &, double sessionId) { api::cancelSession(sessionId); }
 
 std::string FFmpegKitExtendedImpl::getSessionJson(jsi::Runtime &, double sessionId) { return api::getSessionJson(sessionId); }
+void FFmpegKitExtendedImpl::releaseSessionHandle(jsi::Runtime &, double sessionId) { api::releaseSessionHandle(sessionId); }
 std::string FFmpegKitExtendedImpl::getSessionsJson(jsi::Runtime &, std::string kind) { return api::getSessionsJson(kind); }
 std::string FFmpegKitExtendedImpl::getLastSessionJson(jsi::Runtime &, std::string kind) { return api::getLastSessionJson(kind); }
 std::string FFmpegKitExtendedImpl::getLogsJson(jsi::Runtime &, double sessionId, double fromIndex) { return api::getLogsJson(sessionId, fromIndex); }
