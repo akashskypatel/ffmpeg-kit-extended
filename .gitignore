@@ -124,4 +124,3 @@ ffmpegkit_wrapper.h
 **/node_modules/
 **/.tools/*
 **/vendor/*
-**/vendor/*
