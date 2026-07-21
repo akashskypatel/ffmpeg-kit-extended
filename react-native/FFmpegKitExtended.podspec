@@ -11,6 +11,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => min_ios_version_supported }
+  s.requires_arc = true
 
   s.source = {
     :git => "https://github.com/akashskypatel/ffmpeg-kit-extended.git",
@@ -55,7 +56,9 @@ Pod::Spec.new do |s|
     "CoreMedia",
     "CoreVideo",
     "AudioToolbox",
-    "VideoToolbox"
+    "VideoToolbox",
+    "Accelerate",
+    "QuartzCore"
   ]
 
   s.libraries = [

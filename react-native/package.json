@@ -91,6 +91,11 @@
     "android": {
       "javaPackageName": "com.akashskypatel.ffmpegkitextended"
     },
-    "includesGeneratedCode": true
+    "includesGeneratedCode": true,
+    "ios": {
+      "componentProvider": {
+        "FFplayView": "RCTFFplayView"
+      }
+    }
   }
 }

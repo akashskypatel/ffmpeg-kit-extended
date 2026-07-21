@@ -606,8 +606,8 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
     appendLog(`Return code: ${session.getReturnCode()}`);
   }, [appendLog, ffprobeCommand]);
 
-  const waitForAndroidVideoSurface = useCallback(async () => {
-    if (platformName !== 'Android') {
+  const waitForVideoSurface = useCallback(async () => {
+    if (platformName !== 'Android' && platformName !== 'iOS') {
       return;
     }
 
@@ -620,7 +620,8 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       throw new Error('FFplay video surface is not ready. Open the FFplay tab and try again.');
     }
 
-    // Let Android finish publishing the TextureView Surface to the native bridge.
+    // Let the native view finish binding its platform video target/frame callback
+    // before FFplay begins decoding the first frame.
     await new Promise(resolve => setTimeout(resolve, 50));
   }, [platformName]);
 
@@ -634,7 +635,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         }
       }
       if (requiresVideoSurface) {
-        await waitForAndroidVideoSurface();
+        await waitForVideoSurface();
       }
       appendLog(`--- Starting FFplay: ${label} ---`);
       appendLog(`Command: ${command}`);
@@ -661,7 +662,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         })
         .catch(error => appendLog(`FFplay failed: ${String(error)}`));
     },
-    [appendLog, playbackSession, waitForAndroidVideoSurface],
+    [appendLog, playbackSession, waitForVideoSurface],
   );
 
   const playGenerated = useCallback(
@@ -866,7 +867,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       case 'FFplay':
         return (
           <View style={styles.section}>
-            {platformName === 'Android' ? (
+            {platformName === 'Android' || platformName === 'iOS' ? (
               <>
                 <View
                   style={[
@@ -889,16 +890,6 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
                     : 'FFplay video surface ready. Audio-only playback does not require video output.'}
                 </Text>
               </>
-            ) : playbackSession && videoSize.width > 0 && videoSize.height > 0 ? (
-              <View style={styles.videoPlaceholder}>
-                <Text style={styles.videoPlaceholderTitle}>FFplay Video Surface</Text>
-                <Text style={styles.videoPlaceholderText}>
-                  Decoded video: {videoSize.width}x{videoSize.height}
-                </Text>
-                <Text style={styles.videoPlaceholderText}>
-                  Native FFplay video rendering is currently implemented on Android.
-                </Text>
-              </View>
             ) : null}
             <CommandSection
               label="Enter FFplay command"
