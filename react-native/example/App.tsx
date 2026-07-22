@@ -1,0 +1,28 @@
+import React from 'react';
+import {Platform} from 'react-native';
+
+import {ExampleApp, type ExamplePlatformName} from './src/ExampleApp';
+import {examplePlatform} from './src/ExamplePlatform';
+
+function getPlatformName(): ExamplePlatformName {
+  const platform = Platform.OS as string;
+
+  if (platform === 'macos') {
+    return 'macOS';
+  }
+
+  if (platform === 'ios') {
+    return 'iOS';
+  }
+
+  return 'Android';
+}
+
+export default function App(): React.JSX.Element {
+  return (
+    <ExampleApp
+      platformName={getPlatformName()}
+      platformServices={examplePlatform}
+    />
+  );
+}

@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
   ActivityIndicator,
-  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -262,7 +261,7 @@ export function ExampleApp({
   const generateTestVideo = useCallback(async () => {
     appendLog(`--- Generating Test Video with Audio: ${TEST_VIDEO_PATH} ---`);
     const command =
-      '-hide_banner -loglevel quiet -f lavfi -i testsrc=duration=5:size=512x512:rate=30 ' +
+      '-hide_banner -loglevel error -f lavfi -i testsrc=duration=5:size=512x512:rate=30 ' +
       '-f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y ' +
       quote(TEST_VIDEO_PATH);
     const session = await FFmpegKit.executeAsync(command, {
@@ -278,7 +277,7 @@ export function ExampleApp({
   const generateTestAudio = useCallback(async () => {
     appendLog(`--- Generating Test Audio: ${TEST_AUDIO_PATH} ---`);
     const command =
-      '-hide_banner -loglevel quiet -f lavfi -i sine=frequency=1000:duration=10 -y ' +
+      '-hide_banner -loglevel error -f lavfi -i sine=frequency=1000:duration=10 -y ' +
       quote(TEST_AUDIO_PATH);
     const session = await FFmpegKit.executeAsync(command, {
       logCallback: log => appendLog(log.message),
@@ -1268,21 +1267,33 @@ function PopupMenu({
   width: number;
   scrollable?: boolean;
   children: React.ReactNode;
-}): React.JSX.Element {
+}): React.JSX.Element | null {
+  if (!visible) {
+    return null;
+  }
+
   const menu = <View style={[styles.popupMenu, {width}]}>{children}</View>;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.popupBackdrop} onPress={onClose}>
-        <Pressable style={styles.popupAnchor} onPress={event => event.stopPropagation()}>
-          {scrollable ? (
-            <ScrollView style={styles.popupScroll} contentContainerStyle={styles.popupScrollContent}>
-              {menu}
-            </ScrollView>
-          ) : menu}
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <View style={styles.popupOverlay} pointerEvents="box-none">
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Close popup menu"
+        style={styles.popupBackdrop}
+        onPress={onClose}
+      />
+      <View style={styles.popupAnchor} pointerEvents="box-none">
+        {scrollable ? (
+          <ScrollView
+            style={styles.popupScroll}
+            contentContainerStyle={styles.popupScrollContent}>
+            {menu}
+          </ScrollView>
+        ) : (
+          menu
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -1693,8 +1704,12 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     color: '#69f0ae',
   },
+  popupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+  },
   popupBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.08)',
   },
   popupAnchor: {
@@ -1703,6 +1718,7 @@ const styles = StyleSheet.create({
     right: 8,
     maxHeight: '88%',
     alignItems: 'flex-end',
+    zIndex: 1001,
   },
   popupScroll: {
     maxHeight: 650,

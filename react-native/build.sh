@@ -83,6 +83,9 @@ ensure_apple_binary() {
   local parent archive extracted url
 
   if [[ -d "$destination" ]]; then
+    if [[ "$platform" == "macos" ]]; then
+      normalize_macos_xcframework "$destination"
+    fi
     return
   fi
 
@@ -108,6 +111,91 @@ ensure_apple_binary() {
   # The release asset directory uses the bundle variant name while the
   # framework contained by the XCFramework is ffmpegkit.framework.
   mv "$extracted" "$destination"
+
+  if [[ "$platform" == "macos" ]]; then
+    normalize_macos_xcframework "$destination"
+  fi
+}
+
+normalize_macos_framework_bundle() {
+  local framework="$1"
+  local name version_dir source_dir
+
+  [[ -d "$framework" ]] || return 0
+
+  name="$(basename "$framework" .framework)"
+  version_dir="$framework/Versions/A"
+
+  # A native macOS framework is a versioned (non-shallow) bundle. The current
+  # release asset was packaged with the iOS-style shallow layout, which Xcode
+  # embeds successfully but rejects during final application validation.
+  if [[ -f "$framework/Versions/Current/Resources/Info.plist" &&         -e "$framework/Versions/Current/$name" ]]; then
+    return 0
+  fi
+
+  echo "Normalizing macOS framework bundle layout: $framework"
+
+  rm -rf "$framework/_CodeSignature"
+  mkdir -p "$version_dir/Resources"
+
+  if [[ -f "$framework/$name" && ! -e "$version_dir/$name" ]]; then
+    mv "$framework/$name" "$version_dir/$name"
+  fi
+
+  if [[ -f "$framework/Info.plist" ]]; then
+    mv "$framework/Info.plist" "$version_dir/Resources/Info.plist"
+  fi
+
+  for source_dir in Headers Modules; do
+    if [[ -d "$framework/$source_dir" && ! -e "$version_dir/$source_dir" ]]; then
+      mv "$framework/$source_dir" "$version_dir/$source_dir"
+    fi
+  done
+
+  if [[ -d "$framework/Resources" ]]; then
+    ditto "$framework/Resources" "$version_dir/Resources"
+    rm -rf "$framework/Resources"
+  fi
+
+  if [[ ! -f "$version_dir/$name" ]]; then
+    echo "macOS framework executable was not found after normalization: $version_dir/$name" >&2
+    exit 1
+  fi
+
+  if [[ ! -f "$version_dir/Resources/Info.plist" ]]; then
+    echo "macOS framework Info.plist was not found after normalization: $version_dir/Resources/Info.plist" >&2
+    exit 1
+  fi
+
+  rm -f "$framework/Versions/Current"         "$framework/$name"         "$framework/Resources"         "$framework/Headers"         "$framework/Modules"
+
+  ln -s A "$framework/Versions/Current"
+  ln -s "Versions/Current/$name" "$framework/$name"
+  ln -s "Versions/Current/Resources" "$framework/Resources"
+
+  if [[ -d "$version_dir/Headers" ]]; then
+    ln -s "Versions/Current/Headers" "$framework/Headers"
+  fi
+
+  if [[ -d "$version_dir/Modules" ]]; then
+    ln -s "Versions/Current/Modules" "$framework/Modules"
+  fi
+}
+
+normalize_macos_xcframework() {
+  local xcframework="$1"
+  local framework
+  local found=0
+
+  while IFS= read -r -d '' framework; do
+    found=1
+    normalize_macos_framework_bundle "$framework"
+  done < <(find "$xcframework" -type d -name 'ffmpegkit.framework' -print0)
+
+  if [[ "$found" -eq 0 ]]; then
+    echo "No ffmpegkit.framework was found in macOS XCFramework: $xcframework" >&2
+    exit 1
+  fi
 }
 
 ensure_ios_binary() {
@@ -127,13 +215,20 @@ ensure_macos_binary() {
 prepare_macos_runtime_files() {
   mkdir -p "$macos_runtime_dir"
 
+  # react-native-macos run-macos expects the native macOS project to exist
+  # under the React Native project root. Keep the isolated RN-macOS runtime
+  # as that root while exposing the unified example/macos project through a
+  # symlink. Metro still uses example/ as projectRoot via metro.config.js.
+  rm -rf "$macos_runtime_dir/macos"
+  ln -s ../macos "$macos_runtime_dir/macos"
+
   cat > "$macos_runtime_dir/package.json" <<'JSON'
 {
   "name": "ffmpeg-kit-extended-react-native-macos-runtime",
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "macos": "react-native run-macos --project-path ../macos --scheme FFmpegKitExtendedExample-macOS",
+    "macos": "react-native run-macos --scheme FFmpegKitExtendedExample-macOS",
     "start": "react-native start --config metro.config.js"
   },
   "dependencies": {
@@ -404,9 +499,13 @@ build_macos() {
       -configuration "$configuration" \
       -sdk macosx \
       -destination 'platform=macOS' \
+      -derivedDataPath "$example_dir/macos/build/DerivedData" \
       CODE_SIGNING_ALLOWED=NO \
       build
   )
+
+  mkdir -p "$example_dir/macos/build"
+  touch "$example_dir/macos/build/.last-successful-build"
 }
 
 if [[ "$clean_first" == true ]]; then

@@ -26,6 +26,49 @@ ensure_dependencies() {
   fi
 }
 
+macos_app_path="$example_dir/macos/build/DerivedData/Build/Products/Debug/FFmpegKitExtendedExample.app"
+macos_build_stamp="$example_dir/macos/build/.last-successful-build"
+
+macos_build_required() {
+  if [[ ! -d "$macos_app_path" || ! -f "$macos_build_stamp" ]]; then
+    return 0
+  fi
+
+  local source
+  local -a sources=(
+    "$script_dir/src"
+    "$script_dir/cpp"
+    "$script_dir/macos"
+    "$script_dir/package.json"
+    "$script_dir/FFmpegKitExtended.podspec"
+    "$script_dir/react-native.config.js"
+    "$script_dir/build.sh"
+    "$example_dir/App.tsx"
+    "$example_dir/index.js"
+    "$example_dir/package.json"
+    "$example_dir/metro.config.js"
+    "$example_dir/src"
+    "$example_dir/macos/Podfile"
+    "$example_dir/macos/FFmpegKitExtendedExample-macOS"
+    "$example_dir/macos/FFmpegKitExtendedExample.xcodeproj"
+    "$script_dir/vendor/macos"
+  )
+
+  for source in "${sources[@]}"; do
+    if [[ -f "$source" ]]; then
+      if [[ "$source" -nt "$macos_build_stamp" ]]; then
+        return 0
+      fi
+    elif [[ -d "$source" ]]; then
+      if find "$source" -type f -newer "$macos_build_stamp" -print -quit 2>/dev/null | grep -q .; then
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
 case "$target" in
   android)
     echo "Launching Android example..."
@@ -51,33 +94,48 @@ case "$target" in
       exit 1
     fi
 
-    echo "Preparing macOS example..."
-    # Calling the macOS build preparation through build.sh keeps the isolated
-    # RN-macOS runtime and native dependency staging identical for build/launch.
-    "$script_dir/build.sh" library
+    if macos_build_required; then
+      echo "macOS sources changed or no successful build was found; rebuilding..."
+      "$script_dir/build.sh" macos
+    else
+      echo "Reusing existing macOS build; no relevant source changes detected."
+    fi
 
-    # Define the same preparation helpers used by build.sh in this shell.
-    # shellcheck disable=SC1090
-    source <(
-      sed -n '/^ensure_apple_binary()/,/^build_library()/p' "$script_dir/build.sh" | \
-        sed '$d'
-    )
-    prepare_macos_example
+    if [[ ! -d "$macos_app_path" ]]; then
+      echo "Built macOS application was not found: $macos_app_path" >&2
+      exit 1
+    fi
 
-    (
-      cd "$example_dir/macos"
-      echo "Installing CocoaPods dependencies..."
-      NODE_PATH="$macos_runtime_dir/node_modules" \
-        RCT_NEW_ARCH_ENABLED=1 bundle exec pod install 2>/dev/null || \
-      NODE_PATH="$macos_runtime_dir/node_modules" \
-        RCT_NEW_ARCH_ENABLED=1 pod install
-    )
+    # The macOS host loads the Debug JavaScript bundle from Metro. Start Metro
+    # from the isolated RN-macOS runtime, whose metro.config.js points projectRoot
+    # at the shared example/ application.
+    if ! lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
+      echo "Starting Metro on port 8081..."
+      (
+        cd "$macos_runtime_dir"
+        nohup npm run start -- --port 8081 \
+          > "$macos_runtime_dir/metro.log" 2>&1 &
+        echo $! > "$macos_runtime_dir/metro.pid"
+      )
 
-    cd "$macos_runtime_dir"
-    exec env \
-      NODE_PATH="$macos_runtime_dir/node_modules" \
-      RCT_NEW_ARCH_ENABLED=1 \
-      npm run macos
+      # Give Metro a brief opportunity to bind before launching the app.
+      for _ in {1..20}; do
+        if lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
+          break
+        fi
+        sleep 0.25
+      done
+
+      if ! lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
+        echo "Metro did not start successfully. See: $macos_runtime_dir/metro.log" >&2
+        exit 1
+      fi
+    else
+      echo "Metro is already running on port 8081."
+    fi
+
+    echo "Launching macOS example..."
+    exec open -n "$macos_app_path"
     ;;
 
   -h|--help)

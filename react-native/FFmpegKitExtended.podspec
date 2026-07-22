@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
 
   s.platforms = {
     :ios => min_ios_version_supported,
-    :osx => "13.0"
+    :osx => "14.0"
   }
   s.requires_arc = true
 
@@ -40,6 +40,83 @@ Pod::Spec.new do |s|
   s.prepare_command = <<-CMD
     set -e
 
+    normalize_macos_framework_bundle() {
+      framework="$1"
+      name="$(basename "$framework" .framework)"
+      version_dir="$framework/Versions/A"
+
+      if [ -f "$framework/Versions/Current/Resources/Info.plist" ] && \
+         [ -e "$framework/Versions/Current/$name" ]; then
+        return
+      fi
+
+      echo "Normalizing macOS framework bundle layout: $framework"
+
+      rm -rf "$framework/_CodeSignature"
+      mkdir -p "$version_dir/Resources"
+
+      if [ -f "$framework/$name" ] && [ ! -e "$version_dir/$name" ]; then
+        mv "$framework/$name" "$version_dir/$name"
+      fi
+
+      if [ -f "$framework/Info.plist" ]; then
+        mv "$framework/Info.plist" "$version_dir/Resources/Info.plist"
+      fi
+
+      for source_dir in Headers Modules; do
+        if [ -d "$framework/$source_dir" ] && [ ! -e "$version_dir/$source_dir" ]; then
+          mv "$framework/$source_dir" "$version_dir/$source_dir"
+        fi
+      done
+
+      if [ -d "$framework/Resources" ]; then
+        ditto "$framework/Resources" "$version_dir/Resources"
+        rm -rf "$framework/Resources"
+      fi
+
+      if [ ! -f "$version_dir/$name" ]; then
+        echo "macOS framework executable was not found after normalization: $version_dir/$name" >&2
+        exit 1
+      fi
+
+      if [ ! -f "$version_dir/Resources/Info.plist" ]; then
+        echo "macOS framework Info.plist was not found after normalization: $version_dir/Resources/Info.plist" >&2
+        exit 1
+      fi
+
+      rm -f "$framework/Versions/Current" \
+            "$framework/$name" \
+            "$framework/Resources" \
+            "$framework/Headers" \
+            "$framework/Modules"
+
+      ln -s A "$framework/Versions/Current"
+      ln -s "Versions/Current/$name" "$framework/$name"
+      ln -s "Versions/Current/Resources" "$framework/Resources"
+
+      if [ -d "$version_dir/Headers" ]; then
+        ln -s "Versions/Current/Headers" "$framework/Headers"
+      fi
+
+      if [ -d "$version_dir/Modules" ]; then
+        ln -s "Versions/Current/Modules" "$framework/Modules"
+      fi
+    }
+
+    normalize_macos_xcframework() {
+      xcframework="$1"
+      found=0
+
+      find "$xcframework" -type d -name 'ffmpegkit.framework' | while IFS= read -r framework; do
+        normalize_macos_framework_bundle "$framework"
+      done
+
+      if ! find "$xcframework" -type d -name 'ffmpegkit.framework' | grep -q .; then
+        echo "No ffmpegkit.framework was found in macOS XCFramework: $xcframework" >&2
+        exit 1
+      fi
+    }
+
     download_xcframework() {
       platform="$1"
       artifact="$2"
@@ -47,6 +124,9 @@ Pod::Spec.new do |s|
       url="https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download/v0.10.5-${platform}/${artifact}.xcframework.zip"
 
       if [ -d "$destination" ]; then
+        if [ "$platform" = "macos" ]; then
+          normalize_macos_xcframework "$destination"
+        fi
         return
       fi
 
@@ -73,6 +153,10 @@ Pod::Spec.new do |s|
       # while the contained dynamic framework is named ffmpegkit.framework.
       # Normalize the outer XCFramework name so CocoaPods links -framework ffmpegkit.
       mv "$extracted" "$destination"
+
+      if [ "$platform" = "macos" ]; then
+        normalize_macos_xcframework "$destination"
+      fi
     }
 
     download_xcframework \
