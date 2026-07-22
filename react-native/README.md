@@ -198,4 +198,6 @@ The repository scripts prepare the matching native binary, Codegen output, Cocoa
 ./launch.sh macos
 ```
 
+`./launch.sh appletvos` and `./launch.sh macos` open the matching platform-specific Metro server in a visible Terminal window. Because the Apple tvOS and macOS examples use different React Native runtimes, the launcher will stop a Metro process owned by another runtime in this repository before switching platforms. An unrelated process already using port 8081 is left untouched and reported as an error instead of serving an incompatible JavaScript bundle.
+
 On Android, `FFplayView` supplies the native Android surface used by FFplay. On iOS, Apple tvOS, and macOS, `FFplayView` receives FFplay's decoded frame callback and presents frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native SDL audio backend.

@@ -27,6 +27,115 @@ ensure_dependencies() {
   fi
 }
 
+metro_listener_pid() {
+  lsof -nP -tiTCP:8081 -sTCP:LISTEN 2>/dev/null | head -n 1 || true
+}
+
+process_working_directory() {
+  local pid="$1"
+  lsof -a -p "$pid" -d cwd -Fn 2>/dev/null |
+    sed -n 's/^n//p' |
+    head -n 1 || true
+}
+
+wait_for_metro_port_to_close() {
+  for _ in {1..40}; do
+    if [[ -z "$(metro_listener_pid)" ]]; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
+stop_conflicting_project_metro() {
+  local expected_runtime_dir="$1"
+  local label="$2"
+  local pid cwd expected_cwd
+
+  pid="$(metro_listener_pid)"
+  [[ -n "$pid" ]] || return 0
+
+  cwd="$(process_working_directory "$pid")"
+  expected_cwd="$(cd "$expected_runtime_dir" && pwd -P)"
+
+  if [[ "$cwd" == "$expected_cwd" ]]; then
+    # Older versions of launch.sh started Metro with nohup and left only a log
+    # file in the runtime directory. Restart that server in Terminal once so
+    # Metro remains visible and interactive on subsequent launches.
+    if [[ -f "$expected_runtime_dir/metro.pid" ]]; then
+      echo "Restarting background $label Metro in Terminal..."
+      kill "$pid" >/dev/null 2>&1 || true
+      rm -f "$expected_runtime_dir/metro.pid"
+      if ! wait_for_metro_port_to_close; then
+        echo "Unable to stop the existing $label Metro process on port 8081." >&2
+        exit 1
+      fi
+      return 0
+    fi
+
+    echo "$label Metro is already running in the expected runtime on port 8081."
+    return 1
+  fi
+
+  # The Apple example runtimes intentionally use different React Native forks.
+  # Reusing a Metro server from another runtime can serve an incompatible JS
+  # bundle (for example react-native-macos to react-native-tvos), which manifests
+  # as missing core TurboModules such as PlatformConstants at startup.
+  if [[ -n "$cwd" && ( "$cwd" == "$script_dir" || "$cwd" == "$script_dir"/* ) ]]; then
+    echo "Switching Metro to $label (stopping project Metro from $cwd)..."
+    kill "$pid" >/dev/null 2>&1 || true
+    rm -f "$macos_runtime_dir/metro.pid" "$appletvos_runtime_dir/metro.pid"
+    if ! wait_for_metro_port_to_close; then
+      echo "Unable to stop the conflicting project Metro process on port 8081." >&2
+      exit 1
+    fi
+    return 0
+  fi
+
+  echo "Port 8081 is already in use by PID $pid${cwd:+ (cwd: $cwd)}." >&2
+  echo "Stop that process before launching the $label example so it does not receive the wrong Metro bundle." >&2
+  exit 1
+}
+
+start_metro_in_terminal() {
+  local runtime_dir="$1"
+  local label="$2"
+  local launcher="$runtime_dir/.start-metro.command"
+  local quoted_runtime
+
+  printf -v quoted_runtime '%q' "$runtime_dir"
+  cat > "$launcher" <<EOF
+#!/usr/bin/env bash
+cd $quoted_runtime
+printf '\\033]0;Metro - $label\\007'
+exec npm run start -- --port 8081 --reset-cache
+EOF
+  chmod +x "$launcher"
+
+  echo "Opening $label Metro in Terminal on port 8081..."
+  open -a Terminal "$launcher"
+
+  for _ in {1..80}; do
+    if [[ -n "$(metro_listener_pid)" ]]; then
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  echo "$label Metro did not start successfully in Terminal." >&2
+  exit 1
+}
+
+ensure_metro_in_terminal() {
+  local runtime_dir="$1"
+  local label="$2"
+
+  if stop_conflicting_project_metro "$runtime_dir" "$label"; then
+    start_metro_in_terminal "$runtime_dir" "$label"
+  fi
+}
+
 appletvos_app_path="$example_dir/appletvos/build/DerivedData/Build/Products/Debug-appletvsimulator/FFmpegKitExtendedExample.app"
 appletvos_build_stamp="$example_dir/appletvos/build/.last-successful-build"
 
@@ -149,29 +258,7 @@ case "$target" in
       exit 1
     fi
 
-    if ! lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
-      echo "Starting Metro on port 8081..."
-      (
-        cd "$appletvos_runtime_dir"
-        nohup npm run start -- --port 8081 \
-          > "$appletvos_runtime_dir/metro.log" 2>&1 &
-        echo $! > "$appletvos_runtime_dir/metro.pid"
-      )
-
-      for _ in {1..20}; do
-        if lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
-          break
-        fi
-        sleep 0.25
-      done
-
-      if ! lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
-        echo "Metro did not start successfully. See: $appletvos_runtime_dir/metro.log" >&2
-        exit 1
-      fi
-    else
-      echo "Metro is already running on port 8081."
-    fi
+    ensure_metro_in_terminal "$appletvos_runtime_dir" "Apple tvOS"
 
     device_udid="$(
       xcrun simctl list devices available |
@@ -214,33 +301,10 @@ case "$target" in
       exit 1
     fi
 
-    # The macOS host loads the Debug JavaScript bundle from Metro. Start Metro
-    # from the isolated RN-macOS runtime, whose metro.config.js points projectRoot
-    # at the shared example/ application.
-    if ! lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
-      echo "Starting Metro on port 8081..."
-      (
-        cd "$macos_runtime_dir"
-        nohup npm run start -- --port 8081 \
-          > "$macos_runtime_dir/metro.log" 2>&1 &
-        echo $! > "$macos_runtime_dir/metro.pid"
-      )
-
-      # Give Metro a brief opportunity to bind before launching the app.
-      for _ in {1..20}; do
-        if lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
-          break
-        fi
-        sleep 0.25
-      done
-
-      if ! lsof -nP -iTCP:8081 -sTCP:LISTEN >/dev/null 2>&1; then
-        echo "Metro did not start successfully. See: $macos_runtime_dir/metro.log" >&2
-        exit 1
-      fi
-    else
-      echo "Metro is already running on port 8081."
-    fi
+    # The macOS host loads the Debug JavaScript bundle from Metro. The macOS and
+    # Apple tvOS examples use different React Native runtimes, so never reuse a
+    # project Metro process that belongs to the other Apple platform.
+    ensure_metro_in_terminal "$macos_runtime_dir" "macOS"
 
     echo "Launching macOS example..."
     exec open -n "$macos_app_path"
