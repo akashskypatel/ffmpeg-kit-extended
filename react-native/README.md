@@ -183,16 +183,22 @@ The binding source has been checked for:
 
 A full Android/iOS application link test still requires the actual platform `libffmpegkit` binaries, which are not included in this source snapshot.
 
-## Example application
+## Example applications
 
-A React Native 0.86 example application is included under `example/` with native Android and iOS host projects. It ports the workflows from `flutter/example/lib/main.dart`: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
+The React Native 0.86 mobile example under `example/` contains the Android and iOS host projects. It ports the workflows from `flutter/example/lib/main.dart`: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
+
+The unified React Native example contains Android, iOS, and macOS native hosts under `example/`. It uses the React Native macOS toolchain to exercise the same C++ TurboModule and the native `FFplayView` implementation with FFmpeg/FFprobe execution, generated video/audio playback, pause/resume/stop/seek/volume controls, aspect-ratio-preserving video output, and a resizable log pane.
+
+The repository scripts prepare the matching native binary, Codegen output, CocoaPods dependencies, and host application:
 
 ```sh
-cd example
-npm install
-npm run android
-# or, after CocoaPods setup:
-npm run ios
+./build.sh android
+./build.sh ios
+./build.sh macos
+
+./launch.sh android
+./launch.sh ios
+./launch.sh macos
 ```
 
-The FFplay tab mounts the native Android `FFplayView`, generates sample video/audio media, exercises video and audio-only playback, and exposes pause/resume/stop/seek/volume controls.
+On Android, `FFplayView` supplies the native Android surface used by FFplay. On iOS and macOS, `FFplayView` receives FFplay's decoded frame callback and presents frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native SDL audio backend.

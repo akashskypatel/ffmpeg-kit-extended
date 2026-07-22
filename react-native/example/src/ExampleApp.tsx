@@ -12,15 +12,6 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import Slider from '@react-native-community/slider';
-import {
-  errorCodes,
-  isErrorWithCode,
-  keepLocalCopy,
-  pick,
-  types,
-} from '@react-native-documents/picker';
-import {Dirs, FileSystem, Util} from 'react-native-file-access';
 import {
   FFmpegKit,
   FFmpegKitConfig,
@@ -35,6 +26,21 @@ import {
   type FFplaySession,
   type Statistics,
 } from 'ffmpeg-kit-extended';
+
+export type ExamplePlatformName = 'Android' | 'iOS' | 'macOS';
+
+export type ExamplePlatformServices = {
+  exampleDir: string;
+  canPickFiles: boolean;
+  canWriteTextFiles: boolean;
+  ensureDirectory: (path: string) => Promise<void>;
+  fileExists: (path: string) => Promise<boolean>;
+  removeFile: (path: string) => Promise<void>;
+  writeTextFile: (path: string, contents: string) => Promise<void>;
+  appendTextFile: (path: string, contents: string) => Promise<void>;
+  basename: (path: string) => string;
+  pickLocalFile: (videoOnly: boolean) => Promise<string | undefined>;
+};
 
 type TabName = 'FFmpeg' | 'Stream' | 'FFprobe' | 'FFplay' | 'Transcode';
 
@@ -57,10 +63,6 @@ const TAB_SYMBOLS: Record<TabName, string> = {
   FFplay: '▶',
   Transcode: '⇄',
 };
-const EXAMPLE_DIR = `${Dirs.CacheDir}/ffmpeg_kit_extended_react_native_example`;
-const TEST_VIDEO_PATH = `${EXAMPLE_DIR}/test_video.mp4`;
-const TEST_AUDIO_PATH = `${EXAMPLE_DIR}/test_audio.wav`;
-const REMOTE_LOG_PATH = `${EXAMPLE_DIR}/ffmpeg_kit_extended_react_native_example.log`;
 const DEFAULT_REMOTE_URL = 'https://endpnt.com/hls/nasa4k/playlist.m3u8';
 const MEDIA_INFO_FALLBACK =
   'https://raw.githubusercontent.com/tanersener/ffmpeg-kit/master/test-data/video.mp4';
@@ -100,9 +102,19 @@ const SYSTEM_INFO_ITEMS = [
   ['Build Date', 'build-date', '□'],
 ] as const;
 
-export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): React.JSX.Element {
+export function ExampleApp({
+  platformName,
+  platformServices,
+}: {
+  platformName: ExamplePlatformName;
+  platformServices: ExamplePlatformServices;
+}): React.JSX.Element {
   const {width, height} = useWindowDimensions();
   const isMobile = width < 600;
+  const EXAMPLE_DIR = platformServices.exampleDir;
+  const TEST_VIDEO_PATH = `${EXAMPLE_DIR}/test_video.mp4`;
+  const TEST_AUDIO_PATH = `${EXAMPLE_DIR}/test_audio.wav`;
+  const REMOTE_LOG_PATH = `${EXAMPLE_DIR}/ffmpeg_kit_extended_react_native_example.log`;
   const [activeTab, setActiveTab] = useState<TabName>('FFmpeg');
   const [initialized, setInitialized] = useState(false);
   const [status, setStatus] = useState('Initializing...');
@@ -189,9 +201,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
   useEffect(() => {
     void (async () => {
       try {
-        if (!(await FileSystem.exists(EXAMPLE_DIR))) {
-          await FileSystem.mkdir(EXAMPLE_DIR);
-        }
+        await platformServices.ensureDirectory(EXAMPLE_DIR);
         FFmpegKitExtended.initialize();
         setCurrentLogLevel(FFmpegKitConfig.getLogLevel());
         setInitialized(true);
@@ -204,7 +214,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         appendLog(`Initialization failed: ${message}`);
       }
     })();
-  }, [appendLog, platformName]);
+  }, [EXAMPLE_DIR, appendLog, platformName, platformServices]);
 
   useEffect(() => {
     if (!playbackSession) {
@@ -402,18 +412,22 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       return;
     }
 
-    await FileSystem.writeFile(REMOTE_LOG_PATH, '');
+    if (platformServices.canWriteTextFiles) {
+      await platformServices.writeTextFile(REMOTE_LOG_PATH, '');
+    }
     const label = String(recordingCounter);
     const outputPath = `${EXAMPLE_DIR}/remote_recording_${recordingCounter}.ts`;
     setRecordingCounter(value => value + 1);
-    if (await FileSystem.exists(outputPath)) {
-      await FileSystem.unlink(outputPath);
+    if (await platformServices.fileExists(outputPath)) {
+      await platformServices.removeFile(outputPath);
     }
 
     appendLog('--- Running remote stream recording ---');
     appendLog(`Source: ${url}`);
     appendLog(`Output: ${outputPath}`);
-    appendLog(`Scenario log: ${REMOTE_LOG_PATH}`);
+    if (platformServices.canWriteTextFiles) {
+      appendLog(`Scenario log: ${REMOTE_LOG_PATH}`);
+    }
 
     const command = [
       '-y',
@@ -448,10 +462,12 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
 
     const appendScenarioLog = async (message: string) => {
       appendLog(message);
-      try {
-        await FileSystem.appendFile(REMOTE_LOG_PATH, `${message}\n`);
-      } catch {
-        // UI logging remains useful if file logging fails.
+      if (platformServices.canWriteTextFiles) {
+        try {
+          await platformServices.appendTextFile(REMOTE_LOG_PATH, `${message}\n`);
+        } catch {
+          // UI logging remains useful if file logging fails.
+        }
       }
     };
 
@@ -499,7 +515,14 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         );
         appendLog(`[${label}] session execution failed: ${String(error)}`);
       });
-  }, [appendLog, recordingCounter, remoteStreamUrl]);
+  }, [
+    EXAMPLE_DIR,
+    REMOTE_LOG_PATH,
+    appendLog,
+    platformServices,
+    recordingCounter,
+    remoteStreamUrl,
+  ]);
 
   const cancelRemoteJob = useCallback(
     (sessionId: number) => {
@@ -546,27 +569,10 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
     appendLog(`Return code: ${session.getReturnCode()}`);
   }, [appendLog]);
 
-  const pickLocalFile = useCallback(async (videoOnly: boolean) => {
-    try {
-      const [picked] = await pick({
-        mode: 'import',
-        type: videoOnly ? [types.video] : undefined,
-      });
-      const [copy] = await keepLocalCopy({
-        destination: 'cachesDirectory',
-        files: [{uri: picked.uri, fileName: picked.name ?? 'picked-media'}],
-      });
-      if (copy.status !== 'success') {
-        throw new Error(copy.copyError);
-      }
-      return localPathFromUri(copy.localUri);
-    } catch (error) {
-      if (isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED) {
-        return undefined;
-      }
-      throw error;
-    }
-  }, []);
+  const pickLocalFile = useCallback(
+    async (videoOnly: boolean) => platformServices.pickLocalFile(videoOnly),
+    [platformServices],
+  );
 
   const pickProbeFile = useCallback(async () => {
     const path = await pickLocalFile(false);
@@ -577,7 +583,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
   }, [appendLog, pickLocalFile]);
 
   const runMediaInformation = useCallback(async () => {
-    const localTestExists = await FileSystem.exists(TEST_VIDEO_PATH);
+    const localTestExists = await platformServices.fileExists(TEST_VIDEO_PATH);
     const probePath = selectedProbePath ?? (localTestExists ? TEST_VIDEO_PATH : MEDIA_INFO_FALLBACK);
     appendLog(`--- Getting Media Information for ${probePath} ---`);
     const session = await FFprobeKit.getMediaInformation(probePath);
@@ -597,7 +603,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         ` Stream #${index}: ${stream.type ?? '?'} (${stream.codec ?? '?'}) - ${stream.width ?? 0}x${stream.height ?? 0}`,
       );
     });
-  }, [appendLog, selectedProbePath]);
+  }, [TEST_VIDEO_PATH, appendLog, platformServices, selectedProbePath]);
 
   const runCustomFfprobe = useCallback(async () => {
     appendLog(`--- Running Custom FFprobe: ${ffprobeCommand} ---`);
@@ -607,7 +613,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
   }, [appendLog, ffprobeCommand]);
 
   const waitForVideoSurface = useCallback(async () => {
-    if (platformName !== 'Android' && platformName !== 'iOS') {
+    if (platformName !== 'Android' && platformName !== 'iOS' && platformName !== 'macOS') {
       return;
     }
 
@@ -667,7 +673,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
 
   const playGenerated = useCallback(
     async (path: string, hasVideo: boolean) => {
-      if (!(await FileSystem.exists(path))) {
+      if (!(await platformServices.fileExists(path))) {
         appendLog(`File not found: ${path}. Generate it first.`);
         return;
       }
@@ -677,7 +683,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
         hasVideo,
       );
     },
-    [appendLog, startPlayback],
+    [appendLog, platformServices, startPlayback],
   );
 
   const runCustomFfplay = useCallback(async () => {
@@ -701,14 +707,14 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
     if (!path) {
       return;
     }
-    const fileName = Util.basename(path);
+    const fileName = platformServices.basename(path);
     const dot = fileName.lastIndexOf('.');
     const baseName = dot > 0 ? fileName.slice(0, dot) : fileName;
     const output = `${EXAMPLE_DIR}/${baseName}_transcoded.avi`;
     setTranscodeInputPath(path);
     setTranscodeOutputPath(output);
     appendLog(`Selected file: ${path}`);
-  }, [appendLog, pickLocalFile]);
+  }, [EXAMPLE_DIR, appendLog, pickLocalFile, platformServices]);
 
   const transcodeVideo = useCallback(async () => {
     if (isTranscoding) {
@@ -718,15 +724,15 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
 
     let inputPath = transcodeInputPath;
     let outputPath = transcodeOutputPath;
-    if (!inputPath || !(await FileSystem.exists(inputPath))) {
+    if (!inputPath || !(await platformServices.fileExists(inputPath))) {
       inputPath = TEST_VIDEO_PATH;
       outputPath = `${EXAMPLE_DIR}/test_video.avi`;
-      if (!(await FileSystem.exists(inputPath))) {
+      if (!(await platformServices.fileExists(inputPath))) {
         appendLog('Source video not found. Generating test video first...');
         await generateTestVideo();
       }
     }
-    if (!(await FileSystem.exists(inputPath))) {
+    if (!(await platformServices.fileExists(inputPath))) {
       appendLog('Failed to create source video.');
       return;
     }
@@ -774,9 +780,12 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       setIsTranscoding(false);
     }
   }, [
+    EXAMPLE_DIR,
+    TEST_VIDEO_PATH,
     appendLog,
     generateTestVideo,
     isTranscoding,
+    platformServices,
     transcodeInputPath,
     transcodeOutputPath,
   ]);
@@ -849,9 +858,13 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       case 'FFprobe':
         return (
           <View style={styles.section}>
-            {selectedProbePath ? <Text style={styles.help}>Selected: {Util.basename(selectedProbePath)}</Text> : null}
+            {selectedProbePath ? <Text style={styles.help}>Selected: {platformServices.basename(selectedProbePath)}</Text> : null}
             <ButtonGrid>
-              <DemoButton label="Pick File" onPress={() => void runGuarded('Pick probe file', pickProbeFile)} />
+              <DemoButton
+                label="Pick File"
+                disabled={!platformServices.canPickFiles}
+                onPress={() => void runGuarded('Pick probe file', pickProbeFile)}
+              />
               <DemoButton label="Get Media Info" onPress={() => void runGuarded('Media information', runMediaInformation)} />
               <DemoButton label="Async Version" onPress={() => void runGuarded('FFprobe version', runFfprobeVersion)} />
               <DemoButton label="Sync Version" onPress={() => void runGuarded('FFprobe execute', runFfprobeAwaited)} />
@@ -867,7 +880,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
       case 'FFplay':
         return (
           <View style={styles.section}>
-            {platformName === 'Android' || platformName === 'iOS' ? (
+            {platformName === 'Android' || platformName === 'iOS' || platformName === 'macOS' ? (
               <>
                 <View
                   style={[
@@ -919,11 +932,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
             <Text style={styles.help}>
               Position: {playbackPosition.toFixed(1)}s / {playbackDuration.toFixed(1)}s
             </Text>
-            <Slider
-              style={styles.playbackSlider}
-              minimumTrackTintColor="#d0a7ff"
-              maximumTrackTintColor="#4a444f"
-              thumbTintColor="#d0a7ff"
+            <CoreSlider
               minimumValue={0}
               maximumValue={Math.max(1, playbackDuration)}
               value={Math.min(playbackPosition, Math.max(1, playbackDuration))}
@@ -934,11 +943,7 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
               }}
             />
             <Text style={styles.bodyStrong}>Volume: {Math.round(volume * 100)}%</Text>
-            <Slider
-              style={styles.playbackSlider}
-              minimumTrackTintColor="#d0a7ff"
-              maximumTrackTintColor="#4a444f"
-              thumbTintColor="#d0a7ff"
+            <CoreSlider
               minimumValue={0}
               maximumValue={1}
               step={0.05}
@@ -960,14 +965,14 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
               <Text style={styles.subheading}>Input File</Text>
               <Text style={styles.help}>
                 {transcodeInputPath
-                  ? Util.basename(transcodeInputPath)
+                  ? platformServices.basename(transcodeInputPath)
                   : 'No file selected; the generated test video will be used.'}
               </Text>
-              {transcodeOutputPath ? <Text style={styles.help}>Output: {Util.basename(transcodeOutputPath)}</Text> : null}
+              {transcodeOutputPath ? <Text style={styles.help}>Output: {platformServices.basename(transcodeOutputPath)}</Text> : null}
               <ButtonGrid>
                 <DemoButton
                   label="Pick Video File"
-                  disabled={isTranscoding}
+                  disabled={isTranscoding || !platformServices.canPickFiles}
                   onPress={() => void runGuarded('Pick transcode file', pickTranscodeFile)}
                 />
                 {transcodeInputPath ? (
@@ -1004,7 +1009,11 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
               <Text style={styles.help}>• Default input: generated test_video.mp4</Text>
               <Text style={styles.help}>• Output: app cache as [input]_transcoded.avi</Text>
               <Text style={styles.help}>• Progress: derived from FFmpeg statistics time versus FFprobe duration</Text>
-              <Text style={styles.help}>• Optional: import a video using the native document picker</Text>
+              <Text style={styles.help}>
+                {platformServices.canPickFiles
+                  ? '• Optional: import a video using the native document picker'
+                  : '• File picking is unavailable on this host; the generated test video is used by default'}
+              </Text>
             </Card>
           </View>
         );
@@ -1013,7 +1022,9 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
 
   return (
     <View style={styles.root} accessibilityLabel={status}>
-      <StatusBar barStyle="light-content" backgroundColor="#24212b" />
+      {platformName !== 'macOS' ? (
+        <StatusBar barStyle="light-content" backgroundColor="#24212b" />
+      ) : null}
 
       <View style={styles.appBar}>
         <Text style={styles.title}>{isMobile ? 'FFmpeg Kit' : 'FFmpeg Kit Extended'}</Text>
@@ -1092,6 +1103,99 @@ export function ExampleApp({platformName}: {platformName: 'Android' | 'iOS'}): R
           />
         ))}
       </PopupMenu>
+    </View>
+  );
+}
+
+function CoreSlider({
+  minimumValue = 0,
+  maximumValue = 1,
+  step,
+  value,
+  disabled = false,
+  onValueChange,
+  onSlidingComplete,
+}: {
+  minimumValue?: number;
+  maximumValue?: number;
+  step?: number;
+  value: number;
+  disabled?: boolean;
+  onValueChange?: (value: number) => void;
+  onSlidingComplete?: (value: number) => void;
+}): React.JSX.Element {
+  const widthRef = useRef(1);
+  const draggingRef = useRef(false);
+  const liveValueRef = useRef(value);
+  const [liveValue, setLiveValue] = useState(value);
+
+  useEffect(() => {
+    if (!draggingRef.current) {
+      liveValueRef.current = value;
+      setLiveValue(value);
+    }
+  }, [value]);
+
+  const normalizedMaximum = Math.max(minimumValue, maximumValue);
+  const range = normalizedMaximum - minimumValue;
+
+  const updateFromX = useCallback(
+    (x: number) => {
+      if (disabled) {
+        return;
+      }
+      const fraction = Math.max(0, Math.min(1, x / Math.max(1, widthRef.current)));
+      let next = minimumValue + fraction * range;
+      if (step && step > 0) {
+        next = minimumValue + Math.round((next - minimumValue) / step) * step;
+      }
+      next = Math.max(minimumValue, Math.min(normalizedMaximum, next));
+      liveValueRef.current = next;
+      setLiveValue(next);
+      onValueChange?.(next);
+    },
+    [disabled, minimumValue, normalizedMaximum, onValueChange, range, step],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !disabled,
+        onMoveShouldSetPanResponder: () => !disabled,
+        onPanResponderGrant: event => {
+          draggingRef.current = true;
+          updateFromX(event.nativeEvent.locationX);
+        },
+        onPanResponderMove: event => updateFromX(event.nativeEvent.locationX),
+        onPanResponderRelease: () => {
+          draggingRef.current = false;
+          onSlidingComplete?.(liveValueRef.current);
+        },
+        onPanResponderTerminate: () => {
+          draggingRef.current = false;
+          onSlidingComplete?.(liveValueRef.current);
+        },
+      }),
+    [disabled, onSlidingComplete, updateFromX],
+  );
+
+  const fraction =
+    range > 0
+      ? Math.max(0, Math.min(1, (liveValue - minimumValue) / range))
+      : 0;
+
+  return (
+    <View
+      accessibilityRole="adjustable"
+      accessibilityState={{disabled}}
+      style={[styles.coreSlider, disabled && styles.coreSliderDisabled]}
+      onLayout={event => {
+        widthRef.current = Math.max(1, event.nativeEvent.layout.width);
+      }}
+      {...panResponder.panHandlers}>
+      <View style={styles.coreSliderTrack} />
+      <View style={[styles.coreSliderFill, {width: `${fraction * 100}%`}]} />
+      <View style={[styles.coreSliderThumb, {left: `${fraction * 100}%`}]} />
     </View>
   );
 }
@@ -1281,14 +1385,6 @@ function quote(value: string): string {
   return `"${value.replace(/(["\\])/g, '\\$1')}"`;
 }
 
-function localPathFromUri(uri: string): string {
-  const withoutScheme = uri.replace(/^file:\/\//, '');
-  try {
-    return decodeURIComponent(withoutScheme);
-  } catch {
-    return withoutScheme;
-  }
-}
 
 function formatRemoteStatistics(label: string, statistics: Statistics): string {
   return (
@@ -1509,9 +1605,33 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  playbackSlider: {
+  coreSlider: {
     width: '100%',
-    height: 40,
+    height: 28,
+    justifyContent: 'center',
+  },
+  coreSliderDisabled: {
+    opacity: 0.45,
+  },
+  coreSliderTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#4a444f',
+  },
+  coreSliderFill: {
+    position: 'absolute',
+    left: 0,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#d0a7ff',
+  },
+  coreSliderThumb: {
+    position: 'absolute',
+    width: 14,
+    height: 14,
+    marginLeft: -7,
+    borderRadius: 7,
+    backgroundColor: '#d0a7ff',
   },
   videoPlaceholder: {
     minHeight: 170,

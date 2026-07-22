@@ -37,7 +37,10 @@ rm -rf \
 rm -rf \
   example/.metro-cache \
   example/.tmp \
-  example/coverage
+  example/coverage \
+  example/.macos-runtime/.metro-cache \
+  example/.macos-runtime/.tmp \
+  example/.macos-runtime/coverage
 
 # Example Android / Gradle / CMake
 rm -rf \
@@ -54,6 +57,14 @@ rm -rf \
   example/ios/build \
   example/ios/Pods
 
+# Example macOS
+rm -rf \
+  example/macos/build \
+  example/macos/Pods \
+  example/macos/Podfile.lock \
+  example/.macos-runtime \
+  .macos-codegen
+
 # TypeScript caches, excluding node_modules
 find . \
   -path '*/node_modules' -prune -o \
@@ -65,6 +76,7 @@ echo
 echo "Rebuild the library:"
 echo "  npm run prepare"
 echo
-echo "Rebuild the Android example:"
-echo "  cd example"
-echo "  npm run android -- --active-arch-only"
+echo "Rebuild examples:"
+echo "  ./build.sh android"
+echo "  ./build.sh ios"
+echo "  ./build.sh macos"

@@ -41,7 +41,21 @@ void ensureLibraryLoaded() {
   // iOS/macOS normally links the framework into the process. RTLD_DEFAULT is
   // sufficient for dlsym; these fallbacks also support a dynamically embedded
   // framework on macOS.
-  libraryHandle = dlopen("ffmpegkit.framework/ffmpegkit", RTLD_NOW | RTLD_LOCAL);
+  libraryHandle =
+      dlopen("@rpath/ffmpegkit.framework/ffmpegkit", RTLD_NOW | RTLD_LOCAL);
+  if (libraryHandle == nullptr) {
+    libraryHandle =
+        dlopen("ffmpegkit.framework/ffmpegkit", RTLD_NOW | RTLD_LOCAL);
+  }
+  if (libraryHandle == nullptr) {
+    libraryHandle = dlopen(
+        "@rpath/ffmpegkit.framework/Versions/A/ffmpegkit",
+        RTLD_NOW | RTLD_LOCAL);
+  }
+  if (libraryHandle == nullptr) {
+    libraryHandle = dlopen(
+        "ffmpegkit.framework/Versions/A/ffmpegkit", RTLD_NOW | RTLD_LOCAL);
+  }
   if (libraryHandle == nullptr) {
     libraryHandle = dlopen("libffmpegkit.dylib", RTLD_NOW | RTLD_LOCAL);
   }

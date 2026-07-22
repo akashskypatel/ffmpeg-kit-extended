@@ -12,7 +12,11 @@ export type FFplayViewProps = ViewProps;
 export function FFplayView(
   props: FFplayViewProps,
 ): React.JSX.Element {
-  if (Platform.OS === 'android' || Platform.OS === 'ios') {
+  if (
+    Platform.OS === 'android' ||
+    Platform.OS === 'ios' ||
+    Platform.OS === 'macos'
+  ) {
     return <NativeFFplayView {...props} />;
   }
 

@@ -18,6 +18,7 @@
     "lib",
     "android",
     "ios",
+    "macos",
     "cpp",
     "*.podspec",
     "react-native.config.js"
@@ -28,7 +29,8 @@
     "typecheck": "tsc --noEmit",
     "example:android": "npm --prefix example run android",
     "example:ios": "npm --prefix example run ios",
-    "example:start": "npm --prefix example run start"
+    "example:start": "npm --prefix example run start",
+    "example:macos": "./launch.sh macos"
   },
   "keywords": [
     "react-native",
@@ -59,7 +61,8 @@
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": ">=0.76"
+    "react-native": ">=0.76",
+    "react-native-macos": "*"
   },
   "react-native-builder-bob": {
     "source": "src",
@@ -96,6 +99,11 @@
       "componentProvider": {
         "FFplayView": "RCTFFplayView"
       }
+    }
+  },
+  "peerDependenciesMeta": {
+    "react-native-macos": {
+      "optional": true
     }
   }
 }

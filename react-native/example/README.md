@@ -17,8 +17,9 @@ Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
 ## Platform entry points
 
-- `App.android.tsx` hosts the shared example UI on Android.
-- `App.ios.tsx` hosts the shared example UI on iOS.
+- `App.tsx` hosts the shared example UI on Android, iOS, and macOS.
+- `src/ExamplePlatform.<platform>.ts` provides platform-specific file and runtime services.
+- Native projects live under `android/`, `ios/`, and `macos/`.
 - `src/ExampleApp.tsx` contains the shared behavior.
 
 The current React Native binding package has native integration for Android and iOS, so those are the example host projects included here.
