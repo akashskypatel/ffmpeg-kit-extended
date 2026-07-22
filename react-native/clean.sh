@@ -20,7 +20,8 @@ rm -rf \
 rm -rf \
   android/generated \
   ios/generated \
-  appletvos/generated
+  appletvos/generated \
+  windows/FFmpegKitExtended/codegen
 
 # Library Android / CMake
 rm -rf \
@@ -44,7 +45,10 @@ rm -rf \
   example/.macos-runtime/coverage \
   example/.appletvos-runtime/.metro-cache \
   example/.appletvos-runtime/.tmp \
-  example/.appletvos-runtime/coverage
+  example/.appletvos-runtime/coverage \
+  example/.windows-runtime/.metro-cache \
+  example/.windows-runtime/.tmp \
+  example/.windows-runtime/coverage
 
 # Example Android / Gradle / CMake
 rm -rf \
@@ -55,6 +59,20 @@ rm -rf \
   example/android/app/.cxx \
   example/android/app/.externalNativeBuild \
   example/android/app/build
+
+# Example Windows
+rm -rf \
+  example/windows/build \
+  example/windows/x64 \
+  example/windows/FFmpegKitExtendedExample/bin \
+  example/windows/FFmpegKitExtendedExample/obj \
+  example/windows/FFmpegKitExtendedExample.Package/bin \
+  example/windows/FFmpegKitExtendedExample.Package/obj \
+  example/windows/FFmpegKitExtendedExample.Package/AppPackages \
+  example/.windows-runtime \
+  example/windows/*.binlog \
+  example/windows/*.err \
+  example/windows/*.wrn
 
 # Example iOS
 rm -rf \
@@ -93,3 +111,4 @@ echo "  ./build.sh android"
 echo "  ./build.sh ios"
 echo "  ./build.sh appletvos"
 echo "  ./build.sh macos"
+echo "  ./build.sh windows"

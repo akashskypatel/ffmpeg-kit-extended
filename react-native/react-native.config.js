@@ -12,6 +12,18 @@ module.exports = {
         cxxModuleCMakeListsPath: 'CMakeLists.txt',
         cxxModuleHeaderName: 'FFmpegKitExtendedImpl',
       },
+      windows: {
+        sourceDir: 'windows',
+        solutionFile: 'FFmpegKitExtended.sln',
+        projects: [
+          {
+            projectFile: 'FFmpegKitExtended/FFmpegKitExtended.vcxproj',
+            directDependency: true,
+            cppHeaders: ['winrt/FFmpegKitExtended.h'],
+            cppPackageProviders: ['FFmpegKitExtended::ReactPackageProvider'],
+          },
+        ],
+      },
     },
   },
 };

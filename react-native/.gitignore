@@ -147,3 +147,14 @@ Desktop.ini
 
 # TypeScript
 *.tsbuildinfo
+# Windows runtime / Codegen
+windows/FFmpegKitExtended/codegen/
+example/.windows-runtime/
+example/windows/**/bin/
+example/windows/**/obj/
+example/windows/**/AppPackages/
+example/windows/**/Generated Files/
+
+**/*.binlog
+**/*.err
+**/*.wrn

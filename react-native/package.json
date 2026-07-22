@@ -20,6 +20,7 @@
     "ios",
     "macos",
     "appletvos",
+    "windows",
     "cpp",
     "*.podspec",
     "react-native.config.js",
@@ -33,7 +34,8 @@
     "example:ios": "npm --prefix example run ios",
     "example:start": "npm --prefix example run start",
     "example:macos": "./launch.sh macos",
-    "example:appletvos": "./launch.sh appletvos"
+    "example:appletvos": "./launch.sh appletvos",
+    "example:windows": "./launch.sh windows"
   },
   "keywords": [
     "react-native",
@@ -65,7 +67,8 @@
   "peerDependencies": {
     "react": "*",
     "react-native": ">=0.76",
-    "react-native-macos": "*"
+    "react-native-macos": "*",
+    "react-native-windows": "*"
   },
   "react-native-builder-bob": {
     "source": "src",
@@ -102,10 +105,22 @@
       "componentProvider": {
         "FFplayView": "RCTFFplayView"
       }
+    },
+    "windows": {
+      "namespace": "FFmpegKitExtendedCodegen",
+      "outputDirectory": "windows/FFmpegKitExtended/codegen",
+      "separateDataTypes": true,
+      "generators": [
+        "modulesWindows",
+        "componentsWindows"
+      ]
     }
   },
   "peerDependenciesMeta": {
     "react-native-macos": {
+      "optional": true
+    },
+    "react-native-windows": {
       "optional": true
     }
   }

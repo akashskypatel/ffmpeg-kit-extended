@@ -7,6 +7,10 @@ import {examplePlatform} from './src/ExamplePlatform';
 function getPlatformName(): ExamplePlatformName {
   const platform = Platform.OS as string;
 
+  if (platform === 'windows') {
+    return 'Windows';
+  }
+
   if (platform === 'macos') {
     return 'macOS';
   }

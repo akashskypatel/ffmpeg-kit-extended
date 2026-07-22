@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <!--
+      Keep standalone Windows plugin builds on the same RNW 0.84
+      new-architecture/WinUI 3 configuration as the example application.
+    -->
+    <RnwNewArch Condition="'$(RnwNewArch)' == ''">true</RnwNewArch>
+    <UseFabric Condition="'$(UseFabric)' == ''">true</UseFabric>
+    <UseWinUI3 Condition="'$(UseWinUI3)' == ''">true</UseWinUI3>
+
+    <WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == '' Or '$(WindowsTargetPlatformVersion)' == '10.0' Or '$(WindowsTargetPlatformVersion)' == '10.0.0.0'">10.0.26100.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion Condition="'$(WindowsTargetPlatformMinVersion)' == '' Or '$(WindowsTargetPlatformMinVersion)' == '10.0.0.0'">10.0.18362.0</WindowsTargetPlatformMinVersion>
+    <TargetPlatformVersion Condition="'$(TargetPlatformVersion)' == '' Or '$(TargetPlatformVersion)' == '10.0' Or '$(TargetPlatformVersion)' == '10.0.0.0'">10.0.26100.0</TargetPlatformVersion>
+    <TargetPlatformMinVersion Condition="'$(TargetPlatformMinVersion)' == '' Or '$(TargetPlatformMinVersion)' == '10.0.0.0'">10.0.18362.0</TargetPlatformMinVersion>
+
+    <ReactExperimentalFeaturesSet>true</ReactExperimentalFeaturesSet>
+  </PropertyGroup>
+</Project>

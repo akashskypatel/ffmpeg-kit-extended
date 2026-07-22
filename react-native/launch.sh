@@ -11,12 +11,13 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
 appletvos_runtime_dir="$example_dir/.appletvos-runtime"
+windows_runtime_dir="$example_dir/.windows-runtime"
 target="${1:-android}"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  ./launch.sh [android|ios|appletvos|macos]
+  ./launch.sh [android|ios|appletvos|macos|windows]
 USAGE
 }
 
@@ -214,6 +215,42 @@ macos_build_required() {
   return 1
 }
 
+is_windows_host() {
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+start_windows_metro() {
+  local launcher launcher_win runtime_win
+
+  if curl -fsS "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'; then
+    echo "Metro is already running on port 8081."
+    return 0
+  fi
+
+  launcher="$windows_runtime_dir/.start-metro.cmd"
+  runtime_win="$(cygpath -w "$windows_runtime_dir")"
+  launcher_win="$(cygpath -w "$launcher")"
+
+  printf '@echo off\r\ntitle Metro - Windows\r\ncd /d "%s"\r\nnpm run start -- --port 8081\r\n' \
+    "$runtime_win" > "$launcher"
+
+  echo "Opening Windows Metro in a Command Prompt on port 8081..."
+  MSYS2_ARG_CONV_EXCL='*' cmd.exe /C start "" "$launcher_win" >/dev/null 2>&1
+
+  for _ in {1..80}; do
+    if curl -fsS "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'; then
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  echo "Windows Metro did not start successfully on port 8081." >&2
+  exit 1
+}
+
 case "$target" in
   android)
     echo "Launching Android example..."
@@ -301,6 +338,29 @@ case "$target" in
 
     echo "Launching macOS example..."
     exec open -n "$macos_app_path"
+    ;;
+
+
+  windows)
+    if ! is_windows_host; then
+      echo "Error: Windows can only be launched from a Windows host." >&2
+      exit 1
+    fi
+
+    "$script_dir/build.sh" windows
+    start_windows_metro
+
+    example_dir_win="$(cygpath -w "$example_dir")"
+
+    cd "$windows_runtime_dir"
+    export MSYS2_ARG_CONV_EXCL='*'
+    exec npx react-native run-windows \
+      --root "$example_dir_win" \
+      --sln windows/FFmpegKitExtendedExample.sln \
+      --arch x64 \
+      --no-build \
+      --no-packager \
+      --no-autolink
     ;;
 
   -h|--help)

@@ -1,6 +1,6 @@
 # FFmpegKit Extended React Native Example
 
-This is the runnable Android/iOS/Apple tvOS/macOS example application for `ffmpeg-kit-extended`.
+This is the runnable Android/iOS/Apple tvOS/macOS/Windows example application for `ffmpeg-kit-extended`.
 Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
 ## Covered scenarios
@@ -19,14 +19,14 @@ Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
 - `App.tsx` hosts the shared example UI, with `App.tv.tsx` providing the Apple tvOS entry point.
 - `src/ExamplePlatform.<platform>.ts` provides platform-specific file and runtime services.
-- Native projects live under `android/`, `ios/`, `appletvos/`, and `macos/`.
+- Native projects live under `android/`, `ios/`, `appletvos/`, `macos/`, and `windows/`.
 - `src/ExampleApp.tsx` contains the shared behavior.
 
-The binding package has native integration for Android, iOS, Apple tvOS, and macOS.
+The binding package has native integration for Android, iOS, Apple tvOS, macOS, and Windows.
 
 ## FFplay rendering
 
-`FFplayView` provides the native playback surface. Android uses a native `TextureView`; iOS, Apple tvOS, and macOS present decoded frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native audio backend.
+`FFplayView` provides the native playback surface. Android uses a native `TextureView`; iOS, Apple tvOS, and macOS present decoded frames through `AVSampleBufferDisplayLayer`; Windows presents desktop frame callbacks through a WinUI 3 Composition drawing surface. Audio playback continues through FFplay's native audio backend.
 
 ## File handling
 
@@ -34,7 +34,6 @@ The example uses:
 
 - `react-native-file-access` for the application cache directory and filesystem operations.
 - `@react-native-documents/picker` for importing user-selected media and copying it into app-local storage.
-- `@react-native-community/slider` for FFplay seek and volume controls.
 
 Generated and recorded files are stored below the platform cache directory in:
 
@@ -78,6 +77,17 @@ From the repository root on macOS:
 ```
 
 The tvOS host uses an isolated `react-native-tvos` runtime and resolves the FFmpegKit Extended release artifact using the `appletvos` platform name.
+
+## Run Windows
+
+From the repository root on Windows:
+
+```sh
+./build.sh windows
+./launch.sh windows
+```
+
+The Windows host uses an isolated React Native for Windows runtime while loading the same `App.tsx` and `src/ExampleApp.tsx` used by the other platforms. `src/ExamplePlatform.windows.ts` delegates temporary-directory filesystem operations and native file picking to the example host. The build stages the default FFmpegKit Extended Windows runtime DLLs beside the executable.
 
 ## Difference from the Flutter example
 

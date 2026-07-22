@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
-#include <dlfcn.h>
 #include <iomanip>
 #include <mutex>
 #include <sstream>
@@ -14,6 +13,8 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#else
+#include <dlfcn.h>
 #endif
 
 namespace ffmpegkit::bridge {
@@ -23,7 +24,11 @@ using Handle = void *;
 using HandleArray = void **;
 
 std::once_flag initFlag;
+#if defined(_WIN32)
+HMODULE libraryHandle = nullptr;
+#else
 void *libraryHandle = nullptr;
+#endif
 
 // C API session handles are owning handles. Releasing a handle for a running
 // session requests cancellation, so React Native must retain the handle created
@@ -62,14 +67,45 @@ void ensureLibraryLoaded() {
 #elif defined(__ANDROID__)
   libraryHandle = dlopen("libffmpegkit.so", RTLD_NOW | RTLD_LOCAL);
 #elif defined(_WIN32)
-  libraryHandle = LoadLibraryA("libffmpegkit.dll");
+  libraryHandle = GetModuleHandleA("libffmpegkit.dll");
+  if (libraryHandle == nullptr) {
+    libraryHandle = GetModuleHandleA("ffmpegkit.dll");
+  }
+  if (libraryHandle == nullptr) {
+    libraryHandle = LoadLibraryA("libffmpegkit.dll");
+  }
+  if (libraryHandle == nullptr) {
+    libraryHandle = LoadLibraryA("ffmpegkit.dll");
+  }
 #else
   libraryHandle = dlopen("libffmpegkit.so", RTLD_NOW | RTLD_LOCAL);
 #endif
 }
 
-void *resolveRaw(const char *name) {
+#if defined(_WIN32)
+using RawSymbol = FARPROC;
+#else
+using RawSymbol = void *;
+#endif
+
+RawSymbol resolveRaw(const char *name) {
   ensureLibraryLoaded();
+#if defined(_WIN32)
+  if (libraryHandle == nullptr) {
+    throw std::runtime_error(
+        "libffmpegkit.dll could not be loaded. Ensure the FFmpegKit Extended "
+        "Windows runtime DLLs are next to the application executable.");
+  }
+
+  auto symbol = GetProcAddress(libraryHandle, name);
+  if (symbol == nullptr) {
+    throw std::runtime_error(std::string("libffmpegkit symbol not found: ") + name +
+                             " (GetLastError=" +
+                             std::to_string(static_cast<unsigned long>(GetLastError())) +
+                             ")");
+  }
+  return symbol;
+#else
   void *symbol = nullptr;
 #if defined(__APPLE__)
   symbol = dlsym(RTLD_DEFAULT, name);
@@ -83,6 +119,7 @@ void *resolveRaw(const char *name) {
                              name + (error ? std::string(" (") + error + ")" : ""));
   }
   return symbol;
+#endif
 }
 
 template <typename Fn> Fn resolve(const char *name) {

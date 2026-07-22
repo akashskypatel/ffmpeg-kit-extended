@@ -11,6 +11,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
 appletvos_runtime_dir="$example_dir/.appletvos-runtime"
+windows_runtime_dir="$example_dir/.windows-runtime"
 cd "$script_dir"
 
 usage() {
@@ -24,6 +25,7 @@ Targets:
   ios         Build the library and iOS example
   appletvos   Build the library and Apple tvOS example
   macos       Build the library and macOS example
+  windows     Build the library and Windows example
   all         Build all supported targets for the current host
 
 Options:
@@ -52,7 +54,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$target" in
-  library|android|ios|appletvos|macos|all) ;;
+  library|android|ios|appletvos|macos|windows|all) ;;
   -h|--help) usage; exit 0 ;;
   *) echo "Unknown target: $target" >&2; usage; exit 1 ;;
 esac
@@ -606,6 +608,180 @@ prepare_macos_example() {
   sync_macos_binary_to_runtime
 }
 
+
+prepare_windows_runtime_files() {
+  mkdir -p "$windows_runtime_dir"
+
+  cat > "$windows_runtime_dir/package.json" <<'JSON'
+{
+  "name": "ffmpeg-kit-extended-react-native-windows-runtime",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "react-native start --config metro.config.js",
+    "windows": "react-native run-windows --sln ../windows/FFmpegKitExtendedExample.sln"
+  },
+  "dependencies": {
+    "ffmpeg-kit-extended": "file:.local-packages/ffmpeg-kit-extended-local.tgz",
+    "react": "19.2.3",
+    "react-native": "0.84.0",
+    "react-native-windows": "0.84.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.0.0",
+    "@react-native/babel-preset": "0.84.0",
+    "@react-native/metro-config": "0.84.0",
+    "@react-native/typescript-config": "0.84.0",
+    "@types/react": "^19.2.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.11.0"
+  }
+}
+JSON
+
+  cat > "$windows_runtime_dir/react-native.config.js" <<'JS'
+const path = require('path');
+
+module.exports = {
+  project: {
+    windows: {
+      sourceDir: '../windows',
+      solutionFile: 'FFmpegKitExtendedExample.sln',
+      project: {
+        projectFile: 'FFmpegKitExtendedExample\\FFmpegKitExtendedExample.vcxproj',
+      },
+    },
+  },
+};
+JS
+
+  cat > "$windows_runtime_dir/metro.config.js" <<'JS'
+const path = require('path');
+const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+
+const runtimeRoot = __dirname;
+const exampleRoot = path.resolve(runtimeRoot, '..');
+const libraryRoot = path.resolve(exampleRoot, '..');
+const runtimeNodeModules = path.resolve(runtimeRoot, 'node_modules');
+const windowsRoot = path.resolve(exampleRoot, 'windows').replace(/[/\\]/g, '/');
+
+const config = {
+  projectRoot: exampleRoot,
+  watchFolders: [libraryRoot],
+  resolver: {
+    disableHierarchicalLookup: true,
+    nodeModulesPaths: [runtimeNodeModules],
+    blockList: [new RegExp(`${windowsRoot}.*`)],
+    extraNodeModules: {
+      react: path.resolve(runtimeNodeModules, 'react'),
+      'react-native': path.resolve(runtimeNodeModules, 'react-native'),
+      'react-native-windows': path.resolve(runtimeNodeModules, 'react-native-windows'),
+      'ffmpeg-kit-extended': path.resolve(runtimeNodeModules, 'ffmpeg-kit-extended'),
+    },
+  },
+};
+
+module.exports = mergeConfig(getDefaultConfig(exampleRoot), config);
+JS
+}
+
+prepare_windows_package_archive() {
+  local package_dir="$windows_runtime_dir/.local-packages"
+  local archive="$package_dir/ffmpeg-kit-extended-local.tgz"
+  local packed_name
+
+  prepare_windows_runtime_files
+  mkdir -p "$package_dir"
+  rm -f "$package_dir"/ffmpeg-kit-extended-*.tgz "$archive"
+
+  echo "Packing local FFmpegKit Extended dependency for Windows..."
+  packed_name="$(cd "$script_dir" && npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1)"
+  if [[ -z "$packed_name" || ! -f "$package_dir/$packed_name" ]]; then
+    echo "npm pack did not produce the expected local package archive." >&2
+    exit 1
+  fi
+  mv "$package_dir/$packed_name" "$archive"
+}
+
+prepare_windows_example() {
+  prepare_windows_package_archive
+  rm -rf "$windows_runtime_dir/node_modules/ffmpeg-kit-extended"
+  (
+    cd "$windows_runtime_dir"
+    npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+  )
+
+  # Stage the native FFmpegKit runtime before MSBuild evaluates the packaging
+  # project. The WAP project includes this flattened directory as package
+  # content so libffmpegkit.dll and its dependent DLLs are deployed next to
+  # the application executable.
+  local runtime_stage_dir="$example_dir/windows/build/runtime/x64"
+  local runtime_script="$windows_runtime_dir/node_modules/ffmpeg-kit-extended/scripts/prepare-windows-runtime.ps1"
+  local runtime_stage_dir_win runtime_script_win
+
+  rm -rf "$runtime_stage_dir"
+  mkdir -p "$runtime_stage_dir"
+
+  runtime_stage_dir_win="$(cygpath -w "$runtime_stage_dir")"
+  runtime_script_win="$(cygpath -w "$runtime_script")"
+
+  echo "Staging FFmpegKit Extended Windows runtime DLLs..."
+  MSYS2_ARG_CONV_EXCL='*' powershell.exe \
+    -NoProfile \
+    -ExecutionPolicy Bypass \
+    -File "$runtime_script_win" \
+    -Architecture x64 \
+    -Destination "$runtime_stage_dir_win" >/dev/null
+
+  if [[ ! -f "$runtime_stage_dir/libffmpegkit.dll" && ! -f "$runtime_stage_dir/ffmpegkit.dll" ]]; then
+    echo "FFmpegKit Windows runtime staging did not produce libffmpegkit.dll or ffmpegkit.dll in: $runtime_stage_dir" >&2
+    exit 1
+  fi
+
+  (
+    cd "$windows_runtime_dir"
+    npx react-native autolink-windows --no-telemetry
+  )
+}
+
+is_windows_host() {
+  case "$host_os" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+build_windows() {
+  if ! is_windows_host; then
+    echo "Skipping Windows: Windows builds require a Windows host."
+    return
+  fi
+
+  echo
+  echo "========================================"
+  echo "Building Windows example ($build_type)"
+  echo "========================================"
+  prepare_windows_example
+
+  local -a args=(
+    react-native run-windows
+    --sln ../windows/FFmpegKitExtendedExample.sln
+    --arch x64
+    --no-packager
+    --no-launch
+    --no-deploy
+  )
+  if [[ "$build_type" == "release" ]]; then
+    args+=(--release)
+  fi
+
+  (cd "$windows_runtime_dir" && npx "${args[@]}")
+}
+
 build_library() {
   echo
   echo "========================================"
@@ -759,7 +935,8 @@ case "$target" in
   ios) build_library; build_ios ;;
   appletvos) build_library; build_appletvos ;;
   macos) build_library; build_macos ;;
-  all) build_library; build_android; build_ios; build_appletvos; build_macos ;;
+  windows) build_library; build_windows ;;
+  all) build_library; build_android; build_ios; build_appletvos; build_macos; build_windows ;;
 esac
 
 echo

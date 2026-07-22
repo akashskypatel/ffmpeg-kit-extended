@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(SolutionDir)\ExperimentalFeatures.props" Condition="Exists('$(SolutionDir)\ExperimentalFeatures.props')" />
+  <PropertyGroup>
+    <ProjectGuid>{8a0c6105-8776-4d0d-8c8c-ef749af6b4e4}</ProjectGuid>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <EntryPointProjectUniqueName>..\FFmpegKitExtendedExample\FFmpegKitExtendedExample.vcxproj</EntryPointProjectUniqueName>
+    <DebuggerType>NativeOnly</DebuggerType>
+    <BackgroundTaskDebugEngines>NativeOnly</BackgroundTaskDebugEngines>
+  </PropertyGroup>
+  <PropertyGroup Label="ReactNativeWindowsProps">
+    <ReactNativeWindowsDir Condition="'$(ReactNativeWindowsDir)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\.windows-runtime\node_modules\react-native-windows\package.json')">$(MSBuildThisFileDirectory)..\..\.windows-runtime\node_modules\react-native-windows\</ReactNativeWindowsDir>
+    <ReactNativeWindowsDir Condition="'$(ReactNativeWindowsDir)' == ''">$([MSBuild]::GetDirectoryNameOfFileAbove($(MSBuildThisFileDirectory), 'node_modules\react-native-windows\package.json'))\node_modules\react-native-windows\</ReactNativeWindowsDir>
+  </PropertyGroup>
+  <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.WindowsSdk.Default.props" />
+  <PropertyGroup>
+    <WapProjPath Condition="'$(WapProjPath)'==''">$(MSBuildExtensionsPath)\Microsoft\DesktopBridge\</WapProjPath>
+  </PropertyGroup>
+  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.props" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <ImportGroup Label="ReactNativeWindowsPropertySheets">
+    <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.props" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.props')" />
+  </ImportGroup>
+  <ItemGroup>
+    <AppxManifest Include="Package.appxmanifest"><SubType>Designer</SubType></AppxManifest>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Images\SplashScreen.scale-200.png" />
+    <Content Include="Images\LockScreenLogo.scale-200.png" />
+    <Content Include="Images\Square150x150Logo.scale-200.png" />
+    <Content Include="Images\Square44x44Logo.scale-200.png" />
+    <Content Include="Images\Square44x44Logo.targetsize-24_altform-unplated.png" />
+    <Content Include="Images\StoreLogo.png" />
+    <Content Include="Images\Wide310x150Logo.scale-200.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      build.sh stages the flattened FFmpegKit runtime here before MSBuild starts.
+      Link places every DLL at the package root next to the application executable,
+      which is required by FFmpegKitDynamicApi.cpp's LoadLibrary("libffmpegkit.dll").
+    -->
+    <Content Include="$(SolutionDir)build\runtime\$(Platform)\*.dll">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FFmpegKitExtendedExample\FFmpegKitExtendedExample.vcxproj">
+      <SkipGetTargetFrameworkProperties>True</SkipGetTargetFrameworkProperties>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(WapProjPath)\Microsoft.DesktopBridge.targets" />
+  <ImportGroup Label="ReactNativeWindowsTargets">
+    <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.targets')" />
+  </ImportGroup>
+  <PropertyGroup Label="OutputPaths">
+    <!-- Declare these after DesktopBridge/RNW imports so imported defaults cannot reset them. -->
+    <BaseOutputPath>$(SolutionDir)build\bin\</BaseOutputPath>
+    <OutputPath>$(BaseOutputPath)$(Platform)\$(Configuration)\</OutputPath>
+    <OutDir>$(OutputPath)</OutDir>
+    <AppxPackageDir>$(SolutionDir)build\AppPackages\</AppxPackageDir>
+    <BaseIntermediateOutputPath>$(SolutionDir)build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\</IntermediateOutputPath>
+  </PropertyGroup>
+  <Target Name="EnsureReactNativeWindowsTargets" BeforeTargets="PrepareForBuild">
+    <PropertyGroup><ErrorText>This project references targets in your node_modules\react-native-windows folder that are missing. The missing file is {0}.</ErrorText></PropertyGroup>
+    <Error Condition="!Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.props')" Text="$([System.String]::Format('$(ErrorText)', '$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.props'))" />
+    <Error Condition="!Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.targets')" Text="$([System.String]::Format('$(ErrorText)', '$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.targets'))" />
+  </Target>
+</Project>

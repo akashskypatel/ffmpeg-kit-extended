@@ -16,7 +16,7 @@ The binding has three layers:
    - A typed Codegen boundary.
    - Only scalar values and JSON strings cross the JavaScript/native boundary.
 3. **libffmpegkit adapter** (`cpp/FFmpegKitDynamicApi.*`)
-   - Resolves `ffmpegkit_wrapper.h` exports with `dlsym`.
+   - Resolves `ffmpegkit_wrapper.h` exports with `dlsym` on Unix/Apple platforms and `LoadLibrary`/`GetProcAddress` on Windows.
    - Does not expose opaque native handles to JavaScript.
    - Temporary session/media/statistics handles are released with `ffmpeg_kit_handle_release`.
    - Native strings allocated by the wrapper are released with `ffmpeg_kit_free`.
@@ -63,7 +63,7 @@ console.log(media?.format);
 console.log(media?.streams);
 ```
 
-FFplay video and audio playback are supported on Android. Mount `FFplayView` before starting video playback so its native `TextureView` can bind an Android `Surface` to FFplay. Audio-only playback does not require a video surface.
+FFplay video and audio playback are supported on Android, iOS, Apple tvOS, macOS, and Windows. Mount `FFplayView` before starting video playback so the platform-native rendering surface is ready. Audio-only playback does not require a video surface.
 
 ```tsx
 import {FFplayKit, FFplayView} from 'react-native-ffmpeg-kit-extended';
@@ -115,6 +115,12 @@ ffmpegKitVersion=0.10.5
 
 The C++ TurboModule loads `libffmpegkit.so` with `dlopen`. `FFplayView` uses a native Android `TextureView`, converts its `Surface` to FFplay's `ANativeWindow` through the FFmpegKit JNI bridge, and clears the surface when the React Native view is destroyed. Audio output is handled directly by FFplay/SDL and works for both video and audio-only sessions.
 
+### Windows
+
+The Windows package currently targets x64 and uses a React Native for Windows C++ TurboModule and Fabric `FFplayView`. The shared C API is resolved from `libffmpegkit.dll` (or `ffmpegkit.dll`) at runtime. The native project invokes `scripts/prepare-windows-runtime.ps1` to download the default `0.10.5` base/LGPL x86_64 Windows bundle and stage all runtime DLLs beside the application executable.
+
+Windows video frames are delivered through `ffplay_kit_register_frame_callback`, converted to BGRA, and drawn into a WinUI 3 `Microsoft.UI.Composition` drawing surface.
+
 ### iOS and Apple tvOS
 
 Embed the matching FFmpegKit Extended framework/dynamic library in the application. The bridge resolves symbols from `RTLD_DEFAULT`, with framework/dylib fallbacks, so no direct link against `ffmpegkit_wrapper.h` is required by this pod.
@@ -163,7 +169,7 @@ Implemented native coverage includes:
 
 ## FFplay rendering
 
-Android video rendering is implemented by `FFplayView` using a native `TextureView`. iOS, Apple tvOS, and macOS use the decoded-frame callback path and present frames with `AVSampleBufferDisplayLayer`. Audio playback uses FFplay's native audio backend and does not require a video surface.
+Android video rendering is implemented by `FFplayView` using a native `TextureView`. iOS, Apple tvOS, and macOS use the decoded-frame callback path and present frames with `AVSampleBufferDisplayLayer`. Windows uses the same desktop decoded-frame callback and presents BGRA frames through a WinUI 3 Composition drawing surface. Audio playback uses FFplay's native audio backend and does not require a video surface.
 
 Global native callback registration is also not exposed because per-session callbacks are dispatched by the TypeScript polling layer. This avoids duplicate callback paths and cross-thread JavaScript invocation.
 
@@ -180,9 +186,9 @@ Native example builds resolve the matching FFmpegKit Extended platform artifacts
 
 ## Example applications
 
-The React Native example under `example/` contains Android, iOS, Apple tvOS, and macOS host projects. It ports the workflows from `flutter/example/lib/main.dart`: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
+The React Native example under `example/` contains Android, iOS, Apple tvOS, macOS, and Windows host projects. It ports the workflows from `flutter/example/lib/main.dart`: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
 
-The unified React Native example contains Android, iOS, Apple tvOS, and macOS native hosts under `example/`. Apple tvOS uses an isolated `react-native-tvos` runtime, and macOS uses the React Native macOS toolchain to exercise the same C++ TurboModule and the native `FFplayView` implementation with FFmpeg/FFprobe execution, generated video/audio playback, pause/resume/stop/seek/volume controls, aspect-ratio-preserving video output, and a resizable log pane.
+The unified React Native example contains Android, iOS, Apple tvOS, macOS, and Windows native hosts under `example/`. Apple tvOS uses an isolated `react-native-tvos` runtime, and macOS uses the React Native macOS toolchain to exercise the same C++ TurboModule and the native `FFplayView` implementation with FFmpeg/FFprobe execution, generated video/audio playback, pause/resume/stop/seek/volume controls, aspect-ratio-preserving video output, and a resizable log pane.
 
 The repository scripts prepare the matching native binary, Codegen output, CocoaPods dependencies, and host application:
 
@@ -191,13 +197,15 @@ The repository scripts prepare the matching native binary, Codegen output, Cocoa
 ./build.sh ios
 ./build.sh appletvos
 ./build.sh macos
+./build.sh windows
 
 ./launch.sh android
 ./launch.sh ios
 ./launch.sh appletvos
 ./launch.sh macos
+./launch.sh windows
 ```
 
 `./launch.sh appletvos` and `./launch.sh macos` open the matching platform-specific Metro server in a visible Terminal window. Because the Apple tvOS and macOS examples use different React Native runtimes, the launcher will stop a Metro process owned by another runtime in this repository before switching platforms. An unrelated process already using port 8081 is left untouched and reported as an error instead of serving an incompatible JavaScript bundle.
 
-On Android, `FFplayView` supplies the native Android surface used by FFplay. On iOS, Apple tvOS, and macOS, `FFplayView` receives FFplay's decoded frame callback and presents frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native SDL audio backend.
+On Android, `FFplayView` supplies the native Android surface used by FFplay. On iOS, Apple tvOS, and macOS, `FFplayView` receives FFplay's decoded frame callback and presents frames through `AVSampleBufferDisplayLayer`. On Windows, it receives the desktop frame callback and draws frames into a WinUI 3 Composition surface. Audio playback continues through FFplay's native SDL audio backend.
