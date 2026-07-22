@@ -19,7 +19,8 @@ rm -rf \
 # React Native Codegen
 rm -rf \
   android/generated \
-  ios/generated
+  ios/generated \
+  appletvos/generated
 
 # Library Android / CMake
 rm -rf \
@@ -40,7 +41,10 @@ rm -rf \
   example/coverage \
   example/.macos-runtime/.metro-cache \
   example/.macos-runtime/.tmp \
-  example/.macos-runtime/coverage
+  example/.macos-runtime/coverage \
+  example/.appletvos-runtime/.metro-cache \
+  example/.appletvos-runtime/.tmp \
+  example/.appletvos-runtime/coverage
 
 # Example Android / Gradle / CMake
 rm -rf \
@@ -56,6 +60,14 @@ rm -rf \
 rm -rf \
   example/ios/build \
   example/ios/Pods
+
+# Example Apple tvOS
+rm -rf \
+  example/appletvos/build \
+  example/appletvos/Pods \
+  example/appletvos/Podfile.lock \
+  example/.appletvos-runtime \
+  .appletvos-codegen
 
 # Example macOS
 rm -rf \
@@ -79,4 +91,5 @@ echo
 echo "Rebuild examples:"
 echo "  ./build.sh android"
 echo "  ./build.sh ios"
+echo "  ./build.sh appletvos"
 echo "  ./build.sh macos"

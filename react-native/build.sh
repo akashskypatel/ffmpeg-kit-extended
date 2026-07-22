@@ -10,6 +10,7 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
+appletvos_runtime_dir="$example_dir/.appletvos-runtime"
 cd "$script_dir"
 
 usage() {
@@ -21,6 +22,7 @@ Targets:
   library     Build the React Native library only
   android     Build the library and Android example
   ios         Build the library and iOS example
+  appletvos   Build the library and Apple tvOS example
   macos       Build the library and macOS example
   all         Build all supported targets for the current host
 
@@ -50,7 +52,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$target" in
-  library|android|ios|macos|all) ;;
+  library|android|ios|appletvos|macos|all) ;;
   -h|--help) usage; exit 0 ;;
   *) echo "Unknown target: $target" >&2; usage; exit 1 ;;
 esac
@@ -205,11 +207,208 @@ ensure_ios_binary() {
     "$script_dir/vendor/ffmpegkit.xcframework"
 }
 
+ensure_appletvos_binary() {
+  ensure_apple_binary \
+    "appletvos" \
+    "bundle-base-appletvos-universal-small-lgpl" \
+    "$script_dir/vendor/appletvos/ffmpegkit.xcframework"
+}
+
 ensure_macos_binary() {
   ensure_apple_binary \
     "macos" \
     "bundle-base-macos-universal-small-lgpl" \
     "$script_dir/vendor/macos/ffmpegkit.xcframework"
+}
+
+prepare_appletvos_runtime_files() {
+  mkdir -p "$appletvos_runtime_dir"
+
+  rm -rf "$appletvos_runtime_dir/ios"
+  ln -s ../appletvos "$appletvos_runtime_dir/ios"
+
+  cat > "$appletvos_runtime_dir/package.json" <<'JSON'
+{
+  "name": "ffmpeg-kit-extended-react-native-appletvos-runtime",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "react-native start --config metro.config.js"
+  },
+  "dependencies": {
+    "ffmpeg-kit-extended": "file:.local-packages/ffmpeg-kit-extended-local.tgz",
+    "react": "19.2.3",
+    "react-native": "npm:react-native-tvos@0.86.0-2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.1.0",
+    "@react-native-community/cli-platform-ios": "20.1.0",
+    "@react-native/babel-preset": "0.86.0",
+    "@react-native/metro-config": "0.86.0",
+    "@react-native/typescript-config": "0.86.0",
+    "@types/react": "^19.2.0",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=22.11.0"
+  }
+}
+JSON
+
+  cat > "$appletvos_runtime_dir/react-native.config.js" <<'JS'
+const path = require('path');
+
+module.exports = {
+  project: {
+    ios: {
+      sourceDir: path.resolve(__dirname, '../appletvos'),
+    },
+  },
+};
+JS
+
+  cat > "$appletvos_runtime_dir/metro.config.js" <<'JS'
+const path = require('path');
+const {getDefaultConfig, mergeConfig} = require('@react-native/metro-config');
+
+const runtimeRoot = __dirname;
+const exampleRoot = path.resolve(runtimeRoot, '..');
+const libraryRoot = path.resolve(exampleRoot, '..');
+const runtimeNodeModules = path.resolve(runtimeRoot, 'node_modules');
+const defaultConfig = getDefaultConfig(exampleRoot);
+
+const config = {
+  projectRoot: exampleRoot,
+  watchFolders: [libraryRoot],
+  resolver: {
+    disableHierarchicalLookup: true,
+    nodeModulesPaths: [runtimeNodeModules],
+    sourceExts: defaultConfig.resolver.sourceExts.flatMap(ext => [
+      `tv.${ext}`,
+      ext,
+    ]),
+    extraNodeModules: {
+      react: path.resolve(runtimeNodeModules, 'react'),
+      'react-native': path.resolve(runtimeNodeModules, 'react-native'),
+      'ffmpeg-kit-extended': path.resolve(runtimeNodeModules, 'ffmpeg-kit-extended'),
+    },
+  },
+};
+
+module.exports = mergeConfig(defaultConfig, config);
+JS
+}
+
+prepare_appletvos_package_archive() {
+  local package_dir="$appletvos_runtime_dir/.local-packages"
+  local archive="$package_dir/ffmpeg-kit-extended-local.tgz"
+  local packed_name
+
+  prepare_appletvos_runtime_files
+  mkdir -p "$package_dir"
+  rm -f "$package_dir"/ffmpeg-kit-extended-*.tgz "$archive"
+
+  echo "Packing local FFmpegKit Extended dependency for Apple tvOS..."
+  packed_name="$(cd "$script_dir" && npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1)"
+
+  if [[ -z "$packed_name" || ! -f "$package_dir/$packed_name" ]]; then
+    echo "npm pack did not produce the expected local package archive." >&2
+    exit 1
+  fi
+
+  mv "$package_dir/$packed_name" "$archive"
+}
+
+install_appletvos_dependencies() {
+  prepare_appletvos_package_archive
+  rm -rf "$appletvos_runtime_dir/node_modules/ffmpeg-kit-extended"
+  (
+    cd "$appletvos_runtime_dir"
+    npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+  )
+}
+
+sync_appletvos_codegen_to_runtime() {
+  local installed="$appletvos_runtime_dir/node_modules/ffmpeg-kit-extended"
+  if [[ ! -d "$installed" ]]; then
+    echo "Installed FFmpegKit Extended package was not found: $installed" >&2
+    exit 1
+  fi
+
+  rm -rf "$installed/appletvos/generated"
+  mkdir -p "$installed/appletvos"
+  cp -a "$script_dir/appletvos/generated" "$installed/appletvos/generated"
+}
+
+sync_appletvos_binary_to_runtime() {
+  local installed="$appletvos_runtime_dir/node_modules/ffmpeg-kit-extended"
+  local source="$script_dir/vendor/appletvos/ffmpegkit.xcframework"
+  local destination="$installed/vendor/appletvos/ffmpegkit.xcframework"
+
+  if [[ ! -d "$installed" ]]; then
+    echo "Installed FFmpegKit Extended package was not found: $installed" >&2
+    exit 1
+  fi
+
+  ensure_appletvos_binary
+  mkdir -p "$(dirname "$destination")"
+  rm -rf "$destination"
+  echo "Staging FFmpegKit Extended Apple tvOS binary for the example app..."
+  ditto "$source" "$destination"
+}
+
+generate_appletvos_codegen() {
+  local codegen_root="$script_dir/.appletvos-codegen"
+  local codegen_script="$appletvos_runtime_dir/node_modules/react-native/scripts/generate-codegen-artifacts.js"
+
+  if [[ ! -f "$codegen_script" ]]; then
+    echo "React Native tvOS Codegen script not found: $codegen_script" >&2
+    exit 1
+  fi
+
+  rm -rf "$script_dir/appletvos/generated" "$codegen_root"
+  mkdir -p "$script_dir/appletvos/generated" "$codegen_root"
+
+  cat > "$codegen_root/package.json" <<'JSON'
+{
+  "name": "ffmpeg-kit-extended-appletvos-codegen",
+  "version": "0.0.0",
+  "private": true,
+  "codegenConfig": {
+    "name": "FFmpegKitExtendedSpec",
+    "type": "all",
+    "jsSrcsDir": "../src",
+    "outputDir": {
+      "ios": "../appletvos/generated"
+    },
+    "includesGeneratedCode": true,
+    "ios": {
+      "componentProvider": {
+        "FFplayView": "RCTFFplayView"
+      }
+    }
+  }
+}
+JSON
+
+  echo "Generating React Native Apple tvOS Codegen artifacts..."
+  node "$codegen_script" -p "$codegen_root" -t ios -s library
+  rm -rf "$codegen_root"
+
+  if [[ ! -f "$script_dir/appletvos/generated/ReactCodegen/FFmpegKitExtendedSpecJSI.h" ]]; then
+    echo "Apple tvOS Codegen did not produce ReactCodegen/FFmpegKitExtendedSpecJSI.h" >&2
+    exit 1
+  fi
+}
+
+prepare_appletvos_example() {
+  install_appletvos_dependencies
+  generate_appletvos_codegen
+  sync_appletvos_codegen_to_runtime
+  sync_appletvos_binary_to_runtime
 }
 
 prepare_macos_runtime_files() {
@@ -468,6 +667,48 @@ build_ios() {
   )
 }
 
+build_appletvos() {
+  if [[ "$host_os" != "Darwin" ]]; then
+    echo "Skipping Apple tvOS: tvOS builds require macOS."
+    return
+  fi
+
+  echo
+  echo "========================================"
+  echo "Building Apple tvOS example ($build_type)"
+  echo "========================================"
+  prepare_appletvos_example
+
+  (
+    cd "$example_dir/appletvos"
+    echo "Installing CocoaPods dependencies..."
+    NODE_PATH="$appletvos_runtime_dir/node_modules" \
+      RCT_NEW_ARCH_ENABLED=1 bundle exec pod install 2>/dev/null || \
+    NODE_PATH="$appletvos_runtime_dir/node_modules" \
+      RCT_NEW_ARCH_ENABLED=1 pod install
+
+    local configuration="Debug"
+    [[ "$build_type" == "release" ]] && configuration="Release"
+
+    echo "Building Apple tvOS app..."
+    NODE_PATH="$appletvos_runtime_dir/node_modules" \
+    RCT_NEW_ARCH_ENABLED=1 xcodebuild \
+      -workspace FFmpegKitExtendedExample.xcworkspace \
+      -scheme FFmpegKitExtendedExample \
+      -configuration "$configuration" \
+      -sdk appletvsimulator \
+      -destination 'generic/platform=tvOS Simulator' \
+      -derivedDataPath "$example_dir/appletvos/build/DerivedData" \
+      ARCHS=arm64 \
+      ONLY_ACTIVE_ARCH=YES \
+      CODE_SIGNING_ALLOWED=NO \
+      build
+  )
+
+  mkdir -p "$example_dir/appletvos/build"
+  touch "$example_dir/appletvos/build/.last-successful-build"
+}
+
 build_macos() {
   if [[ "$host_os" != "Darwin" ]]; then
     echo "Skipping macOS: macOS builds require macOS."
@@ -516,8 +757,9 @@ case "$target" in
   library) build_library ;;
   android) build_library; build_android ;;
   ios) build_library; build_ios ;;
+  appletvos) build_library; build_appletvos ;;
   macos) build_library; build_macos ;;
-  all) build_library; build_android; build_ios; build_macos ;;
+  all) build_library; build_android; build_ios; build_appletvos; build_macos ;;
 esac
 
 echo

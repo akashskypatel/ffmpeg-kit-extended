@@ -115,11 +115,11 @@ ffmpegKitVersion=0.10.5
 
 The C++ TurboModule loads `libffmpegkit.so` with `dlopen`. `FFplayView` uses a native Android `TextureView`, converts its `Surface` to FFplay's `ANativeWindow` through the FFmpegKit JNI bridge, and clears the surface when the React Native view is destroyed. Audio output is handled directly by FFplay/SDL and works for both video and audio-only sessions.
 
-### iOS
+### iOS and Apple tvOS
 
 Embed the matching FFmpegKit Extended framework/dynamic library in the application. The bridge resolves symbols from `RTLD_DEFAULT`, with framework/dylib fallbacks, so no direct link against `ffmpegkit_wrapper.h` is required by this pod.
 
-After installing the package, run CocoaPods normally:
+After installing the package, run CocoaPods normally. Apple tvOS uses the `appletvos` platform artifact and the podspec automatically selects `vendor/appletvos/ffmpegkit.xcframework` for tvOS targets.
 
 ```sh
 cd ios
@@ -161,14 +161,9 @@ Implemented native coverage includes:
 - Session-history sizing/clearing, FFmpeg pipes, messages-in-transmit, and per-session debug logs.
 - JavaScript argument parsing/stringification and queue concurrency controls.
 
-## Intentionally deferred
+## FFplay rendering
 
-Rendering-specific work that remains outside the Android implementation:
-
-- Desktop frame callback/texture rendering.
-- iOS FFplay rendering surface integration.
-
-Android video rendering is implemented by `FFplayView`; Android audio playback uses FFplay's native audio backend and requires no view.
+Android video rendering is implemented by `FFplayView` using a native `TextureView`. iOS, Apple tvOS, and macOS use the decoded-frame callback path and present frames with `AVSampleBufferDisplayLayer`. Audio playback uses FFplay's native audio backend and does not require a video surface.
 
 Global native callback registration is also not exposed because per-session callbacks are dispatched by the TypeScript polling layer. This avoids duplicate callback paths and cross-thread JavaScript invocation.
 
@@ -181,24 +176,26 @@ The binding source has been checked for:
 - TypeScript strict-mode type checking using temporary React Native type shims for the TurboModule imports.
 - One-to-one method-name coverage between `NativeFFmpegKitExtended.ts` and `FFmpegKitExtendedImpl.h`.
 
-A full Android/iOS application link test still requires the actual platform `libffmpegkit` binaries, which are not included in this source snapshot.
+Native example builds resolve the matching FFmpegKit Extended platform artifacts through the repository build scripts and CocoaPods integration.
 
 ## Example applications
 
-The React Native 0.86 mobile example under `example/` contains the Android and iOS host projects. It ports the workflows from `flutter/example/lib/main.dart`: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
+The React Native example under `example/` contains Android, iOS, Apple tvOS, and macOS host projects. It ports the workflows from `flutter/example/lib/main.dart`: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
 
-The unified React Native example contains Android, iOS, and macOS native hosts under `example/`. It uses the React Native macOS toolchain to exercise the same C++ TurboModule and the native `FFplayView` implementation with FFmpeg/FFprobe execution, generated video/audio playback, pause/resume/stop/seek/volume controls, aspect-ratio-preserving video output, and a resizable log pane.
+The unified React Native example contains Android, iOS, Apple tvOS, and macOS native hosts under `example/`. Apple tvOS uses an isolated `react-native-tvos` runtime, and macOS uses the React Native macOS toolchain to exercise the same C++ TurboModule and the native `FFplayView` implementation with FFmpeg/FFprobe execution, generated video/audio playback, pause/resume/stop/seek/volume controls, aspect-ratio-preserving video output, and a resizable log pane.
 
 The repository scripts prepare the matching native binary, Codegen output, CocoaPods dependencies, and host application:
 
 ```sh
 ./build.sh android
 ./build.sh ios
+./build.sh appletvos
 ./build.sh macos
 
 ./launch.sh android
 ./launch.sh ios
+./launch.sh appletvos
 ./launch.sh macos
 ```
 
-On Android, `FFplayView` supplies the native Android surface used by FFplay. On iOS and macOS, `FFplayView` receives FFplay's decoded frame callback and presents frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native SDL audio backend.
+On Android, `FFplayView` supplies the native Android surface used by FFplay. On iOS, Apple tvOS, and macOS, `FFplayView` receives FFplay's decoded frame callback and presents frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native SDL audio backend.

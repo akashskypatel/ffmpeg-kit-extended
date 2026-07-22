@@ -1,6 +1,6 @@
 # FFmpegKit Extended React Native Example
 
-This is the runnable Android/iOS example application for `ffmpeg-kit-extended`.
+This is the runnable Android/iOS/Apple tvOS/macOS example application for `ffmpeg-kit-extended`.
 Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
 ## Covered scenarios
@@ -17,18 +17,16 @@ Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
 ## Platform entry points
 
-- `App.tsx` hosts the shared example UI on Android, iOS, and macOS.
+- `App.tsx` hosts the shared example UI, with `App.tv.tsx` providing the Apple tvOS entry point.
 - `src/ExamplePlatform.<platform>.ts` provides platform-specific file and runtime services.
-- Native projects live under `android/`, `ios/`, and `macos/`.
+- Native projects live under `android/`, `ios/`, `appletvos/`, and `macos/`.
 - `src/ExampleApp.tsx` contains the shared behavior.
 
-The current React Native binding package has native integration for Android and iOS, so those are the example host projects included here.
+The binding package has native integration for Android, iOS, Apple tvOS, and macOS.
 
 ## FFplay rendering
 
-The current TurboModule exposes FFplay execution and playback controls, but the React Native Fabric video surface is still deferred. The FFplay tab therefore shows decoded dimensions and playback controls while displaying a placeholder where the future `FFplayView` Fabric component will render video.
-
-Audio playback does not require that video surface.
+`FFplayView` provides the native playback surface. Android uses a native `TextureView`; iOS, Apple tvOS, and macOS present decoded frames through `AVSampleBufferDisplayLayer`. Audio playback continues through FFplay's native audio backend.
 
 ## File handling
 
@@ -69,6 +67,17 @@ npm run ios
 ```
 
 The application must still embed the matching FFmpegKit Extended Apple runtime/XCFramework until the package's SPM binary-resolution layer is wired in.
+
+## Run Apple tvOS
+
+From the repository root on macOS:
+
+```sh
+./build.sh appletvos
+./launch.sh appletvos
+```
+
+The tvOS host uses an isolated `react-native-tvos` runtime and resolves the FFmpegKit Extended release artifact using the `appletvos` platform name.
 
 ## Difference from the Flutter example
 

@@ -1,0 +1,38 @@
+require 'pathname'
+
+podfile_dir = Pathname.new(__dir__).realpath
+example_dir = podfile_dir.parent
+runtime_dir = example_dir.join('.appletvos-runtime').realpath
+react_native_dir = runtime_dir.join('node_modules/react-native').realpath
+
+unless File.exist?(react_native_dir.join('scripts/react_native_pods.rb'))
+  raise "React Native tvOS runtime not found at #{react_native_dir}. Run ./build.sh appletvos or ./launch.sh appletvos first."
+end
+
+react_native_path = react_native_dir.relative_path_from(podfile_dir).to_s
+
+require react_native_dir.join('scripts/react_native_pods.rb').to_s
+
+platform :tvos, '15.1'
+prepare_react_native_project!
+
+target 'FFmpegKitExtendedExample' do
+  # Apple tvOS uses an isolated react-native-tvos dependency graph so the
+  # Android/iOS example can remain on upstream React Native 0.86.
+  pod 'FFmpegKitExtended',
+      :path => runtime_dir.join('node_modules/ffmpeg-kit-extended').to_s
+
+  use_react_native!(
+    :path => react_native_path,
+    :fabric_enabled => ENV['RCT_NEW_ARCH_ENABLED'] == '1',
+    :app_path => runtime_dir.to_s
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      react_native_path,
+      :mac_catalyst_enabled => false
+    )
+  end
+end

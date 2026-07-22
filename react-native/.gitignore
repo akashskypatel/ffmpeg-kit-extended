@@ -11,6 +11,7 @@ coverage/
 # React Native Codegen
 android/generated/
 ios/generated/
+appletvos/generated/
 
 # Metro
 .metro-health-check*
@@ -59,12 +60,21 @@ xcuserdata/
 DerivedData/
 *.xcuserstate
 
+# Apple tvOS runtime / Codegen
+example/.appletvos-runtime/
+.appletvos-codegen/
+
 # Nested example iOS build
 example/ios/build/
 example/ios/Pods/
 example/ios/Podfile.lock
 example/ios/*.xcworkspace/
 example/ios/**/xcuserdata/
+
+# Nested example Apple tvOS build
+example/appletvos/Podfile.lock
+example/appletvos/*.xcworkspace/
+example/appletvos/**/xcuserdata/
 
 # CocoaPods
 Pods/

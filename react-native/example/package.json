@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "macos": "../launch.sh macos"
+    "macos": "../launch.sh macos",
+    "appletvos": "../launch.sh appletvos"
   },
   "dependencies": {
     "react": "19.2.3",

@@ -12,7 +12,8 @@ function getPlatformName(): ExamplePlatformName {
   }
 
   if (platform === 'ios') {
-    return 'iOS';
+    const isTV = (Platform as typeof Platform & {isTV?: boolean}).isTV;
+    return isTV ? 'Apple tvOS' : 'iOS';
   }
 
   return 'Android';

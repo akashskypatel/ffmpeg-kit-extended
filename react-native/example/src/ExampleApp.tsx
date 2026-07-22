@@ -26,7 +26,7 @@ import {
   type Statistics,
 } from 'ffmpeg-kit-extended';
 
-export type ExamplePlatformName = 'Android' | 'iOS' | 'macOS';
+export type ExamplePlatformName = 'Android' | 'iOS' | 'macOS' | 'Apple tvOS';
 
 export type ExamplePlatformServices = {
   exampleDir: string;

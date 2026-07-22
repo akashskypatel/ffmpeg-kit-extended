@@ -19,18 +19,21 @@
     "android",
     "ios",
     "macos",
+    "appletvos",
     "cpp",
     "*.podspec",
-    "react-native.config.js"
+    "react-native.config.js",
+    "scripts"
   ],
   "scripts": {
     "clean": "del-cli android/build ios/build lib",
-    "prepare": "bob build",
+    "prepare": "bob build && node scripts/sync-appletvos-codegen.js",
     "typecheck": "tsc --noEmit",
     "example:android": "npm --prefix example run android",
     "example:ios": "npm --prefix example run ios",
     "example:start": "npm --prefix example run start",
-    "example:macos": "./launch.sh macos"
+    "example:macos": "./launch.sh macos",
+    "example:appletvos": "./launch.sh appletvos"
   },
   "keywords": [
     "react-native",
