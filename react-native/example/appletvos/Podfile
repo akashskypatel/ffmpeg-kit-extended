@@ -17,14 +17,14 @@ platform :tvos, '15.1'
 prepare_react_native_project!
 
 target 'FFmpegKitExtendedExample' do
-  # Apple tvOS uses an isolated react-native-tvos dependency graph so the
-  # Android/iOS example can remain on upstream React Native 0.86.
+  # The Apple tvOS example uses an isolated react-native-tvos dependency graph.
+  # Link the staged local package directly instead of running CLI autolinking
+  # from the native project directory, which is outside that runtime root.
   pod 'FFmpegKitExtended',
       :path => runtime_dir.join('node_modules/ffmpeg-kit-extended').to_s
 
   use_react_native!(
     :path => react_native_path,
-    :fabric_enabled => ENV['RCT_NEW_ARCH_ENABLED'] == '1',
     :app_path => runtime_dir.to_s
   )
 

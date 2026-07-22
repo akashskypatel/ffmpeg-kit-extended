@@ -249,11 +249,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3B4392A12AC88292D35C810B /* Pods-FFmpegKitExtendedExample.debug.xcconfig */;
 			buildSettings = {
-								CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = FFmpegKitExtendedExample/Info.plist;
-				TVOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -270,6 +269,7 @@
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 15.1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -278,10 +278,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 5709B34CF0A7D63546082F79 /* Pods-FFmpegKitExtendedExample.release.xcconfig */;
 			buildSettings = {
-								CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_MODULES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = FFmpegKitExtendedExample/Info.plist;
-				TVOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -297,6 +296,7 @@
 				SUPPORTED_PLATFORMS = "appletvos appletvsimulator";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 15.1;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -350,7 +350,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				TVOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -380,6 +379,7 @@
 				SDKROOT = appletvos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				TVOS_DEPLOYMENT_TARGET = 15.1;
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -426,7 +426,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				TVOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					/usr/lib/swift,
 					"$(inherited)",
@@ -454,6 +453,7 @@
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../.appletvos-runtime/node_modules/react-native";
 				SDKROOT = appletvos;
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
+				TVOS_DEPLOYMENT_TARGET = 15.1;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};

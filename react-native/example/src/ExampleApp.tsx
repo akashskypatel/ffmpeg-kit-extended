@@ -114,6 +114,11 @@ export function ExampleApp({
   const TEST_VIDEO_PATH = `${EXAMPLE_DIR}/test_video.mp4`;
   const TEST_AUDIO_PATH = `${EXAMPLE_DIR}/test_audio.wav`;
   const REMOTE_LOG_PATH = `${EXAMPLE_DIR}/ffmpeg_kit_extended_react_native_example.log`;
+  const supportsFFplayVideoSurface =
+    platformName === 'Android' ||
+    platformName === 'iOS' ||
+    platformName === 'macOS' ||
+    platformName === 'Apple tvOS';
   const [activeTab, setActiveTab] = useState<TabName>('FFmpeg');
   const [initialized, setInitialized] = useState(false);
   const [status, setStatus] = useState('Initializing...');
@@ -612,7 +617,7 @@ export function ExampleApp({
   }, [appendLog, ffprobeCommand]);
 
   const waitForVideoSurface = useCallback(async () => {
-    if (platformName !== 'Android' && platformName !== 'iOS' && platformName !== 'macOS') {
+    if (!supportsFFplayVideoSurface) {
       return;
     }
 
@@ -628,7 +633,7 @@ export function ExampleApp({
     // Let the native view finish binding its platform video target/frame callback
     // before FFplay begins decoding the first frame.
     await new Promise(resolve => setTimeout(resolve, 50));
-  }, [platformName]);
+  }, [supportsFFplayVideoSurface]);
 
   const startPlayback = useCallback(
     async (command: string, label: string, requiresVideoSurface = true) => {
@@ -879,7 +884,7 @@ export function ExampleApp({
       case 'FFplay':
         return (
           <View style={styles.section}>
-            {platformName === 'Android' || platformName === 'iOS' || platformName === 'macOS' ? (
+            {supportsFFplayVideoSurface ? (
               <>
                 <View
                   style={[
@@ -1037,17 +1042,13 @@ export function ExampleApp({
 
       <View style={styles.tabs}>
         {TABS.map(tab => (
-          <Pressable
+          <TabButton
             key={tab}
-            accessibilityRole="tab"
-            accessibilityState={{selected: activeTab === tab}}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}>
-            <Text style={[styles.tabIcon, activeTab === tab && styles.tabTextActive]}>{TAB_SYMBOLS[tab]}</Text>
-            {!isMobile ? (
-              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-            ) : null}
-          </Pressable>
+            tab={tab}
+            active={activeTab === tab}
+            showLabel={!isMobile}
+            onPress={() => setActiveTab(tab)}
+          />
         ))}
       </View>
 
@@ -1199,6 +1200,49 @@ function CoreSlider({
   );
 }
 
+function TabButton({
+  tab,
+  active,
+  showLabel,
+  onPress,
+}: {
+  tab: TabName;
+  active: boolean;
+  showLabel: boolean;
+  onPress: () => void;
+}): React.JSX.Element {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{selected: active}}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onPress={onPress}
+      style={[styles.tab, active && styles.tabActive, focused && styles.tabFocused]}>
+      <Text
+        style={[
+          styles.tabIcon,
+          active && styles.tabTextActive,
+          focused && styles.tabTextFocused,
+        ]}>
+        {TAB_SYMBOLS[tab]}
+      </Text>
+      {showLabel ? (
+        <Text
+          style={[
+            styles.tabText,
+            active && styles.tabTextActive,
+            focused && styles.tabTextFocused,
+          ]}>
+          {tab}
+        </Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
 function ButtonGrid({children}: {children: React.ReactNode}): React.JSX.Element {
   return <View style={styles.buttonGrid}>{children}</View>;
 }
@@ -1218,18 +1262,35 @@ function DemoButton({
   compact?: boolean;
   disabled?: boolean;
 }): React.JSX.Element {
+  const [focused, setFocused] = useState(false);
+
   return (
     <Pressable
       disabled={disabled}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       onPress={onPress}
       style={({pressed}) => [
         styles.demoButton,
         compact && styles.demoButtonCompact,
         disabled && styles.demoButtonDisabled,
+        focused && !disabled && styles.demoButtonFocused,
         pressed && !disabled && styles.demoButtonPressed,
       ]}>
-      <Text style={styles.demoButtonIcon}>{buttonSymbol(label)}</Text>
-      <Text style={styles.demoButtonText}>{label}</Text>
+      <Text
+        style={[
+          styles.demoButtonIcon,
+          focused && !disabled && styles.demoButtonTextFocused,
+        ]}>
+        {buttonSymbol(label)}
+      </Text>
+      <Text
+        style={[
+          styles.demoButtonText,
+          focused && !disabled && styles.demoButtonTextFocused,
+        ]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -1243,14 +1304,24 @@ function IconButton({
   label: string;
   onPress: () => void;
 }): React.JSX.Element {
+  const [focused, setFocused] = useState(false);
+
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
       onPress={onPress}
-      style={({pressed}) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
-      <Text style={styles.iconButtonText}>{symbol}</Text>
+      style={({pressed}) => [
+        styles.iconButton,
+        focused && styles.iconButtonFocused,
+        pressed && styles.iconButtonPressed,
+      ]}>
+      <Text style={[styles.iconButtonText, focused && styles.iconButtonTextFocused]}>
+        {symbol}
+      </Text>
     </Pressable>
   );
 }
@@ -1306,10 +1377,24 @@ function MenuRow({
   label: string;
   onPress: () => void;
 }): React.JSX.Element {
+  const [focused, setFocused] = useState(false);
+
   return (
-    <Pressable style={({pressed}) => [styles.menuRow, pressed && styles.menuRowPressed]} onPress={onPress}>
-      <Text style={styles.menuRowLeading}>{leading}</Text>
-      <Text style={styles.menuRowText}>{label}</Text>
+    <Pressable
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onPress={onPress}
+      style={({pressed}) => [
+        styles.menuRow,
+        focused && styles.menuRowFocused,
+        pressed && styles.menuRowPressed,
+      ]}>
+      <Text style={[styles.menuRowLeading, focused && styles.menuRowTextFocused]}>
+        {leading}
+      </Text>
+      <Text style={[styles.menuRowText, focused && styles.menuRowTextFocused]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -1439,6 +1524,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconButtonFocused: {
+    backgroundColor: '#d0a7ff',
+    transform: [{scale: 1.12}],
+  },
   iconButtonPressed: {
     backgroundColor: '#3b3544',
   },
@@ -1446,6 +1535,9 @@ const styles = StyleSheet.create({
     color: '#eee8f2',
     fontSize: 20,
     lineHeight: 24,
+  },
+  iconButtonTextFocused: {
+    color: '#211e27',
   },
   tabs: {
     height: 50,
@@ -1467,6 +1559,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#d0a7ff',
     backgroundColor: '#2b2732',
   },
+  tabFocused: {
+    borderBottomColor: '#f2edf6',
+    backgroundColor: '#5a426f',
+  },
   tabIcon: {
     fontSize: 17,
     color: '#bcb4c3',
@@ -1480,6 +1576,10 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#d9baff',
     fontWeight: '700',
+  },
+  tabTextFocused: {
+    color: '#ffffff',
+    fontWeight: '800',
   },
   content: {
     flex: 3,
@@ -1540,6 +1640,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
+    borderWidth: 2,
+    borderColor: 'transparent',
     borderRadius: 17,
     backgroundColor: '#30283d',
   },
@@ -1550,6 +1652,11 @@ const styles = StyleSheet.create({
   },
   demoButtonDisabled: {
     opacity: 0.42,
+  },
+  demoButtonFocused: {
+    borderColor: '#ffffff',
+    backgroundColor: '#d0a7ff',
+    transform: [{scale: 1.08}],
   },
   demoButtonPressed: {
     backgroundColor: '#463755',
@@ -1562,6 +1669,9 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#eadcff',
+  },
+  demoButtonTextFocused: {
+    color: '#211e27',
   },
   commandSection: {
     gap: 8,
@@ -1743,6 +1853,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  menuRowFocused: {
+    backgroundColor: '#d0a7ff',
+  },
   menuRowPressed: {
     backgroundColor: '#443e4a',
   },
@@ -1756,5 +1869,9 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#f2edf6',
     fontSize: 13,
+  },
+  menuRowTextFocused: {
+    color: '#211e27',
+    fontWeight: '700',
   },
 });

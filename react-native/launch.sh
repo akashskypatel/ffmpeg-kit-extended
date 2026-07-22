@@ -48,62 +48,49 @@ wait_for_metro_port_to_close() {
   return 1
 }
 
-stop_conflicting_project_metro() {
+restart_project_metro_in_terminal() {
   local expected_runtime_dir="$1"
   local label="$2"
   local pid cwd expected_cwd
 
   pid="$(metro_listener_pid)"
-  [[ -n "$pid" ]] || return 0
+  if [[ -n "$pid" ]]; then
+    cwd="$(process_working_directory "$pid")"
+    expected_cwd="$(cd "$expected_runtime_dir" && pwd -P)"
 
-  cwd="$(process_working_directory "$pid")"
-  expected_cwd="$(cd "$expected_runtime_dir" && pwd -P)"
+    # macOS and Apple tvOS intentionally use isolated React Native runtimes.
+    # Always restart a project-owned Metro process so launch.sh guarantees the
+    # selected runtime is served from a visible Terminal window.
+    if [[ -n "$cwd" && ( "$cwd" == "$script_dir" || "$cwd" == "$script_dir"/* ) ]]; then
+      if [[ "$cwd" == "$expected_cwd" ]]; then
+        echo "Restarting $label Metro in Terminal..."
+      else
+        echo "Switching Metro to $label (stopping project Metro from $cwd)..."
+      fi
 
-  if [[ "$cwd" == "$expected_cwd" ]]; then
-    # Older versions of launch.sh started Metro with nohup and left only a log
-    # file in the runtime directory. Restart that server in Terminal once so
-    # Metro remains visible and interactive on subsequent launches.
-    if [[ -f "$expected_runtime_dir/metro.pid" ]]; then
-      echo "Restarting background $label Metro in Terminal..."
       kill "$pid" >/dev/null 2>&1 || true
-      rm -f "$expected_runtime_dir/metro.pid"
+      rm -f "$macos_runtime_dir/metro.pid" "$appletvos_runtime_dir/metro.pid"
       if ! wait_for_metro_port_to_close; then
-        echo "Unable to stop the existing $label Metro process on port 8081." >&2
+        echo "Unable to stop the existing project Metro process on port 8081." >&2
         exit 1
       fi
-      return 0
-    fi
-
-    echo "$label Metro is already running in the expected runtime on port 8081."
-    return 1
-  fi
-
-  # The Apple example runtimes intentionally use different React Native forks.
-  # Reusing a Metro server from another runtime can serve an incompatible JS
-  # bundle (for example react-native-macos to react-native-tvos), which manifests
-  # as missing core TurboModules such as PlatformConstants at startup.
-  if [[ -n "$cwd" && ( "$cwd" == "$script_dir" || "$cwd" == "$script_dir"/* ) ]]; then
-    echo "Switching Metro to $label (stopping project Metro from $cwd)..."
-    kill "$pid" >/dev/null 2>&1 || true
-    rm -f "$macos_runtime_dir/metro.pid" "$appletvos_runtime_dir/metro.pid"
-    if ! wait_for_metro_port_to_close; then
-      echo "Unable to stop the conflicting project Metro process on port 8081." >&2
+    else
+      echo "Port 8081 is already in use by PID $pid${cwd:+ (cwd: $cwd)}." >&2
+      echo "Stop that process before launching the $label example." >&2
       exit 1
     fi
-    return 0
   fi
 
-  echo "Port 8081 is already in use by PID $pid${cwd:+ (cwd: $cwd)}." >&2
-  echo "Stop that process before launching the $label example so it does not receive the wrong Metro bundle." >&2
-  exit 1
+  start_metro_in_terminal "$expected_runtime_dir" "$label"
 }
 
 start_metro_in_terminal() {
   local runtime_dir="$1"
   local label="$2"
   local launcher="$runtime_dir/.start-metro.command"
-  local quoted_runtime
+  local quoted_runtime expected_cwd pid cwd
 
+  expected_cwd="$(cd "$runtime_dir" && pwd -P)"
   printf -v quoted_runtime '%q' "$runtime_dir"
   cat > "$launcher" <<EOF
 #!/usr/bin/env bash
@@ -117,8 +104,16 @@ EOF
   open -a Terminal "$launcher"
 
   for _ in {1..80}; do
-    if [[ -n "$(metro_listener_pid)" ]]; then
-      return 0
+    pid="$(metro_listener_pid)"
+    if [[ -n "$pid" ]]; then
+      cwd="$(process_working_directory "$pid")"
+      if [[ "$cwd" == "$expected_cwd" ]]; then
+        return 0
+      fi
+
+      echo "$label Metro started with an unexpected working directory: ${cwd:-unknown}." >&2
+      echo "Expected: $expected_cwd" >&2
+      exit 1
     fi
     sleep 0.25
   done
@@ -131,9 +126,7 @@ ensure_metro_in_terminal() {
   local runtime_dir="$1"
   local label="$2"
 
-  if stop_conflicting_project_metro "$runtime_dir" "$label"; then
-    start_metro_in_terminal "$runtime_dir" "$label"
-  fi
+  restart_project_metro_in_terminal "$runtime_dir" "$label"
 }
 
 appletvos_app_path="$example_dir/appletvos/build/DerivedData/Build/Products/Debug-appletvsimulator/FFmpegKitExtendedExample.app"
