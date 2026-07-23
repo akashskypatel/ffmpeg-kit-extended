@@ -2,25 +2,22 @@
 
 set -euo pipefail
 
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*)
-    export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-17}"
-    export PATH="$JAVA_HOME/bin:$PATH"
-    ;;
-esac
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-17}"
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
 appletvos_runtime_dir="$example_dir/.appletvos-runtime"
 windows_runtime_dir="$example_dir/.windows-runtime"
-linux_example_dir="$example_dir/linux"
 target="${1:-android}"
 
 usage() {
   cat <<'USAGE'
 Usage:
-  ./launch.sh [android|ios|appletvos|macos|windows|linux]
+  ./launch.sh [android|ios|appletvos|macos|windows]
 USAGE
 }
 
@@ -343,27 +340,6 @@ case "$target" in
     exec open -n "$macos_app_path"
     ;;
 
-
-  linux)
-    if [[ "$(uname -s)" != "Linux" ]]; then
-      echo "Error: Linux can only be launched from a Linux host." >&2
-      exit 1
-    fi
-
-    "$script_dir/build.sh" linux
-
-    linux_app_dir="$linux_example_dir/build/Debug"
-    linux_app="$linux_app_dir/ReactSkiaApp"
-    if [[ ! -x "$linux_app" ]]; then
-      echo "Built Linux application was not found: $linux_app" >&2
-      exit 1
-    fi
-
-    echo "Launching Linux example..."
-    cd "$linux_app_dir"
-    export LD_LIBRARY_PATH="$linux_app_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-    exec "$linux_app"
-    ;;
 
   windows)
     if ! is_windows_host; then

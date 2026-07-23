@@ -16,8 +16,7 @@ export function FFplayView(
     Platform.OS === 'android' ||
     Platform.OS === 'ios' ||
     Platform.OS === 'macos' ||
-    Platform.OS === 'windows' ||
-    (Platform.OS as string) === 'linux'
+    Platform.OS === 'windows'
   ) {
     return <NativeFFplayView {...props} />;
   }

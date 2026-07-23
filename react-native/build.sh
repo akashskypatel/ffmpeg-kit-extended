@@ -2,23 +2,16 @@
 
 set -euo pipefail
 
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*)
-    export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-17}"
-    export PATH="$JAVA_HOME/bin:$PATH"
-    ;;
-esac
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-17}"
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
 appletvos_runtime_dir="$example_dir/.appletvos-runtime"
 windows_runtime_dir="$example_dir/.windows-runtime"
-linux_runtime_dir="$example_dir/.linux-runtime"
-linux_rns_dir="$linux_runtime_dir/src"
-linux_depot_tools_dir="$linux_runtime_dir/depot_tools"
-linux_example_dir="$example_dir/linux"
-linux_rns_revision="${REACT_NATIVE_SKIA_REVISION:-df637f2f4448cb2eaa281c3c0e16825a10afb42e}"
 cd "$script_dir"
 
 usage() {
@@ -33,7 +26,6 @@ Targets:
   appletvos   Build the library and Apple tvOS example
   macos       Build the library and macOS example
   windows     Build the library and Windows example
-  linux       Build the library and Linux example
   all         Build all supported targets for the current host
 
 Options:
@@ -62,7 +54,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$target" in
-  library|android|ios|appletvos|macos|windows|linux|all) ;;
+  library|android|ios|appletvos|macos|windows|all) ;;
   -h|--help) usage; exit 0 ;;
   *) echo "Unknown target: $target" >&2; usage; exit 1 ;;
 esac
@@ -756,193 +748,6 @@ prepare_windows_example() {
   )
 }
 
-
-is_linux_host() {
-  [[ "$host_os" == "Linux" ]]
-}
-
-run_linux_yarn() {
-  if command -v yarn >/dev/null 2>&1; then
-    yarn "$@"
-  elif command -v corepack >/dev/null 2>&1; then
-    corepack yarn@1.22.22 "$@"
-  else
-    echo "Linux example setup requires Yarn or Corepack." >&2
-    exit 1
-  fi
-}
-
-run_linux_git_lf() {
-  env \
-    GIT_CONFIG_COUNT=1 \
-    GIT_CONFIG_KEY_0=core.autocrlf \
-    GIT_CONFIG_VALUE_0=false \
-    "$@"
-}
-
-normalize_linux_git_checkout() {
-  local repo="$1"
-
-  [[ -d "$repo/.git" ]] || return 0
-
-  # WSL can inherit core.autocrlf=true from Windows Git configuration. That
-  # checks executable scripts out with CRLF endings, causing shebang failures
-  # such as `/usr/bin/env: 'bash\r': No such file or directory`. Keep the
-  # generated Linux runtime checkout LF-only without changing the user's global
-  # Git configuration.
-  git -C "$repo" config core.autocrlf false
-  git -C "$repo" checkout -f -- .
-}
-
-ensure_linux_depot_tools() {
-  if command -v gclient >/dev/null 2>&1; then
-    return
-  fi
-
-  if [[ ! -d "$linux_depot_tools_dir/.git" ]]; then
-    mkdir -p "$linux_runtime_dir"
-    echo "Bootstrapping Chromium depot_tools for the Linux React Native host..."
-    run_linux_git_lf git clone --depth 1 \
-      https://chromium.googlesource.com/chromium/tools/depot_tools.git \
-      "$linux_depot_tools_dir"
-  fi
-
-  normalize_linux_git_checkout "$linux_depot_tools_dir"
-  export PATH="$linux_depot_tools_dir:$PATH"
-}
-
-ensure_linux_react_native_skia() {
-  local source_url="https://github.com/react-native-skia/react-native-skia.git"
-
-  ensure_linux_depot_tools
-  mkdir -p "$linux_runtime_dir"
-
-  if [[ ! -d "$linux_rns_dir/.git" ]]; then
-    echo "Cloning React Native Skia Linux host..."
-    run_linux_git_lf git clone "$source_url" "$linux_rns_dir"
-  fi
-
-  normalize_linux_git_checkout "$linux_rns_dir"
-  run_linux_git_lf git -C "$linux_rns_dir" checkout --detach "$linux_rns_revision"
-
-  if [[ ! -f "$linux_runtime_dir/.gclient" ]]; then
-    (
-      cd "$linux_runtime_dir"
-      run_linux_git_lf gclient config --name src --unmanaged "$source_url"
-    )
-  fi
-
-  if [[ ! -f "$linux_runtime_dir/.deps-synced" ]]; then
-    echo "Syncing React Native Skia native dependencies..."
-    (
-      cd "$linux_runtime_dir"
-      run_linux_git_lf gclient sync --with_branch_heads
-    )
-    touch "$linux_runtime_dir/.deps-synced"
-  fi
-
-  if [[ ! -d "$linux_rns_dir/node_modules/react-native" ]]; then
-    echo "Installing React Native Skia JavaScript dependencies..."
-    (
-      cd "$linux_rns_dir"
-      run_linux_yarn install --frozen-lockfile
-    )
-  fi
-}
-
-prepare_linux_package_archive() {
-  local package_dir="$linux_rns_dir/.local-packages"
-  local archive="$package_dir/ffmpeg-kit-extended-local.tgz"
-  local packed_name
-
-  mkdir -p "$package_dir"
-  rm -f "$package_dir"/ffmpeg-kit-extended-*.tgz "$archive"
-
-  echo "Packing local FFmpegKit Extended dependency for Linux..." >&2
-  packed_name="$(cd "$script_dir" && npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1)"
-  if [[ -z "$packed_name" || ! -f "$package_dir/$packed_name" ]]; then
-    echo "npm pack did not produce the expected Linux package archive." >&2
-    exit 1
-  fi
-
-  mv "$package_dir/$packed_name" "$archive"
-  printf '%s\n' "$archive"
-}
-
-prepare_linux_example() {
-  local archive
-
-  ensure_linux_react_native_skia
-  archive="$(prepare_linux_package_archive)"
-
-  python3 "$script_dir/scripts/prepare-linux-react-native-skia.py" \
-    "$linux_rns_dir" \
-    "$script_dir" \
-    "$archive"
-}
-
-build_linux() {
-  if ! is_linux_host; then
-    echo "Skipping Linux: Linux builds require a Linux host."
-    return
-  fi
-
-  echo
-  echo "========================================"
-  echo "Building Linux example ($build_type)"
-  echo "========================================"
-  prepare_linux_example
-
-  local configuration="Debug"
-  local is_debug="true"
-  if [[ "$build_type" == "release" ]]; then
-    configuration="Release"
-    is_debug="false"
-  fi
-
-  local runtime_output="$linux_rns_dir/out/$configuration"
-  local staged_output="$linux_example_dir/build/$configuration"
-  local gn_args
-  gn_args="use_sysroot=false enable_vulkan=false icu_use_data_file=false skia_use_system_nopoll=true gl_use_glx=false is_debug=$is_debug is_component_build=true enable_precompiled_headers=true"
-
-  echo "Generating React Native Skia Linux build files..."
-  (
-    cd "$linux_rns_dir"
-    gn gen "out/$configuration" --args="$gn_args"
-    ninja -C "out/$configuration" ReactSkiaApp
-  )
-
-  echo "Bundling unified React Native example for Linux..."
-  (
-    cd "$linux_rns_dir"
-    run_linux_yarn workspace react-native-skia run react-native bundle \
-      --platform ios \
-      --dev false \
-      --entry-file FFmpegKitExtendedExample.js \
-      --bundle-output "../../out/$configuration/SimpleViewApp.bundle" \
-      --assets-dest "../../out/$configuration"
-  )
-
-  rm -rf "$staged_output"
-  mkdir -p "$staged_output"
-  cp -a "$runtime_output/." "$staged_output/"
-
-  echo "Staging FFmpegKit Extended Linux runtime libraries..."
-  "$script_dir/scripts/prepare-linux-runtime.sh" "$(uname -m)" "$staged_output" >/dev/null
-
-  if [[ ! -x "$staged_output/ReactSkiaApp" ]]; then
-    echo "React Native Skia Linux executable was not produced: $staged_output/ReactSkiaApp" >&2
-    exit 1
-  fi
-
-  if [[ ! -f "$staged_output/libffmpegkit.so" ]]; then
-    echo "FFmpegKit Linux runtime staging did not produce libffmpegkit.so in: $staged_output" >&2
-    exit 1
-  fi
-
-  touch "$linux_example_dir/build/.last-successful-build"
-}
-
 is_windows_host() {
   case "$host_os" in
     MINGW*|MSYS*|CYGWIN*) return 0 ;;
@@ -1131,8 +936,7 @@ case "$target" in
   appletvos) build_library; build_appletvos ;;
   macos) build_library; build_macos ;;
   windows) build_library; build_windows ;;
-  linux) build_library; build_linux ;;
-  all) build_library; build_android; build_ios; build_appletvos; build_macos; build_windows; build_linux ;;
+  all) build_library; build_android; build_ios; build_appletvos; build_macos; build_windows ;;
 esac
 
 echo

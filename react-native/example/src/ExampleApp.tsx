@@ -27,7 +27,7 @@ import {
 } from 'ffmpeg-kit-extended';
 
 export type ExamplePlatformName =
-  'Android' | 'iOS' | 'macOS' | 'Apple tvOS' | 'Windows' | 'Linux';
+  'Android' | 'iOS' | 'macOS' | 'Apple tvOS' | 'Windows';
 
 export type ExamplePlatformServices = {
   exampleDir: string;
@@ -120,8 +120,7 @@ export function ExampleApp({
     platformName === 'iOS' ||
     platformName === 'macOS' ||
     platformName === 'Apple tvOS' ||
-    platformName === 'Windows' ||
-    platformName === 'Linux';
+    platformName === 'Windows';
   const [activeTab, setActiveTab] = useState<TabName>('FFmpeg');
   const [initialized, setInitialized] = useState(false);
   const [status, setStatus] = useState('Initializing...');

@@ -60,11 +60,6 @@ rm -rf \
   example/android/app/.externalNativeBuild \
   example/android/app/build
 
-# Example Linux
-rm -rf \
-  example/linux/build \
-  example/.linux-runtime
-
 # Example Windows
 rm -rf \
   example/windows/build \
@@ -117,4 +112,3 @@ echo "  ./build.sh ios"
 echo "  ./build.sh appletvos"
 echo "  ./build.sh macos"
 echo "  ./build.sh windows"
-echo "  ./build.sh linux"

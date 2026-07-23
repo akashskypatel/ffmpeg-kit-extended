@@ -10,8 +10,7 @@
     "test": "jest",
     "macos": "../launch.sh macos",
     "appletvos": "../launch.sh appletvos",
-    "windows": "../launch.sh windows",
-    "linux": "../launch.sh linux"
+    "windows": "../launch.sh windows"
   },
   "dependencies": {
     "react": "19.2.3",

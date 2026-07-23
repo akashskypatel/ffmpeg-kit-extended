@@ -21,7 +21,6 @@
     "macos",
     "appletvos",
     "windows",
-    "linux",
     "cpp",
     "*.podspec",
     "react-native.config.js",
@@ -36,8 +35,7 @@
     "example:start": "npm --prefix example run start",
     "example:macos": "./launch.sh macos",
     "example:appletvos": "./launch.sh appletvos",
-    "example:windows": "./launch.sh windows",
-    "example:linux": "./launch.sh linux"
+    "example:windows": "./launch.sh windows"
   },
   "keywords": [
     "react-native",
