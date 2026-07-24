@@ -5,8 +5,8 @@
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
 #import <QuartzCore/QuartzCore.h>
-#import "generated/FFmpegKitExtendedSpec/ComponentDescriptors.h"
-#import "generated/FFmpegKitExtendedSpec/RCTComponentViewHelpers.h"
+#import <react/renderer/components/FFmpegKitExtendedSpec/ComponentDescriptors.h>
+#import <react/renderer/components/FFmpegKitExtendedSpec/RCTComponentViewHelpers.h>
 
 #include <dlfcn.h>
 #include <stdint.h>

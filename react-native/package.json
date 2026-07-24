@@ -28,8 +28,14 @@
   ],
   "scripts": {
     "clean": "del-cli android/build ios/build lib",
-    "prepare": "bob build && node scripts/sync-appletvos-codegen.js",
+    "prepare": "bob build",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint src scripts tests react-native.config.js .eslintrc.js",
+    "test:compile": "del-cli .test-dist && tsc -p tsconfig.test.json",
+    "test:unit": "npm run test:compile && node --test tests/arguments.test.js tests/media-information.test.js tests/session-queue-manager.test.js tests/types.test.js",
+    "test:config": "node --test tests/resolve-ffmpeg-kit-config.test.js",
+    "test": "npm run test:compile && node --test tests/*.test.js",
+    "check": "npm run typecheck && npm run lint && npm test",
     "example:android": "npm --prefix example run android",
     "example:ios": "npm --prefix example run ios",
     "example:start": "npm --prefix example run start",
@@ -57,8 +63,11 @@
   "devDependencies": {
     "@react-native-community/cli": "^20.1.2",
     "@react-native/babel-preset": "0.86.0",
+    "@react-native/eslint-config": "0.86.0",
     "@types/react": "^19.2.0",
     "del-cli": "^7.0.0",
+    "eslint": "^8.19.0",
+    "prettier": "2.8.8",
     "react": "19.2.3",
     "react-native": "0.86.0",
     "react-native-builder-bob": "^0.41.0",
@@ -85,22 +94,16 @@
         {
           "project": "tsconfig.build.json"
         }
-      ],
-      "codegen"
+      ]
     ]
   },
   "codegenConfig": {
     "name": "FFmpegKitExtendedSpec",
     "type": "all",
     "jsSrcsDir": "src",
-    "outputDir": {
-      "ios": "ios/generated",
-      "android": "android/generated"
-    },
     "android": {
       "javaPackageName": "com.akashskypatel.ffmpegkitextended"
     },
-    "includesGeneratedCode": true,
     "ios": {
       "componentProvider": {
         "FFplayView": "RCTFFplayView"

@@ -1,41 +1,103 @@
 param(
-  [ValidateSet('x64')]
+  [ValidateSet('x64', 'arm64')]
   [string]$Architecture = 'x64',
   [string]$Destination = '',
-  [string]$Version = '0.10.5'
+  [string]$AppRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
-$artifact = 'bundle-base-windows-x86_64-shared-lgpl'
-$tag = "v$Version-windows"
-$url = "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download/$tag/$artifact.zip"
-
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$cacheRoot = Join-Path $repoRoot 'vendor/windows/x64'
-$archive = Join-Path $cacheRoot "$artifact.zip"
-$extractRoot = Join-Path $cacheRoot $artifact
-$marker = Join-Path $extractRoot '.extract_complete'
+$resolver = Join-Path $PSScriptRoot 'resolve-ffmpeg-kit-config.js'
+$downloader = Join-Path $PSScriptRoot 'download-ffmpeg-kit-artifact.js'
+$nodeBinary = if ($env:NODE_BINARY) { $env:NODE_BINARY } else { 'node' }
 
+$resolverArgs = @(
+  $resolver,
+  '--platform', 'windows',
+  '--architecture', $Architecture,
+  '--quiet', 'true'
+)
+if ($AppRoot) {
+  $resolverArgs += @('--app-root', (Resolve-Path $AppRoot).Path)
+} else {
+  $resolverArgs += @('--app-root', $repoRoot)
+}
+
+$resolutionJson = & $nodeBinary @resolverArgs
+if ($LASTEXITCODE -ne 0) {
+  throw 'Failed to resolve FFmpegKit Extended configuration.'
+}
+$resolution = $resolutionJson | ConvertFrom-Json
+
+$cacheRoot = Join-Path $repoRoot "vendor/windows/$Architecture"
 New-Item -ItemType Directory -Force -Path $cacheRoot | Out-Null
 
-if (-not (Test-Path $marker)) {
-  if (-not (Test-Path $archive)) {
-    Write-Host "Downloading FFmpegKit Extended Windows runtime: $artifact"
-    Invoke-WebRequest -Uri $url -OutFile $archive
+$extractRoot = $null
+if ($resolution.override -and $resolution.override.kind -eq 'local' -and
+    (Test-Path $resolution.override.resolvedPath -PathType Container)) {
+  $extractRoot = $resolution.override.resolvedPath
+  Write-Host "Using local FFmpegKit Extended Windows runtime: $extractRoot"
+} else {
+  $archive = Join-Path $cacheRoot $resolution.filename
+  $extractRoot = Join-Path $cacheRoot $resolution.cacheKey
+  $marker = Join-Path $extractRoot '.extract_complete'
+  $sourceKey = if ($resolution.override) {
+    "$($resolution.override.kind):$($resolution.override.value)"
+  } else {
+    "official:$($resolution.url)"
   }
 
-  if (Test-Path $extractRoot) {
-    Remove-Item -Recurse -Force $extractRoot
+  $markerMatches = (Test-Path $marker) -and
+    ((Get-Content -Raw $marker) -eq $sourceKey)
+
+  if (-not $markerMatches) {
+    if ($resolution.override -and $resolution.override.kind -eq 'local') {
+      $localArchive = $resolution.override.resolvedPath
+      if (-not (Test-Path $localArchive -PathType Leaf)) {
+        throw "FFmpegKit Extended local override was not found: $localArchive"
+      }
+      Write-Host "Using local FFmpegKit Extended Windows archive: $localArchive"
+      Copy-Item -Force $localArchive $archive
+    } else {
+      Write-Host "Preparing FFmpegKit Extended Windows runtime: $($resolution.url)"
+      $downloadArgs = @(
+        $downloader,
+        '--url', $resolution.url,
+        '--output', $archive,
+        '--retries', '3',
+        '--timeout-ms', '30000'
+      )
+      if ($resolution.checksum) {
+        $downloadArgs += @('--checksum-method', $resolution.checksum.method)
+        if ($resolution.checksum.url) {
+          $downloadArgs += @('--checksum-url', $resolution.checksum.url)
+        }
+        if ($resolution.checksum.releaseApiUrl) {
+          $downloadArgs += @('--release-api-url', $resolution.checksum.releaseApiUrl)
+        }
+        if ($resolution.checksum.assetName) {
+          $downloadArgs += @('--asset-name', $resolution.checksum.assetName)
+        }
+      }
+      & $nodeBinary @downloadArgs
+      if ($LASTEXITCODE -ne 0) {
+        throw "Failed to prepare FFmpegKit Extended Windows runtime: $($resolution.url)"
+      }
+    }
+
+    if (Test-Path $extractRoot) {
+      Remove-Item -Recurse -Force $extractRoot
+    }
+    New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
+    Expand-Archive -Path $archive -DestinationPath $extractRoot -Force
+    Set-Content -NoNewline -Path $marker -Value $sourceKey
   }
-  New-Item -ItemType Directory -Force -Path $extractRoot | Out-Null
-  Expand-Archive -Path $archive -DestinationPath $extractRoot -Force
-  New-Item -ItemType File -Force -Path $marker | Out-Null
 }
 
 $dlls = Get-ChildItem -Path $extractRoot -Recurse -File -Filter '*.dll'
 if ($dlls.Count -eq 0) {
-  throw "No DLLs were found in $archive"
+  throw "No DLLs were found in FFmpegKit Extended Windows runtime: $extractRoot"
 }
 
 if ($Destination) {

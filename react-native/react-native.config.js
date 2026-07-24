@@ -7,7 +7,6 @@ module.exports = {
         packageImportPath:
           'import com.akashskypatel.ffmpegkitextended.FFmpegKitExtendedPackage;',
         packageInstance: 'new FFmpegKitExtendedPackage()',
-        cmakeListsPath: 'generated/jni/CMakeLists.txt',
         cxxModuleCMakeListsModuleName: 'react_native_ffmpeg_kit_extended',
         cxxModuleCMakeListsPath: 'CMakeLists.txt',
         cxxModuleHeaderName: 'FFmpegKitExtendedImpl',

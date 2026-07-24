@@ -115,9 +115,6 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-    implementation(
-        "io.github.akashskypatel.ffmpegkit:bundle-base-shared-small-lgpl:0.10.5"
-    )
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

@@ -95,7 +95,7 @@ export class SessionQueueManager {
       const item = this.queue.shift();
       if (!item) return;
       this.active.add(item.session);
-      void item
+      item
         .executor()
         .then(item.resolve, item.reject)
         .finally(() => {

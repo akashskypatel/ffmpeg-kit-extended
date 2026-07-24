@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 buildscript {
     repositories {
         google()
@@ -7,10 +9,101 @@ buildscript {
 
 apply plugin: "com.android.library"
 
-// Keep the native FFmpegKit dependency configurable so applications can select
-// another published bundle without modifying this package.
-def ffmpegKitVersion = project.findProperty("ffmpegKitVersion") ?: "0.10.5"
-def ffmpegKitAndroidArtifact = project.findProperty("ffmpegKitAndroidArtifact") ?: "bundle-base-shared-small-lgpl"
+def resolveFFmpegKitConfig = {
+    def appRoot = rootProject.projectDir.parentFile
+    def resolver = new File(projectDir, "../scripts/resolve-ffmpeg-kit-config.js")
+    def nodeBinary = System.getenv("NODE_BINARY") ?: "node"
+    def output = providers.exec {
+        commandLine nodeBinary,
+                resolver.absolutePath,
+                "--platform", "android",
+                "--app-root", appRoot.absolutePath,
+                "--quiet", "true"
+    }
+
+    return new JsonSlurper().parseText(output.standardOutput.asText.get())
+}
+
+def ffmpegKitResolution = resolveFFmpegKitConfig()
+def ffmpegKitAndroidAarFiles
+
+if (ffmpegKitResolution.override != null &&
+        ffmpegKitResolution.override.kind == "local") {
+    def localAar = file(ffmpegKitResolution.override.resolvedPath as String)
+    if (!localAar.isFile()) {
+        throw new GradleException(
+                "FFmpegKit [Android]: Local override must be an existing AAR file: " +
+                        localAar.absolutePath
+        )
+    }
+    if (!localAar.name.toLowerCase().endsWith(".aar")) {
+        throw new GradleException(
+                "FFmpegKit [Android]: Android bundle must point to an .aar file: " +
+                        localAar.absolutePath
+        )
+    }
+
+    ffmpegKitAndroidAarFiles = files(localAar)
+} else {
+    def filename = ffmpegKitResolution.filename as String
+    if (!filename.toLowerCase().endsWith(".aar")) {
+        throw new GradleException(
+                "FFmpegKit [Android]: Android bundle must point to an .aar file: ${filename}"
+        )
+    }
+
+    def url = ffmpegKitResolution.url as String
+    def cacheKey = ffmpegKitResolution.cacheKey as String
+    def checksum = ffmpegKitResolution.checksum
+    def aarProvider = layout.buildDirectory.file(
+            "ffmpeg-kit-extended/${cacheKey}/${filename}"
+    )
+
+    def downloadFFmpegKitAndroidAar = tasks.register("downloadFFmpegKitAndroidAar") {
+        inputs.property("url", url)
+        inputs.property("filename", filename)
+        inputs.property("cacheKey", cacheKey)
+        if (checksum != null) {
+            inputs.property("checksumMethod", checksum.method as String)
+            if (checksum.url != null) inputs.property("checksumUrl", checksum.url as String)
+        }
+        outputs.file(aarProvider)
+
+        doLast {
+            def target = aarProvider.get().asFile
+            target.parentFile.mkdirs()
+
+            def downloader = new File(projectDir, "../scripts/download-ffmpeg-kit-artifact.js")
+            def nodeBinary = System.getenv("NODE_BINARY") ?: "node"
+            def command = [
+                    nodeBinary,
+                    downloader.absolutePath,
+                    "--url", url,
+                    "--output", target.absolutePath,
+                    "--retries", "3",
+                    "--timeout-ms", "30000"
+            ]
+            if (checksum != null) {
+                command.addAll(["--checksum-method", checksum.method as String])
+                if (checksum.url != null) {
+                    command.addAll(["--checksum-url", checksum.url as String])
+                }
+            }
+
+            def process = new ProcessBuilder(command)
+                    .inheritIO()
+                    .start()
+            def exitCode = process.waitFor()
+            if (exitCode != 0) {
+                throw new GradleException(
+                        "FFmpegKit [Android]: Failed to prepare ${url}"
+                )
+            }
+        }
+    }
+
+    ffmpegKitAndroidAarFiles = files(aarProvider).builtBy(downloadFFmpegKitAndroidAar)
+}
 
 android {
     namespace "com.akashskypatel.ffmpegkitextended"
@@ -32,14 +125,9 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
-    sourceSets {
-        main {
-            java.srcDirs += ["generated/java"]
-        }
-    }
 }
 
 dependencies {
     implementation("com.facebook.react:react-android")
-    implementation("io.github.akashskypatel.ffmpegkit:${ffmpegKitAndroidArtifact}:${ffmpegKitVersion}")
+    implementation(ffmpegKitAndroidAarFiles)
 }

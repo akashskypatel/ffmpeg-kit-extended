@@ -333,18 +333,6 @@ install_appletvos_dependencies() {
   )
 }
 
-sync_appletvos_codegen_to_runtime() {
-  local installed="$appletvos_runtime_dir/node_modules/ffmpeg-kit-extended"
-  if [[ ! -d "$installed" ]]; then
-    echo "Installed FFmpegKit Extended package was not found: $installed" >&2
-    exit 1
-  fi
-
-  rm -rf "$installed/appletvos/generated"
-  mkdir -p "$installed/appletvos"
-  cp -a "$script_dir/appletvos/generated" "$installed/appletvos/generated"
-}
-
 sync_appletvos_binary_to_runtime() {
   local installed="$appletvos_runtime_dir/node_modules/ffmpeg-kit-extended"
   local source="$script_dir/vendor/appletvos/ffmpegkit.xcframework"
@@ -362,54 +350,8 @@ sync_appletvos_binary_to_runtime() {
   ditto "$source" "$destination"
 }
 
-generate_appletvos_codegen() {
-  local codegen_root="$script_dir/.appletvos-codegen"
-  local codegen_script="$appletvos_runtime_dir/node_modules/react-native/scripts/generate-codegen-artifacts.js"
-
-  if [[ ! -f "$codegen_script" ]]; then
-    echo "React Native tvOS Codegen script not found: $codegen_script" >&2
-    exit 1
-  fi
-
-  rm -rf "$script_dir/appletvos/generated" "$codegen_root"
-  mkdir -p "$script_dir/appletvos/generated" "$codegen_root"
-
-  cat > "$codegen_root/package.json" <<'JSON'
-{
-  "name": "ffmpeg-kit-extended-appletvos-codegen",
-  "version": "0.0.0",
-  "private": true,
-  "codegenConfig": {
-    "name": "FFmpegKitExtendedSpec",
-    "type": "all",
-    "jsSrcsDir": "../src",
-    "outputDir": {
-      "ios": "../appletvos/generated"
-    },
-    "includesGeneratedCode": true,
-    "ios": {
-      "componentProvider": {
-        "FFplayView": "RCTFFplayView"
-      }
-    }
-  }
-}
-JSON
-
-  echo "Generating React Native Apple tvOS Codegen artifacts..."
-  node "$codegen_script" -p "$codegen_root" -t ios -s library
-  rm -rf "$codegen_root"
-
-  if [[ ! -f "$script_dir/appletvos/generated/ReactCodegen/FFmpegKitExtendedSpecJSI.h" ]]; then
-    echo "Apple tvOS Codegen did not produce ReactCodegen/FFmpegKitExtendedSpecJSI.h" >&2
-    exit 1
-  fi
-}
-
 prepare_appletvos_example() {
   install_appletvos_dependencies
-  generate_appletvos_codegen
-  sync_appletvos_codegen_to_runtime
   sync_appletvos_binary_to_runtime
 }
 
@@ -528,18 +470,6 @@ install_macos_dependencies() {
   )
 }
 
-sync_macos_codegen_to_runtime() {
-  local installed="$macos_runtime_dir/node_modules/ffmpeg-kit-extended"
-  if [[ ! -d "$installed" ]]; then
-    echo "Installed FFmpegKit Extended package was not found: $installed" >&2
-    exit 1
-  fi
-
-  rm -rf "$installed/macos/generated"
-  mkdir -p "$installed/macos"
-  cp -a "$script_dir/macos/generated" "$installed/macos/generated"
-}
-
 sync_macos_binary_to_runtime() {
   local installed="$macos_runtime_dir/node_modules/ffmpeg-kit-extended"
   local source="$script_dir/vendor/macos/ffmpegkit.xcframework"
@@ -557,54 +487,8 @@ sync_macos_binary_to_runtime() {
   ditto "$source" "$destination"
 }
 
-generate_macos_codegen() {
-  local codegen_root="$script_dir/.macos-codegen"
-  local codegen_script="$macos_runtime_dir/node_modules/react-native-macos/scripts/generate-codegen-artifacts.js"
-
-  if [[ ! -f "$codegen_script" ]]; then
-    echo "React Native macOS Codegen script not found: $codegen_script" >&2
-    exit 1
-  fi
-
-  rm -rf "$script_dir/macos/generated" "$codegen_root"
-  mkdir -p "$script_dir/macos/generated" "$codegen_root"
-
-  cat > "$codegen_root/package.json" <<'JSON'
-{
-  "name": "ffmpeg-kit-extended-macos-codegen",
-  "version": "0.0.0",
-  "private": true,
-  "codegenConfig": {
-    "name": "FFmpegKitExtendedSpec",
-    "type": "all",
-    "jsSrcsDir": "../src",
-    "outputDir": {
-      "ios": "../macos/generated"
-    },
-    "includesGeneratedCode": true,
-    "ios": {
-      "componentProvider": {
-        "FFplayView": "RCTFFplayView"
-      }
-    }
-  }
-}
-JSON
-
-  echo "Generating React Native macOS Codegen artifacts..."
-  node "$codegen_script" -p "$codegen_root" -t ios -s library
-  rm -rf "$codegen_root"
-
-  if [[ ! -f "$script_dir/macos/generated/FFmpegKitExtendedSpecJSI.h" ]]; then
-    echo "macOS Codegen did not produce FFmpegKitExtendedSpecJSI.h" >&2
-    exit 1
-  fi
-}
-
 prepare_macos_example() {
   install_macos_dependencies
-  generate_macos_codegen
-  sync_macos_codegen_to_runtime
   sync_macos_binary_to_runtime
 }
 

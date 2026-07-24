@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": false,
+    "rootDir": "src",
+    "outDir": ".test-dist",
+    "module": "Node16",
+    "moduleResolution": "Node16"
+  },
+  "include": [
+    "src/arguments.ts",
+    "src/media-information.ts",
+    "src/session-queue-manager.ts",
+    "src/types.ts"
+  ]
+}

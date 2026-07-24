@@ -96,7 +96,7 @@
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.targets')" />
   </ImportGroup>
   <Target Name="PrepareFFmpegKitExtendedWindowsRuntime" BeforeTargets="Build">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\prepare-windows-runtime.ps1&quot; -Architecture $(Platform) -Destination &quot;$(TargetDir).&quot;" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\prepare-windows-runtime.ps1&quot; -Architecture $(Platform) -Destination &quot;$(TargetDir).&quot; -AppRoot &quot;$(SolutionDir)..&quot;" />
   </Target>
   <Target Name="EnsureReactNativeWindowsTargets" BeforeTargets="PrepareForBuild">
     <PropertyGroup><ErrorText>This project references targets in your node_modules\react-native-windows folder. The missing file is {0}.</ErrorText></PropertyGroup>
