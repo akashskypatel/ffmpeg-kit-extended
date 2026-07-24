@@ -8,6 +8,13 @@ buildscript {
 }
 
 apply plugin: "com.android.library"
+apply plugin: "com.facebook.react"
+
+react {
+    jsRootDir = file("../src")
+    libraryName = "FFmpegKitExtendedSpec"
+    codegenJavaPackageName = "com.akashskypatel.ffmpegkitextended"
+}
 
 def resolveFFmpegKitConfig = {
     def appRoot = rootProject.projectDir.parentFile
