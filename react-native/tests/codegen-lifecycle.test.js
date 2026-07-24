@@ -40,6 +40,29 @@ test('Apple podspec ships handwritten sources only', () => {
   assert.match(podspec, /install_modules_dependencies\(s\)/);
 });
 
+
+
+test('podspec helper methods are namespaced for CocoaPods evaluation', () => {
+  const podspec = read('FFmpegKitExtended.podspec');
+  assert.match(podspec, /module FFmpegKitExtendedPodspecHelpers/);
+  assert.match(podspec, /module_function/);
+  assert.match(
+    podspec,
+    /FFmpegKitExtendedPodspecHelpers\.ffmpeg_kit_extended_app_root/,
+  );
+  assert.match(
+    podspec,
+    /FFmpegKitExtendedPodspecHelpers\.ffmpeg_kit_extended_apple_platforms/,
+  );
+});
+
+test('podspec detects Apple platforms without accessing Config#podfile', () => {
+  const podspec = read('FFmpegKitExtended.podspec');
+  assert.doesNotMatch(podspec, /Pod::Config\.instance\.podfile\b/);
+  assert.match(podspec, /File\.join\(installation_root, ["']Podfile["']\)/);
+  assert.match(podspec, /match = source\.match\(/);
+});
+
 test('Apple native views include consumer-generated Fabric headers', () => {
   for (const platform of ['ios', 'appletvos', 'macos']) {
     const source = read(`${platform}/RCTFFplayView.mm`);

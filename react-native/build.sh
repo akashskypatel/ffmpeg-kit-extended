@@ -69,6 +69,92 @@ ensure_dependencies() {
   fi
 }
 
+sha256_file() {
+  local file="$1"
+
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$file" | awk '{print $NF}'
+  else
+    echo "No SHA-256 utility found. Expected shasum, sha256sum, or openssl." >&2
+    return 1
+  fi
+}
+
+set_runtime_local_package_dependency() {
+  local runtime_dir="$1"
+  local archive_name="$2"
+
+  (
+    cd "$runtime_dir"
+    node - "$archive_name" <<'NODE'
+const fs = require('fs');
+
+const archiveName = process.argv[2];
+const packagePath = 'package.json';
+const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+
+packageJson.dependencies['ffmpeg-kit-extended'] =
+  `file:.local-packages/${archiveName}`;
+
+fs.writeFileSync(
+  packagePath,
+  `${JSON.stringify(packageJson, null, 2)}\n`,
+);
+NODE
+  )
+}
+
+pack_runtime_local_package() {
+  local runtime_dir="$1"
+  local platform_name="$2"
+  local package_dir="$runtime_dir/.local-packages"
+  local packed_name packed_path archive_hash archive_name archive
+
+  mkdir -p "$package_dir"
+
+  echo "Packing local FFmpegKit Extended dependency for ${platform_name}..."
+  packed_name="$(
+    cd "$script_dir"
+    npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1
+  )"
+  packed_path="$package_dir/$packed_name"
+
+  if [[ -z "$packed_name" || ! -f "$packed_path" ]]; then
+    echo "npm pack did not produce the expected local package archive." >&2
+    exit 1
+  fi
+
+  archive_hash="$(sha256_file "$packed_path")"
+  if [[ -z "$archive_hash" ]]; then
+    echo "Failed to calculate SHA-256 for local package archive: $packed_path" >&2
+    exit 1
+  fi
+
+  archive_name="ffmpeg-kit-extended-local-${archive_hash}.tgz"
+  archive="$package_dir/$archive_name"
+
+  if [[ "$packed_path" != "$archive" ]]; then
+    rm -f "$archive"
+    mv "$packed_path" "$archive"
+  fi
+
+  # Keep only the current content-addressed archive. A package-content change
+  # produces a different file: dependency path, forcing npm to update the lock
+  # entry instead of reusing a stale local tarball with the same package version.
+  find "$package_dir" \
+    -maxdepth 1 \
+    -type f \
+    -name 'ffmpeg-kit-extended-local-*.tgz' \
+    ! -name "$archive_name" \
+    -delete
+
+  set_runtime_local_package_dependency "$runtime_dir" "$archive_name"
+}
+
 clean_project() {
   if [[ -x "$script_dir/clean" ]]; then
     "$script_dir/clean"
@@ -305,23 +391,8 @@ JS
 }
 
 prepare_appletvos_package_archive() {
-  local package_dir="$appletvos_runtime_dir/.local-packages"
-  local archive="$package_dir/ffmpeg-kit-extended-local.tgz"
-  local packed_name
-
   prepare_appletvos_runtime_files
-  mkdir -p "$package_dir"
-  rm -f "$package_dir"/ffmpeg-kit-extended-*.tgz "$archive"
-
-  echo "Packing local FFmpegKit Extended dependency for Apple tvOS..."
-  packed_name="$(cd "$script_dir" && npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1)"
-
-  if [[ -z "$packed_name" || ! -f "$package_dir/$packed_name" ]]; then
-    echo "npm pack did not produce the expected local package archive." >&2
-    exit 1
-  fi
-
-  mv "$package_dir/$packed_name" "$archive"
+  pack_runtime_local_package "$appletvos_runtime_dir" "Apple tvOS"
 }
 
 install_appletvos_dependencies() {
@@ -442,23 +513,8 @@ JS
 }
 
 prepare_macos_package_archive() {
-  local package_dir="$macos_runtime_dir/.local-packages"
-  local archive="$package_dir/ffmpeg-kit-extended-local.tgz"
-  local packed_name
-
   prepare_macos_runtime_files
-  mkdir -p "$package_dir"
-  rm -f "$package_dir"/ffmpeg-kit-extended-*.tgz "$archive"
-
-  echo "Packing local FFmpegKit Extended dependency for macOS..."
-  packed_name="$(cd "$script_dir" && npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1)"
-
-  if [[ -z "$packed_name" || ! -f "$package_dir/$packed_name" ]]; then
-    echo "npm pack did not produce the expected local package archive." >&2
-    exit 1
-  fi
-
-  mv "$package_dir/$packed_name" "$archive"
+  pack_runtime_local_package "$macos_runtime_dir" "macOS"
 }
 
 install_macos_dependencies() {
@@ -574,21 +630,8 @@ JS
 }
 
 prepare_windows_package_archive() {
-  local package_dir="$windows_runtime_dir/.local-packages"
-  local archive="$package_dir/ffmpeg-kit-extended-local.tgz"
-  local packed_name
-
   prepare_windows_runtime_files
-  mkdir -p "$package_dir"
-  rm -f "$package_dir"/ffmpeg-kit-extended-*.tgz "$archive"
-
-  echo "Packing local FFmpegKit Extended dependency for Windows..."
-  packed_name="$(cd "$script_dir" && npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1)"
-  if [[ -z "$packed_name" || ! -f "$package_dir/$packed_name" ]]; then
-    echo "npm pack did not produce the expected local package archive." >&2
-    exit 1
-  fi
-  mv "$package_dir/$packed_name" "$archive"
+  pack_runtime_local_package "$windows_runtime_dir" "Windows"
 }
 
 prepare_windows_example() {

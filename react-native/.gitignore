@@ -153,3 +153,11 @@ example/windows/**/Generated Files/
 **/*.binlog
 **/*.err
 **/*.wrn
+*.tgz
+*.tar.gz
+*.zip
+
+**/.macos-runtime/
+**/.appletvos-runtime/
+**/.windows-runtime/
+**/.ios-runtime/
