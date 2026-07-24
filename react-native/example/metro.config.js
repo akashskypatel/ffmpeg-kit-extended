@@ -7,37 +7,30 @@ const {
 const libraryRoot = path.resolve(__dirname, '..');
 const exampleNodeModules = path.resolve(__dirname, 'node_modules');
 
+const reactNativePackage =
+  process.env.REACT_NATIVE_PLATFORM === 'macos'
+    ? 'react-native-macos'
+    : 'react-native';
+
 /**
- * Metro configuration
- *
- * The example consumes source files directly from the parent library.
- * Force both the library and example app to share the example app's
- * React and React Native runtime instances.
+ * The example consumes the plugin source from the parent directory while
+ * keeping React and the selected React Native runtime single-instanced.
  *
  * @type {import('metro-config').MetroConfig}
  */
 const config = {
-  watchFolders: [
-    libraryRoot,
-  ],
+  watchFolders: [libraryRoot],
 
   resolver: {
-    // Do not let imports from ../src resolve against
-    // ../node_modules before reaching example/node_modules.
     disableHierarchicalLookup: true,
 
-    nodeModulesPaths: [
-      exampleNodeModules,
-    ],
+    nodeModulesPaths: [exampleNodeModules],
 
     extraNodeModules: {
-      react: path.resolve(
-        exampleNodeModules,
-        'react',
-      ),
+      react: path.resolve(exampleNodeModules, 'react'),
       'react-native': path.resolve(
         exampleNodeModules,
-        'react-native',
+        reactNativePackage,
       ),
     },
   },
