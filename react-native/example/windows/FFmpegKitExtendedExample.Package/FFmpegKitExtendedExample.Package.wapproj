@@ -37,17 +37,6 @@
     <Content Include="Images\Wide310x150Logo.scale-200.png" />
   </ItemGroup>
   <ItemGroup>
-    <!--
-      build.sh stages the flattened FFmpegKit runtime here before MSBuild starts.
-      Link places every DLL at the package root next to the application executable,
-      which is required by FFmpegKitDynamicApi.cpp's LoadLibrary("libffmpegkit.dll").
-    -->
-    <Content Include="$(SolutionDir)build\runtime\$(Platform)\*.dll">
-      <Link>%(Filename)%(Extension)</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\FFmpegKitExtendedExample\FFmpegKitExtendedExample.vcxproj">
       <SkipGetTargetFrameworkProperties>True</SkipGetTargetFrameworkProperties>
     </ProjectReference>
@@ -56,15 +45,6 @@
   <ImportGroup Label="ReactNativeWindowsTargets">
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.targets')" />
   </ImportGroup>
-  <PropertyGroup Label="OutputPaths">
-    <!-- Declare these after DesktopBridge/RNW imports so imported defaults cannot reset them. -->
-    <BaseOutputPath>$(SolutionDir)build\bin\</BaseOutputPath>
-    <OutputPath>$(BaseOutputPath)$(Platform)\$(Configuration)\</OutputPath>
-    <OutDir>$(OutputPath)</OutDir>
-    <AppxPackageDir>$(SolutionDir)build\AppPackages\</AppxPackageDir>
-    <BaseIntermediateOutputPath>$(SolutionDir)build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
-    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\</IntermediateOutputPath>
-  </PropertyGroup>
   <Target Name="EnsureReactNativeWindowsTargets" BeforeTargets="PrepareForBuild">
     <PropertyGroup><ErrorText>This project references targets in your node_modules\react-native-windows folder that are missing. The missing file is {0}.</ErrorText></PropertyGroup>
     <Error Condition="!Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.props')" Text="$([System.String]::Format('$(ErrorText)', '$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Composition.Package.props'))" />

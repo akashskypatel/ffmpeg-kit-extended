@@ -76,3 +76,5 @@ yarn-error.log
 
 **/x64/*
 **/x86/*
+
+**/packages/*

@@ -161,3 +161,9 @@ example/windows/**/Generated Files/
 **/.appletvos-runtime/
 **/.windows-runtime/
 **/.ios-runtime/
+
+**/.vs/*
+**/obj/*
+**/bin/*
+**/x64/*
+**/x86/*

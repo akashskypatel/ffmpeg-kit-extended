@@ -642,33 +642,6 @@ prepare_windows_example() {
     npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
   )
 
-  # Stage the native FFmpegKit runtime before MSBuild evaluates the packaging
-  # project. The WAP project includes this flattened directory as package
-  # content so libffmpegkit.dll and its dependent DLLs are deployed next to
-  # the application executable.
-  local runtime_stage_dir="$example_dir/windows/build/runtime/x64"
-  local runtime_script="$windows_runtime_dir/node_modules/ffmpeg-kit-extended/scripts/prepare-windows-runtime.ps1"
-  local runtime_stage_dir_win runtime_script_win
-
-  rm -rf "$runtime_stage_dir"
-  mkdir -p "$runtime_stage_dir"
-
-  runtime_stage_dir_win="$(cygpath -w "$runtime_stage_dir")"
-  runtime_script_win="$(cygpath -w "$runtime_script")"
-
-  echo "Staging FFmpegKit Extended Windows runtime DLLs..."
-  MSYS2_ARG_CONV_EXCL='*' powershell.exe \
-    -NoProfile \
-    -ExecutionPolicy Bypass \
-    -File "$runtime_script_win" \
-    -Architecture x64 \
-    -Destination "$runtime_stage_dir_win" >/dev/null
-
-  if [[ ! -f "$runtime_stage_dir/libffmpegkit.dll" && ! -f "$runtime_stage_dir/ffmpegkit.dll" ]]; then
-    echo "FFmpegKit Windows runtime staging did not produce libffmpegkit.dll or ffmpegkit.dll in: $runtime_stage_dir" >&2
-    exit 1
-  fi
-
   (
     cd "$windows_runtime_dir"
     npx react-native autolink-windows --no-telemetry

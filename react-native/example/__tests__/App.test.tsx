@@ -32,8 +32,6 @@ jest.mock('@react-native-documents/picker', () => ({
   types: {video: 'video/*'},
 }));
 
-jest.mock('@react-native-community/slider', () => 'Slider');
-
 test('renders the example app', async () => {
   await renderer.act(async () => {
     renderer.create(<App />);

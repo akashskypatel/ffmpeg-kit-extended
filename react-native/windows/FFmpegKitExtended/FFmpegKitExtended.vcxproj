@@ -40,11 +40,6 @@
   <ImportGroup Label="ReactNativeWindowsPropertySheets">
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.props" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.props')" />
   </ImportGroup>
-  <PropertyGroup Label="OutputPaths">
-    <!-- Keep plugin outputs out of the solution-level x64 directory. -->
-    <OutDir>$(SolutionDir)build\bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
-  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
@@ -96,8 +91,73 @@
   <ImportGroup Label="ReactNativeWindowsTargets">
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.CppLib.targets')" />
   </ImportGroup>
-  <Target Name="PrepareFFmpegKitExtendedWindowsRuntime" BeforeTargets="Build">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\prepare-windows-runtime.ps1&quot; -Architecture $(Platform) -Destination &quot;$(TargetDir).&quot; -AppRoot &quot;$(SolutionDir)..&quot;" />
+  <PropertyGroup Label="FFmpegKitExtendedRuntime">
+    <FFmpegKitExtendedRuntimeStagingDir>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntDir)', 'ffmpeg-kit-runtime'))</FFmpegKitExtendedRuntimeStagingDir>
+
+    <!--
+      GetCopyToOutputDirectoryItems is the project-reference contract used by
+      consuming applications and Windows Application Packaging projects. Keep
+      the runtime DLLs in this output group rather than
+      CustomOutputGroupForPackagingOutput: native component PRI generation
+      prefixes custom packaging payloads with the project name, which would
+      incorrectly advertise FFmpegKitExtended\libffmpegkit.dll instead of the
+      root-level DLL required by FFmpegKitDynamicApi.
+    -->
+    <GetCopyToOutputDirectoryItemsDependsOn>
+      PrepareFFmpegKitExtendedWindowsRuntime;
+      $(GetCopyToOutputDirectoryItemsDependsOn)
+    </GetCopyToOutputDirectoryItemsDependsOn>
+  </PropertyGroup>
+
+  <Target
+    Name="PrepareFFmpegKitExtendedWindowsRuntime"
+    BeforeTargets="PrepareForBuild;GetCopyToOutputDirectoryItems"
+    Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\prepare-windows-runtime.ps1&quot; -Architecture $(Platform) -Destination &quot;$(FFmpegKitExtendedRuntimeStagingDir)&quot; -AppRoot &quot;$(SolutionDir)..&quot;" />
+
+    <ItemGroup>
+      <FFmpegKitExtendedRuntimeDll
+        Include="$(FFmpegKitExtendedRuntimeStagingDir)\*.dll"
+        KeepDuplicates="false" />
+
+      <!-- Returned by GetCopyToOutputDirectoryItems to consuming projects. -->
+      <ContentWithTargetPath
+        Include="@(FFmpegKitExtendedRuntimeDll)"
+        KeepDuplicates="false">
+        <TargetPath>%(Filename)%(Extension)</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Visible>false</Visible>
+        <FFmpegKitExtendedRuntime>true</FFmpegKitExtendedRuntime>
+      </ContentWithTargetPath>
+    </ItemGroup>
+
+    <Error
+      Condition="'@(FFmpegKitExtendedRuntimeDll)' == ''"
+      Text="FFmpegKit Extended runtime staging produced no DLLs in $(FFmpegKitExtendedRuntimeStagingDir)." />
+
+    <Error
+      Condition="'%(ContentWithTargetPath.FFmpegKitExtendedRuntime)' == 'true' AND '%(ContentWithTargetPath.TargetPath)' == ''"
+      Text="FFmpegKit Extended runtime item %(ContentWithTargetPath.Identity) has an empty TargetPath." />
+
+    <Message
+      Importance="High"
+      Condition="'%(ContentWithTargetPath.FFmpegKitExtendedRuntime)' == 'true'"
+      Text="FFmpegKit Extended runtime dependency: %(ContentWithTargetPath.FullPath) -> %(ContentWithTargetPath.TargetPath)" />
+  </Target>
+
+  <!--
+    Keep direct builds of the native module runnable as well. Consumer builds
+    receive the same files through GetCopyToOutputDirectoryItems above.
+  -->
+  <Target
+    Name="CopyFFmpegKitExtendedWindowsRuntimeToModuleOutput"
+    AfterTargets="Build"
+    DependsOnTargets="PrepareFFmpegKitExtendedWindowsRuntime"
+    Condition="'$(DesignTimeBuild)' != 'true' AND '@(FFmpegKitExtendedRuntimeDll)' != ''">
+    <Copy
+      SourceFiles="@(FFmpegKitExtendedRuntimeDll)"
+      DestinationFolder="$(TargetDir)"
+      SkipUnchangedFiles="true" />
   </Target>
   <Target Name="EnsureReactNativeWindowsTargets" BeforeTargets="PrepareForBuild">
     <PropertyGroup><ErrorText>This project references targets in your node_modules\react-native-windows folder. The missing file is {0}.</ErrorText></PropertyGroup>
