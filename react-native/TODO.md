@@ -17,10 +17,10 @@
 
 ### Phase 3 — Compatibility qualification
 
-- [ ] Test RN `0.76` minimum.
-- [ ] Test RN `0.86`.
-- [ ] Test all five currently implemented platforms from the packed npm artifact.
-- [ ] Test release builds.
+- [x] Test RN `0.81.6` minimum.
+- [x] Test RN `0.86`.
+- [x] Test all five currently implemented platforms from the packed npm artifact.
+- [x] Test release builds.
 - [x] Publish an explicit compatibility matrix.
 
 ### Phase 4 — Release infrastructure
