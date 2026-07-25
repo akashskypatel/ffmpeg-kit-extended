@@ -29,5 +29,3 @@ jobs:
       - name: Publish package
         working-directory: react-native
         run: npm publish --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
