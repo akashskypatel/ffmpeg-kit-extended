@@ -1,4 +1,4 @@
-# FFmpegKit Extended for Flutter
+# FFmpegKit Extended for Flutter & React-native
 
 <div align="center">
 
