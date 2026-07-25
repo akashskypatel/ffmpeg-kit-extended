@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        // React Native
+        {
+            "name": "Launch React Native (Android)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/example",
+            "command": "npm run android -- --active-arch-only",
+            "preLaunchTask": "Start Android Emulator (emulator-5554)"
+        },
+        {
+            "name": "Launch React Native (iOS Simulator)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/example",
+            "command": "npm run ios -- --udid 82CE0151-227E-4A29-831E-DDB9348EF8AE"
+        },
+        {
+            "name": "Launch Android Emulator",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "adb devices | grep -q 'emulator-5554' || emulator -avd Medium_Phone_API_36.1 -gpu swiftshader_indirect"
+        }
+    ]
+}

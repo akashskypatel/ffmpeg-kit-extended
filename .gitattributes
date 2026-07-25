@@ -1,0 +1,2 @@
+# Handle text files automatically and normalize them to LF in the repo history
+* text=auto

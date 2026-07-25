@@ -910,52 +910,37 @@ Future<String?> _fetchSha256Hash(String url) async {
   try {
     // if github, use github api to get the file hash
     // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
-    if (targetOS != OS.android) {
-      // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
-      // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/${tag}
-      final tag = "v$version-${targetOS.name}";
-      final releaseName = p.basename(url);
-      final request = await client.getUrl(
-        Uri.parse(
-          'https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/$tag',
-        ),
-      );
-      final response = await request.close();
-      if (response.statusCode == 200) {
-        //parse json response to extract asset url
-        final content = await response.transform(utf8.decoder).join();
-        final json = jsonDecode(content);
-        final assets = json['assets'] as List;
-        for (final asset in assets) {
-          if (asset['name'] == releaseName) {
-            final digest = asset['digest'] as String?;
-            if (digest == null || digest.isEmpty) {
-              return null;
-            }
-            // parse 'sha256:...' format
-            final parts = digest.split(':');
-            if (parts.length == 2) {
-              return parts[1].toLowerCase();
-            }
-            return digest.toLowerCase();
+    // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
+    // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/${tag}
+    final tag = "v$version-${targetOS.name}";
+    final releaseName = p.basename(url);
+    final request = await client.getUrl(
+      Uri.parse(
+        'https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/$tag',
+      ),
+    );
+    final response = await request.close();
+    if (response.statusCode == 200) {
+      //parse json response to extract asset url
+      final content = await response.transform(utf8.decoder).join();
+      final json = jsonDecode(content);
+      final assets = json['assets'] as List;
+      for (final asset in assets) {
+        if (asset['name'] == releaseName) {
+          final digest = asset['digest'] as String?;
+          if (digest == null || digest.isEmpty) {
+            return null;
           }
+          // parse 'sha256:...' format
+          final parts = digest.split(':');
+          if (parts.length == 2) {
+            return parts[1].toLowerCase();
+          }
+          return digest.toLowerCase();
         }
-      } else {
-        await response.drain<void>();
       }
     } else {
-      final request = await client.getUrl(Uri.parse('$url.sha256'));
-      final response = await request.close();
-      if (response.statusCode == 200) {
-        final content = await response.transform(utf8.decoder).join();
-        // Extract hash from standard sha256sum format: "hash  filename" or just "hash"
-        final parts = content.trim().split(RegExp(r'\s+'));
-        if (parts.isNotEmpty) {
-          return parts[0].toLowerCase();
-        }
-      } else {
-        await response.drain<void>();
-      }
+      await response.drain<void>();
     }
     return null;
   } catch (e) {

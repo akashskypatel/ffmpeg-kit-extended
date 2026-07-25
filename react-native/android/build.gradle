@@ -1,0 +1,149 @@
+// Android packaging for ffmpeg-kit-extended.
+//
+// The consuming application's shared FFmpegKit configuration selects either a
+// local AAR override or a downloadable Android bundle. Gradle validates the
+// artifact type, caches downloaded bundles under this module's build directory,
+// and links the React Native Codegen module plus native FFplay view automatically.
+// End users should configure the bundle at the app level; no manual dependency
+// on the selected AAR is required in the app's own dependencies block.
+
+import groovy.json.JsonSlurper
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: "com.android.library"
+apply plugin: "com.facebook.react"
+
+react {
+    jsRootDir = file("../src")
+    libraryName = "FFmpegKitExtendedSpec"
+    codegenJavaPackageName = "com.akashskypatel.ffmpegkitextended"
+}
+
+def resolveFFmpegKitConfig = {
+    def appRoot = rootProject.projectDir.parentFile
+    def resolver = new File(projectDir, "../scripts/resolve-ffmpeg-kit-config.js")
+    def nodeBinary = System.getenv("NODE_BINARY") ?: "node"
+    def output = providers.exec {
+        commandLine nodeBinary,
+                resolver.absolutePath,
+                "--platform", "android",
+                "--app-root", appRoot.absolutePath,
+                "--quiet", "true"
+    }
+
+    return new JsonSlurper().parseText(output.standardOutput.asText.get())
+}
+
+def ffmpegKitResolution = resolveFFmpegKitConfig()
+def ffmpegKitAndroidAarFiles
+
+if (ffmpegKitResolution.override != null &&
+        ffmpegKitResolution.override.kind == "local") {
+    def localAar = file(ffmpegKitResolution.override.resolvedPath as String)
+    if (!localAar.isFile()) {
+        throw new GradleException(
+                "FFmpegKit [Android]: Local override must be an existing AAR file: " +
+                        localAar.absolutePath
+        )
+    }
+    if (!localAar.name.toLowerCase().endsWith(".aar")) {
+        throw new GradleException(
+                "FFmpegKit [Android]: Android bundle must point to an .aar file: " +
+                        localAar.absolutePath
+        )
+    }
+
+    ffmpegKitAndroidAarFiles = files(localAar)
+} else {
+    def filename = ffmpegKitResolution.filename as String
+    if (!filename.toLowerCase().endsWith(".aar")) {
+        throw new GradleException(
+                "FFmpegKit [Android]: Android bundle must point to an .aar file: ${filename}"
+        )
+    }
+
+    def url = ffmpegKitResolution.url as String
+    def cacheKey = ffmpegKitResolution.cacheKey as String
+    def checksum = ffmpegKitResolution.checksum
+    def aarProvider = layout.buildDirectory.file(
+            "ffmpeg-kit-extended/${cacheKey}/${filename}"
+    )
+
+    def downloadFFmpegKitAndroidAar = tasks.register("downloadFFmpegKitAndroidAar") {
+        inputs.property("url", url)
+        inputs.property("filename", filename)
+        inputs.property("cacheKey", cacheKey)
+        if (checksum != null) {
+            inputs.property("checksumMethod", checksum.method as String)
+            if (checksum.url != null) inputs.property("checksumUrl", checksum.url as String)
+        }
+        outputs.file(aarProvider)
+
+        doLast {
+            def target = aarProvider.get().asFile
+            target.parentFile.mkdirs()
+
+            def downloader = new File(projectDir, "../scripts/download-ffmpeg-kit-artifact.js")
+            def nodeBinary = System.getenv("NODE_BINARY") ?: "node"
+            def command = [
+                    nodeBinary,
+                    downloader.absolutePath,
+                    "--url", url,
+                    "--output", target.absolutePath,
+                    "--retries", "3",
+                    "--timeout-ms", "30000"
+            ]
+            if (checksum != null) {
+                command.addAll(["--checksum-method", checksum.method as String])
+                if (checksum.url != null) {
+                    command.addAll(["--checksum-url", checksum.url as String])
+                }
+            }
+
+            def process = new ProcessBuilder(command)
+                    .inheritIO()
+                    .start()
+            def exitCode = process.waitFor()
+            if (exitCode != 0) {
+                throw new GradleException(
+                        "FFmpegKit [Android]: Failed to prepare ${url}"
+                )
+            }
+        }
+    }
+
+    ffmpegKitAndroidAarFiles = files(aarProvider).builtBy(downloadFFmpegKitAndroidAar)
+}
+
+android {
+    namespace "com.akashskypatel.ffmpegkitextended"
+
+    compileSdk rootProject.ext.has("compileSdkVersion")
+            ? rootProject.ext.compileSdkVersion
+            : 36
+
+    defaultConfig {
+        minSdk rootProject.ext.has("minSdkVersion")
+                ? rootProject.ext.minSdkVersion
+                : 24
+        targetSdk rootProject.ext.has("targetSdkVersion")
+                ? rootProject.ext.targetSdkVersion
+                : 36
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation("com.facebook.react:react-android")
+    implementation(ffmpegKitAndroidAarFiles)
+}

@@ -1,0 +1,47 @@
+require 'pathname'
+
+podfile_dir = Pathname.new(__dir__).realpath
+example_dir = podfile_dir.parent
+react_native_macos_dir =
+  example_dir.join('node_modules/react-native-macos').realpath
+
+unless File.exist?(
+  react_native_macos_dir.join('scripts/react_native_pods.rb')
+)
+  raise <<~MESSAGE
+    React Native macOS runtime not found at #{react_native_macos_dir}.
+    Run npm install from #{example_dir}.
+  MESSAGE
+end
+
+react_native_macos_path =
+  react_native_macos_dir.relative_path_from(podfile_dir).to_s
+
+require react_native_macos_dir
+  .join('scripts/react_native_pods.rb')
+  .to_s
+
+platform :macos, '14.0'
+
+prepare_react_native_project!
+
+target 'FFmpegKitExtendedExample-macOS' do
+  pod 'FFmpegKitExtended',
+      :path => example_dir
+        .join('node_modules/ffmpeg-kit-extended')
+        .to_s
+
+  use_react_native!(
+    :path => react_native_macos_path,
+    :fabric_enabled => ENV['RCT_NEW_ARCH_ENABLED'] == '1',
+    :app_path => example_dir.to_s
+  )
+
+  post_install do |installer|
+    react_native_post_install(
+      installer,
+      react_native_macos_path,
+      :mac_catalyst_enabled => false
+    )
+  end
+end

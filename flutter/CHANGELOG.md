@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.12
+
+- Fix android SHA verification
+
 ## Version 0.5.11
 
 - Fix iOS static analysis issue during publishing

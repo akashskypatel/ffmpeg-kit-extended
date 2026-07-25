@@ -1,0 +1,375 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-17}"
+  export PATH="$JAVA_HOME/bin:$PATH"
+fi
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+example_dir="$script_dir/example"
+macos_runtime_dir="$example_dir/.macos-runtime"
+appletvos_runtime_dir="$example_dir/.appletvos-runtime"
+windows_runtime_dir="$example_dir/.windows-runtime"
+target="${1:-android}"
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  ./launch.sh [android|ios|appletvos|macos|windows]
+USAGE
+}
+
+ensure_dependencies() {
+  local dir="$1"
+  if [[ ! -d "$dir/node_modules" ]]; then
+    (cd "$dir" && npm install)
+  fi
+}
+
+metro_listener_pid() {
+  lsof -nP -tiTCP:8081 -sTCP:LISTEN 2>/dev/null | head -n 1 || true
+}
+
+process_working_directory() {
+  local pid="$1"
+  lsof -a -p "$pid" -d cwd -Fn 2>/dev/null |
+    sed -n 's/^n//p' |
+    head -n 1 || true
+}
+
+wait_for_metro_port_to_close() {
+  for _ in {1..40}; do
+    if [[ -z "$(metro_listener_pid)" ]]; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  return 1
+}
+
+restart_project_metro_in_terminal() {
+  local expected_runtime_dir="$1"
+  local label="$2"
+  local pid cwd expected_cwd
+
+  pid="$(metro_listener_pid)"
+  if [[ -n "$pid" ]]; then
+    cwd="$(process_working_directory "$pid")"
+    expected_cwd="$(cd "$expected_runtime_dir" && pwd -P)"
+
+    # macOS and Apple tvOS intentionally use isolated React Native runtimes.
+    # Always restart a project-owned Metro process so launch.sh guarantees the
+    # selected runtime is served from a visible Terminal window.
+    if [[ -n "$cwd" && ( "$cwd" == "$script_dir" || "$cwd" == "$script_dir"/* ) ]]; then
+      if [[ "$cwd" == "$expected_cwd" ]]; then
+        echo "Restarting $label Metro in Terminal..."
+      else
+        echo "Switching Metro to $label (stopping project Metro from $cwd)..."
+      fi
+
+      kill "$pid" >/dev/null 2>&1 || true
+      rm -f "$macos_runtime_dir/metro.pid" "$appletvos_runtime_dir/metro.pid"
+      if ! wait_for_metro_port_to_close; then
+        echo "Unable to stop the existing project Metro process on port 8081." >&2
+        exit 1
+      fi
+    else
+      echo "Port 8081 is already in use by PID $pid${cwd:+ (cwd: $cwd)}." >&2
+      echo "Stop that process before launching the $label example." >&2
+      exit 1
+    fi
+  fi
+
+  start_metro_in_terminal "$expected_runtime_dir" "$label"
+}
+
+start_metro_in_terminal() {
+  local runtime_dir="$1"
+  local label="$2"
+  local launcher="$runtime_dir/.start-metro.command"
+  local quoted_runtime expected_cwd pid cwd
+
+  expected_cwd="$(cd "$runtime_dir" && pwd -P)"
+  printf -v quoted_runtime '%q' "$runtime_dir"
+  cat > "$launcher" <<EOF
+#!/usr/bin/env bash
+cd $quoted_runtime
+printf '\\033]0;Metro - $label\\007'
+exec npm run start -- --port 8081 --reset-cache
+EOF
+  chmod +x "$launcher"
+
+  echo "Opening $label Metro in Terminal on port 8081..."
+  open -a Terminal "$launcher"
+
+  for _ in {1..80}; do
+    pid="$(metro_listener_pid)"
+    if [[ -n "$pid" ]]; then
+      cwd="$(process_working_directory "$pid")"
+      if [[ "$cwd" == "$expected_cwd" ]]; then
+        return 0
+      fi
+
+      echo "$label Metro started with an unexpected working directory: ${cwd:-unknown}." >&2
+      echo "Expected: $expected_cwd" >&2
+      exit 1
+    fi
+    sleep 0.25
+  done
+
+  echo "$label Metro did not start successfully in Terminal." >&2
+  exit 1
+}
+
+ensure_metro_in_terminal() {
+  local runtime_dir="$1"
+  local label="$2"
+
+  restart_project_metro_in_terminal "$runtime_dir" "$label"
+}
+
+appletvos_app_path="$example_dir/appletvos/build/DerivedData/Build/Products/Debug-appletvsimulator/FFmpegKitExtendedExample.app"
+appletvos_build_stamp="$example_dir/appletvos/build/.last-successful-build"
+
+appletvos_build_required() {
+  if [[ ! -d "$appletvos_app_path" || ! -f "$appletvos_build_stamp" ]]; then
+    return 0
+  fi
+
+  local source
+  local -a sources=(
+    "$script_dir/src"
+    "$script_dir/cpp"
+    "$script_dir/appletvos"
+    "$script_dir/package.json"
+    "$script_dir/FFmpegKitExtended.podspec"
+    "$script_dir/react-native.config.js"
+    "$script_dir/build.sh"
+    "$example_dir/App.tv.tsx"
+    "$example_dir/index.js"
+    "$example_dir/package.json"
+    "$example_dir/src"
+    "$example_dir/appletvos/Podfile"
+    "$example_dir/appletvos/FFmpegKitExtendedExample"
+    "$example_dir/appletvos/FFmpegKitExtendedExample.xcodeproj"
+    "$script_dir/vendor/appletvos"
+  )
+
+  for source in "${sources[@]}"; do
+    if [[ -f "$source" ]]; then
+      if [[ "$source" -nt "$appletvos_build_stamp" ]]; then
+        return 0
+      fi
+    elif [[ -d "$source" ]]; then
+      if find "$source" -type f -newer "$appletvos_build_stamp" -print -quit 2>/dev/null | grep -q .; then
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
+macos_app_path="$example_dir/macos/build/DerivedData/Build/Products/Debug/FFmpegKitExtendedExample.app"
+macos_build_stamp="$example_dir/macos/build/.last-successful-build"
+
+macos_build_required() {
+  if [[ ! -d "$macos_app_path" || ! -f "$macos_build_stamp" ]]; then
+    return 0
+  fi
+
+  local source
+  local -a sources=(
+    "$script_dir/src"
+    "$script_dir/cpp"
+    "$script_dir/macos"
+    "$script_dir/package.json"
+    "$script_dir/FFmpegKitExtended.podspec"
+    "$script_dir/react-native.config.js"
+    "$script_dir/build.sh"
+    "$example_dir/App.tsx"
+    "$example_dir/index.js"
+    "$example_dir/package.json"
+    "$example_dir/metro.config.js"
+    "$example_dir/src"
+    "$example_dir/macos/Podfile"
+    "$example_dir/macos/FFmpegKitExtendedExample-macOS"
+    "$example_dir/macos/FFmpegKitExtendedExample.xcodeproj"
+    "$script_dir/vendor/macos"
+  )
+
+  for source in "${sources[@]}"; do
+    if [[ -f "$source" ]]; then
+      if [[ "$source" -nt "$macos_build_stamp" ]]; then
+        return 0
+      fi
+    elif [[ -d "$source" ]]; then
+      if find "$source" -type f -newer "$macos_build_stamp" -print -quit 2>/dev/null | grep -q .; then
+        return 0
+      fi
+    fi
+  done
+
+  return 1
+}
+
+is_windows_host() {
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+start_windows_metro() {
+  local launcher launcher_win runtime_win
+
+  if curl -fsS "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'; then
+    echo "Metro is already running on port 8081."
+    return 0
+  fi
+
+  launcher="$windows_runtime_dir/.start-metro.cmd"
+  runtime_win="$(cygpath -w "$windows_runtime_dir")"
+  launcher_win="$(cygpath -w "$launcher")"
+
+  printf '@echo off\r\ntitle Metro - Windows\r\ncd /d "%s"\r\nnpm run start -- --port 8081\r\n' \
+    "$runtime_win" > "$launcher"
+
+  echo "Opening Windows Metro in a Command Prompt on port 8081..."
+  MSYS2_ARG_CONV_EXCL='*' cmd.exe /C start "" "$launcher_win" >/dev/null 2>&1
+
+  for _ in {1..80}; do
+    if curl -fsS "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'; then
+      return 0
+    fi
+    sleep 0.25
+  done
+
+  echo "Windows Metro did not start successfully on port 8081." >&2
+  exit 1
+}
+
+case "$target" in
+  android)
+    echo "Launching Android example..."
+    ensure_dependencies "$example_dir"
+    cd "$example_dir"
+    exec npm run android -- --active-arch-only
+    ;;
+
+  ios)
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+      echo "Error: iOS can only be launched from macOS." >&2
+      exit 1
+    fi
+    echo "Launching iOS example..."
+    ensure_dependencies "$example_dir"
+    cd "$example_dir"
+    exec npm run ios
+    ;;
+
+  appletvos)
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+      echo "Error: Apple tvOS can only be launched from macOS." >&2
+      exit 1
+    fi
+
+    if appletvos_build_required; then
+      echo "Apple tvOS sources changed or no successful build was found; rebuilding..."
+      "$script_dir/build.sh" appletvos
+    else
+      echo "Reusing existing Apple tvOS build; no relevant source changes detected."
+    fi
+
+    if [[ ! -d "$appletvos_app_path" ]]; then
+      echo "Built Apple tvOS application was not found: $appletvos_app_path" >&2
+      exit 1
+    fi
+
+    ensure_metro_in_terminal "$appletvos_runtime_dir" "Apple tvOS"
+
+    device_udid="$(
+      xcrun simctl list devices available |
+        grep 'Apple TV' |
+        head -n 1 |
+        grep -Eo '[0-9A-Fa-f-]{36}' || true
+    )"
+
+    if [[ -z "$device_udid" ]]; then
+      echo "No available Apple TV simulator was found." >&2
+      exit 1
+    fi
+
+    xcrun simctl boot "$device_udid" >/dev/null 2>&1 || true
+    open -a Simulator
+    xcrun simctl bootstatus "$device_udid" -b
+    xcrun simctl install "$device_udid" "$appletvos_app_path"
+
+    echo "Launching Apple tvOS example..."
+    exec xcrun simctl launch \
+      "$device_udid" \
+      org.reactjs.native.example.FFmpegKitExtendedExample
+    ;;
+
+  macos)
+    if [[ "$(uname -s)" != "Darwin" ]]; then
+      echo "Error: macOS can only be launched from macOS." >&2
+      exit 1
+    fi
+
+    if macos_build_required; then
+      echo "macOS sources changed or no successful build was found; rebuilding..."
+      "$script_dir/build.sh" macos
+    else
+      echo "Reusing existing macOS build; no relevant source changes detected."
+    fi
+
+    if [[ ! -d "$macos_app_path" ]]; then
+      echo "Built macOS application was not found: $macos_app_path" >&2
+      exit 1
+    fi
+
+    # The macOS host loads the Debug JavaScript bundle from Metro. The macOS and
+    # Apple tvOS examples use different React Native runtimes, so never reuse a
+    # project Metro process that belongs to the other Apple platform.
+    ensure_metro_in_terminal "$macos_runtime_dir" "macOS"
+
+    echo "Launching macOS example..."
+    exec open -n "$macos_app_path"
+    ;;
+
+
+  windows)
+    if ! is_windows_host; then
+      echo "Error: Windows can only be launched from a Windows host." >&2
+      exit 1
+    fi
+
+    "$script_dir/build.sh" windows
+    start_windows_metro
+
+    example_dir_win="$(cygpath -w "$example_dir")"
+
+    cd "$windows_runtime_dir"
+    export MSYS2_ARG_CONV_EXCL='*'
+    exec npx react-native run-windows \
+      --root "$example_dir_win" \
+      --sln windows/FFmpegKitExtendedExample.sln \
+      --arch x64 \
+      --no-build \
+      --no-packager \
+      --no-autolink
+    ;;
+
+  -h|--help)
+    usage
+    ;;
+
+  *)
+    echo "Unknown target: $target" >&2
+    usage
+    exit 1
+    ;;
+esac
