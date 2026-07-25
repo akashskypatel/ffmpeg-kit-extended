@@ -1,18 +1,41 @@
+<div align="center">
+
+<img src="https://github.com/akashskypatel/ffmpeg-kit-extended/raw/master/assets/banner.png" alt="FFmpegKit Extended Banner" width="100%">
+
+[![Stars](https://img.shields.io/github/stars/akashskypatel/ffmpeg-kit-extended?style=flat-square&color=144DB3)](https://github.com/akashskypatel/ffmpeg-kit-extended/stargazers) [![Forks](https://img.shields.io/github/forks/akashskypatel/ffmpeg-kit-extended?style=flat-square&color=144DB3)](https://github.com/akashskypatel/ffmpeg-kit-extended/fork) [![Issues](https://img.shields.io/github/issues/akashskypatel/ffmpeg-kit-extended?style=flat-square&color=144DB3)](https://github.com/akashskypatel/ffmpeg-kit-extended/issues) [![Downloads](https://img.shields.io/npm/dm/ffmpeg-kit-extended?style=flat-square&logoColor=144DB3)](https://www.npmjs.com/package/ffmpeg-kit-extended) [![Npm version](https://img.shields.io/npm/v/ffmpeg-kit-extended?color=144DB3)](https://www.npmjs.com/package/ffmpeg-kit-extended) [![License](https://img.shields.io/github/license/akashskypatel/ffmpeg-kit-extended?color=144DB3)](LICENSE)
+
+</div>
+
 # React Native FFmpegKit Extended bindings
 
-This package is the React Native binding layer for the repository's `libffmpegkit` C API (`ffmpegkit_wrapper.h`). It mirrors the public structure already used by the Flutter package under `flutter/lib`, while adapting execution and callbacks to React Native's JavaScript runtime.
+This package provides React Native bindings for ffmpeg-kit-extended: a comprehensive React Native plugin for executing FFmpeg, FFprobe, and FFplay 8.1.2 API commands on Android, iOS, macOS, tvOS, and Windows.
 
 ## Requirements
 
-- React Native 0.76 or later
+- React Native 0.81.6 or later
 - React Native New Architecture must be enabled
 
 FFmpegKit Extended is implemented as a Turbo Native Module and does not support
 React Native's legacy Native Module architecture.
 
-### Codegen lifecycle
+## Features
 
-The npm package ships TypeScript Codegen specs and handwritten native sources only. It does not ship generated React Native Codegen artifacts. Android uses the consuming app's React Native Gradle Plugin, iOS and Apple tvOS use the consuming app's CocoaPods/React Native Codegen integration, macOS uses the consuming app's React Native macOS Codegen integration, and Windows uses `react-native codegen-windows` through the consuming React Native Windows toolchain. This keeps generated interfaces aligned with the React Native version that actually builds the app.
+- **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `tvOS`, and `Windows`.
+  - **Android**: Full video playback support with native surface rendering.
+    - **x86**: `x86` architecture is not supported due to its legacy status.
+  - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
+    - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
+- **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `8.1.2 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
+- **Video Playback**: Complete cross-platform video playback with unified surface API.
+- **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
+- **Dart FFI**: Direct native bindings for optimal performance.
+- **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.
+- **Parallel Execution**: Run multiple tasks in parallel.
+- **Callback Support**: detailed hooks for logs, statistics, and session completion.
+- **Session Management**: Full control over execution lifecycle (start, cancel, list).
+- **Extensible**: Designed to allow custom native library loading and configuration.
+- **Full package Introspection API**: Get detailed information about the package, including version, build date, and available muxers, demuxers, encoders, decoders, filters, etc.
+- **Deploy Custom Builds**: You can deploy custom builds of ffmpeg-kit-extended. See: <https://github.com/akashskypatel/ffmpeg-kit-builders>
 
 ## Platform Support
 
@@ -60,6 +83,44 @@ The npm package ships TypeScript Codegen specs and handwritten native sources on
 
 > - **`libopenvino`** and **`libtensorflow`** are only available on Desktop builds (`MacOS`, `Linux`, and `Windows`).
 > - **`libtorch`** is only available on `Linux` and `MacOs` builds (`Windows` not supported due ABI mismatch).
+
+## Installation
+
+```bash
+npm install ffmpeg-kit-extended
+```
+
+## Configuration
+
+The TurboModule does **not** compile FFmpegKit itself. Native builds read one shared configuration file from the consuming React Native application and fetch or use the requested `libffmpegkit` bundle.
+
+Create `ffmpeg-kit-extended.config.json` beside the consuming application's `package.json`:
+
+```json
+{
+  "type": "base",
+  "gpl": false,
+  "small": true
+}
+```
+
+Supported pre-built bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`. When the configuration file is absent, the build defaults to the `base` LGPL small bundle. `debug` maps to the base bundle and ignores `small`, matching the Flutter package resolver.
+
+A platform-specific remote URL or local path overrides the pre-built bundle selection for that platform. Relative local paths are resolved from the consuming application directory:
+
+```json
+{
+  "type": "base",
+  "gpl": true,
+  "small": true,
+  "android": "./native/ffmpeg-kit-custom.aar",
+  "ios": "https://example.com/bundle-custom-ios.xcframework.zip",
+  "appletvos": "./native/bundle-custom-appletvos.xcframework.zip",
+  "macos": "./native/bundle-custom-macos.xcframework",
+  "windows": "./native/bundle-custom-windows.zip",
+  "linux": "./native/bundle-custom-linux.zip"
+}
+```
 
 ## Execution model
 
@@ -131,47 +192,6 @@ session.seek(10);
 session.resume();
 session.setVolume(0.5);
 ```
-
-## Native runtime packaging
-
-The TurboModule does **not** compile FFmpegKit itself. Native builds read one shared configuration file from the consuming React Native application and fetch or use the requested `libffmpegkit` bundle.
-
-Create `ffmpeg-kit-extended.config.json` beside the consuming application's `package.json`:
-
-```json
-{
-  "type": "base",
-  "gpl": false,
-  "small": true
-}
-```
-
-Supported pre-built bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`. When the configuration file is absent, the build defaults to the `base` LGPL small bundle. `debug` maps to the base bundle and ignores `small`, matching the Flutter package resolver.
-
-A platform-specific remote URL or local path overrides the pre-built bundle selection for that platform. Relative local paths are resolved from the consuming application directory:
-
-```json
-{
-  "type": "base",
-  "gpl": true,
-  "small": true,
-  "android": "./native/ffmpeg-kit-custom.aar",
-  "ios": "https://example.com/bundle-custom-ios.xcframework.zip",
-  "appletvos": "./native/bundle-custom-appletvos.xcframework.zip",
-  "macos": "./native/bundle-custom-macos.xcframework",
-  "windows": "./native/bundle-custom-windows.zip",
-  "linux": "./native/bundle-custom-linux.zip"
-}
-```
-
-Platform override formats are:
-
-- Android: an `.aar` file or URL.
-- iOS, Apple tvOS, and macOS: an `.xcframework` directory, a local XCFramework zip, or a remote XCFramework zip URL.
-- Windows: an extracted runtime directory, a local bundle zip, or a remote bundle zip URL.
-- Linux: reserved by the shared resolver for the Linux React Native build integration.
-
-The bundle naming and download URL rules are implemented once in `scripts/resolve-ffmpeg-kit-config.js` and shared by the native build integrations.
 
 ## FFplay rendering
 
