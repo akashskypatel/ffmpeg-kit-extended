@@ -4,8 +4,8 @@
 - [x] Add `LICENSE` and third-party licensing documentation.
 - [x] Explicitly declare New Architecture requirement.
 - [x] Add top-level tests/lint.
-- [ ] Verify consumer-owned Codegen from the packed `.tgz` on every supported platform.
-- [ ] Install the generated `.tgz` into clean consumer projects.
+- [x] Verify consumer-owned Codegen from the packed `.tgz` on every supported platform.
+- [x] Install the generated `.tgz` into clean consumer projects.
 
 ### Phase 2 — Binary delivery hardening
 
