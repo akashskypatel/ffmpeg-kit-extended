@@ -52,7 +52,8 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/akashskypatel/ffmpeg-kit-extended.git"
+    "url": "git+https://github.com/akashskypatel/ffmpeg-kit-extended.git",
+    "directory": "react-native"
   },
   "author": "Akash Patel <akashskypatel@gmail.com> (https://github.com/akashskypatel)",
   "license": "LGPL-2.1-or-later",
