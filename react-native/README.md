@@ -103,7 +103,7 @@ Create `ffmpeg-kit-extended.config.json` beside the consuming application's `pac
 }
 ```
 
-Supported pre-built bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`. When the configuration file is absent, the build defaults to the `base` LGPL small bundle. `debug` maps to the base bundle and ignores `small`, matching the Flutter package resolver.
+Supported pre-built bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`. When the configuration file is absent, the build defaults to the `base` LGPL small bundle. `debug` maps to the base bundle and ignores `small`.
 
 A platform-specific remote URL or local path overrides the pre-built bundle selection for that platform. Relative local paths are resolved from the consuming application directory:
 
@@ -148,8 +148,6 @@ if (session.getReturnCode() === ReturnCode.Success) {
   console.log('Completed');
 }
 ```
-
-Media information follows the same abstraction as Flutter:
 
 ```ts
 import {FFprobeKit} from 'ffmpeg-kit-extended';
@@ -232,7 +230,7 @@ The binding has three layers:
    - `FFmpegKit`, `FFprobeKit`, and `FFplayKit`
    - `FFmpegKitExtended` and `FFmpegKitConfig`
    - `Session`, `FFmpegSession`, `FFprobeSession`, `FFplaySession`, and `MediaInformationSession`
-   - `SessionQueueManager` with the same default maximum concurrency of 8 as the Flutter implementation
+   - `SessionQueueManager` with default maximum concurrency of 8
    - `Log`, `Statistics`, `MediaInformation`, `StreamInformation`, and `ChapterInformation`
 2. **React Native TurboModule** (`src/NativeFFmpegKitExtended.ts`, `cpp/FFmpegKitExtendedImpl.*`)
    - A typed Codegen boundary.
@@ -243,7 +241,7 @@ The binding has three layers:
    - Temporary session/media/statistics handles are released with `ffmpeg_kit_handle_release`.
    - Native strings allocated by the wrapper are released with `ffmpeg_kit_free`.
 
-The adapter deliberately does not include `ffmpegkit_wrapper.h`. The source snapshot does not contain `ffmpeg_tls.h`, which that header includes, and the React Native bridge only needs the stable exported C ABI. Resolving the exported symbols directly also matches the runtime-loading approach used by the Flutter Apple targets.
+The adapter deliberately does not include `ffmpegkit_wrapper.h`. The source snapshot does not contain `ffmpeg_tls.h`, which that header includes, and the React Native bridge only needs the stable exported C ABI.
 
 ## Supported External Libraries<a id="libraries"></a></br>
 
