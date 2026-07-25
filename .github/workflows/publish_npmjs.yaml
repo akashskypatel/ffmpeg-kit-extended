@@ -1,7 +1,10 @@
 name: Publish Package to npmjs
 on:
-  release:
-    types: [published]
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -14,7 +17,6 @@ jobs:
         
       - name: Set up Node.js
         uses: actions/setup-node@v6
-        working-directory: react-native
         with:
           node-version: '24.x'
           registry-url: 'https://registry.npmjs.org'
