@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://github.com/akashskypatel/ffmpeg-kit-extended/raw/master/assets/banner.png" alt="FFmpegKit Extended Banner" width="100%">
+<img src="https://github.com/akashskypatel/ffmpeg-kit-extended/raw/master/assets/banner_react.png" alt="FFmpegKit Extended Banner" width="100%">
 
 [![Stars](https://img.shields.io/github/stars/akashskypatel/ffmpeg-kit-extended?style=flat-square&color=144DB3)](https://github.com/akashskypatel/ffmpeg-kit-extended/stargazers) [![Forks](https://img.shields.io/github/forks/akashskypatel/ffmpeg-kit-extended?style=flat-square&color=144DB3)](https://github.com/akashskypatel/ffmpeg-kit-extended/fork) [![Issues](https://img.shields.io/github/issues/akashskypatel/ffmpeg-kit-extended?style=flat-square&color=144DB3)](https://github.com/akashskypatel/ffmpeg-kit-extended/issues) [![Downloads](https://img.shields.io/npm/dm/ffmpeg-kit-extended?style=flat-square&logoColor=144DB3)](https://www.npmjs.com/package/ffmpeg-kit-extended) [![Npm version](https://img.shields.io/npm/v/ffmpeg-kit-extended?color=144DB3)](https://www.npmjs.com/package/ffmpeg-kit-extended) [![License](https://img.shields.io/github/license/akashskypatel/ffmpeg-kit-extended?color=144DB3)](LICENSE)
 
