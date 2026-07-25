@@ -1,3 +1,16 @@
+/*
+ * Windows implementation of the public React Native <FFplayView />.
+ *
+ * End-user behavior:
+ * - Mount and size the view before starting video playback.
+ * - Retain the FFplaySession for pause/resume/seek/stop/volume controls.
+ * - One view is the active decoded-frame target per process.
+ * - Frames are converted to BGRA, drawn with WinUI Composition, and scaled with
+ *   preserved aspect ratio. Newer frames replace queued stale frames to avoid
+ *   accumulating playback latency.
+ * - Audio playback is independent of this visual component.
+ */
+
 #include "pch.h"
 #include "FFplayView.h"
 
@@ -92,6 +105,7 @@ void ConvertToBGRA(const std::uint8_t *source,
 } // namespace
 #endif
 
+// Registers the native component used by the TypeScript FFplayView wrapper.
 void RegisterFFplayViewNativeComponent(
     IReactPackageBuilder const &packageBuilder) noexcept {
 #ifdef RNW_NEW_ARCH

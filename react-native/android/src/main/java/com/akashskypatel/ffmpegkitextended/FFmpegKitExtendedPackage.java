@@ -13,7 +13,14 @@ import com.facebook.react.uimanager.ViewManager;
 import java.util.Collections;
 import java.util.List;
 
-/** Registers the FFplay Android native view. The TurboModule remains C++ based. */
+/**
+ * Registers Android integration for the package.
+ *
+ * <p>React Native autolinking creates this package. End users do not instantiate
+ * it manually. The package contributes the {@code FFplayView} native component;
+ * FFmpeg/FFprobe/FFplay commands are exposed by the C++ TurboModule registered
+ * through React Native Codegen.</p>
+ */
 public final class FFmpegKitExtendedPackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {

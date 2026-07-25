@@ -1,1 +1,9 @@
+<!--
+  Library manifest for ffmpeg-kit-extended.
+
+  The package declares no Android components or permissions. Applications must
+  add permissions required by their own FFmpeg inputs/outputs, such as INTERNET,
+  media access, camera, or microphone permissions. FFplay video is rendered by a
+  React Native native view and does not require an Activity declaration here.
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" />

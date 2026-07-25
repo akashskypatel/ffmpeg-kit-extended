@@ -1,3 +1,8 @@
+/*
+ * Registers the native command module and the FFplay video component with the
+ * consuming React Native Windows application.
+ */
+
 #include "pch.h"
 
 #include "ReactPackageProvider.h"

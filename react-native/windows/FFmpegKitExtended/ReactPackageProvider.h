@@ -1,3 +1,10 @@
+/*
+ * React Native Windows autolinking entry point.
+ *
+ * Consuming applications do not instantiate this provider directly; the RNW
+ * project system loads it to register both the TurboModule and FFplayView.
+ */
+
 #pragma once
 
 #include "ReactPackageProvider.g.h"

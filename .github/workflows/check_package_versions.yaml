@@ -1,0 +1,110 @@
+name: Check package versions
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  check-versions:
+    name: Check Flutter and React Native versions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate package versions and changelogs
+        shell: python
+        run: |
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          errors = []
+
+          def read_pubspec_version(path: str) -> str:
+              content = Path(path).read_text(encoding="utf-8")
+              match = re.search(
+                  r"^\s*version:\s*['\"]?([^'\"#\s]+)",
+                  content,
+                  re.MULTILINE,
+              )
+              if not match:
+                  raise ValueError(f"Could not find a version in {path}")
+              return match.group(1)
+
+          def read_package_version(path: str) -> str:
+              with Path(path).open(encoding="utf-8") as file:
+                  version = json.load(file).get("version")
+              if not isinstance(version, str) or not version:
+                  raise ValueError(f"Could not find a version in {path}")
+              return version
+
+          def check_equal(
+              left_path: str,
+              left_version: str,
+              right_path: str,
+              right_version: str,
+          ) -> None:
+              if left_version != right_version:
+                  errors.append(
+                      f"Version mismatch: {left_path} is {left_version}, "
+                      f"but {right_path} is {right_version}"
+                  )
+              else:
+                  print(f"PASS: {left_path} and {right_path} use {left_version}")
+
+          def check_changelog(path: str, version: str) -> None:
+              content = Path(path).read_text(encoding="utf-8")
+              heading = re.compile(
+                  rf"^##\s+(?:Version\s+)?v?{re.escape(version)}(?:\s|$)",
+                  re.MULTILINE | re.IGNORECASE,
+              )
+              if not heading.search(content):
+                  errors.append(
+                      f"Missing changelog entry: {path} does not contain "
+                      f"a level-two heading for version {version}"
+                  )
+              else:
+                  print(f"PASS: {path} contains version {version}")
+
+          try:
+              flutter_version = read_pubspec_version("flutter/pubspec.yaml")
+              react_native_version = read_package_version("react-native/package.json")
+              flutter_example_version = read_pubspec_version(
+                  "flutter/example/pubspec.yaml"
+              )
+              react_native_example_version = read_package_version(
+                  "react-native/example/package.json"
+              )
+
+              check_equal(
+                  "flutter/pubspec.yaml",
+                  flutter_version,
+                  "react-native/package.json",
+                  react_native_version,
+              )
+              check_changelog("flutter/CHANGELOG.md", flutter_version)
+              check_changelog("react-native/CHANGELOG.md", react_native_version)
+
+              check_equal(
+                  "flutter/example/pubspec.yaml",
+                  flutter_example_version,
+                  "react-native/example/package.json",
+                  react_native_example_version,
+              )
+          except (OSError, ValueError, json.JSONDecodeError) as error:
+              errors.append(str(error))
+
+          if errors:
+              print("\nVersion validation failed:", file=sys.stderr)
+              for error in errors:
+                  print(f"- {error}", file=sys.stderr)
+              sys.exit(1)
+
+          print("\nAll version checks passed.")

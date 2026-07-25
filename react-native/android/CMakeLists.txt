@@ -1,3 +1,12 @@
+# Native build wiring for the React Native Android TurboModule.
+#
+# End-user impact:
+# - The consuming app generates `react_codegen_FFmpegKitExtendedSpec` during its
+#   normal React Native build; generated sources are intentionally not shipped.
+# - `libffmpegkit` itself comes from the configured AAR in build.gradle, not from
+#   this CMake target.
+# - Applications use the TypeScript API and do not link this target manually.
+
 cmake_minimum_required(VERSION 3.13)
 project(FFmpegKitExtended)
 

@@ -1,3 +1,11 @@
+/*
+ * React Native Windows TurboModule contract for ffmpeg-kit-extended.
+ *
+ * This is the native implementation of the TypeScript API. Application code
+ * should use FFmpegKit, FFprobeKit, FFplayKit, FFmpegKitConfig, and Session
+ * wrappers rather than calling these scalar/JSON bridge methods directly.
+ */
+
 #pragma once
 
 #include "pch.h"
@@ -11,16 +19,25 @@
 
 namespace winrt::FFmpegKitExtended {
 
+/**
+ * Codegen-backed Windows native module.
+ *
+ * Session IDs cross the bridge as JavaScript numbers, and structured native
+ * data crosses as JSON. The TypeScript layer converts those values into typed
+ * sessions and releases owning native handles after terminal callback delivery.
+ */
 REACT_MODULE(FFmpegKitExtended)
 struct FFmpegKitExtended {
   using ModuleSpec = FFmpegKitExtendedCodegen::FFmpegKitExtendedSpec;
 
+  // Native bundle lifecycle and diagnostics.
   REACT_METHOD(initialize)
   void initialize() noexcept;
 
   REACT_SYNC_METHOD(getBuildStamp)
   std::string getBuildStamp() noexcept;
 
+  // Session creation, execution, cancellation, and buffered results.
   REACT_SYNC_METHOD(createFFmpegSession)
   double createFFmpegSession(std::string command) noexcept;
 
@@ -60,6 +77,7 @@ struct FFmpegKitExtended {
   REACT_SYNC_METHOD(getMediaInformationJson)
   std::string getMediaInformationJson(double sessionId) noexcept;
 
+  // Session-scoped playback controls; position/duration values are seconds.
   REACT_METHOD(ffplayStart)
   void ffplayStart(double sessionId) noexcept;
 
@@ -105,6 +123,7 @@ struct FFmpegKitExtended {
   REACT_SYNC_METHOD(ffplayHasVideoStream)
   bool ffplayHasVideoStream(std::string path) noexcept;
 
+  // Process-wide logging, fonts, environment, signals, and audio output.
   REACT_METHOD(enableRedirection)
   void enableRedirection() noexcept;
 
@@ -135,6 +154,7 @@ struct FFmpegKitExtended {
   REACT_SYNC_METHOD(listAudioOutputDevices)
   std::string listAudioOutputDevices() noexcept;
 
+  // Native build, license, and registered-feature introspection.
   REACT_SYNC_METHOD(getFFmpegVersion)
   std::string getFFmpegVersion() noexcept;
 
@@ -189,6 +209,7 @@ struct FFmpegKitExtended {
   REACT_SYNC_METHOD(getBuildDate)
   std::string getBuildDate() noexcept;
 
+  // Session history, pipes, callback diagnostics, and debug logs.
   REACT_METHOD(setSessionHistorySize)
   void setSessionHistorySize(double size) noexcept;
 

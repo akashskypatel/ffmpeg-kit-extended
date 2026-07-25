@@ -1,0 +1,31 @@
+name: Publish Package to npmjs
+on:
+  release:
+    types: [published]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        working-directory: react-native
+        with:
+          node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false  # never use caching in release builds
+      
+      - name: Install dependencies
+        working-directory: react-native
+        run: npm ci
+      
+      - name: Publish package
+        working-directory: react-native
+        run: npm publish --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

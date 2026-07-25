@@ -1,3 +1,12 @@
+// Android packaging for ffmpeg-kit-extended.
+//
+// The consuming application's shared FFmpegKit configuration selects either a
+// local AAR override or a downloadable Android bundle. Gradle validates the
+// artifact type, caches downloaded bundles under this module's build directory,
+// and links the React Native Codegen module plus native FFplay view automatically.
+// End users should configure the bundle at the app level; no manual dependency
+// on the selected AAR is required in the app's own dependencies block.
+
 import groovy.json.JsonSlurper
 
 buildscript {

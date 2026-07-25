@@ -1,3 +1,17 @@
+/*
+ * iOS implementation of the public React Native <FFplayView /> component.
+ *
+ * End-user behavior:
+ * - Mount the view before executing an FFplay command that contains video.
+ * - Control playback through FFplaySession; this component has no custom props.
+ * - One decoded-frame callback target is active per process, so the most recent
+ *   attached view receives frames.
+ * - Frames preserve aspect ratio; if rendering falls behind, stale frames are
+ *   dropped in favor of the newest frame to avoid increasing playback latency.
+ * - Audio is produced by FFplay's native audio backend and is independent of the
+ *   view lifecycle.
+ */
+
 #import "RCTFFplayView.h"
 
 #import <AVFoundation/AVFoundation.h>
@@ -216,6 +230,7 @@ static void FFplayFrameCallback(void *userdata,
   [self resetFrameState];
 }
 
+// Activates this mounted component as the process-wide FFplay video target.
 - (void)activateFrameOutput {
   ResolveFFplayFrameSymbols();
   if (!gRegisterFrameCallback) {
@@ -242,6 +257,7 @@ static void FFplayFrameCallback(void *userdata,
   }
 }
 
+// Detaches only when this component is still the active FFplay target.
 - (void)deactivateFrameOutput {
   FFplayFrameCoordinator *coordinator = FFplayCoordinator();
   @synchronized(coordinator) {

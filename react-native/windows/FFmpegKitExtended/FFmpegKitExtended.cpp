@@ -1,3 +1,11 @@
+/*
+ * Windows bridge implementation for the TypeScript FFmpegKit API.
+ *
+ * All methods delegate to the shared native adapter. Errors are converted at
+ * the native boundary according to the module's invoke helpers; end users
+ * observe results through typed sessions, return codes, output, and callbacks.
+ */
+
 #include "pch.h"
 #include "FFmpegKitExtended.h"
 

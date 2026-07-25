@@ -1,16 +1,43 @@
 /**
- * Formats an argv-style array as a command string accepted by FFmpegKit.
- * This intentionally performs only shell-style quoting; the native FFmpegKit
- * parser remains the authority when the command is executed.
+ * Formats an argv-style array as one FFmpegKit command string.
+ *
+ * Use this when arguments are already separated by your application. Values
+ * containing whitespace, quotes, or backslashes are quoted and escaped so they
+ * remain one token when FFmpegKit parses the command. This does not invoke the
+ * device shell and does not perform shell expansion, environment substitution,
+ * globbing, pipes, or redirection.
+ *
+ * @param arguments_ Arguments in the same order they would appear in `argv`.
+ * @returns A command string suitable for `FFmpegKit.createSession()` or
+ * `FFmpegKit.executeAsync()`.
+ *
+ * @example
+ * ```ts
+ * argumentsToString(['-i', '/media/My Clip.mp4', '-c:v', 'libx264']);
+ * // -i "/media/My Clip.mp4" -c:v libx264
+ * ```
  */
 export function argumentsToString(arguments_: readonly string[]): string {
   return arguments_.map(quoteArgument).join(' ');
 }
 
 /**
- * Parses the common quoting/escaping forms used in FFmpegKit command strings.
- * It is deliberately small and deterministic rather than trying to emulate a
- * platform shell.
+ * Splits an FFmpegKit command string into argument tokens.
+ *
+ * Single and double quotes group whitespace. Backslashes escape the following
+ * character except inside single quotes. Quote characters are removed from the
+ * returned values. The parser is intentionally platform-neutral and does not
+ * attempt to emulate Bash, PowerShell, `cmd.exe`, or any other shell.
+ *
+ * @param command FFmpeg/FFprobe/FFplay command text without the executable name.
+ * @returns Parsed arguments. Blank or whitespace-only input returns an empty
+ * array.
+ *
+ * @example
+ * ```ts
+ * parseArguments('-i "My Clip.mp4" -map 0:v:0');
+ * // ['-i', 'My Clip.mp4', '-map', '0:v:0']
+ * ```
  */
 export function parseArguments(command: string): string[] {
   const result: string[] = [];

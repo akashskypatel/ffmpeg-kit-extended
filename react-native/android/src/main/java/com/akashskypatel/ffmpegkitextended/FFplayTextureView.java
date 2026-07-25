@@ -16,12 +16,15 @@ import com.facebook.react.uimanager.ThemedReactContext;
 import java.lang.ref.WeakReference;
 
 /**
- * TextureView whose Surface is bound to FFplay's global Android video target.
+ * Native Android implementation behind the public React Native {@code FFplayView}.
  *
- * <p>FFplayKit currently supports one active Android video output surface at a
- * time. The most recently available FFplayTextureView becomes the owner. A
- * stale view is therefore prevented from clearing a newer view's surface when
- * React Native unmounts or recycles it.</p>
+ * <p>End users size this view with normal React Native styles and start playback
+ * through an {@code FFplaySession}. FFplay supports one active Android video
+ * surface per process; the most recently available view becomes the owner.
+ * Unmounting that owner detaches video output. Audio-only playback is unaffected.</p>
+ *
+ * <p>{@link TextureView} does not accept React Native background drawables, so
+ * applications that need a custom background should style a parent view.</p>
  */
 final class FFplayTextureView extends TextureView implements TextureView.SurfaceTextureListener {
     private static final Object SURFACE_LOCK = new Object();
@@ -78,7 +81,10 @@ final class FFplayTextureView extends TextureView implements TextureView.Surface
         }
     }
 
-    /** Clear the native FFplay target only when this view still owns it. */
+    /**
+     * Detaches video output only when this instance still owns the global target,
+     * preventing an older/recycled React view from blanking a newer player.
+     */
     void releaseFFplaySurface() {
         synchronized (SURFACE_LOCK) {
             FFplayTextureView owner = activeOwner.get();

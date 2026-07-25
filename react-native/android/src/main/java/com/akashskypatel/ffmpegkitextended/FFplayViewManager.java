@@ -1,3 +1,11 @@
+/*
+ * React Native Android view manager for the public <FFplayView /> component.
+ *
+ * React Native autolinking and Codegen instantiate this manager. Applications
+ * only import FFplayView from TypeScript, provide normal ViewProps/style, mount
+ * it before video playback, and retain the FFplaySession for controls.
+ */
+
 package com.akashskypatel.ffmpegkitextended;
 
 import androidx.annotation.NonNull;
@@ -9,6 +17,10 @@ import com.facebook.react.uimanager.ViewManagerDelegate;
 import com.facebook.react.viewmanagers.FFplayViewManagerDelegate;
 import com.facebook.react.viewmanagers.FFplayViewManagerInterface;
 
+/**
+ * Exposes {@code FFplayTextureView} under the Codegen component name
+ * {@code FFplayView} and releases its native surface when React drops the view.
+ */
 @ReactModule(name = FFplayViewManager.REACT_CLASS)
 public final class FFplayViewManager
         extends SimpleViewManager<FFplayTextureView>

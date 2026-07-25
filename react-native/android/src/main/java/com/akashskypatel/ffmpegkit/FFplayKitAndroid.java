@@ -8,12 +8,13 @@ package com.akashskypatel.ffmpegkit;
 import android.view.Surface;
 
 /**
- * JNI bridge implemented by libffmpegkit.so.
+ * JNI bridge used internally by the React Native {@code FFplayView}.
  *
- * <p>The native implementation acquires and owns an ANativeWindow reference
- * for the supplied Surface until another Surface is installed or null is
- * supplied. Audio playback is handled directly by FFplay/SDL and does not
- * require a Surface.</p>
+ * <p>Application code should render the TypeScript {@code FFplayView} component
+ * and control playback through {@code FFplaySession}; it should not call this
+ * class directly. The native implementation owns one Android video target at a
+ * time. Audio playback is handled by FFplay's audio backend and works without a
+ * {@link Surface}.</p>
  */
 public final class FFplayKitAndroid {
     static {
@@ -22,12 +23,19 @@ public final class FFplayKitAndroid {
 
     private FFplayKitAndroid() {}
 
-    /** Bind a Surface as FFplay's Android video output, or clear it with null. */
+    /**
+     * Installs the surface owned by the currently mounted React Native view.
+     * Passing {@code null} detaches video output while leaving audio/session
+     * lifecycle under FFplay control.
+     */
     public static native void setAndroidSurface(Surface surface);
 
-    /** Return an acquired ANativeWindow pointer for callers that need the C API. */
+    /**
+     * Returns an acquired native-window pointer for internal C API integration.
+     * The pointer must be released with {@link #releaseNativeWindowPtr(long)}.
+     */
     public static native long getNativeWindowPtr(Surface surface);
 
-    /** Release a pointer returned by getNativeWindowPtr. */
+    /** Releases a pointer returned by {@link #getNativeWindowPtr(Surface)}. */
     public static native void releaseNativeWindowPtr(long ptr);
 }

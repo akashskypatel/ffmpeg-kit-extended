@@ -1,3 +1,11 @@
+/*
+ * Native Windows implementation contract for the public React Native
+ * <FFplayView /> component.
+ *
+ * Applications provide normal ViewProps/style and control playback through an
+ * FFplaySession. The view itself exposes no playback-specific properties.
+ */
+
 #pragma once
 
 #include "pch.h"
@@ -14,10 +22,18 @@
 
 namespace winrt::FFmpegKitExtended {
 
+/** Registers the Codegen component named `FFplayView` with React Native Windows. */
 void RegisterFFplayViewNativeComponent(
     winrt::Microsoft::ReactNative::IReactPackageBuilder const &packageBuilder) noexcept;
 
 #ifdef RNW_NEW_ARCH
+/**
+ * Composition-backed decoded-frame target.
+ *
+ * Only one instance receives FFplay frames at a time. The newest initialized
+ * view replaces the previous target, matching the single-view behavior on the
+ * other supported platforms.
+ */
 struct FFplayViewComponentView
     : winrt::implements<FFplayViewComponentView, winrt::IInspectable>,
       FFmpegKitExtendedCodegen::BaseFFplayView<FFplayViewComponentView> {

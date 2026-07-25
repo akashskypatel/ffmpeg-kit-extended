@@ -1,3 +1,6 @@
+// WinRT activation contract used by React Native Windows autolinking.
+// End users interact with the exported TypeScript API, not this runtime class.
+
 namespace FFmpegKitExtended
 {
   [webhosthidden]
