@@ -373,7 +373,7 @@ To deploy a custom build see [ffmpeg-kit-builders](https://github.com/akashskypa
 
 >   - libsvtjpegxs -> x86_64 only</br>
 
-## 5. License
+## License
 
 This project is licensed under the LGPL v3.0 by default. However, depending on the underlying FFmpeg build configuration and external libraries used, the effective license may be GPL v3.0. Please review the licenses of the included libraries.
 
