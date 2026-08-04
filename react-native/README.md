@@ -54,7 +54,7 @@ React Native's legacy Native Module architecture.
 | Audio     |      | x     | x     | x              | x    |
 | Streaming |      | x     | x     | x              | x    |
 | Hardware  |      |       |       | x              | x    |
-| AI*       |      |       |       |                |      |
+| AI*       |      |       |       |                | x*   |
 | HTTPS     | *    | x     | x     | x              | x    |
 | Platform* | x    | x     | x     | x              | x    |
 | Other*    |      |       |       |                | x    |

@@ -1,6 +1,6 @@
 {
   "name": "ffmpeg-kit-extended",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "description": "React Native TurboModule bindings for FFmpegKit Extended",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

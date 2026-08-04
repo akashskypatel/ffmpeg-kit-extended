@@ -172,7 +172,7 @@ You will have to update your app's minimum requirements on your own to match the
 | Audio     |      | x     | x     | x              | x    |
 | Streaming |      | x     | x     | x              | x    |
 | Hardware  |      |       |       | x              | x    |
-| AI*       |      |       |       |                |      |
+| AI*       |      |       |       |                | x*   |
 | HTTPS     | *    | x     | x     | x              | x    |
 | Platform* | x    | x     | x     | x              | x    |
 | Other*    |      |       |       |                | x    |
