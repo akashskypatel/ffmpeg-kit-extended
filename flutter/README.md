@@ -149,6 +149,23 @@ You will have to update your app's minimum requirements on your own to match the
 
 ### 2.2 Feature Matrix
 
+#### GPL licensing
+
+> ⚠️ **WARNING** ⚠️: Enabling GPL libraries makes your application GPL-licensed as well and may face additional challenges during app store approval. GPL license requires your application to be open-source and distributed under the same license.
+>
+> **It is recommended to use LGPL bundle if you are not familiar with GPL licensing.**
+
+> - Libraries marked <sup>[10](#gpl-info)</sup> Enabling any GPL library makes the resulting FFmpeg binary GPL-licensed and **non-redistributable under a permissive license**.
+>   - **Audio+**: libbs2b, libcdio, librubberband, libjack *(Linux)*
+>   - **Video+**: libx264, libx265, libdavs2, libdvdnav, libdvdread, libxavs, libxavs2, libxvid *(Linux)*, frei0r, libvidstab
+>   - **Video+HW+**: v4l2-m2m *(Linux)*
+>   - **Video+ (Desktop only)**: avisynth
+
+#### AI
+
+> - **`libopenvino`** and **`libtensorflow`** are only available on Desktop builds (`MacOS`, `Linux`, and `Windows`).
+> - **`libtorch`** is only available on `Linux` and `MacOs` builds (`Windows` not supported due ABI mismatch).
+
 | Feature   | Base | Audio | Video | Video+Hardware | Full |
 | --------- | ---- | ----- | ----- | -------------- | ---- |
 | Video     |      |       | x     | x              | x    |
@@ -170,6 +187,24 @@ You will have to update your app's minimum requirements on your own to match the
 4. Other features are additional features that are not covered by the above categories. See [Supported External Libraries](#libraries) for more information.
 
 5. To deploy a custom build see [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders).
+
+### Bundle Sizes
+
+**Note**: Bundle sizes are approximate and may vary depending on the platform, license type (GPL/LGPL), and build configuration. Below is a matrix of how much you should expect your app size to increase with each bundle.
+
+Please see bundle distribution page for exact sizes: https://github.com/akashskypatel/ffmpeg-kit-builders/releases
+
+Apple libraries (iOS/macOS) are universal fatlibs and include both ARM64 and x86_64 (macOS) architectures as well as simulator binaries for iOS. Apple libraries also include debug symbols addresses for crash analytics which may marginally increase the bundle size.
+
+| Bundle Type | Android (MB) | iOS (MB)    | macOS (MB) | Linux (MB) | Windows (MB) |
+|-------------|--------------|-------------|------------|------------|--------------|
+|             | (Universal)  | (Universal) | (Universal)|            |              |
+| debug       | ~33          | ~55         | ~56        | ~44        | ~140         |
+| base        | ~30-38       | ~50-55      | ~30-56     | ~12-17     | ~11-17       |
+| audio       | ~42-86       | ~65-95      | ~45-78     | ~18-40     | ~21-40       |
+| video       | ~94-150      | ~100-135    | ~97-136    | ~56-83     | ~60-83       |
+| video_hw    | ~102-158     | ~105-140    | ~103-142   | ~67-95     | ~65-88       |
+| full        | ~113-170     | ~112-147    | ~520-560   | ~475-501   | ~320-343     |
 
 ## 3. Usage
 
@@ -370,19 +405,6 @@ print('Playing: ${session.isPlaying()}');
 print('Paused: ${session.isPaused()}');
 ```
 ## 4. Supported External Libraries<a id="libraries"></a></br>
-
-#### GPL licensing
-
-> - Libraries marked <sup>[10](#gpl-info)</sup> Enabling any GPL library makes the resulting FFmpeg binary GPL-licensed and **non-redistributable under a permissive license**.
->   - **Audio+**: libbs2b, libcdio, librubberband, libjack *(Linux)*
->   - **Video+**: libx264, libx265, libdavs2, libdvdnav, libdvdread, libxavs, libxavs2, libxvid *(Linux)*, frei0r, libvidstab
->   - **Video+HW+**: v4l2-m2m *(Linux)*
->   - **Video+ (Desktop only)**: avisynth
-
-#### AI
-
-> - **`libopenvino`** and **`libtensorflow`** are only available on Desktop builds (`MacOS`, `Linux`, and `Windows`).
-> - **`libtorch`** is only available on `Linux` and `MacOs` builds (`Windows` not supported due ABI mismatch).
 
 | Bundle Key | Description                          |
 | ---------- | ------------------------------------ |
