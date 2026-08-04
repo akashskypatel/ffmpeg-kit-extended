@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.5.13
+
+- Update documentation
+
 ## Version 0.5.12
 
 - Fix android SHA verification
