@@ -6,7 +6,7 @@ Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "FFmpegKitExtendedExample.Pa
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FFmpegKitExtendedExample", "FFmpegKitExtendedExample\FFmpegKitExtendedExample.vcxproj", "{25CF2B66-583F-4E73-BB52-A82950C5143C}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FFmpegKitExtended", "..\node_modules\ffmpeg-kit-extended\windows\FFmpegKitExtended\FFmpegKitExtended.vcxproj", "{D37DB7B1-4E86-4D2A-8F2E-278CA6397A54}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FFmpegKitExtended", "..\.windows-runtime\node_modules\ffmpeg-kit-extended\windows\FFmpegKitExtended\FFmpegKitExtended.vcxproj", "{D37DB7B1-4E86-4D2A-8F2E-278CA6397A54}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
