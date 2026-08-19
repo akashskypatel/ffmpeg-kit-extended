@@ -6,7 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import ffmpeg_kit_extended_flutter
-import file_picker
+import file_picker_darwin
 import screen_retriever_macos
 import window_manager
 
