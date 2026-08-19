@@ -395,8 +395,8 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _pickTranscodeFile() async {
     final result = await FilePicker.pickFiles(type: FileType.video);
-    if (result != null && result.files.single.path != null) {
-      final pickedPath = result.files.single.path!;
+    if (result.single.path != null) {
+      final pickedPath = result.single.path!;
       final pickedDir = path.dirname(pickedPath);
       final baseName = path.basenameWithoutExtension(pickedPath);
       setState(() {
@@ -878,9 +878,9 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _pickProbeFile() async {
     final result = await FilePicker.pickFiles();
-    if (result != null && result.files.single.path != null) {
+    if (result.single.path != null) {
       setState(() {
-        _selectedProbePath = result.files.single.path;
+        _selectedProbePath = result.single.path;
       });
       _addLog("Selected for probe: $_selectedProbePath");
     }

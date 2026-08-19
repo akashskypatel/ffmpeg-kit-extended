@@ -1,2 +1,10 @@
-# Handle text files automatically and normalize them to LF in the repo history
+# Set the default behavior to automatically handle line endings
 * text=auto
+
+# Explicitly declare files that must always maintain specific endings
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# Denote binary files so Git leaves them untouched
+*.png binary
+*.jpg binary
