@@ -11,7 +11,7 @@ if (agpMajor < 9) {
 
 android {
     namespace = "com.akashskypatel.ffmpeg_kit_extended_flutter_example"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
