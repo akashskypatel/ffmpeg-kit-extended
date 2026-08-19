@@ -793,11 +793,11 @@ build_android() {
   (
     cd "$example_dir/android"
     echo "Generating React Native Codegen artifacts..."
-    ./gradlew generateCodegenArtifactsFromSchema
+    bash ./gradlew generateCodegenArtifactsFromSchema
     if [[ "$build_type" == "release" ]]; then
-      ./gradlew app:assembleRelease "-PreactNativeArchitectures=$android_arch"
+      bash ./gradlew app:assembleRelease "-PreactNativeArchitectures=$android_arch"
     else
-      ./gradlew app:assembleDebug "-PreactNativeArchitectures=$android_arch"
+      bash ./gradlew app:assembleDebug "-PreactNativeArchitectures=$android_arch"
     fi
   )
 }
