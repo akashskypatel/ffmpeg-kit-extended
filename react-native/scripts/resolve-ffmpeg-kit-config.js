@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG_FILE_NAME = 'ffmpeg-kit-extended.config.json';
-const BINARY_VERSION = '0.10.5';
+const BINARY_VERSION = '0.11.0';
 const BASE_RELEASE_URL =
   'https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download';
 const RELEASE_API_URL =

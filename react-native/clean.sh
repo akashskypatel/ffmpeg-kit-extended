@@ -13,6 +13,7 @@ rm -rf \
   dist \
   build \
   coverage \
+  vendor \
   .metro-cache \
   .tmp
 
