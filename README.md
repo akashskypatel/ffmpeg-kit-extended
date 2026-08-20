@@ -104,6 +104,24 @@ You will have to update your app's minimum requirements on your own to match the
 
 ## Supported External Libraries<a id="libraries"></a></br>
 
+## Bundle Sizes
+
+**Note**: Bundle sizes are approximate *compressed* sizes and may vary depending on the platform, license type (GPL/LGPL), and build configuration.
+
+Please see bundle distribution page for exact sizes: https://github.com/akashskypatel/ffmpeg-kit-builders/releases
+
+Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 and x86_64 (macOS) architectures as well as simulator binaries for iOS and tvOS. Apple libraries also include debug symbols addresses for crash analytics which may marginally increase the bundle size.
+
+| Bundle Type | Android (MB) | iOS (MB)    | tvOS (MB)  | macOS (MB) | Linux (MB) | Windows (MB) |
+|-------------|--------------|-------------|------------|------------|------------|--------------|
+|             | (Universal)  | (Universal) | (Universal)| (Universal)|            |              |
+| debug       | ~33          | ~55         | ~55        | ~56        | ~44        | ~140         |
+| base        | ~30-38       | ~50-55      | ~30-37     | ~30-56     | ~12-17     | ~11-17       |
+| audio       | ~42-86       | ~65-95      | ~44-75     | ~45-78     | ~18-40     | ~21-40       |
+| video       | ~94-150      | ~100-135    | ~84-120    | ~97-136    | ~56-83     | ~60-83       |
+| video_hw    | ~102-158     | ~105-140    | ~90-126    | ~103-142   | ~67-95     | ~65-88       |
+| full        | ~113-170     | ~112-147    | ~96-133    | ~520-560   | ~475-501   | ~320-343     |
+
 #### GPL licensing
 
 > ⚠️ **WARNING** ⚠️: Enabling GPL libraries makes your application GPL-licensed as well and may face additional challenges during app store approval. GPL license requires your application to be open-source and distributed under the same license.
@@ -120,24 +138,7 @@ You will have to update your app's minimum requirements on your own to match the
 
 > - **`libopenvino`** and **`libtensorflow`** are only available on Desktop builds (`MacOS`, `Linux`, and `Windows`).
 > - **`libtorch`** is only available on `Linux` and `MacOs` builds (`Windows` not supported due ABI mismatch).
-
-## Bundle Sizes
-
-**Note**: Bundle sizes are approximate and may vary depending on the platform, license type (GPL/LGPL), and build configuration. Below is a matrix of how much you should expect your app size to increase with each bundle.
-
-Please see bundle distribution page for exact sizes: https://github.com/akashskypatel/ffmpeg-kit-builders/releases
-
-Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 and x86_64 (macOS) architectures as well as simulator binaries for iOS and tvOS. Apple libraries also include debug symbols addresses for crash analytics which may marginally increase the bundle size.
-
-| Bundle Type | Android (MB) | iOS (MB)    | tvOS (MB)  | macOS (MB) | Linux (MB) | Windows (MB) |
-|-------------|--------------|-------------|------------|------------|------------|--------------|
-|             | (Universal)  | (Universal) | (Universal)| (Universal)|            |              |
-| debug       | ~33          | ~55         | ~55        | ~56        | ~44        | ~140         |
-| base        | ~30-38       | ~50-55      | ~30-37     | ~30-56     | ~12-17     | ~11-17       |
-| audio       | ~42-86       | ~65-95      | ~44-75     | ~45-78     | ~18-40     | ~21-40       |
-| video       | ~94-150      | ~100-135    | ~84-120    | ~97-136    | ~56-83     | ~60-83       |
-| video_hw    | ~102-158     | ~105-140    | ~90-126    | ~103-142   | ~67-95     | ~65-88       |
-| full        | ~113-170     | ~112-147    | ~96-133    | ~520-560   | ~475-501   | ~320-343     |
+> - **`libonnxruntime`** is not available on `x86_64` `MacOS`.
 
 | Bundle Key | Description                          |
 | ---------- | ------------------------------------ |
@@ -148,67 +149,74 @@ Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 an
 | `f`        | Full bundle only.                    |
 | *(empty)*  | not available on this platform.      |
 
-| Library                                                               | Android | Linux | Windows | iOS | macOS |
-| --------------------------------------------------------------------- | ------- | ----- | ------- | --- | ----- |
-| **System**                                                            |         |       |         |     |       |
-| bzlib, iconv, lzma, zlib                                              | a+      | a+    | a+      | a+  | a+    |
-| **TLS / HTTPS**                                                       |         |       |         |     |       |
-| openssl                                                               | b+      | b+    |         |     |       |
-| schannel                                                              |         |       | b+      |     |       |
-| securetransport                                                       |         |       |         | b+  | b+    |
-| **Streaming**                                                         |         |       |         |     |       |
-| libsrt, librist, librtmp                                              | a+      | a+    | a+      | a+  | a+    |
-| **Audio Codecs**                                                      |         |       |         |     |       |
-| libcodec2, libgsm, libilbc, liblc3, libmodplug                        | a+      | a+    | a+      | a+  | a+    |
-| libmp3lame, libopencore-amrnb, libopencore-amrwb                      | a+      | a+    | a+      | a+  | a+    |
-| libopenmpt, libopus, libsoxr, libspeex, libtwolame                    | a+      | a+    | a+      | a+  | a+    |
-| libvo-amrwbenc, libvorbis, openal                                     | a+      | a+    | a+      | a+  | a+    |
-| alsa                                                                  |         | a+    |         |     |       |
-| libbs2b<sup>[10](#gpl-info)</sup>                                     | a+      | a+    | a+      | a+  | a+    |
-| libmpeghdec                                                           | a+      | a+    | a+      | a+  | a+    |
-| **Audio Extras** *(not in `small` builds)*                            |         |       |         |     |       |
-| chromaprint, libflite, libgme, libmysofa, libshine, lv2               | a+      | a+    | a+      | a+  | a+    |
-| libcdio, librubberband<sup>[10](#gpl-info)</sup>                      | a+      | a+    | a+      | a+  | a+    |
-| ladspa, libpulse, sndio                                               |         | a+    |         |     |       |
-| libjack<sup>[10](#gpl-info)</sup>                                     |         | a+    |         |     |       |
-| **Video Libraries**                                                   |         |       |         |     |       |
-| lcms2, libaom, libaribcaption                                         | v+      | v+    | v+      | v+  | v+    |
-| libass, libbluray, libcaca, libdav1d                                  | v+      | v+    | v+      | v+  | v+    |
-| libdav1d, libfontconfig, libfreetype, libfribidi                      | v+      | v+    | v+      | v+  | v+    |
-| libharfbuzz, libjxl, libkvazaar, liblcevc-dec                         | v+      | v+    | v+      | v+  | v+    |
-| liboapv, libopenh264, libopenjpeg, librav1e                           | v+      | v+    | v+      | v+  | v+    |
-| librsvg, libsnappy, libsvtav1, libtheora                              | v+      | v+    | v+      | v+  | v+    |
-| libuavs3d, libvpx, libvvenc, libwebp                                  | v+      | v+    | v+      | v+  | v+    |
-| libxevd, libxeve, libzimg, libzvbi, libxml2, sdl2                     | v+      | v+    | v+      | v+  | v+    |
-| libdavs2, libdvdnav, libdvdread, libx264<sup>[10](#gpl-info)</sup>    | v+      | v+    | v+      | v+  | v+    |
-| libx265, libxavs, libxavs2, libaribb24<sup>[10](#gpl-info)</sup>      | v+      | v+    | v+      | v+  | v+    |
-| libdc1394, libiec61883, libsvtjpegxs                                  |         | v+    |         |     |       |
-| libxvid<sup>[10](#gpl-info)</sup>                                     |         | v+    |         |     |       |
-| libopencolorio<sup>[15](#arch-info)</sup>                             | v+      | v+    | v+      | v+  | v+    |
-| **Video Extras** *(not in `small` builds)*                            |         |       |         |     |       |
-| libklvanc, liblensfun, libqrencode, libvmaf, vapoursynth              | v+      | v+    | v+      | v+  | v+    |
-| frei0r, libvidstab<sup>[10](#gpl-info)</sup>                          | v+      | v+    | v+      | v+  | v+    |
-| libv4l2, libxcb, libxcb-shape, libxcb-shm, libxcb-xfixes, xlib        |         | v+    |         |     |       |
-| avisynth<sup>[10](#gpl-info)</sup>                                    |         | v+    | v+      |     | v+    |
-| **Hardware Acceleration**                                             |         |       |         |     |       |
-| amf, libglslang, libmfx, libplacebo, libshaderc, libvpl               | h+      | h+    | h+      | h+  | h+    |
-| opencl, opengl, vulkan, vulkan-static                                 | h+      | h+    | h+      | h+  | h+    |
-| libdrm, vaapi, rkmpp, vdpau                                           |         | h+    |         |     |       |
-| v4l2-m2m<sup>[10](#gpl-info)</sup>                                    |         | h+    |         |     |       |
-| **AI** *(Full bundle only)*                                           |         |       |         |     |       |
-| pocketsphinx, whisper                                                 | f       | f     | f       | f   | f     |
-| libopencv, libquirc, libtesseract<sup>[11](#compute-info)</sup>       | f       | f     | f       | f   | f     |
-| libopenvino, libtensorflow<sup>[11](#compute-info)</sup>              |         | f     | f       |     | f     |
-| libtorch<sup>[11](#compute-info)</sup>                                |         | f     |         |     | f     |
-| **Platform-specific** *(All bundles)*                                 |         |       |         |     |       |
-| jni, mediacodec                                                       | b+      |       |         |     |       |
-| appkit, avfoundation, audiotoolbox, coreimage, metal, securetransport |         |       |         | b+  | b+    |
-| videotoolbox, schannel, dxva2, d3d12va, d3d11va, mediafoundation      |         |       |         | b+  | b+    |
-| appkit                                                                |         |       |         |     | b+    |
-| schannel, dxva2, d3d12va, d3d11va, mediafoundation                    |         |       | b+      |     |       |
-| alsa                                                                  |         | b+    |         |     |       |
+| Library                                                                                    | Android | Linux | Windows | tvOS | iOS | macOS |
+| ---------------------------------------------------------------------                      | ------- | ----- | ------- | ---- | --- | ----- |
+| **System**                                                                                 |         |       |         |      |     |       |
+| bzlib, iconv, lzma, zlib                                                                   | a+      | a+    | a+      | a+   | a+  | a+    |
+| **TLS / HTTPS**<sup>[4](#https-info)</sup> *(one selected per build)*                      |         |       |         |      |     |       |
+| openssl *(default)*, gnutls, mbedtls, libtls                                               | a+      | a+    | a+      | a+   | a+  | a+    |
+| schannel                                                                                   |         |       | a+      |      |     | a+    |
+| **Streaming**                                                                              |         |       |         |      |     |       |
+| libsrt, librist, librtmp                                                                   | a+      | a+    | a+      | a+   | a+  | a+    |
+| **Audio Codecs**                                                                           |         |       |         |      |     |       |
+| libcodec2, libgsm, libilbc, liblc3, libmodplug                                             | a+      | a+    | a+      | a+   | a+  | a+    |
+| libmp3lame, libopencore-amrnb, libopencore-amrwb                                           | a+      | a+    | a+      | a+   | a+  | a+    |
+| libopenmpt, libopus, libsoxr, libspeex, libtwolame                                         | a+      | a+    | a+      | a+   | a+  | a+    |
+| libvo-amrwbenc, libvorbis, openal                                                          | a+      | a+    | a+      | a+   | a+  | a+    |
+| alsa                                                                                       |         | a+    |         |      |     |       |
+| libbs2b<sup>[10](#gpl-info)</sup>                                                          | a+      | a+    | a+      | a+   | a+  | a+    |
+| libmpeghdec<sup>[9](#nonfree-info)</sup> *(custom deployment only)*                        | a+      | a+    | a+      | a+   | a+  | a+    |
+| **Audio Extras** *(not in `small` builds)*                                                 |         |       |         |      |     |       |
+| chromaprint, libflite, libgme, libmysofa, libshine, lv2                                    | a+      | a+    | a+      | a+   | a+  | a+    |
+| libcdio, librubberband<sup>[10](#gpl-info)</sup>                                           | a+      | a+    | a+      | a+   | a+  | a+    |
+| ladspa, libpulse, sndio                                                                    |         | a+    |         |      |     |       |
+| libjack<sup>[10](#gpl-info)</sup>                                                          |         | a+    |         |      |     |       |
+| **Video Libraries**                                                                        |         |       |         |      |     |       |
+| lcms2, libaom, libaribcaption                                                              | v+      | v+    | v+      | v+   | v+  | v+    |
+| libass, libbluray, libcaca, libdav1d                                                       | v+      | v+    | v+      | v+   | v+  | v+    |
+| libdav1d, libfontconfig, libfreetype, libfribidi                                           | v+      | v+    | v+      | v+   | v+  | v+    |
+| libharfbuzz, libjxl, libkvazaar, liblcevc-dec                                              | v+      | v+    | v+      | v+   | v+  | v+    |
+| liboapv, libopenh264, libopenjpeg, librav1e                                                | v+      | v+    | v+      | v+   | v+  | v+    |
+| librsvg, libsnappy, libsvtav1, libtheora                                                   | v+      | v+    | v+      | v+   | v+  | v+    |
+| libuavs3d, libvpx, libvvenc, libwebp                                                       | v+      | v+    | v+      | v+   | v+  | v+    |
+| libxevd, libxeve, libzimg, libzvbi, libxml2, sdl2                                          | v+      | v+    | v+      | v+   | v+  | v+    |
+| libdavs2, libdvdnav, libdvdread, libx264<sup>[10](#gpl-info)</sup>                         | v+      | v+    | v+      | v+   | v+  | v+    |
+| libx265, libxavs, libxavs2, libaribb24<sup>[10](#gpl-info)</sup>                           | v+      | v+    | v+      | v+   | v+  | v+    |
+| libdc1394, libiec61883, libsvtjpegxs                                                       |         | v+    |         |      |     |       |
+| libxvid<sup>[10](#gpl-info)</sup>                                                          |         | v+    |         |      |     |       |
+| libopencolorio<sup>[15](#arch-info)</sup>                                                  | v+      | v+    | v+      | v+   | v+  | v+    |
+| **Video Extras** *(not in `small` builds)*                                                 |         |       |         |      |     |       |
+| libklvanc, liblensfun, libqrencode, libvmaf, vapoursynth                                   | v+      | v+    | v+      | v+   | v+  | v+    |
+| frei0r, libvidstab<sup>[10](#gpl-info)</sup>                                               | v+      | v+    | v+      |      | v+  | v+    |
+| libv4l2, libxcb, libxcb-shape, libxcb-shm, libxcb-xfixes, xlib                             |         | v+    |         |      |     |       |
+| avisynth<sup>[10](#gpl-info)</sup>                                                         |         | v+    | v+      |      |     | v+    |
+| decklink<sup>[9](#nonfree-info)</sup> *(custom deployment only)*                           | v+      | v+    | v+      | v+   | v+  | v+    |
+| **Hardware Acceleration**                                                                  |         |       |         |      |     |       |
+| amf, libmfx, libplacebo, libvpl                                                            | h+      | h+    | h+      | h+   | h+  | h+    |
+| opencl, opengl, vulkan, vulkan-static                                                      | h+      | h+    | h+      | h+   | h+  | h+    |
+| ffnvcodec, cuvid, nvdec, nvenc<sup>[12](#redist-info)</sup> *(custom deployment only)*     |         | h+    | h+      |      |     |       |
+| cuda-llvm, cuda-nvcc<sup>[12](#redist-info)</sup> *(custom deployment only)*               |         | h+    | h+      |      |     |       |
+| libdrm, vaapi, rkmpp, vdpau                                                                |         | h+    |         |      |     |       |
+| v4l2-m2m<sup>[10](#gpl-info)</sup>                                                         |         | h+    |         |      |     |       |
+| **AI** *(Full bundle only)*                                                                |         |       |         |      |     |       |
+| pocketsphinx, whisper                                                                      | f       | f     | f       | f    | f   | f     |
+| libopencv, libquirc, libtesseract<sup>[11](#compute-info)</sup>                            | f       | f     | f       | f    | f   | f     |
+| libopenvino, libtensorflow<sup>[11](#compute-info)</sup>                                   |         | f     | f       |      |     | f     |
+| libonnxruntime<sup>[11](#compute-info)</sup>                                               |         | f     | f       |      |     | f     |
+| libtorch<sup>[11](#compute-info)</sup>                                                     |         | f     |         |      |     | f     |
+| **Nonfree additions** *(custom deployment only)*                                           |         |       |         |      |     |       |
+| libfdk-aac<sup>[9](#nonfree-info)</sup>                                                    | f       | f     | f       | f    | f   | f     |
+| **Platform-specific** *(All bundles)*                                                      |         |       |         |      |     |       |
+| jni, mediacodec                                                                            | b+      |       |         |      |     |       |
+| appkit, avfoundation, audiotoolbox, coreimage, metal, securetransport                      |         |       |         | b+   | b+  | b+    |
+| videotoolbox, schannel, dxva2, d3d12va, d3d11va, mediafoundation                           |         |       |         | b+   | b+  | b+    |
+| appkit                                                                                     |         |       |         |      |     | b+    |
+| schannel, dxva2, d3d12va, d3d11va, mediafoundation                                         |         |       | b+      |      |     |       |
+| alsa                                                                                       |         | b+    |         |      |     |       |
 
+> frei0r, liblensfun, librsvg, and pocketsphinx are not available on `tvOS`.
 
+You can also get the full list of supported external libraries by running `--list-libraries`
 
 | Library                                      | Description                                             | Platform<sup>[1](#platform-info)</sup> | Extra<sup>[2](#extra-info)</sup> | Base | Audio              | Video              | Video+Hardware     | Full                |
 | -------------------------------------------- | ------------------------------------------------------- | -------------------------------------- | -------------------------------- | ---- | ------------------ | ------------------ | ------------------ | ------------------- |
@@ -223,7 +231,6 @@ Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 an
 | ladspa                                       | Loads LADSPA plugins for audio filtering                | Linux                                  | x                                |      | x                  | x                  | x                  | x                   |
 | libbs2b                                      | Simulates binaural audio via DSP                        |                                        |                                  |      | [10](#gpl-info)    | [10](#gpl-info)    | [10](#gpl-info)    | [10](#gpl-info)     |
 | libcdio                                      | Reads and extracts audio from CDs                       |                                        | [10](#gpl-info)                  |      | [10](#gpl-info)    | [10](#gpl-info)    | [10](#gpl-info)    | [10](#gpl-info)     |
-| libcelt<sup>[13](#deprecated-info)</sup>     | Decodes CELT audio streams                              |                                        |                                  |      |                    |                    |                    |                     |
 | libcodec2                                    | Encodes and decodes Codec2 speech format                |                                        |                                  |      | x                  | x                  | x                  | x                   |
 | libfdk-aac                                   | Encodes and decodes high-quality AAC audio              |                                        |                                  |      | [9](#nonfree-info) | [9](#nonfree-info) | [9](#nonfree-info) | [9](#nonfree-info)  |
 | libflite                                     | Synthesizes speech from text (TTS) filter               |                                        | x                                |      | x                  | x                  | x                  | x                   |
@@ -289,8 +296,6 @@ Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 an
 | mediafoundation<sup>[8](#install-info)</sup> | Accesses Windows Media Foundation for encoding          | Windows                                |                                  | x    |                    |                    | [9](#nonfree-info) | [9](#nonfree-info)  |
 | ohcodec<sup>[8](#install-info)</sup>         | Accesses OpenHarmony multimedia codec capabilities      | HarmonyOS                              |                                  |      |                    |                    | [9](#nonfree-info) | [9](#nonfree-info)  |
 | mmal                                         | Accesses Broadcom MMAL for Raspberry Pi multimedia      | Raspberry Pi                           |                                  |      |                    |                    | [9](#nonfree-info) | [9](#nonfree-info)  |
-| omx                                          | Accesses OpenMAX IL for hardware acceleration           | Raspberry Pi                           |                                  |      |                    |                    | [9](#nonfree-info) | [9](#nonfree-info)  |
-| omx-rpi                                      | Accesses OpenMAX IL implementation for Raspberry Pi     | Raspberry Pi                           |                                  |      |                    |                    | [9](#nonfree-info) | [9](#nonfree-info)  |
 | securetransport<sup>[8](#install-info)</sup> | Provides TLS/SSL support via Apple Secure Transport     | Apple                                  |                                  | x    | [4](#https-info)   | [4](#https-info)   | [4](#https-info)   | [4](#https-info)    |
 | gnutls                                       | Provides TLS/SSL support via GnuTLS                     |                                        |                                  |      | [4](#https-info)   | [4](#https-info)   | [4](#https-info)   | [4](#https-info)    |
 | libtls                                       | Provides TLS/SSL support via LibreSSL                   |                                        |                                  |      | [4](#https-info)   | [4](#https-info)   | [4](#https-info)   | [4](#https-info)    |
@@ -308,6 +313,7 @@ Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 an
 | libopenvino<sup>[8](#install-info)</sup>     | Runs DNN-based filters using Intel OpenVINO backend     |                                        |                                  |      |                    |                    |                    | [11](#compute-info) |
 | libtensorflow<sup>[8](#install-info)</sup>   | Runs DNN-based filters using TensorFlow backend         |                                        |                                  |      |                    |                    |                    | [11](#compute-info) |
 | libtorch<sup>[8](#install-info)</sup>        | Runs DNN-based filters using PyTorch backend            |                                        |                                  |      |                    |                    |                    | [11](#compute-info) |
+| libonnxruntime<sup>[8](#install-info)</sup>  | Runs DNN-based filters using ONNX Runtime backend       |                                        |                                  |      |                    |                    |                    | [11](#compute-info) |
 | libquirc                                     | Decodes QR codes from video streams                     |                                        |                                  |      |                    |                    |                    | x                   |
 | libtesseract                                 | Performs Optical Character Recognition (OCR)            |                                        |                                  |      |                    |                    |                    | x                   |
 | sdl2                                         | Outputs audio/video to window using SDL2                |                                        |                                  |      | x                  | x                  | x                  | x                   |
@@ -368,10 +374,8 @@ Apple libraries (iOS/macOS/tvOS) are universal fatlibs and include both ARM64 an
 | vapoursynth                                  | Demuxes VapourSynth script frames                       |                                        | x                                |      |                    | x                  | x                  | x                   |
 | xlib                                         | Captures screen content via Xlib                        | Linux                                  | x                                |      |                    | x                  | x                  | x                   |
 | libsvtjpegxs                                 | Encodes JPEG XS video                                   |                                        |                                  |      |                    | x                  | x                  | x                   |
-| libopencolorio<sup>[15](#arch-info)</sup>    | Color space conversion                                  |                                        |                                  |      |                    | x                  | x                  | x                   |
+| libopencolorio<sup>[15](#arch-info)</sup>   | Color space conversion                                  |                                        |                                  |      |                    | [15](#arch-info)   | [15](#arch-info)   | [15](#arch-info)    |
 | libmpeghdec                                  | Decodes MPEG-H 3D Audio                                 |                                        |                                  |      | [9](#nonfree-info) | [9](#nonfree-info) | [9](#nonfree-info) | [9](#nonfree-info)  |
-
-To deploy a custom build see [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders).
 
 <sup>1</sup> Platform specific libraries are enabled by default for target platform and bundle.<a id="platform-info"></a></br>
 <sup>2</sup> Extra libraries are enabled on non-small bundles.<a id="extra-info"></a></br>
@@ -381,7 +385,7 @@ To deploy a custom build see [ffmpeg-kit-builders](https://github.com/akashskypa
 <sup>6</sup> SAMBA (SMB protocol) library is not enabled by default in any bundle (except on Windows, which supports SMB by default). A custom build must be deployed to enable them using `--enable-smb` OR `--enable-libsmbclient`.<a id="smb-info"></a></br>
 <sup>7</sup> SSH library is not enabled by default in any bundle. A custom build must be deployed to enable them using `--enable-ssh` OR `--enable-libssh`.<a id="ssh-info"></a></br>
 <sup>8</sup> These libraries cannot be built statically. If you deploy a static build with these libraries they will not be bundled with FFmpegKit wrapper bundle. The target system will need these libraries installed or running the wrapper may crash immediately. <a id="install-info"></a></br>
-<sup>9</sup> These libraries have restrictive licenses that may make the binaries non-redistributable, are not compatible with GPL and require a custom build and deployment with `--enable-nonfree`.<a id="nonfree-info"></a></br>
+<sup>9</sup> These libraries have restrictive licenses that may make the binaries non-redistributable, are not compatible with GPL and only included with `--enable-nonfree`.<a id="nonfree-info"></a></br>
 <sup>10</sup> These libraries are GPL and only included with `--enable-gpl`.<a id="gpl-info"></a></br>
 <sup>11</sup> These libraries can either be selected with GPU support or CPU only. Note that some of them do not support AMD ROCm framework. These libraries are not available on Mobile platforms due to platform limitations.<a id="compute-info"></a></br>
 <sup>12</sup> while these libraries are not compatible with GPL and have a more restrictive license, they are redistributable and will be bundled with non-gpl ffmpeg-kit bundle.<a id="redist-info"></a></br>

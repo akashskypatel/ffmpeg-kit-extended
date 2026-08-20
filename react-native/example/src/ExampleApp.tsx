@@ -66,6 +66,10 @@ const TAB_SYMBOLS: Record<TabName, string> = {
 const DEFAULT_REMOTE_URL = 'https://endpnt.com/hls/nasa4k/playlist.m3u8';
 const MEDIA_INFO_FALLBACK =
   'https://raw.githubusercontent.com/tanersener/ffmpeg-kit/master/test-data/video.mp4';
+const MAX_RENDERED_LOG_CHARS = 50_000;
+const LOG_FLUSH_INTERVAL_MS = 250;
+const PLAYBACK_STATUS_INTERVAL_MS = 500;
+const FFPLAY_MONITOR_INTERVAL_MS = 250;
 
 const LOG_LEVELS = [
   LogLevel.Stderr,
@@ -129,7 +133,9 @@ export function ExampleApp({
   const [logs, setLogs] = useState('');
   const [ffmpegCommand, setFfmpegCommand] = useState('-version');
   const [ffprobeCommand, setFfprobeCommand] = useState('-version');
-  const [ffplayCommand, setFfplayCommand] = useState('-i test_video.mp4');
+  const [ffplayCommand, setFfplayCommand] = useState(
+    '-hide_banner -loglevel warning -i test_video.mp4',
+  );
   const [remoteStreamUrl, setRemoteStreamUrl] = useState(DEFAULT_REMOTE_URL);
   const [currentLogLevel, setCurrentLogLevel] = useState(LogLevel.Info);
   const [selectedProbePath, setSelectedProbePath] = useState<string>();
@@ -152,6 +158,10 @@ export function ExampleApp({
   const videoSurfaceReadyRef = useRef(false);
   const logResizeStartRef = useRef(logPaneHeight);
   const logScrollRef = useRef<ScrollView>(null);
+  const pendingLogsRef = useRef('');
+  const logFlushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   const maxLogPaneHeight = Math.max(160, height * 0.65);
   const videoAspectRatio =
@@ -187,10 +197,50 @@ export function ExampleApp({
     [logPaneHeight, maxLogPaneHeight],
   );
 
-  const appendLog = useCallback((message: string) => {
-    const line = message.endsWith('\n') ? message : `${message}\n`;
-    setLogs(previous => `${previous}${line}`.slice(-250_000));
+  const flushPendingLogs = useCallback(() => {
+    logFlushTimerRef.current = undefined;
+    const pendingLogs = pendingLogsRef.current;
+    pendingLogsRef.current = '';
+    if (pendingLogs) {
+      setLogs(previous =>
+        `${previous}${pendingLogs}`.slice(-MAX_RENDERED_LOG_CHARS),
+      );
+    }
   }, []);
+
+  const appendLog = useCallback(
+    (message: string) => {
+      const line = message.endsWith('\n') ? message : `${message}\n`;
+      pendingLogsRef.current = `${pendingLogsRef.current}${line}`.slice(
+        -MAX_RENDERED_LOG_CHARS,
+      );
+      if (logFlushTimerRef.current === undefined) {
+        logFlushTimerRef.current = setTimeout(
+          flushPendingLogs,
+          LOG_FLUSH_INTERVAL_MS,
+        );
+      }
+    },
+    [flushPendingLogs],
+  );
+
+  const clearLogs = useCallback(() => {
+    pendingLogsRef.current = '';
+    if (logFlushTimerRef.current !== undefined) {
+      clearTimeout(logFlushTimerRef.current);
+      logFlushTimerRef.current = undefined;
+    }
+    setLogs('');
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (logFlushTimerRef.current !== undefined) {
+        clearTimeout(logFlushTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const runGuarded = useCallback(
     async (label: string, operation: () => Promise<void> | void) => {
@@ -223,37 +273,46 @@ export function ExampleApp({
   }, [EXAMPLE_DIR, appendLog, platformName, platformServices]);
 
   useEffect(() => {
-    if (!playbackSession) {
+    if (!playbackSession || activeTab !== 'FFplay') {
       return;
     }
     const timer = setInterval(() => {
       try {
         const position = playbackSession.getPosition();
         const duration = playbackSession.getMediaDuration();
-        const width = playbackSession.getVideoWidth();
-        const height = playbackSession.getVideoHeight();
+        const videoWidth = playbackSession.getVideoWidth();
+        const videoHeight = playbackSession.getVideoHeight();
         if (position >= 0) {
-          setPlaybackPosition(position);
+          setPlaybackPosition(current =>
+            Math.abs(current - position) >= 0.05 ? position : current,
+          );
         }
         if (duration >= 0) {
-          setPlaybackDuration(duration);
+          setPlaybackDuration(current =>
+            Math.abs(current - duration) >= 0.05 ? duration : current,
+          );
         }
-        if (width > 0 && height > 0) {
-          setVideoSize({width, height});
+        if (videoWidth > 0 && videoHeight > 0) {
+          setVideoSize(current =>
+            current.width === videoWidth && current.height === videoHeight
+              ? current
+              : {width: videoWidth, height: videoHeight},
+          );
         }
-        setPlaybackState(
-          playbackSession.isPlaying()
-            ? 'Playing'
-            : playbackSession.isPaused()
-              ? 'Paused'
-              : 'Stopped',
+        const nextPlaybackState = playbackSession.isPlaying()
+          ? 'Playing'
+          : playbackSession.isPaused()
+            ? 'Paused'
+            : 'Stopped';
+        setPlaybackState(current =>
+          current === nextPlaybackState ? current : nextPlaybackState,
         );
       } catch {
         // The native session may have been removed between completion and this poll.
       }
-    }, 250);
+    }, PLAYBACK_STATUS_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [playbackSession]);
+  }, [activeTab, playbackSession]);
 
   useEffect(() => {
     setLogPaneHeight(current =>
@@ -663,6 +722,7 @@ export function ExampleApp({
       }
       void session
         .executeAsync({
+          pollIntervalMs: FFPLAY_MONITOR_INTERVAL_MS,
           logCallback: log => appendLog(log.message),
           completeCallback: completed => {
             appendLog(`FFplay finished. Return code: ${completed.getReturnCode()}`);
@@ -684,7 +744,7 @@ export function ExampleApp({
         return;
       }
       await startPlayback(
-        `-hide_banner -loglevel info -autoexit -i ${quote(path)}`,
+        `-hide_banner -loglevel warning -autoexit -i ${quote(path)}`,
         path,
         hasVideo,
       );
@@ -1038,7 +1098,7 @@ export function ExampleApp({
           {!initialized ? <ActivityIndicator size="small" /> : null}
           <IconButton symbol="☷" label="Log Level" onPress={() => setLogLevelMenuVisible(true)} />
           <IconButton symbol="⚙" label="System Info" onPress={() => setSystemInfoMenuVisible(true)} />
-          <IconButton symbol="⌫" label="Clear Logs" onPress={() => setLogs('')} />
+          <IconButton symbol="⌫" label="Clear Logs" onPress={clearLogs} />
         </View>
       </View>
 

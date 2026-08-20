@@ -168,11 +168,78 @@ clean_project() {
 
 ensure_apple_binary() {
   local platform="$1"
-  local artifact="$2"
-  local destination="$3"
-  local parent archive extracted url
+  local destination="$2"
+  local node_binary="${NODE_BINARY:-node}"
+  local resolver="$script_dir/scripts/resolve-ffmpeg-kit-config.js"
+  local downloader="$script_dir/scripts/download-ffmpeg-kit-artifact.js"
+  local resolution value
+  local -a resolution_fields=()
+  local source_kind source artifact cache_key cacheable
+  local checksum_method checksum_url release_api_url asset_name
+  local marker source_key parent archive extract_root extracted
+  local -a download_args
 
-  if [[ -d "$destination" ]]; then
+  resolution="$(
+    "$node_binary" "$resolver" \
+      --platform "$platform" \
+      --app-root "$example_dir"
+  )"
+
+  while IFS= read -r -d '' value; do
+    resolution_fields+=("$value")
+  done < <(
+    "$node_binary" - "$resolution" <<'NODE'
+const path = require('path');
+
+const resolution = JSON.parse(process.argv[2]);
+const override = resolution.override;
+const sourceKind = override ? override.kind : 'remote';
+const source =
+  sourceKind === 'local' ? override.resolvedPath : resolution.url;
+const checksum = resolution.checksum || {};
+const values = [
+  sourceKind,
+  source,
+  resolution.artifact || path.basename(resolution.filename || ''),
+  resolution.cacheKey,
+  override ? '0' : '1',
+  checksum.method,
+  checksum.url,
+  checksum.releaseApiUrl,
+  checksum.assetName,
+];
+
+for (const value of values) {
+  process.stdout.write(`${String(value ?? '')}\0`);
+}
+NODE
+  )
+
+  if [[ "${#resolution_fields[@]}" -ne 9 ]]; then
+    echo "Failed to parse FFmpegKit Extended ${platform} binary resolution." >&2
+    exit 1
+  fi
+
+  source_kind="${resolution_fields[0]}"
+  source="${resolution_fields[1]}"
+  artifact="${resolution_fields[2]}"
+  cache_key="${resolution_fields[3]}"
+  cacheable="${resolution_fields[4]}"
+  checksum_method="${resolution_fields[5]}"
+  checksum_url="${resolution_fields[6]}"
+  release_api_url="${resolution_fields[7]}"
+  asset_name="${resolution_fields[8]}"
+
+  if [[ -z "$source" || -z "$artifact" || -z "$cache_key" ]]; then
+    echo "Incomplete FFmpegKit Extended ${platform} binary resolution." >&2
+    exit 1
+  fi
+
+  marker="${destination}.ffmpeg-kit-source"
+  source_key="${source_kind}:${source}"
+
+  if [[ "$cacheable" == "1" && -d "$destination" && -f "$marker" && \
+        "$(cat "$marker")" == "$source_key" ]]; then
     if [[ "$platform" == "macos" ]]; then
       normalize_macos_xcframework "$destination"
     fi
@@ -180,27 +247,54 @@ ensure_apple_binary() {
   fi
 
   parent="$(dirname "$destination")"
-  archive="${parent}/${artifact}.xcframework.zip"
-  extracted="${parent}/${artifact}.xcframework"
-  url="https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download/v0.10.5-${platform}/${artifact}.xcframework.zip"
+  archive="${parent}/.ffmpeg-kit-${platform}-${cache_key}.zip"
+  extract_root="${parent}/.ffmpeg-kit-${platform}-${cache_key}"
 
   mkdir -p "$parent"
-  rm -rf "$extracted"
+  rm -rf "$destination" "$marker" "$extract_root"
 
-  echo "Downloading FFmpegKit Extended ${platform} binary..."
-  curl -fL "$url" -o "$archive"
-  echo "Extracting FFmpegKit Extended ${platform} binary..."
-  ditto -x -k "$archive" "$parent"
-  rm -f "$archive"
+  if [[ "$source_kind" == "local" && -d "$source" ]]; then
+    echo "Using local FFmpegKit Extended ${platform} XCFramework: $source"
+    ditto "$source" "$destination"
+  else
+    if [[ "$source_kind" == "local" ]]; then
+      if [[ ! -f "$source" ]]; then
+        echo "FFmpegKit Extended local override was not found: $source" >&2
+        exit 1
+      fi
+      echo "Using local FFmpegKit Extended ${platform} archive: $source"
+      cp "$source" "$archive"
+    else
+      echo "Preparing FFmpegKit Extended ${platform} binary: $source"
+      download_args=(
+        --url "$source"
+        --output "$archive"
+        --retries 3
+        --timeout-ms 30000
+      )
+      [[ -n "$checksum_method" ]] && download_args+=(--checksum-method "$checksum_method")
+      [[ -n "$checksum_url" ]] && download_args+=(--checksum-url "$checksum_url")
+      [[ -n "$release_api_url" ]] && download_args+=(--release-api-url "$release_api_url")
+      [[ -n "$asset_name" ]] && download_args+=(--asset-name "$asset_name")
+      "$node_binary" "$downloader" "${download_args[@]}"
+    fi
 
-  if [[ ! -d "$extracted" ]]; then
-    echo "Expected XCFramework was not found after extraction: $extracted" >&2
-    exit 1
+    mkdir -p "$extract_root"
+    echo "Extracting FFmpegKit Extended ${platform} binary..."
+    ditto -x -k "$archive" "$extract_root"
+    rm -f "$archive"
+
+    extracted="$(find "$extract_root" -type d -name '*.xcframework' -print -quit)"
+    if [[ -z "$extracted" || ! -d "$extracted" ]]; then
+      echo "Expected XCFramework was not found after extracting $artifact" >&2
+      exit 1
+    fi
+
+    mv "$extracted" "$destination"
+    rm -rf "$extract_root"
   fi
 
-  # The release asset directory uses the bundle variant name while the
-  # framework contained by the XCFramework is ffmpegkit.framework.
-  mv "$extracted" "$destination"
+  printf '%s' "$source_key" > "$marker"
 
   if [[ "$platform" == "macos" ]]; then
     normalize_macos_xcframework "$destination"
@@ -291,21 +385,18 @@ normalize_macos_xcframework() {
 ensure_ios_binary() {
   ensure_apple_binary \
     "ios" \
-    "bundle-base-ios-universal-small-lgpl" \
     "$script_dir/vendor/ffmpegkit.xcframework"
 }
 
 ensure_appletvos_binary() {
   ensure_apple_binary \
     "appletvos" \
-    "bundle-base-appletvos-universal-small-lgpl" \
     "$script_dir/vendor/appletvos/ffmpegkit.xcframework"
 }
 
 ensure_macos_binary() {
   ensure_apple_binary \
     "macos" \
-    "bundle-base-macos-universal-small-lgpl" \
     "$script_dir/vendor/macos/ffmpegkit.xcframework"
 }
 
@@ -667,19 +758,56 @@ build_windows() {
   echo "========================================"
   prepare_windows_example
 
-  local -a args=(
-    react-native run-windows
-    --sln ../windows/FFmpegKitExtendedExample.sln
-    --arch x64
-    --no-packager
-    --no-launch
-    --no-deploy
-  )
+  local configuration="Debug"
   if [[ "$build_type" == "release" ]]; then
-    args+=(--release)
+    configuration="Release"
   fi
 
-  (cd "$windows_runtime_dir" && npx "${args[@]}")
+  local vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+  if [[ ! -x "$vswhere" ]]; then
+    echo "Visual Studio Installer's vswhere.exe was not found: $vswhere" >&2
+    exit 1
+  fi
+
+  local msbuild_windows
+  msbuild_windows="$(
+    "$vswhere" \
+      -latest \
+      -products '*' \
+      -version '[18.6,19.0)' \
+      -requires Microsoft.Component.MSBuild \
+      -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 \
+      -find 'MSBuild\**\Bin\MSBuild.exe' \
+      | tr -d '\r' \
+      | head -n 1
+  )"
+  if [[ -z "$msbuild_windows" ]]; then
+    echo "Visual Studio 18.6 or later with MSBuild and VC tools was not found." >&2
+    exit 1
+  fi
+
+  local msbuild
+  local project_windows
+  local solution_path_windows
+  local solution_dir_windows
+  msbuild="$(cygpath -u "$msbuild_windows")"
+  project_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample/FFmpegKitExtendedExample.vcxproj")"
+  solution_path_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample.sln")"
+  solution_dir_windows="$(cygpath -w "$example_dir/windows")\\"
+
+  echo "Building Windows application project with MSBuild..."
+  MSYS2_ARG_CONV_EXCL='*' "$msbuild" \
+    "$project_windows" \
+    /restore \
+    /m \
+    "/p:Configuration=$configuration" \
+    /p:Platform=x64 \
+    "/p:SolutionPath=$solution_path_windows" \
+    "/p:SolutionDir=$solution_dir_windows" \
+    /p:SolutionFileName=FFmpegKitExtendedExample.sln \
+    /p:RunAutolinkCheck=false \
+    /verbosity:minimal \
+    /nologo
 }
 
 build_library() {
@@ -702,11 +830,11 @@ build_android() {
   (
     cd "$example_dir/android"
     echo "Generating React Native Codegen artifacts..."
-    ./gradlew generateCodegenArtifactsFromSchema
+    bash ./gradlew generateCodegenArtifactsFromSchema
     if [[ "$build_type" == "release" ]]; then
-      ./gradlew app:assembleRelease "-PreactNativeArchitectures=$android_arch"
+      bash ./gradlew app:assembleRelease "-PreactNativeArchitectures=$android_arch"
     else
-      ./gradlew app:assembleDebug "-PreactNativeArchitectures=$android_arch"
+      bash ./gradlew app:assembleDebug "-PreactNativeArchitectures=$android_arch"
     fi
   )
 }

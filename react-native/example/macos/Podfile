@@ -2,39 +2,36 @@ require 'pathname'
 
 podfile_dir = Pathname.new(__dir__).realpath
 example_dir = podfile_dir.parent
-react_native_macos_dir =
-  example_dir.join('node_modules/react-native-macos').realpath
+runtime_dir = example_dir.join('.macos-runtime').realpath
+react_native_macos_dir = runtime_dir.join('node_modules/react-native-macos').realpath
 
-unless File.exist?(
-  react_native_macos_dir.join('scripts/react_native_pods.rb')
-)
-  raise <<~MESSAGE
-    React Native macOS runtime not found at #{react_native_macos_dir}.
-    Run npm install from #{example_dir}.
-  MESSAGE
+unless File.exist?(react_native_macos_dir.join('scripts/react_native_pods.rb'))
+  raise "React Native macOS runtime not found at #{react_native_macos_dir}. Run ./build.sh macos or ./launch.sh macos first."
 end
 
+# React Native macOS CocoaPods helpers expect the React Native path relative to
+# the Podfile installation root. Passing an absolute path can be prefixed with
+# './' internally and become invalid.
 react_native_macos_path =
   react_native_macos_dir.relative_path_from(podfile_dir).to_s
 
-require react_native_macos_dir
-  .join('scripts/react_native_pods.rb')
-  .to_s
+require react_native_macos_dir.join('scripts/react_native_pods.rb').to_s
 
 platform :macos, '14.0'
 
 prepare_react_native_project!
 
 target 'FFmpegKitExtendedExample-macOS' do
+  # Keep the macOS host on its isolated react-native-macos dependency graph.
   pod 'FFmpegKitExtended',
-      :path => example_dir
-        .join('node_modules/ffmpeg-kit-extended')
-        .to_s
+      :path => runtime_dir.join('node_modules/ffmpeg-kit-extended').to_s
 
   use_react_native!(
     :path => react_native_macos_path,
     :fabric_enabled => ENV['RCT_NEW_ARCH_ENABLED'] == '1',
-    :app_path => example_dir.to_s
+    # CocoaPods Codegen must use the package.json belonging to the isolated
+    # React Native macOS dependency graph.
+    :app_path => runtime_dir.to_s
   )
 
   post_install do |installer|

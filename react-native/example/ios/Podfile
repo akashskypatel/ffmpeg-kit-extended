@@ -30,5 +30,34 @@ target 'FFmpegKitExtendedExample' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # fmt 11.0.2 enables consteval for Apple Clang, but Apple Clang 21
+    # (Xcode 26.4+) rejects several valid FMT_STRING call sites. React Native
+    # currently pins this fmt release, so patch the downloaded pod until it
+    # can consume a fmt version with the upstream Clang 21 fix.
+    fmt_base_header = File.join(
+      installer.sandbox.root,
+      'fmt',
+      'include',
+      'fmt',
+      'base.h'
+    )
+    if File.exist?(fmt_base_header)
+      old_condition =
+        'defined(__apple_build_version__) && __apple_build_version__ < 14000029L'
+      clang_21_condition =
+        'defined(__apple_build_version__) && (__apple_build_version__ < 14000029L || __apple_build_version__ >= 21000000L)'
+      contents = File.read(fmt_base_header)
+
+      unless contents.include?(clang_21_condition)
+        patched_contents = contents.sub(old_condition, clang_21_condition)
+        if patched_contents == contents
+          Pod::UI.warn 'Could not apply the Apple Clang 21 compatibility patch to fmt.'
+        else
+          File.chmod(0644, fmt_base_header)
+          File.write(fmt_base_header, patched_contents)
+        end
+      end
+    end
   end
 end

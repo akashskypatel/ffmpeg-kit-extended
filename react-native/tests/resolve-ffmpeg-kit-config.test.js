@@ -209,3 +209,22 @@ test('CLI fails clearly when the platform argument is missing', () => {
   assert.equal(result.status, 1);
   assert.match(result.stderr, /--platform is required/);
 });
+
+test('Apple example builds stage binaries from the shared resolver', () => {
+  const buildScript = fs.readFileSync(
+    path.resolve(__dirname, '..', 'build.sh'),
+    'utf8',
+  );
+
+  assert.match(buildScript, /scripts\/resolve-ffmpeg-kit-config\.js/);
+  assert.match(buildScript, /--app-root "\$example_dir"/);
+  assert.match(buildScript, /scripts\/download-ffmpeg-kit-artifact\.js/);
+  assert.doesNotMatch(
+    buildScript,
+    /bundle-base-(?:ios|appletvos|macos)-universal-small-lgpl/,
+  );
+  assert.doesNotMatch(
+    buildScript,
+    /ffmpeg-kit-builders\/releases\/download\/v[^/]+-\$\{platform\}/,
+  );
+});

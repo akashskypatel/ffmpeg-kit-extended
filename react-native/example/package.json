@@ -1,6 +1,6 @@
 {
   "name": "FFmpegKitExtendedExample",
-  "version": "0.5.12+1",
+  "version": "0.6.0+1",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -24,7 +24,6 @@
     "react-native": "0.81.6",
     "react-native-file-access": "^4.0.3",
     "react-native-macos": "0.81.9",
-    "react-native-safe-area-context": "^5.5.2",
     "react-native-windows": "0.81.32"
   },
   "devDependencies": {
