@@ -39,7 +39,9 @@ jobs:
           - platform: macos
             os: macos-latest
           - platform: windows
-            os: windows-latest
+            # The Windows projects target SDK 10.0.22621.0, which is available
+            # on this image but no longer installed on windows-latest.
+            os: windows-2022
 
     steps:
       - name: Check out repository
