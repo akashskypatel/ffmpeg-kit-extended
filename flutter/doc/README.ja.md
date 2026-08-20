@@ -12,7 +12,7 @@
 
 [English](../README.md) | [Español](README.es.md) | [简体中文](README.zh-CN.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | **日本語**
 
-`ffmpeg-kit-extended` は、`Android`、`iOS`、`macOS`、`Linux`、`Windows` 上で `FFmpeg`、`FFprobe`、`FFplay` の `8.1.2 API` コマンドを実行するための包括的な Flutter プラグインです。Dart の `FFI` を使用してネイティブ FFmpeg ライブラリと直接連携し、高い性能、柔軟性、完全な動画再生機能を提供します。
+`ffmpeg-kit-extended` は、`Android`、`iOS`、`macOS`、`Linux`、`Windows` 上で `FFmpeg`、`FFprobe`、`FFplay` の `9.0.1 API` コマンドを実行するための包括的な Flutter プラグインです。Dart の `FFI` を使用してネイティブ FFmpeg ライブラリと直接連携し、高い性能、柔軟性、完全な動画再生機能を提供します。
 
 このプロジェクトが役に立ち、アプリで使用している場合は、[ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) と [ffmpeg-kit-extended](https://github.com/akashskypatel/ffmpeg-kit-extended) に ⭐ を、[pub.dev](https://pub.dev/packages/ffmpeg_kit_extended_flutter) に 👍 をお願いします。大きな励みになります 🙏! コーディングを楽しんでください 🚀!
 
@@ -25,7 +25,7 @@
     - **iOS**：実機の `devices` と `simulators` の両方をサポートします。`x86_64` アーキテクチャは旧式のためサポートされていません。
   - **Linux**：`OpenGL` 連携による完全な動画再生をサポートします。
     - **arm64**：`arm64` アーキテクチャは現在未対応です。近日対応予定です。
-- **`FFmpeg`、`FFprobe`、`FFplay`**：メディア処理、情報取得、音声/動画再生のための [最新 `8.1.2 API`](https://www.ffmpeg.org/download.html#release_8.1) をサポートします。
+- **`FFmpeg`、`FFprobe`、`FFplay`**：メディア処理、情報取得、音声/動画再生のための [最新 `9.0.1 API`](https://www.ffmpeg.org/download.html) をサポートします。
 - **動画再生**：統一されたサーフェス API による完全なマルチプラットフォーム動画再生。
 - **リアルタイムストリーミング**：ライブ再生の監視に使える再生位置ストリームと動画サイズストリーム。
 - **Dart FFI**：最適な性能を得るための直接的なネイティブバインディング。
