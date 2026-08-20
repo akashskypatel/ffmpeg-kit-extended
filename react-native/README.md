@@ -8,7 +8,7 @@
 
 # React Native FFmpegKit Extended bindings
 
-This package provides React Native bindings for ffmpeg-kit-extended: a comprehensive React Native plugin for executing FFmpeg, FFprobe, and FFplay 8.1.2 API commands on Android, iOS, macOS, tvOS, and Windows.
+This package provides React Native bindings for ffmpeg-kit-extended: a comprehensive React Native plugin for executing FFmpeg, FFprobe, and FFplay 9.0.1 API commands on Android, iOS, macOS, tvOS, and Windows.
 
 ## Requirements
 
@@ -25,7 +25,7 @@ React Native's legacy Native Module architecture.
     - **x86**: `x86` architecture is not supported due to its legacy status.
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
     - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
-- **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `8.1.2 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
+- **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
 - **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.

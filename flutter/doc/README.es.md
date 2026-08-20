@@ -13,7 +13,7 @@
 [English](../README.md) | **Español** | [简体中文](README.zh-CN.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md)
 
 
-`ffmpeg-kit-extended` es un plugin completo de Flutter para ejecutar comandos de la `API 8.1.2` de `FFmpeg`, `FFprobe` y `FFplay` en `Android`, `iOS`, `macOS`, `Linux` y `Windows`. Usa `FFI` de Dart para interactuar directamente con las bibliotecas nativas de FFmpeg, ofreciendo alto rendimiento, flexibilidad y capacidades completas de reproducción de video.
+`ffmpeg-kit-extended` es un plugin completo de Flutter para ejecutar comandos de la `API 9.0.1` de `FFmpeg`, `FFprobe` y `FFplay` en `Android`, `iOS`, `macOS`, `Linux` y `Windows`. Usa `FFI` de Dart para interactuar directamente con las bibliotecas nativas de FFmpeg, ofreciendo alto rendimiento, flexibilidad y capacidades completas de reproducción de video.
 
 Si te gusta el proyecto y lo usas en tu aplicación, deja una ⭐ en [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) y [ffmpeg-kit-extended](https://github.com/akashskypatel/ffmpeg-kit-extended), y un 👍 en [pub.dev](https://pub.dev/packages/ffmpeg_kit_extended_flutter). ¡Ayuda mucho!
 
@@ -26,7 +26,7 @@ Si te gusta el proyecto y lo usas en tu aplicación, deja una ⭐ en [ffmpeg-kit
     - **iOS**: Compatible con `dispositivos` físicos y `simuladores`. La arquitectura `x86_64` no es compatible por ser heredada.
   - **Linux**: Reproducción de video completa con integración `OpenGL`.
     - **arm64**: La arquitectura `arm64` aún no es compatible; estará disponible próximamente.
-- **`FFmpeg`, `FFprobe` y `FFplay`**: Compatibilidad con la [`API 8.1.2` más reciente](https://www.ffmpeg.org/download.html#release_8.1) para manipulación de medios, recuperación de información y reproducción de audio/video.
+- **`FFmpeg`, `FFprobe` y `FFplay`**: Compatibilidad con la [`API 9.0.1` más reciente](https://www.ffmpeg.org/download.html#release_8.1) para manipulación de medios, recuperación de información y reproducción de audio/video.
 - **Reproducción de video**: Reproducción multiplataforma completa con una API de superficie unificada.
 - **Streaming en tiempo real**: Flujos de posición y dimensiones de video para monitoreo en vivo.
 - **Dart FFI**: Enlaces nativos directos para rendimiento óptimo.

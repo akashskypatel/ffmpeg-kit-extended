@@ -12,7 +12,7 @@
 
 [English](../README.md) | [Español](README.es.md) | [简体中文](README.zh-CN.md) | **हिन्दी** | [العربية](README.ar.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | [日本語](README.ja.md)
 
-`ffmpeg-kit-extended` एक व्यापक Flutter प्लगइन है, जिससे `Android`, `iOS`, `macOS`, `Linux` और `Windows` पर `FFmpeg`, `FFprobe` और `FFplay` के `8.1.2 API` कमांड चलाए जा सकते हैं। यह Dart `FFI` के माध्यम से मूल FFmpeg पुस्तकालयों से सीधे संपर्क करता है, जिससे उच्च प्रदर्शन, लचीलापन और पूर्ण वीडियो-प्लेबैक क्षमता मिलती है।
+`ffmpeg-kit-extended` एक व्यापक Flutter प्लगइन है, जिससे `Android`, `iOS`, `macOS`, `Linux` और `Windows` पर `FFmpeg`, `FFprobe` और `FFplay` के `9.0.1 API` कमांड चलाए जा सकते हैं। यह Dart `FFI` के माध्यम से मूल FFmpeg पुस्तकालयों से सीधे संपर्क करता है, जिससे उच्च प्रदर्शन, लचीलापन और पूर्ण वीडियो-प्लेबैक क्षमता मिलती है।
 
 यदि आपको यह परियोजना उपयोगी लगती है और आप इसे अपने ऐप में इस्तेमाल कर रहे हैं, तो [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) और [ffmpeg-kit-extended](https://github.com/akashskypatel/ffmpeg-kit-extended) पर ⭐ दें, और [pub.dev](https://pub.dev/packages/ffmpeg_kit_extended_flutter) पर 👍 दें। इससे बहुत मदद मिलती है 🙏! कोडिंग का आनंद लें 🚀!
 
@@ -25,7 +25,7 @@
     - **iOS**: वास्तविक `devices` और `simulators`, दोनों का समर्थन करता है। पुरानी स्थिति के कारण `x86_64` आर्किटेक्चर समर्थित नहीं है।
   - **Linux**: `OpenGL` एकीकरण के साथ पूर्ण वीडियो-प्लेबैक समर्थन।
     - **arm64**: `arm64` आर्किटेक्चर अभी समर्थित नहीं है; जल्द उपलब्ध होगा।
-- **`FFmpeg`, `FFprobe` और `FFplay`**: मीडिया संसाधन, जानकारी निकालने और ऑडियो/वीडियो चलाने के लिए [नवीनतम `8.1.2 API`](https://www.ffmpeg.org/download.html#release_8.1) समर्थन।
+- **`FFmpeg`, `FFprobe` और `FFplay`**: मीडिया संसाधन, जानकारी निकालने और ऑडियो/वीडियो चलाने के लिए [नवीनतम `9.0.1 API`](https://www.ffmpeg.org/download.html#release_8.1) समर्थन।
 - **वीडियो प्लेबैक**: एकीकृत सर्फ़ेस API के साथ पूर्ण बहु-प्लेटफ़ॉर्म वीडियो प्लेबैक।
 - **रीयल-टाइम स्ट्रीमिंग**: लाइव प्लेबैक निगरानी के लिए स्थिति और वीडियो-आयाम स्ट्रीम।
 - **Dart FFI**: सर्वोत्तम प्रदर्शन के लिए प्रत्यक्ष मूल बाइंडिंग।
