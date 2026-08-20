@@ -26,7 +26,7 @@ Si vous aimez le projet et l’utilisez dans votre application, ajoutez une ⭐ 
     - **iOS** : prend en charge les `appareils` physiques et les `simulateurs`. L’architecture `x86_64` n’est pas prise en charge, car elle est héritée.
   - **Linux** : lecture vidéo complète avec intégration `OpenGL`.
     - **arm64** : l’architecture `arm64` n’est pas encore prise en charge; elle arrive bientôt.
-- **`FFmpeg`, `FFprobe` et `FFplay`** : prise en charge de la [dernière `API 9.0.1`](https://www.ffmpeg.org/download.html#release_8.1) pour la manipulation multimédia, l’extraction d’informations et la lecture audio/vidéo.
+- **`FFmpeg`, `FFprobe` et `FFplay`** : prise en charge de la [dernière `API 9.0.1`](https://www.ffmpeg.org/download.html) pour la manipulation multimédia, l’extraction d’informations et la lecture audio/vidéo.
 - **Lecture vidéo** : lecture vidéo multiplateforme complète avec une API de surface unifiée.
 - **Streaming en temps réel** : flux de position et de dimensions vidéo pour un suivi en direct.
 - **Dart FFI** : liaisons natives directes pour des performances optimales.

@@ -26,7 +26,7 @@ Se você gosta do projeto e o usa no seu app, deixe uma ⭐ em [ffmpeg-kit-build
     - **iOS**: suporta `dispositivos` físicos e `simuladores`. A arquitetura `x86_64` não é suportada por ser legada.
   - **Linux**: reprodução de vídeo completa com integração `OpenGL`.
     - **arm64**: a arquitetura `arm64` ainda não é suportada; em breve.
-- **`FFmpeg`, `FFprobe` e `FFplay`**: suporte à [`API 9.0.1` mais recente](https://www.ffmpeg.org/download.html#release_8.1) para manipulação de mídia, leitura de informações e reprodução de áudio/vídeo.
+- **`FFmpeg`, `FFprobe` e `FFplay`**: suporte à [`API 9.0.1` mais recente](https://www.ffmpeg.org/download.html) para manipulação de mídia, leitura de informações e reprodução de áudio/vídeo.
 - **Reprodução de vídeo**: reprodução multiplataforma completa com API de superfície unificada.
 - **Streaming em tempo real**: streams de posição e dimensões do vídeo para monitoramento ao vivo.
 - **Dart FFI**: bindings nativos diretos para desempenho ideal.

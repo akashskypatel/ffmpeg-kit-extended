@@ -26,7 +26,7 @@
     - **iOS**：支持物理`设备`和`模拟器`。由于属于旧架构，不支持 `x86_64`。
   - **Linux**：通过 `OpenGL` 集成提供完整视频播放支持。
     - **arm64**：目前暂不支持 `arm64`，即将推出。
-- **`FFmpeg`、`FFprobe` 和 `FFplay`**：支持最新 [`9.0.1 API`](https://www.ffmpeg.org/download.html#release_8.1)，用于媒体处理、信息读取以及音视频播放。
+- **`FFmpeg`、`FFprobe` 和 `FFplay`**：支持最新 [`9.0.1 API`](https://www.ffmpeg.org/download.html)，用于媒体处理、信息读取以及音视频播放。
 - **视频播放**：使用统一 surface API 的完整跨平台视频播放。
 - **实时流**：提供播放位置和视频尺寸流，便于实时监控。
 - **Dart FFI**：直接原生绑定，以获得最佳性能。

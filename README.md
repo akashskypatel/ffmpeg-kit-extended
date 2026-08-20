@@ -29,7 +29,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
     - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
   - **Linux**: Full video playback support with `OpenGL` integration.
     - **arm64**: `arm64` architecture currently not supported, coming soon!
-- **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html#release_8.1) support for media manipulation, information retrieval, and audio/video playback.
+- **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
 - **Dart FFI**: Direct native bindings for optimal performance.
