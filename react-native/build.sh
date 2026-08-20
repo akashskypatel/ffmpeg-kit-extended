@@ -758,19 +758,56 @@ build_windows() {
   echo "========================================"
   prepare_windows_example
 
-  local -a args=(
-    react-native run-windows
-    --sln ../windows/FFmpegKitExtendedExample.sln
-    --arch x64
-    --no-packager
-    --no-launch
-    --no-deploy
-  )
+  local configuration="Debug"
   if [[ "$build_type" == "release" ]]; then
-    args+=(--release)
+    configuration="Release"
   fi
 
-  (cd "$windows_runtime_dir" && npx "${args[@]}")
+  local vswhere="/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
+  if [[ ! -x "$vswhere" ]]; then
+    echo "Visual Studio Installer's vswhere.exe was not found: $vswhere" >&2
+    exit 1
+  fi
+
+  local msbuild_windows
+  msbuild_windows="$(
+    "$vswhere" \
+      -latest \
+      -products '*' \
+      -version '[18.6,19.0)' \
+      -requires Microsoft.Component.MSBuild \
+      -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 \
+      -find 'MSBuild\**\Bin\MSBuild.exe' \
+      | tr -d '\r' \
+      | head -n 1
+  )"
+  if [[ -z "$msbuild_windows" ]]; then
+    echo "Visual Studio 18.6 or later with MSBuild and VC tools was not found." >&2
+    exit 1
+  fi
+
+  local msbuild
+  local project_windows
+  local solution_path_windows
+  local solution_dir_windows
+  msbuild="$(cygpath -u "$msbuild_windows")"
+  project_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample/FFmpegKitExtendedExample.vcxproj")"
+  solution_path_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample.sln")"
+  solution_dir_windows="$(cygpath -w "$example_dir/windows")\\"
+
+  echo "Building Windows application project with MSBuild..."
+  MSYS2_ARG_CONV_EXCL='*' "$msbuild" \
+    "$project_windows" \
+    /restore \
+    /m \
+    "/p:Configuration=$configuration" \
+    /p:Platform=x64 \
+    "/p:SolutionPath=$solution_path_windows" \
+    "/p:SolutionDir=$solution_dir_windows" \
+    /p:SolutionFileName=FFmpegKitExtendedExample.sln \
+    /p:RunAutolinkCheck=false \
+    /verbosity:minimal \
+    /nologo
 }
 
 build_library() {
