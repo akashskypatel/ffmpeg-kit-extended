@@ -154,6 +154,51 @@ class FFplaySession extends Session {
     _registered = true;
   }
 
+  /// Creates a new [FFplaySession] from pre-tokenized [arguments].
+  ///
+  /// Arguments are passed to the native layer verbatim, so paths and values
+  /// containing whitespace or literal quotes require no caller-side escaping.
+  FFplaySession.fromArguments(
+    List<String> arguments, {
+    FFplaySessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) : _timeout = timeout {
+    FFmpegKitExtended.requireInitialized();
+    if (arguments.isEmpty) {
+      throw ArgumentError.value(arguments, 'arguments', 'must not be empty');
+    }
+
+    final argv = calloc<Pointer<Char>>(arguments.length);
+    final nativeStrings = <Pointer<Utf8>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final nativeString = arguments[i].toNativeUtf8(allocator: calloc);
+        nativeStrings.add(nativeString);
+        argv[i] = nativeString.cast<Char>();
+      }
+
+      handle = ffmpeg.ffplay_kit_create_session_from_argv(
+        arguments.length,
+        argv,
+      );
+      if (handle == nullptr) {
+        throw StateError('Failed to create FFplay session from arguments.');
+      }
+      command = FFmpegKitExtended.argumentsToString(arguments);
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      registerFinalizer();
+    } finally {
+      for (final nativeString in nativeStrings) {
+        calloc.free(nativeString);
+      }
+      calloc.free(argv);
+    }
+
+    _completeCallback = completeCallback;
+    CallbackManager().registerFFplaySession(this);
+    _registered = true;
+  }
+
   // ---------------------------------------------------------------------------
   // Static helpers (deprecated wrappers for API compatibility)
   // ---------------------------------------------------------------------------
@@ -179,6 +224,28 @@ class FFplaySession extends Session {
     int timeout = 500,
   }) => FFplaySession(
     command,
+    timeout: timeout,
+    completeCallback: completeCallback,
+  );
+
+  /// Creates an FFplay session from pre-tokenized arguments.
+  static FFplaySession createFromArguments(
+    List<String> arguments, {
+    FFplaySessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) => FFplaySession.fromArguments(
+    arguments,
+    timeout: timeout,
+    completeCallback: completeCallback,
+  );
+
+  /// Internal argv factory used by [FFplayKit] for global tracking.
+  static FFplaySession createGlobalFromArguments(
+    List<String> arguments, {
+    FFplaySessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) => FFplaySession.fromArguments(
+    arguments,
     timeout: timeout,
     completeCallback: completeCallback,
   );

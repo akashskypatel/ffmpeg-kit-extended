@@ -1209,6 +1209,25 @@ external MediaInformationSessionHandle media_information_create_session(
   ffi.Pointer<ffi.Char> command,
 );
 
+/// Creates a new MediaInformation session from an argument array.
+///
+/// Arguments are passed as individual values without command-string reparsing.
+///
+/// @param argc the number of arguments
+/// @param argv the argument array
+/// @return the MediaInformation session handle
+@ffi.Native<
+  MediaInformationSessionHandle Function(
+    ffi.Int,
+    ffi.Pointer<ffi.Pointer<ffi.Char>>,
+  )
+>()
+external MediaInformationSessionHandle
+media_information_create_session_from_argv(
+  int argc,
+  ffi.Pointer<ffi.Pointer<ffi.Char>> argv,
+);
+
 /// Creates a new MediaInformation session with the given command.
 ///
 /// @param command the MediaInformation command to execute

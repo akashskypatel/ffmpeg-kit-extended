@@ -34,7 +34,11 @@ export class FFmpegKit {
    * This avoids manual quoting for paths and values containing whitespace.
    */
   static createSessionFromArguments(arguments_: readonly string[]): FFmpegSession {
-    return this.createSession(argumentsToString(arguments_));
+    if (arguments_.length === 0) throw new Error('arguments must not be empty');
+    return new FFmpegSession(
+      NativeFFmpegKitExtended.createFFmpegSessionFromArguments(arguments_),
+      argumentsToString(arguments_),
+    );
   }
 
   /**

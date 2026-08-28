@@ -11,9 +11,12 @@ void FFmpegKitExtendedImpl::initialize(jsi::Runtime &) { api::initialize(); }
 std::string FFmpegKitExtendedImpl::getBuildStamp(jsi::Runtime &) { return api::getBuildStamp(); }
 
 double FFmpegKitExtendedImpl::createFFmpegSession(jsi::Runtime &, std::string command) { return api::createFFmpegSession(command); }
+double FFmpegKitExtendedImpl::createFFmpegSessionFromArguments(jsi::Runtime &, std::vector<std::string> arguments) { return api::createFFmpegSessionFromArguments(arguments); }
 double FFmpegKitExtendedImpl::createFFprobeSession(jsi::Runtime &, std::string command) { return api::createFFprobeSession(command); }
 double FFmpegKitExtendedImpl::createFFplaySession(jsi::Runtime &, std::string command) { return api::createFFplaySession(command); }
+double FFmpegKitExtendedImpl::createFFplaySessionFromArguments(jsi::Runtime &, std::vector<std::string> arguments) { return api::createFFplaySessionFromArguments(arguments); }
 double FFmpegKitExtendedImpl::createMediaInformationSession(jsi::Runtime &, std::string command) { return api::createMediaInformationSession(command); }
+double FFmpegKitExtendedImpl::createMediaInformationSessionFromPath(jsi::Runtime &, std::string path) { return api::createMediaInformationSessionFromPath(path); }
 void FFmpegKitExtendedImpl::executeSessionAsync(jsi::Runtime &, double sessionId, double timeoutMs) { api::executeSessionAsync(sessionId, timeoutMs); }
 void FFmpegKitExtendedImpl::cancelSession(jsi::Runtime &, double sessionId) { api::cancelSession(sessionId); }
 

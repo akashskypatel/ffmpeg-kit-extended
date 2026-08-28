@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace winrt::FFmpegKitExtended {
 
@@ -41,14 +42,23 @@ struct FFmpegKitExtended {
   REACT_SYNC_METHOD(createFFmpegSession)
   double createFFmpegSession(std::string command) noexcept;
 
+  REACT_SYNC_METHOD(createFFmpegSessionFromArguments)
+  double createFFmpegSessionFromArguments(std::vector<std::string> arguments) noexcept;
+
   REACT_SYNC_METHOD(createFFprobeSession)
   double createFFprobeSession(std::string command) noexcept;
 
   REACT_SYNC_METHOD(createFFplaySession)
   double createFFplaySession(std::string command) noexcept;
 
+  REACT_SYNC_METHOD(createFFplaySessionFromArguments)
+  double createFFplaySessionFromArguments(std::vector<std::string> arguments) noexcept;
+
   REACT_SYNC_METHOD(createMediaInformationSession)
   double createMediaInformationSession(std::string command) noexcept;
+
+  REACT_SYNC_METHOD(createMediaInformationSessionFromPath)
+  double createMediaInformationSessionFromPath(std::string path) noexcept;
 
   REACT_METHOD(executeSessionAsync)
   void executeSessionAsync(double sessionId, double timeoutMs) noexcept;

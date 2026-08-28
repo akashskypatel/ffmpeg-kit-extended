@@ -1,7 +1,8 @@
 /**
  * Low-level React Native TurboModule contract generated into each platform.
  *
- * The interface intentionally transports only scalar values and JSON strings.
+ * The interface keeps structured session/result payloads as JSON strings while
+ * allowing pre-tokenized FFmpeg/FFplay arguments to cross as string arrays.
  * Most applications should use the higher-level exported classes, which create
  * typed sessions, poll callbacks, enforce queue limits, release native handles,
  * and parse media information. Direct calls require the caller to preserve
@@ -19,9 +20,15 @@ export interface Spec extends TurboModule {
 
   /** Session creation/execution methods. Commands omit executable names. */
   createFFmpegSession(command: string): Double;
+  /** Creates an FFmpeg session from pre-tokenized arguments. */
+  createFFmpegSessionFromArguments(arguments_: ReadonlyArray<string>): Double;
   createFFprobeSession(command: string): Double;
   createFFplaySession(command: string): Double;
+  /** Creates an FFplay session from pre-tokenized arguments. */
+  createFFplaySessionFromArguments(arguments_: ReadonlyArray<string>): Double;
   createMediaInformationSession(command: string): Double;
+  /** Creates the standard media-information probe without command-string reparsing. */
+  createMediaInformationSessionFromPath(path: string): Double;
   executeSessionAsync(sessionId: Double, timeoutMs: Double): void;
   cancelSession(sessionId: Double): void;
 

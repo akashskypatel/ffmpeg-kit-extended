@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace facebook::react {
 
@@ -17,9 +18,12 @@ class FFmpegKitExtendedImpl
   std::string getBuildStamp(jsi::Runtime &rt);
 
   double createFFmpegSession(jsi::Runtime &rt, std::string command);
+  double createFFmpegSessionFromArguments(jsi::Runtime &rt, std::vector<std::string> arguments);
   double createFFprobeSession(jsi::Runtime &rt, std::string command);
   double createFFplaySession(jsi::Runtime &rt, std::string command);
+  double createFFplaySessionFromArguments(jsi::Runtime &rt, std::vector<std::string> arguments);
   double createMediaInformationSession(jsi::Runtime &rt, std::string command);
+  double createMediaInformationSessionFromPath(jsi::Runtime &rt, std::string path);
   void executeSessionAsync(jsi::Runtime &rt, double sessionId, double timeoutMs);
   void cancelSession(jsi::Runtime &rt, double sessionId);
 
