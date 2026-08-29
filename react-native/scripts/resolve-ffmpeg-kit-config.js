@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG_FILE_NAME = 'ffmpeg-kit-extended.config.json';
-const BINARY_VERSION = '0.11.0';
+const BINARY_VERSION = '0.11.1';
 const BASE_RELEASE_URL =
   'https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download';
 const RELEASE_API_URL =
@@ -201,7 +201,8 @@ function resolveConfig({appRoot, platform, architecture}) {
     targetPlatform === 'macos'
   ) {
     const parts = ['bundle', currentType, targetPlatform, 'universal'];
-    if (type !== 'debug' && small) parts.push('small');
+    if (type === 'debug') parts.push('debug');
+    else if (small) parts.push('small');
     parts.push(license);
 
     result.artifact = parts.join('-');
@@ -218,7 +219,8 @@ function resolveConfig({appRoot, platform, architecture}) {
 
   const arch = targetArchitecture || 'x86_64';
   const parts = ['bundle', currentType, targetPlatform, arch, 'shared'];
-  if (type !== 'debug' && small) parts.push('small');
+  if (type === 'debug') parts.push('debug');
+  else if (small) parts.push('small');
   parts.push(license);
 
   result.artifact = parts.join('-');
