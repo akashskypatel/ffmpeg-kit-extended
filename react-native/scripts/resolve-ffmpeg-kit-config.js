@@ -79,7 +79,7 @@ function loadConfig(appRoot) {
     return {
       appRoot: resolvedAppRoot,
       configPath: null,
-      config: {...DEFAULT_CONFIG},
+      config: { ...DEFAULT_CONFIG },
       usedDefaultConfig: true,
     };
   }
@@ -98,7 +98,7 @@ function loadConfig(appRoot) {
   return {
     appRoot: path.dirname(configPath),
     configPath,
-    config: {...DEFAULT_CONFIG, ...parsed},
+    config: { ...DEFAULT_CONFIG, ...parsed },
     usedDefaultConfig: false,
   };
 }
@@ -107,7 +107,7 @@ function createCacheKey(value) {
   return crypto.createHash('sha256').update(value).digest('hex').slice(0, 16);
 }
 
-function resolveConfig({appRoot, platform, architecture}) {
+function resolveConfig({ appRoot, platform, architecture }) {
   const targetPlatform = normalizePlatform(platform);
   const targetArchitecture = normalizeArchitecture(architecture);
   const loaded = loadConfig(appRoot);
@@ -159,7 +159,7 @@ function resolveConfig({appRoot, platform, architecture}) {
         filename = path.basename(value);
       }
       if (!filename) fail(`Could not determine a filename from ${value}`);
-      result.override = {kind: 'remote', value};
+      result.override = { kind: 'remote', value };
       result.filename = filename;
       result.url = value;
       result.cacheKey = createCacheKey(`remote:${value}`);
@@ -169,7 +169,7 @@ function resolveConfig({appRoot, platform, architecture}) {
     const resolvedPath = path.isAbsolute(value)
       ? path.normalize(value)
       : path.resolve(loaded.appRoot, value);
-    result.override = {kind: 'local', value, resolvedPath};
+    result.override = { kind: 'local', value, resolvedPath };
     result.filename = path.basename(resolvedPath);
     result.cacheKey = createCacheKey(`local:${resolvedPath}`);
     return result;
@@ -178,8 +178,11 @@ function resolveConfig({appRoot, platform, architecture}) {
   const currentType = type === 'debug' ? 'base' : type;
   if (targetPlatform === 'android') {
     const parts = ['bundle', currentType, 'shared'];
-    if (type === 'debug') parts.push('debug');
-    else if (small) parts.push('small');
+    if (type === 'debug') {
+      parts.push('debug');
+    } else if (small) {
+      parts.push('small');
+    }
     parts.push(license);
 
     const artifactId = parts.join('-');
@@ -201,8 +204,11 @@ function resolveConfig({appRoot, platform, architecture}) {
     targetPlatform === 'macos'
   ) {
     const parts = ['bundle', currentType, targetPlatform, 'universal'];
-    if (type === 'debug') parts.push('debug');
-    else if (small) parts.push('small');
+    if (type === 'debug') {
+      parts.push('debug');
+    } else if (small) {
+      parts.push('small');
+    }
     parts.push(license);
 
     result.artifact = parts.join('-');
@@ -219,8 +225,11 @@ function resolveConfig({appRoot, platform, architecture}) {
 
   const arch = targetArchitecture || 'x86_64';
   const parts = ['bundle', currentType, targetPlatform, arch, 'shared'];
-  if (type === 'debug') parts.push('debug');
-  else if (small) parts.push('small');
+  if (type === 'debug') {
+    parts.push('debug');
+  } else if (small) {
+    parts.push('small');
+  }
   parts.push(license);
 
   result.artifact = parts.join('-');
