@@ -24,6 +24,7 @@ on:
       - "**.cc"
       - "**.podspec"
       - "!**.md"
+      - "!react-native/**"
       - "!flutter/doc/**"
   pull_request:
     paths:
@@ -44,6 +45,7 @@ on:
       - "**.cpp"
       - "**.cc"
       - "!**.md"
+      - "!react-native/**"
       - "!flutter/doc/**"
 
 concurrency:
