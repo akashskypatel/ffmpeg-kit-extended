@@ -27,6 +27,11 @@ on:
       - "!react-native/**"
       - "!flutter/doc/**"
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     paths:
       - "flutter/**"
       - ".github/workflows/flutter_example_ci.yaml"
@@ -54,6 +59,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.pull_request.draft == false
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -190,6 +196,7 @@ jobs:
           retention-days: 7
 
   analyze:
+    if: github.event.pull_request.draft == false
     name: Static Analysis
     runs-on: ubuntu-latest
     steps:
