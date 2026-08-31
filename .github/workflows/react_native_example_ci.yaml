@@ -8,10 +8,17 @@ on:
       - master
     paths:
       - "react-native/**"
+      - "!flutter/**"
       - ".github/workflows/react_native_example_ci.yaml"
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     paths:
       - "react-native/**"
+      - "!flutter/**"
       - ".github/workflows/react_native_example_ci.yaml"
 
 permissions:
@@ -23,6 +30,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event.pull_request.draft == false
     name: Build (${{ matrix.platform }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

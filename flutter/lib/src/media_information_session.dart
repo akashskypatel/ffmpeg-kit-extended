@@ -44,8 +44,19 @@ class MediaInformationSession extends FFprobeSession {
   // ---------------------------------------------------------------------------
 
   static const String _defaultCommandPrefix = '-v error -hide_banner';
-  static const String _defaultCommand =
-      '-v error -hide_banner -print_format json -show_format -show_streams -show_chapters -i';
+  static const List<String> _defaultCommandPrefixArguments = [
+    '-v',
+    'error',
+    '-hide_banner',
+  ];
+  static const List<String> _defaultMediaInformationArguments = [
+    '-print_format',
+    'json',
+    '-show_format',
+    '-show_streams',
+    '-show_chapters',
+    '-i',
+  ];
 
   // ---------------------------------------------------------------------------
   // Callback accessors / mutators
@@ -159,6 +170,65 @@ class MediaInformationSession extends FFprobeSession {
   // Named constructors
   // ---------------------------------------------------------------------------
 
+  /// Creates a [MediaInformationSession] from individual ffprobe [arguments].
+  ///
+  /// The default `-v error -hide_banner` arguments are prepended. Each supplied
+  /// argument is passed to the native layer verbatim, so callers do not need to
+  /// quote or escape whitespace or literal quote characters inside values.
+  MediaInformationSession.fromArguments(
+    List<String> arguments, {
+    MediaInformationSessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) : _timeout = timeout,
+       super.internal() {
+    FFmpegKitExtended.requireInitialized();
+    final finalArguments = <String>[
+      ..._defaultCommandPrefixArguments,
+      ...arguments,
+    ];
+    command = finalArguments.join(' ');
+
+    using((Arena arena) {
+      final argv = arena<Pointer<Char>>(finalArguments.length);
+      for (var i = 0; i < finalArguments.length; i++) {
+        argv[i] = finalArguments[i]
+            .toNativeUtf8(allocator: arena)
+            .cast<Char>();
+      }
+
+      try {
+        handle = ffmpeg.media_information_create_session_from_argv(
+          finalArguments.length,
+          argv,
+        );
+      } catch (e, st) {
+        log(
+          'MediaInformationSession.fromArguments: error creating session '
+          'media_information_create_session_from_argv $command',
+          error: e,
+          stackTrace: st,
+        );
+        rethrow;
+      }
+    });
+
+    try {
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+    } catch (e, st) {
+      log(
+        'MediaInformationSession.fromArguments: error getting session id '
+        'for ffmpeg_kit_session_get_session_id $command',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+    registerFinalizer();
+
+    _mediaInfoCompleteCallback = completeCallback;
+    ensureRegistered();
+  }
+
   /// Restores a [MediaInformationSession] from a native [handle].
   MediaInformationSession.fromHandle(Pointer<Void> handle, String command)
     : _timeout = 500,
@@ -182,102 +252,32 @@ class MediaInformationSession extends FFprobeSession {
   }
 
   /// Creates a [MediaInformationSession] for a local [file].
-  MediaInformationSession.fromFile(
+  ///
+  /// The file path is passed as one native argument, so whitespace and literal
+  /// quote characters in the filename require no caller-side escaping.
+  factory MediaInformationSession.fromFile(
     File file, {
     MediaInformationSessionCompleteCallback? completeCallback,
     int timeout = 500,
-  }) : _timeout = timeout,
-       super.internal() {
-    FFmpegKitExtended.requireInitialized();
-    final finalCommand = '$_defaultCommand ${file.path}';
-    command = finalCommand;
-
-    final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
-    try {
-      try {
-        handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      } catch (e, st) {
-        log(
-          'MediaInformationSession.fromFile: error creating session media_information_create_session $finalCommand',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
-      try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      } catch (e, st) {
-        log(
-          'MediaInformationSession.fromFile: error getting session id for ffmpeg_kit_session_get_session_id $finalCommand',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
-      registerFinalizer();
-    } catch (e, st) {
-      log(
-        'MediaInformationSession.fromFile: failed to create session',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    } finally {
-      calloc.free(cmdPtr);
-    }
-
-    _mediaInfoCompleteCallback = completeCallback;
-    ensureRegistered();
-  }
+  }) => MediaInformationSession.fromArguments(
+    [..._defaultMediaInformationArguments, file.path],
+    completeCallback: completeCallback,
+    timeout: timeout,
+  );
 
   /// Creates a [MediaInformationSession] for a network [uri].
-  MediaInformationSession.fromUri(
+  ///
+  /// The URI is passed as one native argument and is not reparsed as command
+  /// text.
+  factory MediaInformationSession.fromUri(
     Uri uri, {
     MediaInformationSessionCompleteCallback? completeCallback,
     int timeout = 500,
-  }) : _timeout = timeout,
-       super.internal() {
-    FFmpegKitExtended.requireInitialized();
-    final finalCommand = '$_defaultCommand ${uri.toString()}';
-    command = finalCommand;
-
-    final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
-    try {
-      try {
-        handle = ffmpeg.media_information_create_session(cmdPtr.cast());
-      } catch (e, st) {
-        log(
-          'MediaInformationSession.fromUri: error creating session media_information_create_session $finalCommand',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
-      try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
-      } catch (e, st) {
-        log(
-          'MediaInformationSession.fromUri: error getting session id for ffmpeg_kit_session_get_session_id $finalCommand',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
-      registerFinalizer();
-    } catch (e, st) {
-      log(
-        'MediaInformationSession.fromUri: failed to create session',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    } finally {
-      calloc.free(cmdPtr);
-    }
-
-    _mediaInfoCompleteCallback = completeCallback;
-    ensureRegistered();
-  }
+  }) => MediaInformationSession.fromArguments(
+    [..._defaultMediaInformationArguments, uri.toString()],
+    completeCallback: completeCallback,
+    timeout: timeout,
+  );
 
   // ---------------------------------------------------------------------------
   // Static factories
@@ -326,6 +326,17 @@ class MediaInformationSession extends FFprobeSession {
     int timeout = 500,
   }) => MediaInformationSession(
     command,
+    timeout: timeout,
+    completeCallback: completeCallback,
+  );
+
+  /// Creates a session from individual ffprobe [arguments].
+  static MediaInformationSession createWithArguments(
+    List<String> arguments, {
+    MediaInformationSessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) => MediaInformationSession.fromArguments(
+    arguments,
     timeout: timeout,
     completeCallback: completeCallback,
   );

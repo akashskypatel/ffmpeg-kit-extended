@@ -430,10 +430,59 @@ static double createSessionWith(const char *symbol, const std::string &command) 
   return static_cast<double>(id);
 }
 
+static double createSessionWithArguments(
+    const char *symbol, const std::vector<std::string> &arguments) {
+  ensureInitialized();
+  if (arguments.empty()) {
+    throw std::invalid_argument("FFmpegKit argument list must not be empty");
+  }
+
+  std::vector<const char *> argv;
+  argv.reserve(arguments.size());
+  for (const auto &argument : arguments) {
+    argv.push_back(argument.c_str());
+  }
+
+  using Fn = Handle (*)(int, const char **);
+  HandleGuard guard(resolve<Fn>(symbol)(static_cast<int>(argv.size()), argv.data()));
+  if (guard.handle == nullptr) {
+    throw std::runtime_error("Failed to create FFmpegKit session from arguments");
+  }
+  const auto id = sessionIdOf(guard.handle);
+  recordKnownSessionId(id);
+  return static_cast<double>(id);
+}
+
 double createFFmpegSession(const std::string &command) { return createSessionWith("ffmpeg_kit_create_session", command); }
+double createFFmpegSessionFromArguments(const std::vector<std::string> &arguments) { return createSessionWithArguments("ffmpeg_kit_create_session_from_argv", arguments); }
 double createFFprobeSession(const std::string &command) { return createSessionWith("ffprobe_kit_create_session", command); }
 double createFFplaySession(const std::string &command) { return createSessionWith("ffplay_kit_create_session", command); }
+double createFFplaySessionFromArguments(const std::vector<std::string> &arguments) { return createSessionWithArguments("ffplay_kit_create_session_from_argv", arguments); }
 double createMediaInformationSession(const std::string &command) { return createSessionWith("media_information_create_session", command); }
+
+double createMediaInformationSessionFromPath(const std::string &path) {
+  ensureInitialized();
+  const std::vector<std::string> arguments = {
+      "-v",            "error",          "-hide_banner",
+      "-print_format", "json",           "-show_format",
+      "-show_streams", "-show_chapters", "-i",
+      path};
+  std::vector<const char *> argv;
+  argv.reserve(arguments.size());
+  for (const auto &argument : arguments) {
+    argv.push_back(argument.c_str());
+  }
+
+  using Fn = Handle (*)(int, const char **);
+  HandleGuard guard(resolve<Fn>("media_information_create_session_from_argv")(
+      static_cast<int>(argv.size()), argv.data()));
+  if (guard.handle == nullptr) {
+    throw std::runtime_error("Failed to create FFmpegKit media information session");
+  }
+  const auto id = sessionIdOf(guard.handle);
+  recordKnownSessionId(id);
+  return static_cast<double>(id);
+}
 
 void executeSessionAsync(double sessionId, double timeoutMs) {
   ensureInitialized();

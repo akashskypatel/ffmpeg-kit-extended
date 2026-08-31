@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace ffmpegkit::bridge {
 
@@ -9,9 +10,12 @@ void initialize();
 std::string getBuildStamp();
 
 double createFFmpegSession(const std::string &command);
+double createFFmpegSessionFromArguments(const std::vector<std::string> &arguments);
 double createFFprobeSession(const std::string &command);
 double createFFplaySession(const std::string &command);
+double createFFplaySessionFromArguments(const std::vector<std::string> &arguments);
 double createMediaInformationSession(const std::string &command);
+double createMediaInformationSessionFromPath(const std::string &path);
 void executeSessionAsync(double sessionId, double timeoutMs);
 void cancelSession(double sessionId);
 

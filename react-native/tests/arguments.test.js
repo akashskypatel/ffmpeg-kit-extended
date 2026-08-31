@@ -25,29 +25,42 @@ test('parseArguments handles escaped whitespace and quotes', () => {
 
 test('parseArguments preserves empty quoted arguments', () => {
   assert.deepEqual(parseArguments('ffmpeg "" tail'), ['ffmpeg', '', 'tail']);
+  assert.deepEqual(parseArguments("ffmpeg '' tail"), ['ffmpeg', '', 'tail']);
 });
 
-test('parseArguments preserves a trailing escape character', () => {
-  assert.deepEqual(parseArguments('value\\'), ['value\\']);
-});
-
-test('argumentsToString leaves simple arguments unquoted', () => {
-  assert.equal(argumentsToString(['-i', 'input.mp4']), '-i input.mp4');
-});
-
-test('argumentsToString quotes and escapes special characters', () => {
-  assert.equal(
-    argumentsToString(['input file.mp4', 'a"b', 'c\\d', '']),
-    '"input file.mp4" "a\\\"b" "c\\\\d" ""',
+test('parseArguments preserves Windows and UNC path backslashes', () => {
+  assert.deepEqual(
+    parseArguments('-i "C:\\Program Files\\Media\\clip.mp4"'),
+    ['-i', 'C:\\Program Files\\Media\\clip.mp4'],
+  );
+  assert.deepEqual(
+    parseArguments('\\\\server\\share\\clip.mp4'),
+    ['\\\\server\\share\\clip.mp4'],
   );
 });
 
-test('argumentsToString round-trips supported argument forms', () => {
+test('argumentsToString leaves simple arguments and backslashes unquoted', () => {
+  assert.equal(argumentsToString(['-i', 'input.mp4', 'c\\d']), '-i input.mp4 c\\d');
+});
+
+test('argumentsToString safely quotes special values', () => {
+  assert.equal(
+    argumentsToString(['input file.mp4', 'a"b', "single'value", '']),
+    `'input file.mp4' 'a"b' 'single'\\''value' ''`,
+  );
+});
+
+test('argumentsToString round-trips Windows paths, quotes, and empty values', () => {
   const values = [
     '-filter_complex',
     '[0:v]scale=1280:720[out v]',
     'quote"value',
+    "single'value",
     'slash\\value',
+    'C:\\Program Files\\Media\\clip.mp4',
+    'C:\\Program Files\\Media\\',
+    'quote"and\\',
+    '\\\\server\\share\\folder with spaces\\',
     '',
   ];
 

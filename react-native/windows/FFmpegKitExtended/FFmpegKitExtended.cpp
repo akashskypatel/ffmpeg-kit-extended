@@ -67,6 +67,12 @@ double FFmpegKitExtended::createFFmpegSession(std::string command) noexcept {
   return invoke<double>("createFFmpegSession", [&] { return api::createFFmpegSession(command); });
 }
 
+double FFmpegKitExtended::createFFmpegSessionFromArguments(std::vector<std::string> arguments) noexcept {
+  return invoke<double>("createFFmpegSessionFromArguments", [&] {
+    return api::createFFmpegSessionFromArguments(arguments);
+  });
+}
+
 double FFmpegKitExtended::createFFprobeSession(std::string command) noexcept {
   return invoke<double>("createFFprobeSession", [&] { return api::createFFprobeSession(command); });
 }
@@ -75,8 +81,20 @@ double FFmpegKitExtended::createFFplaySession(std::string command) noexcept {
   return invoke<double>("createFFplaySession", [&] { return api::createFFplaySession(command); });
 }
 
+double FFmpegKitExtended::createFFplaySessionFromArguments(std::vector<std::string> arguments) noexcept {
+  return invoke<double>("createFFplaySessionFromArguments", [&] {
+    return api::createFFplaySessionFromArguments(arguments);
+  });
+}
+
 double FFmpegKitExtended::createMediaInformationSession(std::string command) noexcept {
   return invoke<double>("createMediaInformationSession", [&] { return api::createMediaInformationSession(command); });
+}
+
+double FFmpegKitExtended::createMediaInformationSessionFromPath(std::string path) noexcept {
+  return invoke<double>("createMediaInformationSessionFromPath", [&] {
+    return api::createMediaInformationSessionFromPath(path);
+  });
 }
 
 void FFmpegKitExtended::executeSessionAsync(double sessionId, double timeoutMs) noexcept {

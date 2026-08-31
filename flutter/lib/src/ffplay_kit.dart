@@ -102,6 +102,33 @@ class FFplayKit {
     return _activeFFplaySession!;
   }
 
+  /// Creates a new [FFplaySession] from pre-tokenized [arguments].
+  static Future<FFplaySession> createSessionFromArguments(
+    List<String> arguments, {
+    FFplaySessionCompleteCallback? onComplete,
+    callback_manager.FFmpegLogCallback? onLog,
+  }) async {
+    _sessionCompleter = Completer<void>();
+
+    void wrappedCallback(FFplaySession session) {
+      onComplete?.call(session);
+      if (_activeFFplaySession == session) {
+        _activeFFplaySession = null;
+        _sessionCompleter?.complete();
+        _sessionCompleter = null;
+      }
+    }
+
+    _activeFFplaySession = FFplaySession.createGlobalFromArguments(
+      arguments,
+      completeCallback: wrappedCallback,
+    );
+    if (onLog != null) {
+      _activeFFplaySession!.setLogCallback(onLog);
+    }
+    return _activeFFplaySession!;
+  }
+
   /// Cancels a [session] if it is currently running.
   static void cancel(FFplaySession session) => session.cancel();
 
