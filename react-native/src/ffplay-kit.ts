@@ -1,4 +1,5 @@
 import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {argumentsToString} from './arguments';
 import {FFplaySession} from './session';
 import type {ExecuteOptions} from './types';
 
@@ -24,6 +25,19 @@ export class FFplayKit {
     return new FFplaySession(
       NativeFFmpegKitExtended.createFFplaySession(command),
       command,
+      timeoutMs,
+    );
+  }
+
+  /** Creates a playback session from pre-tokenized FFplay arguments. */
+  static createSessionFromArguments(
+    arguments_: readonly string[],
+    timeoutMs = 500,
+  ): FFplaySession {
+    if (arguments_.length === 0) throw new Error('arguments must not be empty');
+    return new FFplaySession(
+      NativeFFmpegKitExtended.createFFplaySessionFromArguments(arguments_),
+      argumentsToString(arguments_),
       timeoutMs,
     );
   }

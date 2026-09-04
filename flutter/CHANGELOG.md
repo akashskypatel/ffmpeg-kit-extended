@@ -1,8 +1,19 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 0.6.2
+
+- Preserve FFmpeg, FFprobe, and FFplay session arguments as argv all the way into their embedded CLI runtimes to fix argument parsing bug exposed by quotes in commands.
+- Fix `debug` build for macOS, iOS, Windows and Linux.
+
 ## Version 0.6.0
 
 - Upgrade FFmpeg version to v9.0.1
+- Fix media-information sessions for paths containing whitespace or literal
+  quote characters by passing file/URI values as native argv entries.
+- Add `MediaInformationSession.fromArguments` and `createWithArguments` for
+  quote-safe custom ffprobe arguments.
+- Add `FFplaySession.fromArguments` / `createFromArguments` and an FFplayKit
+  argv factory; FFmpeg and FFplay argv sessions now remain tokenized natively.
 
 ## Version 0.5.13
 

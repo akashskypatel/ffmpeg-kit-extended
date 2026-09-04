@@ -166,6 +166,7 @@ You will have to update your app's minimum requirements on your own to match the
 > - **`libopenvino`** and **`libtensorflow`** are only available on Desktop builds (`MacOS`, `Linux`, and `Windows`).
 > - **`libtorch`** is only available on `Linux` and `MacOs` builds (`Windows` not supported due ABI mismatch).
 > - **`libonnxruntime`** is not available on `x86_64` `MacOS`.
+> - Only CPU AI libraries are vendored with pre-built bundles. GPU libraries must be custom deployed.
 
 | Feature   | Base | Audio | Video | Video+Hardware | Full |
 | --------- | ---- | ----- | ----- | -------------- | ---- |

@@ -11,7 +11,7 @@ import 'package:yaml/yaml.dart';
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
-const String version = "0.11.0";
+const String version = "0.11.1";
 const String _extractMarkerFileName = '.extract_complete';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
@@ -293,7 +293,11 @@ Future<FFmpegArtifact?> _resolveArtifact(
       url = "$_baseUrlTemplate/$tag/$filename";
     } else if (targetOS == OS.iOS || targetOS == OS.macOS) {
       final parts = ['bundle', currentType, platformName, 'universal'];
-      if (type != 'debug' && small) parts.add('small');
+      if (type == 'debug') {
+        parts.add('debug');
+      } else if (small) {
+        parts.add('small');
+      }
       parts.add(license);
       filename = "${parts.join('-')}.xcframework.zip";
       final tag = "v$version-$platformName";
@@ -304,7 +308,11 @@ Future<FFmpegArtifact?> _resolveArtifact(
           ? 'x86_64'
           : (targetArch == Architecture.arm64 ? 'arm64' : 'x86_64');
       final parts = ['bundle', currentType, platformName, archStr, 'shared'];
-      if (type != 'debug' && small) parts.add('small');
+      if (type == 'debug') {
+        parts.add('debug');
+      } else if (small) {
+        parts.add('small');
+      }
       parts.add(license);
       filename = "${parts.join('-')}.zip";
       final tag = "v$version-$platformName";

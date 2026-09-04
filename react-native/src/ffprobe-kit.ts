@@ -61,9 +61,9 @@ export class FFprobeKit {
     timeoutMs = 500,
   ): MediaInformationSession {
     requireCommand(path);
-    const command = `${MEDIA_INFO_COMMAND} ${quoteMediaPath(path)}`;
+    const command = `${MEDIA_INFO_COMMAND} ${formatMediaPathForDisplay(path)}`;
     return new MediaInformationSession(
-      NativeFFmpegKitExtended.createMediaInformationSession(command),
+      NativeFFmpegKitExtended.createMediaInformationSessionFromPath(path),
       command,
       timeoutMs,
     );
@@ -102,6 +102,8 @@ function requireCommand(command: string): void {
   if (!command.trim()) throw new Error('command must not be blank');
 }
 
-function quoteMediaPath(path: string): string {
-  return /\s/.test(path) ? `"${path.replace(/(["\\])/g, '\\$1')}"` : path;
+function formatMediaPathForDisplay(path: string): string {
+  return /[\s"\\]/.test(path)
+    ? `"${path.replace(/(["\\])/g, '\\$1')}"`
+    : path;
 }
