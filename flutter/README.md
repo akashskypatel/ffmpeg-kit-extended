@@ -29,7 +29,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
     - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
   - **Linux**: Full video playback support with `OpenGL` integration.
     - **arm64**: `arm64` architecture currently not supported, coming soon!
-  - **Web**: Downloads the matching `wasm32` static bundle as Dart data assets during the build hook. Build with `flutter build web --wasm`.
+  - **Web**: Downloads the matching `wasm32` static bundle during the build hook and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
@@ -384,6 +384,7 @@ The `FFplaySurface` class automatically handles platform differences:
 - **Android**: Uses `SurfaceTexture` backed `ANativeWindow` for native rendering
 - **iOS/macOS**: Uses `CVPixelBuffer` textures with Metal optimization
 - **Linux/Windows**: Uses pixel buffer textures with frame callbacks
+- **Web**: Pulls generation-tracked RGBA8888 frames from Wasm memory and renders them as Flutter images
 - **Audio-only**: Surface is created but not displayed, preventing crashes
 
 #### Advanced Features

@@ -11,6 +11,9 @@ fi
 if [[ $platform == "ios" ]]; then
     platform="ios --simulator"
 fi
+if [[ $platform == "web" ]]; then
+    platform="web --wasm"
+fi
 if [[ -f $build_log_file ]]; then
     rm $build_log_file
 fi

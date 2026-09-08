@@ -4,6 +4,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
@@ -97,8 +99,10 @@ class _WasmRuntime {
 
   JSObject? _module;
   Future<void>? _initializing;
+  final _frameSizeController = StreamController<(int, int)>.broadcast();
 
   bool get initialized => _module != null;
+  Stream<(int, int)> get frameSizeStream => _frameSizeController.stream;
 
   Future<void> initialize() => _initializing ??= _load();
 
@@ -149,6 +153,9 @@ class _WasmRuntime {
   int _callInt(String name, [List<JSAny?> args = const []]) =>
       (_call(name, args) as JSNumber).toDartInt;
 
+  double _callDouble(String name, [List<JSAny?> args = const []]) =>
+      (_call(name, args) as JSNumber).toDartDouble;
+
   void _callVoid(String name, [List<JSAny?> args = const []]) =>
       _call(name, args);
 
@@ -188,6 +195,91 @@ class _WasmRuntime {
 
   void release(int handle) =>
       _callVoid('_ffmpeg_kit_handle_release', [handle.toJS]);
+
+  int allocate(int size) => _callInt('_malloc', [size.toJS]);
+  void free(int pointer) => _callVoid('_free', [pointer.toJS]);
+
+  Int32List get heap32 =>
+      _module!.getProperty<JSInt32Array>('HEAP32'.toJS).toDart;
+  Uint8List get heapU8 =>
+      _module!.getProperty<JSUint8Array>('HEAPU8'.toJS).toDart;
+
+  void publishFrameSize(int width, int height) {
+    _frameSizeController.add((width, height));
+  }
+}
+
+class _WasmFrame {
+  const _WasmFrame(
+    this.pixels,
+    this.width,
+    this.height,
+    this.linesize,
+    this.generation,
+  );
+  final Uint8List pixels;
+  final int width;
+  final int height;
+  final int linesize;
+  final int generation;
+}
+
+class _WasmFrameReader {
+  _WasmFrameReader() {
+    _metadata = _runtime.allocate(24);
+  }
+
+  final _runtime = _WasmRuntime.instance;
+  late final int _metadata;
+  int _pixels = 0;
+  int _capacity = 0;
+  int _lastGeneration = -1;
+
+  _WasmFrame? copyLatest() {
+    final required = _runtime._callInt('_ffplay_kit_get_frame_buffer_size');
+    if (required <= 0) return null;
+    if (_capacity < required) {
+      if (_pixels != 0) _runtime.free(_pixels);
+      _pixels = _runtime.allocate(required);
+      _capacity = required;
+    }
+
+    final result = _runtime._callInt('_ffplay_kit_copy_frame', [
+      _pixels.toJS,
+      _capacity.toJS,
+      _metadata.toJS,
+      (_metadata + 4).toJS,
+      (_metadata + 8).toJS,
+      (_metadata + 16).toJS,
+    ]);
+    if (result != 1) return null;
+
+    final heap32 = _runtime.heap32;
+    final width = heap32[_metadata >> 2];
+    final height = heap32[(_metadata + 4) >> 2];
+    final linesize = heap32[(_metadata + 8) >> 2];
+    final heap = _runtime.heapU8;
+    final generation = ByteData.sublistView(
+      heap,
+      _metadata + 16,
+      _metadata + 24,
+    ).getUint64(0, Endian.little);
+    if (generation == _lastGeneration || width <= 0 || height <= 0) {
+      return null;
+    }
+    _lastGeneration = generation;
+    final byteCount = linesize * height;
+    final pixels = Uint8List.fromList(
+      heap.sublist(_pixels, _pixels + byteCount),
+    );
+    _runtime.publishFrameSize(width, height);
+    return _WasmFrame(pixels, width, height, linesize, generation);
+  }
+
+  void dispose() {
+    if (_pixels != 0) _runtime.free(_pixels);
+    _runtime.free(_metadata);
+  }
 }
 
 abstract class Session {
@@ -521,46 +613,113 @@ class FFplaySession extends Session {
     this.logCallback = logCallback;
   }
   FFplaySessionCompleteCallback? completeCallback;
-  bool _playing = false;
-  bool _paused = false;
-  double _position = 0;
-  double _volume = 100;
-  final positionStream = StreamController<double>.broadcast().stream;
-  final videoSizeStream = StreamController<(int, int)>.broadcast().stream;
+  final _positionController = StreamController<double>.broadcast();
+  Timer? _positionTimer;
+  Stream<double> get positionStream => _positionController.stream;
+  Stream<(int, int)> get videoSizeStream =>
+      _WasmRuntime.instance.frameSizeStream;
+
   Future<FFplaySession> executeAsync() async {
-    _playing = true;
-    handle = _WasmRuntime.instance.execute('_ffplay_kit_execute', command, [
+    final runtime = _WasmRuntime.instance;
+    if (handle == 0) {
+      handle = runtime.execute('_ffplay_kit_create_session', command);
+      sessionId = runtime._callInt('_ffmpeg_kit_session_get_session_id', [
+        handle.toJS,
+      ]);
+    }
+    runtime._callVoid('_ffplay_kit_session_execute_async', [
+      handle.toJS,
       globalContext.callMethodVarArgs<JSAny?>('BigInt'.toJS, ['500'.toJS]),
     ]);
-    _capture();
-    _playing = false;
     FFmpegKitExtended._remember(this);
+    _positionTimer ??= Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (handle != 0) _positionController.add(getPosition());
+    });
+    while (true) {
+      if (handle == 0) break;
+      final state = getState();
+      if (state == SessionState.completed || state == SessionState.failed)
+        break;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    _positionTimer?.cancel();
+    _positionTimer = null;
+    _capture();
     completeCallback?.call(this);
     return this;
   }
 
-  bool isPlaying() => _playing;
-  bool isPaused() => _paused;
-  void pause() {
-    _paused = true;
-    _playing = false;
-  }
-
-  void resume() {
-    _paused = false;
-    _playing = true;
-  }
-
-  void stop() => cancel();
-  void seek(double seconds) => _position = seconds;
-  void setPosition(double seconds) => _position = seconds;
-  double getPosition() => _position;
-  double getMediaDuration() => 0;
-  void setVolume(double value) => _volume = value;
-  double getVolume() => _volume;
+  bool isPlaying() =>
+      handle != 0 &&
+      _WasmRuntime.instance._callInt('_ffplay_kit_session_is_playing', [
+            handle.toJS,
+          ]) !=
+          0;
+  bool isPaused() =>
+      handle != 0 &&
+      _WasmRuntime.instance._callInt('_ffplay_kit_session_is_paused', [
+            handle.toJS,
+          ]) !=
+          0;
+  void pause() => _WasmRuntime.instance._callVoid('_ffplay_kit_session_pause', [
+    handle.toJS,
+  ]);
+  void resume() => _WasmRuntime.instance._callVoid(
+    '_ffplay_kit_session_resume',
+    [handle.toJS],
+  );
+  void stop() => _WasmRuntime.instance._callVoid('_ffplay_kit_session_stop', [
+    handle.toJS,
+  ]);
+  void seek(double seconds) => _WasmRuntime.instance._callVoid(
+    '_ffplay_kit_session_seek',
+    [handle.toJS, seconds.toJS],
+  );
+  void setPosition(double seconds) => seek(seconds);
+  double getPosition() => handle == 0
+      ? 0
+      : _WasmRuntime.instance._callDouble('_ffplay_kit_session_get_position', [
+          handle.toJS,
+        ]);
+  double getMediaDuration() => handle == 0
+      ? 0
+      : _WasmRuntime.instance._callDouble('_ffplay_kit_session_get_duration', [
+          handle.toJS,
+        ]);
+  int getVideoWidth() => handle == 0
+      ? 0
+      : _WasmRuntime.instance._callInt('_ffplay_kit_session_get_video_width', [
+          handle.toJS,
+        ]);
+  int getVideoHeight() => handle == 0
+      ? 0
+      : _WasmRuntime.instance._callInt('_ffplay_kit_session_get_video_height', [
+          handle.toJS,
+        ]);
+  void setVolume(double value) => _WasmRuntime.instance._callVoid(
+    '_ffplay_kit_session_set_volume',
+    [handle.toJS, value.toJS],
+  );
+  double getVolume() => handle == 0
+      ? 0
+      : _WasmRuntime.instance._callDouble('_ffplay_kit_session_get_volume', [
+          handle.toJS,
+        ]);
   void setCompleteCallback(FFplaySessionCompleteCallback? value) =>
       completeCallback = value;
   void setLogCallback(FFmpegLogCallback? value) => logCallback = value;
+  @override
+  void close() {
+    _positionTimer?.cancel();
+    _positionController.close();
+    if (handle != 0) {
+      _WasmRuntime.instance._callVoid('_ffplay_kit_session_close', [
+        handle.toJS,
+      ]);
+      handle = 0;
+    }
+  }
+
   @override
   bool isFFplaySession() => true;
 }
@@ -637,7 +796,10 @@ class FFplayKit {
       completeCallback: onComplete,
       logCallback: onLog,
     );
-    return _current!.executeAsync();
+    final session = _current!;
+    unawaited(session.executeAsync());
+    await Future<void>.delayed(Duration.zero);
+    return session;
   }
 
   static Future<FFplaySession> createSession(
@@ -828,11 +990,53 @@ class SessionQueueManager {
 }
 
 class FFplaySurface {
-  FFplaySurface._();
-  static Future<FFplaySurface?> create({int width = 1, int height = 1}) async =>
-      null;
-  Widget toWidget() => const SizedBox.shrink();
-  Future<void> release() async {}
+  FFplaySurface._() {
+    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _poll());
+  }
+
+  final _reader = _WasmFrameReader();
+  final _image = ValueNotifier<ui.Image?>(null);
+  Timer? _timer;
+  bool _decoding = false;
+
+  static Future<FFplaySurface?> create({int width = 1, int height = 1}) async {
+    _WasmRuntime.instance.requireInitialized();
+    return FFplaySurface._();
+  }
+
+  void _poll() {
+    if (_decoding) return;
+    final frame = _reader.copyLatest();
+    if (frame == null) return;
+    _decoding = true;
+    ui.decodeImageFromPixels(
+      frame.pixels,
+      frame.width,
+      frame.height,
+      ui.PixelFormat.rgba8888,
+      (image) {
+        final previous = _image.value;
+        _image.value = image;
+        previous?.dispose();
+        _decoding = false;
+      },
+      rowBytes: frame.linesize,
+    );
+  }
+
+  Widget toWidget() => ValueListenableBuilder<ui.Image?>(
+    valueListenable: _image,
+    builder: (context, image, child) => image == null
+        ? const SizedBox.expand()
+        : RawImage(image: image, fit: BoxFit.contain),
+  );
+
+  Future<void> release() async {
+    _timer?.cancel();
+    _reader.dispose();
+    _image.value?.dispose();
+    _image.dispose();
+  }
 }
 
 class FFplayViewController extends ChangeNotifier {

@@ -158,7 +158,14 @@ Future<void> _buildWebDataAssets(
       ),
     );
     destination.parent.createSync(recursive: true);
-    bridgeSource.copySync(destination.path);
+    final bridgeUnchanged =
+        destination.existsSync() &&
+        destination.lengthSync() == bridgeSource.lengthSync() &&
+        await _computeFileSha256(destination) ==
+            await _computeFileSha256(bridgeSource);
+    if (!bridgeUnchanged) {
+      bridgeSource.copySync(destination.path);
+    }
     output.dependencies.add(bridgeSource.uri);
   }
   _log(
