@@ -16,19 +16,20 @@
 
 </div>
 
-`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing `FFmpeg`, `FFprobe`, and `FFplay` `9.0.1 API` commands on `Android`, `iOS`, `macOS`, `Linux`, and `Windows`. It leverages Dart `FFI` to interact directly with native FFmpeg libraries, providing high performance, flexibility, and complete video playback capabilities.
+`ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing `FFmpeg`, `FFprobe`, and `FFplay` `9.0.1 API` commands on `Android`, `iOS`, `macOS`, `Linux`, `Windows`, and WebAssembly web builds. Native platforms use Dart `FFI` to interact directly with FFmpeg libraries.
 
 If you like the project and are using it in your app give it a ⭐ on [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) and [ffmpeg-kit-extended](https://github.com/akashskypatel/ffmpeg-kit-extended), and a 👍 on [pub.dev](https://pub.dev/packages/ffmpeg_kit_extended_flutter). It helps a lot 🙏! Happy coding 🚀!
 
 ## 1. Features
 
-- **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `Linux`, and `Windows`.
+- **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `Linux`, `Windows`, and WebAssembly-enabled `Web` builds.
   - **Android**: Full video playback support with native surface rendering.
     - **x86**: `x86` architecture is not supported due to its legacy status.
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
     - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
   - **Linux**: Full video playback support with `OpenGL` integration.
     - **arm64**: `arm64` architecture currently not supported, coming soon!
+  - **Web**: Downloads the matching `wasm32` static bundle as Dart data assets during the build hook. Build with `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
@@ -50,6 +51,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 | macOS                    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
 | Linux                    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
 | Windows                  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
+| Web (Wasm)               | ✅ Assets    | ❌             | wasm32              | Flutter Wasm build   |
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
 
@@ -90,7 +92,7 @@ You will have to update your app's minimum requirements on your own to match the
      # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-   **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration script is required.
+   **Note**: Native libraries and the WebAssembly bundle are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds use the `wasm` or `web` config override when supplied; otherwise the hook selects the matching `v0.11.1-wasm` release archive. No manual configuration script is required.
 
 **Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
+import 'package:data_assets/data_assets.dart';
 import 'package:hooks/hooks.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
@@ -13,6 +14,8 @@ const String _baseUrlTemplate =
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
 const String version = "0.11.1";
 const String _extractMarkerFileName = '.extract_complete';
+const String _wasmPlatformName = 'wasm';
+const String _wasmArchitectureName = 'wasm32';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
@@ -28,7 +31,12 @@ class ConfigResult {
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    if (!input.config.buildCodeAssets) return;
+    // Flutter web builds do not expose a CodeAsset target. Stage the wasm
+    // runtime as package data instead.
+    if (!input.config.buildCodeAssets) {
+      await _buildWebDataAssets(input, output);
+      return;
+    }
     final packageName = input.packageName;
     targetOS = input.config.code.targetOS;
     targetArch = input.config.code.targetArchitecture;
@@ -49,6 +57,204 @@ void main(List<String> args) async {
     // 3. Emit Assets
     await _emitAssets(artifact, input, output);
   });
+}
+
+Future<void> _buildWebDataAssets(
+  BuildInput input,
+  BuildOutputBuilder output,
+) async {
+  final configResult = _loadConfig(input);
+  final artifact = await _resolveWebArtifact(configResult, input);
+  final extractedDir = artifact.extractedDir;
+  if (extractedDir == null || !extractedDir.existsSync()) {
+    throw _exception('Could not find extracted WASM bundle for web build');
+  }
+
+  final packageName = input.packageName;
+  final runtimeFiles =
+      extractedDir
+          .listSync(recursive: true, followLinks: false)
+          .whereType<File>()
+          .where((file) {
+            final name = p.basename(file.path);
+            return name == 'ffmpegkit.mjs' || name == 'ffmpegkit.wasm';
+          })
+          .toList()
+        ..sort((a, b) => a.path.compareTo(b.path));
+
+  final runtimeFilesByName = {
+    for (final file in runtimeFiles) p.basename(file.path): file,
+  };
+  const requiredRuntimeFiles = {'ffmpegkit.mjs', 'ffmpegkit.wasm'};
+  final missingRuntimeFiles = requiredRuntimeFiles.difference(
+    runtimeFilesByName.keys.toSet(),
+  );
+  if (missingRuntimeFiles.isNotEmpty) {
+    throw _exception(
+      'WASM bundle is missing ${missingRuntimeFiles.join(', ')} in '
+      '${extractedDir.path}',
+    );
+  }
+
+  if (input.config.buildDataAssets) {
+    for (final name in requiredRuntimeFiles) {
+      final file = runtimeFilesByName[name]!;
+      output.assets.data.add(
+        DataAsset(
+          package: packageName,
+          name: p.posix.join('wasm', name),
+          file: file.uri,
+        ),
+      );
+    }
+  } else {
+    // Dart data assets are master-channel-only in current stable Flutter.
+    // Stage directly in the web build output under the same package asset URL
+    // used by data assets. WebReleaseBundle adds its files to this directory
+    // after hooks complete without treating it as a project input.
+    final webAssetDir = Directory(
+      p.join(
+        configResult.baseDir,
+        'build',
+        'web',
+        'assets',
+        'packages',
+        packageName,
+        'wasm',
+      ),
+    )..createSync(recursive: true);
+    for (final name in requiredRuntimeFiles) {
+      final source = runtimeFilesByName[name]!;
+      final destination = File(p.join(webAssetDir.path, name));
+      if (!destination.existsSync() ||
+          destination.lengthSync() != source.lengthSync()) {
+        source.copySync(destination.path);
+      }
+      output.dependencies.add(source.uri);
+    }
+  }
+  final bridgeSource = File(
+    p.fromUri(input.packageRoot.resolve('web/ffmpegkit_bridge.mjs')),
+  );
+  if (!bridgeSource.existsSync()) {
+    throw _exception('Missing web runtime bridge: ${bridgeSource.path}');
+  }
+  final bridgeName = p.posix.join('wasm', 'ffmpegkit_bridge.mjs');
+  if (input.config.buildDataAssets) {
+    output.assets.data.add(
+      DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
+    );
+  } else {
+    final destination = File(
+      p.join(
+        configResult.baseDir,
+        'build',
+        'web',
+        'assets',
+        'packages',
+        packageName,
+        'wasm',
+        'ffmpegkit_bridge.mjs',
+      ),
+    );
+    destination.parent.createSync(recursive: true);
+    bridgeSource.copySync(destination.path);
+    output.dependencies.add(bridgeSource.uri);
+  }
+  _log(
+    'Staged ffmpegkit.mjs, ffmpegkit.wasm, and bridge for $packageName at '
+    'assets/packages/$packageName/wasm/',
+  );
+}
+
+Future<FFmpegArtifact> _resolveWebArtifact(
+  ConfigResult configResult,
+  BuildInput input,
+) async {
+  final config = configResult.config;
+  var type = config['type']?.toString() ?? 'base';
+  if (type == 'streaming') type = 'video';
+  if (type == 'debug') type = 'debug';
+  if (!_validTypes.contains(type)) {
+    throw _exception('Invalid bundle type: $type');
+  }
+
+  final gpl = config['gpl'] == true;
+  final small = config['small'] == true;
+  final cacheDir = Directory(
+    p.fromUri(input.outputDirectoryShared.resolve('ffmpeg_kit_cache/wasm/')),
+  )..createSync(recursive: true);
+  final overrideUrl = config['web']?.toString() ?? config['wasm']?.toString();
+
+  String filename;
+  String url;
+  if (overrideUrl != null) {
+    if (!_isUri(overrideUrl)) {
+      final localFile = p.isAbsolute(overrideUrl)
+          ? File(overrideUrl)
+          : File(p.join(configResult.baseDir, overrideUrl));
+      if (!localFile.existsSync()) {
+        throw _exception('Local web override not found: ${localFile.path}');
+      }
+      filename = p.basename(localFile.path);
+      final target = File(p.join(cacheDir.path, filename));
+      if (!target.existsSync() ||
+          target.lengthSync() != localFile.lengthSync()) {
+        localFile.copySync(target.path);
+      }
+      return _handleDownloadedFile(target, cacheDir, input);
+    }
+    url = overrideUrl;
+    filename = p.basename(Uri.parse(url).path);
+  } else {
+    final currentType = type == 'debug' ? 'base' : type;
+    final parts = [
+      'bundle',
+      currentType,
+      _wasmPlatformName,
+      _wasmArchitectureName,
+      'static',
+    ];
+    if (type == 'debug') {
+      parts.add('debug');
+    }
+    if (small) {
+      parts.add('small');
+    }
+    parts.add(gpl ? 'gpl' : 'lgpl');
+    filename = '${parts.join('-')}.zip';
+    url = '$_baseUrlTemplate/v$version-wasm/$filename';
+  }
+
+  final targetFile = File(p.join(cacheDir.path, filename));
+  if (!targetFile.existsSync()) {
+    _log('Downloading $url...');
+    if (!await _downloadFile(url, targetFile)) {
+      throw _exception('Failed to download WASM bundle from $url');
+    }
+  }
+  _log('Verifying SHA256 hash from $url');
+  final expectedHash = await _fetchSha256Hash(
+    url,
+    platformName: _wasmPlatformName,
+  );
+  if (expectedHash == null) {
+    _log('No SHA256 hash found for $url; skipping verification');
+  } else {
+    final actualHash = await _computeFileSha256(targetFile);
+    if (actualHash == null) {
+      _log(
+        'Failed to compute SHA256 hash for $targetFile; skipping verification',
+      );
+    } else if (actualHash != expectedHash) {
+      deleteCorruptArtifact(targetFile, log: _log);
+      throw _exception(
+        'SHA256 hash mismatch: expected $expectedHash, got $actualHash',
+      );
+    }
+    _log('SHA256 verification passed');
+  }
+  return _handleDownloadedFile(targetFile, cacheDir, input);
 }
 
 ConfigResult _loadConfig(BuildInput input) {
@@ -545,12 +751,13 @@ Future<void> _emitAssets(
     }
 
     // Add the main library
-    var mainName = p.basenameWithoutExtension(mainLibrary.path);
-    if (targetOS == OS.linux) mainName = mainName.replaceFirst('lib', '');
     output.assets.code.add(
       CodeAsset(
         package: packageName,
-        name: mainName,
+        // Keep this stable across physical filenames such as
+        // libffmpegkit.dll/libffmpegkit.so. It must match DefaultAsset in the
+        // generated Dart bindings and ffigen.yaml.
+        name: 'ffmpegkit',
         linkMode: DynamicLoadingBundled(),
         file: Uri.file(mainLibrary.path),
       ),
@@ -913,14 +1120,14 @@ bool _isUri(String path) {
   }
 }
 
-Future<String?> _fetchSha256Hash(String url) async {
+Future<String?> _fetchSha256Hash(String url, {String? platformName}) async {
   final client = HttpClient();
   try {
     // if github, use github api to get the file hash
     // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
     // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/${id}
     // https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/releases/tags/${tag}
-    final tag = "v$version-${targetOS.name}";
+    final tag = "v$version-${platformName ?? targetOS.name}";
     final releaseName = p.basename(url);
     final request = await client.getUrl(
       Uri.parse(

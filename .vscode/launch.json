@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug (Web)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "debug",
+            "deviceId": "chrome",
+            "args": [
+                "web",
+                "--debug"
+            ],
+            "program": "${workspaceFolder}/flutter/example/lib/main.dart"
+        },
+        {
             "name": "Debug (Windows)",
             "request": "launch",
             "type": "dart",

@@ -17,37 +17,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/// Flutter plugin for FFmpeg, FFprobe, and FFplay commands on Windows, Linux, and Android.
-/// Uses Dart FFI to interact directly with native FFmpeg libraries for high performance.
+/// Flutter plugin for FFmpeg, FFprobe, and FFplay commands.
+///
+/// Native platforms use Dart FFI. Web builds use the bundled Emscripten/WASM
+/// runtime while preserving the same public entry points.
 library;
 
-export 'src/callback_manager.dart'
-    show
-        FFmpegSessionCompleteCallback,
-        FFmpegLogCallback,
-        FFmpegStatisticsCallback,
-        FFprobeSessionCompleteCallback,
-        FFplaySessionCompleteCallback;
-export 'src/chapter_information.dart';
-export 'src/ffmpeg_kit.dart';
-export 'src/ffmpeg_kit_config.dart';
-export 'src/ffmpeg_kit_extended.dart';
-export 'src/ffmpeg_session.dart';
-export 'src/ffplay_android_surface.dart';
-export 'src/ffplay_desktop_texture.dart';
-export 'src/ffplay_kit.dart';
-export 'src/ffplay_kit_android.dart';
-export 'src/ffplay_session.dart';
-export 'src/ffplay_surface.dart';
-export 'src/ffplay_view.dart';
-export 'src/ffprobe_kit.dart';
-export 'src/ffprobe_session.dart';
-export 'src/log.dart';
-export 'src/media_information.dart';
-export 'src/media_information_session.dart';
-export 'src/session.dart';
-export 'src/session_queue_manager.dart'
-    show SessionQueueManager, SessionCancelledException;
-export 'src/signal.dart';
-export 'src/statistics.dart';
-export 'src/stream_information.dart';
+export 'src/ffmpeg_kit_extended_flutter_native.dart'
+    if (dart.library.js_interop) 'src/web/ffmpeg_kit_extended_flutter_web_api.dart';
