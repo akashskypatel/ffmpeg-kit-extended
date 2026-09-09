@@ -1,6 +1,6 @@
 name: 'FFmpegKitBindings'
 description: 'Dart bindings for FFmpegKit C Wrapper'
-output: 'lib/src/generated/ffmpeg_kit_bindings.dart'
+output: 'lib/src/generated/ffmpeg_kit_bindings_native.dart'
 
 # Native Assets Support
 ffi-native:
@@ -8,10 +8,10 @@ ffi-native:
 
 headers:
   entry-points:
-    - '.dart_tool/ffmpeg_kit_extended_flutter/include/ffmpegkit_wrapper.h'
+    - '../libs/libffmpegkit/FFmpegKit/src/ffmpegkit_wrapper.h'
 
 compiler-opts:
-  - '-I.dart_tool/ffmpeg_kit_extended_flutter/include'
+  - '-I../libs/libffmpegkit/FFmpegKit/src'
   # Set the macro to empty so Clang ignores the __declspec parts
   - '-DFFMPEG_KIT_C_EXPORT=' 
   # Tell Clang NOT to error out on macro redefinitions
