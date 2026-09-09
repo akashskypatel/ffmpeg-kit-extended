@@ -13,6 +13,7 @@ import 'package:web/web.dart' as web;
 import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../log.dart';
 import '../media_information.dart';
+import '../platform/web/callback_bridge_web.dart';
 import '../signal.dart';
 
 export '../chapter_information.dart';
@@ -172,19 +173,6 @@ class _WasmRuntime {
 
   bindings.Pointer<bindings.Int64> _int64Pointer(int address) =>
       bindings.Pointer<bindings.Int64>.fromAddress(address);
-
-  bindings.DartFFmpegKitCompleteCallback get _nullFFmpegComplete =>
-      bindings.Pointer<
-        bindings.NativeFunction<bindings.FFmpegKitCompleteCallbackFunction>
-      >.fromAddress(0);
-
-  bindings.DartFFprobeKitCompleteCallback get _nullFFprobeComplete =>
-      bindings.Pointer<
-        bindings.NativeFunction<bindings.FFprobeKitCompleteCallbackFunction>
-      >.fromAddress(0);
-
-  bindings.Pointer<bindings.Void> get _nullPointer =>
-      bindings.Pointer<bindings.Void>.fromAddress(0);
 
   int _callInt(String name, [List<JSAny?> args = const []]) {
     requireInitialized();
@@ -432,8 +420,8 @@ class _WasmRuntime {
           return bindings
               .ffmpeg_kit_execute_async(
                 nativeCommand,
-                _nullFFmpegComplete,
-                _nullPointer,
+                webCallbackBridge.nullFFmpegComplete,
+                webCallbackBridge.nullPointer,
               )
               .address;
         case '_ffprobe_kit_execute':
@@ -442,8 +430,8 @@ class _WasmRuntime {
           return bindings
               .ffprobe_kit_execute_async(
                 nativeCommand,
-                _nullFFprobeComplete,
-                _nullPointer,
+                webCallbackBridge.nullFFprobeComplete,
+                webCallbackBridge.nullPointer,
               )
               .address;
         case '_ffplay_kit_create_session':

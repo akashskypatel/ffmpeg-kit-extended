@@ -751,10 +751,7 @@ class FFplaySession extends Session {
 
     _enableNativeLogCallback();
     try {
-      ffmpeg.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-        nativeFFplayComplete.nativeFunction,
-        nullptr,
-      );
+      ffmpegKitBackend.configureFFplaySessionCompleteCallback();
     } catch (e, st) {
       log('FFplaySession: error enabling complete callback: $e\n$st');
       _completeCallback = userCompleteCallback;
@@ -825,10 +822,7 @@ class FFplaySession extends Session {
 
   void _enableNativeLogCallback() {
     try {
-      ffmpeg.ffmpeg_kit_config_enable_log_callback(
-        nativeFFmpegLog.nativeFunction,
-        nullptr,
-      );
+      ffmpegKitBackend.enableFFmpegLogCallback();
     } catch (e, st) {
       log(
         'FFplaySession: error enabling ffmpeg log callback for session $sessionId',
