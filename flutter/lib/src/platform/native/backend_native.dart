@@ -2,6 +2,7 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
+import '../../callback_manager.dart';
 import '../../ffmpeg_kit_extended_flutter_loader.dart';
 import '../../generated/ffmpeg_kit_bindings_native.dart' as bindings;
 import '../backend.dart';
@@ -70,6 +71,34 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
       calloc.free(argv);
     }
   }
+
+  @override
+  void configureFFmpegCallbacks() {
+    bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+      nativeFFmpegComplete.nativeFunction,
+      nullptr,
+    );
+    bindings.ffmpeg_kit_config_enable_statistics_callback(
+      nativeFFmpegStatistics.nativeFunction,
+      nullptr,
+    );
+  }
+
+  @override
+  void enableFFmpegLogCallback() {
+    bindings.ffmpeg_kit_config_enable_log_callback(
+      nativeFFmpegLog.nativeFunction,
+      nullptr,
+    );
+  }
+
+  @override
+  void executeFFmpegSession(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_execute(_pointer(handle));
+
+  @override
+  void executeFFmpegSessionAsync(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_execute_async(_pointer(handle));
 
   @override
   int getSessionState(SessionHandle handle) {

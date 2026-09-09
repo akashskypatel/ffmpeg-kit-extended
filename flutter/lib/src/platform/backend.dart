@@ -45,6 +45,14 @@ abstract interface class FFmpegKitBackend {
 
   SessionHandle createFFmpegSessionFromArguments(List<String> arguments);
 
+  void configureFFmpegCallbacks();
+
+  void enableFFmpegLogCallback();
+
+  void executeFFmpegSession(SessionHandle handle);
+
+  void executeFFmpegSessionAsync(SessionHandle handle);
+
   int getSessionState(SessionHandle handle);
 
   int getReturnCode(SessionHandle handle);

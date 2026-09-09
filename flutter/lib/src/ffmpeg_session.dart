@@ -19,14 +19,11 @@
 
 import 'dart:async';
 import 'dart:developer';
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'platform/backend.dart';
+import 'platform/backend_selector.dart';
 
 /// A session for executing FFmpeg commands.
 ///
@@ -47,8 +44,6 @@ import 'platform/backend.dart';
 /// Use [executeAsync] when you need a [Future] that resolves only after
 /// execution finishes.
 class FFmpegSession extends Session {
-  Pointer<Void> get _nativeHandle => handle.value as Pointer<Void>;
-
   FFmpegSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
   FFmpegStatisticsCallback? _statisticsCallback;
@@ -68,10 +63,10 @@ class FFmpegSession extends Session {
   /// Used internally when wrapping handles returned by session-history APIs.
   /// No callbacks are registered; call [setCompleteCallback] /
   /// [setLogCallback] / [setStatisticsCallback] if callbacks are needed.
-  FFmpegSession.fromHandle(Pointer<Void> handle, String command) {
-    this.handle = SessionHandle(handle);
+  FFmpegSession.fromHandle(SessionHandle handle, String command) {
+    this.handle = handle;
     this.command = command;
-    sessionId = FFmpegKitExtended.getSessionId(handle);
+    sessionId = ffmpegKitBackend.getSessionId(handle);
     _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
       FFmpegKitExtended.parseArguments(command),
     );
@@ -98,11 +93,10 @@ class FFmpegSession extends Session {
     FFmpegStatisticsCallback? statisticsCallback,
   }) {
     FFmpegKitExtended.requireInitialized();
-    final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      handle = SessionHandle(ffmpeg.ffmpeg_kit_create_session(cmdPtr.cast()));
+      handle = ffmpegKitBackend.createFFmpegSession(command);
       this.command = command;
-      sessionId = FFmpegKitExtended.getSessionId(_nativeHandle);
+      sessionId = ffmpegKitBackend.getSessionId(handle);
       registerFinalizer();
     } catch (e, stack) {
       log(
@@ -111,8 +105,6 @@ class FFmpegSession extends Session {
         stackTrace: stack,
       );
       rethrow;
-    } finally {
-      calloc.free(cmdPtr);
     }
 
     _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
@@ -137,36 +129,14 @@ class FFmpegSession extends Session {
     FFmpegStatisticsCallback? statisticsCallback,
   }) {
     FFmpegKitExtended.requireInitialized();
-    final argv = calloc<Pointer<Char>>(arguments.length);
-    final nativeStrings = <Pointer<Utf8>>[];
-    try {
-      for (var i = 0; i < arguments.length; i++) {
-        final nativeString = arguments[i].toNativeUtf8(allocator: calloc);
-        nativeStrings.add(nativeString);
-        argv[i] = nativeString.cast<Char>();
-      }
+    handle = ffmpegKitBackend.createFFmpegSessionFromArguments(arguments);
 
-      final nativeHandle = ffmpeg.ffmpeg_kit_create_session_from_argv(
-        arguments.length,
-        argv,
-      );
-      if (nativeHandle == nullptr) {
-        throw StateError('Failed to create FFmpeg session from arguments.');
-      }
-      handle = SessionHandle(nativeHandle);
-
-      command = FFmpegKitExtended.argumentsToString(arguments);
-      sessionId = FFmpegKitExtended.getSessionId(_nativeHandle);
-      _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
-        arguments,
-      );
-      registerFinalizer();
-    } finally {
-      for (final nativeString in nativeStrings) {
-        calloc.free(nativeString);
-      }
-      calloc.free(argv);
-    }
+    command = FFmpegKitExtended.argumentsToString(arguments);
+    sessionId = ffmpegKitBackend.getSessionId(handle);
+    _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
+      arguments,
+    );
+    registerFinalizer();
 
     _completeCallback = completeCallback;
     _logCallback = logCallback;
@@ -328,7 +298,7 @@ class FFmpegSession extends Session {
           _enableNativeLogCallback();
           // Blocking native call — returns only after FFmpeg finishes.
           try {
-            ffmpeg.ffmpeg_kit_session_execute(_nativeHandle);
+            ffmpegKitBackend.executeFFmpegSession(handle);
           } catch (e, st) {
             log(
               'FFmpegSession.execute: error in native function ffmpeg_kit_session_execute for session $sessionId',
@@ -494,10 +464,7 @@ class FFmpegSession extends Session {
     // Enable the global native completion and statistics callbacks so the C
     // layer can post events back to Dart.  These calls are idempotent.
     try {
-      ffmpeg.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-        nativeFFmpegComplete.nativeFunction,
-        nullptr,
-      );
+      ffmpegKitBackend.configureFFmpegCallbacks();
     } catch (e, st) {
       log(
         'FFmpegSession: error enabling ffmpeg session complete callback for session $sessionId',
@@ -506,23 +473,9 @@ class FFmpegSession extends Session {
       );
       rethrow;
     }
-    try {
-      ffmpeg.ffmpeg_kit_config_enable_statistics_callback(
-        nativeFFmpegStatistics.nativeFunction,
-        nullptr,
-      );
-    } catch (e, st) {
-      log(
-        'FFmpegSession: error enabling ffmpeg statistics callback for session $sessionId',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
-
     // Start async native execution.
     try {
-      ffmpeg.ffmpeg_kit_session_execute_async(_nativeHandle);
+      ffmpegKitBackend.executeFFmpegSessionAsync(handle);
     } catch (e, st) {
       log(
         'FFmpegSession: error starting async session $sessionId',
@@ -572,10 +525,7 @@ class FFmpegSession extends Session {
 
   void _enableNativeLogCallback() {
     try {
-      ffmpeg.ffmpeg_kit_config_enable_log_callback(
-        nativeFFmpegLog.nativeFunction,
-        nullptr,
-      );
+      ffmpegKitBackend.enableFFmpegLogCallback();
     } catch (e, st) {
       log(
         'FFmpegSession: error enabling ffmpeg log callback for session $sessionId',

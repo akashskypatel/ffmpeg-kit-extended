@@ -40,6 +40,18 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       throw _notMigrated();
 
   @override
+  void configureFFmpegCallbacks() => throw _notMigrated();
+
+  @override
+  void enableFFmpegLogCallback() => throw _notMigrated();
+
+  @override
+  void executeFFmpegSession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void executeFFmpegSessionAsync(SessionHandle handle) => throw _notMigrated();
+
+  @override
   int getSessionState(SessionHandle handle) => throw _notMigrated();
 
   @override

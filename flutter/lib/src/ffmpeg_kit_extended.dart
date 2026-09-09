@@ -31,6 +31,7 @@ import 'ffprobe_session.dart';
 import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'log.dart';
 import 'media_information_session.dart';
+import 'platform/backend.dart';
 import 'session.dart';
 import 'session_queue_manager.dart';
 import 'signal.dart';
@@ -696,7 +697,8 @@ class FFmpegKitExtended {
     try {
       return _collectTypedSessions<FFmpegSession>(
         ffmpeg.ffmpeg_kit_get_ffmpeg_sessions(),
-        FFmpegSession.fromHandle,
+        (handle, command) =>
+            FFmpegSession.fromHandle(SessionHandle(handle), command),
       );
     } catch (e, stack) {
       log(
@@ -802,7 +804,10 @@ class FFmpegKitExtended {
     try {
       final h = ffmpeg.ffmpeg_kit_get_last_ffmpeg_session();
       if (h == nullptr) return null;
-      final session = FFmpegSession.fromHandle(h, _getSessionCommand(h));
+      final session = FFmpegSession.fromHandle(
+        SessionHandle(h),
+        _getSessionCommand(h),
+      );
       // Release is handled by the NativeFinalizer attached inside fromHandle.
       return session;
     } catch (e, stack) {
@@ -1489,7 +1494,7 @@ class FFmpegKitExtended {
       rethrow;
     }
     if (isFfmpegSession) {
-      return FFmpegSession.fromHandle(handle, cmd);
+      return FFmpegSession.fromHandle(SessionHandle(handle), cmd);
     }
     bool isFfprobeSession;
     try {
@@ -1521,7 +1526,7 @@ class FFmpegKitExtended {
     }
 
     // Unknown type — fall back to FFmpegSession as the most general wrapper.
-    return FFmpegSession.fromHandle(handle, cmd);
+    return FFmpegSession.fromHandle(SessionHandle(handle), cmd);
   }
 
   /// Iterates a null-terminated handle array returned by the C layer,
