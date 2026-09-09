@@ -31,8 +31,43 @@
 
   <title>ffmpeg_kit_extended_flutter_example</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #121016;
+      color: #f1edf4;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    #app-loading {
+      align-items: center;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    #app-loading-spinner {
+      animation: app-loading-spin 0.9s linear infinite;
+      border: 3px solid rgba(209, 184, 255, 0.25);
+      border-radius: 50%;
+      border-top-color: #d1b8ff;
+      height: 34px;
+      width: 34px;
+    }
+
+    @keyframes app-loading-spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+  <div id="app-loading" role="status" aria-live="polite">
+    <div id="app-loading-spinner" aria-hidden="true"></div>
+    <div>Loading FFmpeg Kit demo...</div>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -41,6 +76,11 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
+  <script>
+    window.addEventListener('flutter-first-frame', () => {
+      document.getElementById('app-loading')?.remove();
+    });
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

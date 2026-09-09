@@ -8,14 +8,103 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:android_media_store/android_media_store.dart';
 import 'package:path_provider/path_provider.dart'; // Import for getTemporaryDirectory
 import 'package:window_manager/window_manager.dart';
+import 'platform_flags.dart' as platform;
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
+  runApp(const _BootstrapApp());
+}
+
+class _BootstrapApp extends StatefulWidget {
+  const _BootstrapApp();
+
+  @override
+  State<_BootstrapApp> createState() => _BootstrapAppState();
+}
+
+class _BootstrapAppState extends State<_BootstrapApp> {
+  late Future<void> _initialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialization = _initialize();
   }
-  await FFmpegKitExtended.initialize();
-  runApp(const MyApp());
+
+  Future<void> _initialize() async {
+    if (platform.isDesktop) {
+      await windowManager.ensureInitialized();
+    }
+    await FFmpegKitExtended.initialize();
+  }
+
+  void _retry() {
+    setState(() {
+      _initialization = _initialize();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<void>(
+      future: _initialization,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            !snapshot.hasError) {
+          return const MyApp();
+        }
+
+        return MaterialApp(
+          title: 'FFmpeg Kit Extended Demo',
+          theme: ThemeData.dark(useMaterial3: true),
+          home: Scaffold(
+            body: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: snapshot.hasError
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline, size: 48),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Unable to initialize FFmpeg Kit',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            SelectableText(
+                              '${snapshot.error}',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            FilledButton.icon(
+                              onPressed: _retry,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Retry'),
+                            ),
+                          ],
+                        )
+                      : const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 20),
+                            Text('Loading FFmpeg Kit...'),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -133,19 +222,17 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
     _fsController = FFplayViewController(
-      onEnterFullscreen:
-          (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+      onEnterFullscreen: platform.isDesktop
           ? () => windowManager.setFullScreen(true)
           : null,
-      onExitFullscreen:
-          (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+      onExitFullscreen: platform.isDesktop
           ? () => windowManager.setFullScreen(false)
           : null,
     );
     _initializePlugin();
     _currentLogLevel = FFmpegKitConfig.getLogLevel();
     final tabController = TabController(length: 5, vsync: this);
-    if (Platform.isAndroid) {
+    if (platform.isAndroid) {
       // Listen for MANAGE_MEDIA permission changes.
       _permissionStreamSub = _mediaStore.onManageMediaPermissionChanged.listen((
         isGranted,
@@ -167,7 +254,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _initializePlugin() async {
-    if (!Platform.isAndroid) return;
+    if (!platform.isAndroid) return;
     try {
       await AndroidMediaStore.ensureInitialized();
       setState(() {
@@ -184,7 +271,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _checkPermissions({bool silent = false}) async {
-    if (!Platform.isAndroid) return;
+    if (!platform.isAndroid) return;
     if (!silent) {
       setState(() {
         _status = 'Checking permissions...';
@@ -845,7 +932,7 @@ class _HomePageState extends State<HomePage>
   }
 
   String _normalizeFfmpegPath(String input) {
-    if (Platform.isWindows) {
+    if (platform.isWindows) {
       return input.replaceAll('\\', '/');
     }
     return input;

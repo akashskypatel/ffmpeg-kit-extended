@@ -9,6 +9,7 @@
             "deviceId": "chrome",
             "args": [
                 "web",
+                "--wasm",
                 "--debug"
             ],
             "program": "${workspaceFolder}/flutter/example/lib/main.dart"

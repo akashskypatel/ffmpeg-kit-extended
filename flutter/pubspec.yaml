@@ -42,6 +42,8 @@ dependencies:
   crypto: ^3.0.7
   data_assets: ^0.20.0
   ffi: ^2.2.0
+  ffigen_js:
+    path: ../../ffigen_js
   flutter:
     sdk: flutter
   flutter_web_plugins:

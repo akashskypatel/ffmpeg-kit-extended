@@ -150,8 +150,12 @@ class _WasmRuntime {
     return _module!.callMethodVarArgs<JSAny?>(name.toJS, args);
   }
 
-  int _callInt(String name, [List<JSAny?> args = const []]) =>
-      (_call(name, args) as JSNumber).toDartInt;
+  int _callInt(String name, [List<JSAny?> args = const []]) {
+    final value = _call(name, args);
+    return globalContext.callMethodVarArgs<JSNumber>('Number'.toJS, [
+      value,
+    ]).toDartInt;
+  }
 
   double _callDouble(String name, [List<JSAny?> args = const []]) =>
       (_call(name, args) as JSNumber).toDartDouble;
@@ -399,6 +403,23 @@ abstract class Session {
       }
     }
   }
+
+  Future<void> _waitForCompletion() async {
+    if (handle == 0) {
+      throw StateError('FFmpeg Kit failed to create a session.');
+    }
+    sessionId = _WasmRuntime.instance._callInt(
+      '_ffmpeg_kit_session_get_session_id',
+      [handle.toJS],
+    );
+    while (true) {
+      final state = getState();
+      if (state == SessionState.completed || state == SessionState.failed) {
+        return;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+    }
+  }
 }
 
 class FFmpegSession extends Session {
@@ -477,9 +498,19 @@ class FFmpegSession extends Session {
   }) async {
     if (completeCallback != null) this.completeCallback = completeCallback;
     if (logCallback != null) this.logCallback = logCallback;
-    if (statisticsCallback != null)
+    if (statisticsCallback != null) {
       this.statisticsCallback = statisticsCallback;
-    return execute();
+    }
+    handle = _WasmRuntime.instance.execute(
+      '_ffmpeg_kit_execute_async',
+      command,
+      [0.toJS, 0.toJS],
+    );
+    FFmpegKitExtended._remember(this);
+    await _waitForCompletion();
+    _capture();
+    this.completeCallback?.call(this);
+    return this;
   }
 
   void setCompleteCallback(FFmpegSessionCompleteCallback? value) =>
@@ -543,7 +574,16 @@ class FFprobeSession extends Session {
   }) async {
     if (completeCallback != null) this.completeCallback = completeCallback;
     if (logCallback != null) this.logCallback = logCallback;
-    return execute();
+    handle = _WasmRuntime.instance.execute(
+      '_ffprobe_kit_execute_async',
+      command,
+      [0.toJS, 0.toJS],
+    );
+    FFmpegKitExtended._remember(this);
+    await _waitForCompletion();
+    _capture();
+    this.completeCallback?.call(this);
+    return this;
   }
 
   void setCompleteCallback(FFprobeSessionCompleteCallback? value) =>
