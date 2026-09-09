@@ -122,11 +122,11 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void configureFFmpegCallbacks() {
     bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-      webCallbackBridge.nullFFmpegComplete,
+      webCallbackBridge.ffmpegComplete,
       _nullPointer,
     );
     bindings.ffmpeg_kit_config_enable_statistics_callback(
-      webCallbackBridge.nullStatistics,
+      webCallbackBridge.statistics,
       _nullPointer,
     );
   }
@@ -134,7 +134,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void enableFFmpegLogCallback() {
     bindings.ffmpeg_kit_config_enable_log_callback(
-      webCallbackBridge.nullLog,
+      webCallbackBridge.log,
       _nullPointer,
     );
   }
@@ -142,7 +142,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void configureFFprobeCallbacks() {
     bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-      webCallbackBridge.nullFFprobeComplete,
+      webCallbackBridge.ffprobeComplete,
       _nullPointer,
     );
   }
@@ -151,7 +151,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   void configureMediaInformationCallbacks() {
     bindings
         .ffmpeg_kit_config_enable_media_information_session_complete_callback(
-          webCallbackBridge.nullMediaInformationComplete,
+          webCallbackBridge.mediaInformationComplete,
           _nullPointer,
         );
   }
@@ -159,7 +159,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void enableFFprobeLogCallback() {
     bindings.ffmpeg_kit_config_enable_log_callback(
-      webCallbackBridge.nullLog,
+      webCallbackBridge.log,
       _nullPointer,
     );
   }
@@ -660,42 +660,42 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   void configureLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
-    webCallbackBridge.nullLog,
+    webCallbackBridge.log,
     _nullPointer,
   );
 
   @override
   void configureStatisticsCallback() =>
       bindings.ffmpeg_kit_config_enable_statistics_callback(
-        webCallbackBridge.nullStatistics,
+        webCallbackBridge.statistics,
         _nullPointer,
       );
 
   @override
   void configureFFmpegSessionCompleteCallback() =>
       bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-        webCallbackBridge.nullFFmpegComplete,
+        webCallbackBridge.ffmpegComplete,
         _nullPointer,
       );
 
   @override
   void configureFFprobeSessionCompleteCallback() =>
       bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-        webCallbackBridge.nullFFprobeComplete,
+        webCallbackBridge.ffprobeComplete,
         _nullPointer,
       );
 
   @override
   void configureFFplaySessionCompleteCallback() =>
       bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-        webCallbackBridge.nullFFplayComplete,
+        webCallbackBridge.ffplayComplete,
         _nullPointer,
       );
 
   @override
   void configureMediaInformationSessionCompleteCallback() => bindings
       .ffmpeg_kit_config_enable_media_information_session_complete_callback(
-        webCallbackBridge.nullMediaInformationComplete,
+        webCallbackBridge.mediaInformationComplete,
         _nullPointer,
       );
 
