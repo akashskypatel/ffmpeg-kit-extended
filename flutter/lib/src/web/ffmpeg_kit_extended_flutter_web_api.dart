@@ -4,8 +4,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
@@ -15,12 +13,14 @@ import '../platform/web/callback_bridge_web.dart';
 import '../platform/web/wasm_loader.dart';
 import '../platform/web/wasm_memory.dart';
 import '../signal.dart';
+import 'ffplay_surface_web.dart';
 
 export '../chapter_information.dart';
 export '../log.dart';
 export '../media_information.dart';
 export '../signal.dart';
 export '../stream_information.dart';
+export 'ffplay_surface_web.dart';
 
 typedef FFmpegSessionCompleteCallback = void Function(FFmpegSession session);
 typedef FFprobeSessionCompleteCallback = void Function(FFprobeSession session);
@@ -97,10 +97,8 @@ class SessionCancelledException implements Exception {
 class _WasmRuntime {
   _WasmRuntime._();
   static final instance = _WasmRuntime._();
-  final _frameSizeController = StreamController<(int, int)>.broadcast();
 
   bool get initialized => wasmLoader.initialized;
-  Stream<(int, int)> get frameSizeStream => _frameSizeController.stream;
 
   Future<void> initialize() => wasmLoader.initialize();
 
@@ -123,31 +121,11 @@ class _WasmRuntime {
   bindings.Pointer<bindings.Char> _charPointer(int address) =>
       bindings.Pointer<bindings.Char>.fromAddress(address);
 
-  bindings.Pointer<bindings.Uint8> _uint8Pointer(int address) =>
-      bindings.Pointer<bindings.Uint8>.fromAddress(address);
-
-  bindings.Pointer<bindings.Int32> _int32Pointer(int address) =>
-      bindings.Pointer<bindings.Int32>.fromAddress(address);
-
-  bindings.Pointer<bindings.Int64> _int64Pointer(int address) =>
-      bindings.Pointer<bindings.Int64>.fromAddress(address);
-
   int _callInt(String name, [List<JSAny?> args = const []]) {
     requireInitialized();
     switch (name) {
       case '_malloc':
         return wasmMemory.allocate(_argInt(args[0])).address;
-      case '_ffplay_kit_get_frame_buffer_size':
-        return bindings.ffplay_kit_get_frame_buffer_size();
-      case '_ffplay_kit_copy_frame':
-        return bindings.ffplay_kit_copy_frame(
-          _uint8Pointer(_argInt(args[0])),
-          _argInt(args[1]),
-          _int32Pointer(_argInt(args[2])),
-          _int32Pointer(_argInt(args[3])),
-          _int32Pointer(_argInt(args[4])),
-          _int64Pointer(_argInt(args[5])),
-        );
       case '_ffmpeg_kit_session_get_state':
         return bindings
             .ffmpeg_kit_session_get_state(_handle(_argInt(args[0])))
@@ -402,94 +380,6 @@ class _WasmRuntime {
 
   void release(int handle) =>
       bindings.ffmpeg_kit_handle_release(_handle(handle));
-
-  int allocate(int size) => wasmMemory.allocate(size).address;
-
-  void free(int pointer) =>
-      wasmMemory.free(bindings.Pointer<bindings.Uint8>.fromAddress(pointer));
-
-  void publishFrameSize(int width, int height) {
-    _frameSizeController.add((width, height));
-  }
-}
-
-class _WasmFrame {
-  const _WasmFrame(
-    this.pixels,
-    this.width,
-    this.height,
-    this.linesize,
-    this.generation,
-  );
-  final Uint8List pixels;
-  final int width;
-  final int height;
-  final int linesize;
-  final int generation;
-}
-
-class _WasmFrameReader {
-  _WasmFrameReader() {
-    _metadata = _runtime.allocate(24);
-  }
-
-  final _runtime = _WasmRuntime.instance;
-  late final int _metadata;
-  int _pixels = 0;
-  int _capacity = 0;
-  int _lastGeneration = -1;
-
-  _WasmFrame? copyLatest() {
-    _runtime.requireInitialized();
-    final required = bindings.ffplay_kit_get_frame_buffer_size();
-    if (required <= 0) return null;
-    if (_capacity < required) {
-      if (_pixels != 0) _runtime.free(_pixels);
-      _pixels = _runtime.allocate(required);
-      _capacity = required;
-    }
-
-    final result = bindings.ffplay_kit_copy_frame(
-      bindings.Pointer<bindings.Uint8>.fromAddress(_pixels),
-      _capacity,
-      bindings.Pointer<bindings.Int32>.fromAddress(_metadata),
-      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 4),
-      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 8),
-      bindings.Pointer<bindings.Int64>.fromAddress(_metadata + 16),
-    );
-    if (result != 1) return null;
-
-    final width = wasmMemory.readInt32(
-      bindings.Pointer<bindings.Int32>.fromAddress(_metadata),
-    );
-    final height = wasmMemory.readInt32(
-      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 4),
-    );
-    final linesize = wasmMemory.readInt32(
-      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 8),
-    );
-    final generation = wasmMemory.readInt64(
-      bindings.Pointer<bindings.Int64>.fromAddress(_metadata + 16),
-    );
-    if (generation == _lastGeneration || width <= 0 || height <= 0) {
-      return null;
-    }
-    _lastGeneration = generation;
-    final byteCount = linesize * height;
-    final pixels = Uint8List.fromList(
-      wasmMemory.readBytes(
-        bindings.Pointer<bindings.Uint8>.fromAddress(_pixels),
-        byteCount,
-      ),
-    );
-    _runtime.publishFrameSize(width, height);
-    return _WasmFrame(pixels, width, height, linesize, generation);
-  }
-
-  void dispose() {
-    if (_pixels != 0) _runtime.free(_pixels);
-    _runtime.free(_metadata);
-  }
 }
 
 abstract class Session {
@@ -860,10 +750,11 @@ class FFplaySession extends Session {
   }
   FFplaySessionCompleteCallback? completeCallback;
   final _positionController = StreamController<double>.broadcast();
+  final _videoSizeController = StreamController<(int, int)>.broadcast();
   Timer? _positionTimer;
+  (int, int)? _lastVideoSize;
   Stream<double> get positionStream => _positionController.stream;
-  Stream<(int, int)> get videoSizeStream =>
-      _WasmRuntime.instance.frameSizeStream;
+  Stream<(int, int)> get videoSizeStream => _videoSizeController.stream;
 
   Future<FFplaySession> executeAsync() async {
     final runtime = _WasmRuntime.instance;
@@ -879,7 +770,13 @@ class FFplaySession extends Session {
     ]);
     FFmpegKitExtended._remember(this);
     _positionTimer ??= Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (handle != 0) _positionController.add(getPosition());
+      if (handle == 0) return;
+      _positionController.add(getPosition());
+      final size = (getVideoWidth(), getVideoHeight());
+      if (size != _lastVideoSize && size.$1 > 0 && size.$2 > 0) {
+        _lastVideoSize = size;
+        _videoSizeController.add(size);
+      }
     });
     while (true) {
       if (handle == 0) break;
@@ -959,6 +856,7 @@ class FFplaySession extends Session {
   void close() {
     _positionTimer?.cancel();
     _positionController.close();
+    _videoSizeController.close();
     if (handle != 0) {
       _WasmRuntime.instance._callVoid('_ffplay_kit_session_close', [
         handle.toJS,
@@ -1234,56 +1132,6 @@ class SessionQueueManager {
   SessionQueueManager._();
   factory SessionQueueManager() => _instance;
   int maxConcurrentSessions = 1;
-}
-
-class FFplaySurface {
-  FFplaySurface._() {
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _poll());
-  }
-
-  final _reader = _WasmFrameReader();
-  final _image = ValueNotifier<ui.Image?>(null);
-  Timer? _timer;
-  bool _decoding = false;
-
-  static Future<FFplaySurface?> create({int width = 1, int height = 1}) async {
-    _WasmRuntime.instance.requireInitialized();
-    return FFplaySurface._();
-  }
-
-  void _poll() {
-    if (_decoding) return;
-    final frame = _reader.copyLatest();
-    if (frame == null) return;
-    _decoding = true;
-    ui.decodeImageFromPixels(
-      frame.pixels,
-      frame.width,
-      frame.height,
-      ui.PixelFormat.rgba8888,
-      (image) {
-        final previous = _image.value;
-        _image.value = image;
-        previous?.dispose();
-        _decoding = false;
-      },
-      rowBytes: frame.linesize,
-    );
-  }
-
-  Widget toWidget() => ValueListenableBuilder<ui.Image?>(
-    valueListenable: _image,
-    builder: (context, image, child) => image == null
-        ? const SizedBox.expand()
-        : RawImage(image: image, fit: BoxFit.contain),
-  );
-
-  Future<void> release() async {
-    _timer?.cancel();
-    _reader.dispose();
-    _image.value?.dispose();
-    _image.dispose();
-  }
 }
 
 class FFplayViewController extends ChangeNotifier {

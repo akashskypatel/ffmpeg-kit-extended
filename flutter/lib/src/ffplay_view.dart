@@ -16,9 +16,9 @@
 /// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 library;
 
-import 'dart:io' show Platform;
 import 'dart:math' show min;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -166,7 +166,10 @@ class FFplayView extends StatefulWidget {
 }
 
 class _FFplayViewState extends State<FFplayView> {
-  static bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+  static bool get _isMobile =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
 
   /// Stored while a fullscreen route is active; used by [_popFullscreen].
   NavigatorState? _fullscreenNav;
