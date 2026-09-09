@@ -12,10 +12,13 @@ export 'ffmpeg_kit.dart';
 export 'ffmpeg_kit_config.dart';
 export 'ffmpeg_kit_extended.dart';
 export 'ffmpeg_session.dart';
-export 'ffplay_android_surface.dart';
-export 'ffplay_desktop_texture.dart';
+export 'ffplay_android_surface.dart'
+    if (dart.library.js_interop) 'web/ffplay_android_surface_web.dart';
+export 'ffplay_desktop_texture.dart'
+    if (dart.library.js_interop) 'web/ffplay_desktop_texture_web.dart';
 export 'ffplay_kit.dart';
-export 'ffplay_kit_android.dart';
+export 'ffplay_kit_android.dart'
+    if (dart.library.js_interop) 'web/ffplay_kit_android_web.dart';
 export 'ffplay_session.dart';
 export 'ffplay_surface.dart';
 export 'ffplay_view.dart';

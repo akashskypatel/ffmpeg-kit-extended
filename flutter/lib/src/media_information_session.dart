@@ -19,7 +19,6 @@
 
 import 'dart:async';
 import 'dart:developer';
-import 'dart:io';
 
 import 'package:meta/meta.dart';
 
@@ -139,7 +138,11 @@ class MediaInformationSession extends FFprobeSession {
       sessionId = ffmpegKitBackend.getSessionId(handle);
       registerFinalizer();
     } catch (e, st) {
-      log('MediaInformationSession: error creating session $finalCommand', error: e, stackTrace: st);
+      log(
+        'MediaInformationSession: error creating session $finalCommand',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
 
@@ -216,14 +219,17 @@ class MediaInformationSession extends FFprobeSession {
   /// The file path is passed as one native argument, so whitespace and literal
   /// quote characters in the filename require no caller-side escaping.
   factory MediaInformationSession.fromFile(
-    File file, {
+    Object file, {
     MediaInformationSessionCompleteCallback? completeCallback,
     int timeout = 500,
-  }) => MediaInformationSession.fromArguments(
-    [..._defaultMediaInformationArguments, file.path],
-    completeCallback: completeCallback,
-    timeout: timeout,
-  );
+  }) {
+    final path = file is String ? file : (file as dynamic).path as String;
+    return MediaInformationSession.fromArguments(
+      [..._defaultMediaInformationArguments, path],
+      completeCallback: completeCallback,
+      timeout: timeout,
+    );
+  }
 
   /// Creates a [MediaInformationSession] for a network [uri].
   ///
@@ -257,7 +263,7 @@ class MediaInformationSession extends FFprobeSession {
       );
     }
     return MediaInformationSession.fromFile(
-      File(path),
+      path,
       completeCallback: completeCallback,
       timeout: timeout,
     );
@@ -573,5 +579,4 @@ class MediaInformationSession extends FFprobeSession {
       unregister();
     }
   }
-
 }

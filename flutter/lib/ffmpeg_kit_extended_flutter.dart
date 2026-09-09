@@ -23,5 +23,4 @@
 /// runtime while preserving the same public entry points.
 library;
 
-export 'src/ffmpeg_kit_extended_flutter_native.dart'
-    if (dart.library.js_interop) 'src/web/ffmpeg_kit_extended_flutter_web_api.dart';
+export 'src/ffmpeg_kit_extended_flutter_native.dart';

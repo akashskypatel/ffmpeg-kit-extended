@@ -26,31 +26,31 @@ void _onFFmpegLog(
 
 void _onFFmpegStatistics(
   bindings.DartFFmpegSessionHandle sessionHandle,
-  BigInt timeElapsed,
-  BigInt time,
-  BigInt size,
+  JSBigInt timeElapsed,
+  JSBigInt time,
+  JSBigInt size,
   double bitrate,
   double speed,
-  BigInt videoFrameNumber,
+  JSBigInt videoFrameNumber,
   double videoFps,
   double videoQuality,
-  BigInt dupFrames,
-  BigInt dropFrames,
+  JSBigInt dupFrames,
+  JSBigInt dropFrames,
   bindings.Pointer<bindings.Void> userData,
 ) {
   _dispatch('FFmpeg statistics', () {
     CallbackManager().dispatchStatistics(
       sessionId: _sessionId(sessionHandle),
-      timeElapsed: timeElapsed.toInt(),
-      time: time.toInt(),
-      size: size.toInt(),
+      timeElapsed: timeElapsed.toDart.toInt(),
+      time: time.toDart.toInt(),
+      size: size.toDart.toInt(),
       bitrate: bitrate,
       speed: speed,
-      videoFrameNumber: videoFrameNumber.toInt(),
+      videoFrameNumber: videoFrameNumber.toDart.toInt(),
       videoFps: videoFps,
       videoQuality: videoQuality,
-      dupFrames: dupFrames.toInt(),
-      dropFrames: dropFrames.toInt(),
+      dupFrames: dupFrames.toDart.toInt(),
+      dropFrames: dropFrames.toDart.toInt(),
     );
   });
 }
