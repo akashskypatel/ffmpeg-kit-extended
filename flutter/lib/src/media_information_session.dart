@@ -28,6 +28,7 @@ import 'package:meta/meta.dart';
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
+import 'platform/backend.dart';
 
 /// A specialised [FFprobeSession] for retrieving detailed media information.
 ///
@@ -35,6 +36,8 @@ import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 /// -show_streams -show_chapters` and parses the result into a [MediaInformation]
 /// object that can be retrieved via [getMediaInformation].
 class MediaInformationSession extends FFprobeSession {
+  Pointer<Void> get _nativeHandle => handle.value as Pointer<Void>;
+
   MediaInformationSessionCompleteCallback? _mediaInfoCompleteCallback;
 
   int _timeout;
@@ -138,7 +141,9 @@ class MediaInformationSession extends FFprobeSession {
     final cmdPtr = finalCommand.toNativeUtf8(allocator: calloc);
     try {
       try {
-        handle = ffmpeg.media_information_create_session(cmdPtr.cast());
+        handle = SessionHandle(
+          ffmpeg.media_information_create_session(cmdPtr.cast()),
+        );
       } catch (e, st) {
         log(
           'MediaInformationSession: error creating session media_information_create_session $finalCommand',
@@ -148,7 +153,7 @@ class MediaInformationSession extends FFprobeSession {
         rethrow;
       }
       try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
       } catch (e, st) {
         log(
           'MediaInformationSession: error getting session id for ffmpeg_kit_session_get_session_id $finalCommand',
@@ -195,9 +200,11 @@ class MediaInformationSession extends FFprobeSession {
       }
 
       try {
-        handle = ffmpeg.media_information_create_session_from_argv(
-          finalArguments.length,
-          argv,
+        handle = SessionHandle(
+          ffmpeg.media_information_create_session_from_argv(
+            finalArguments.length,
+            argv,
+          ),
         );
       } catch (e, st) {
         log(
@@ -211,7 +218,7 @@ class MediaInformationSession extends FFprobeSession {
     });
 
     try {
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
     } catch (e, st) {
       log(
         'MediaInformationSession.fromArguments: error getting session id '
@@ -232,11 +239,11 @@ class MediaInformationSession extends FFprobeSession {
     : _timeout = 500,
       super.internal() {
     FFmpegKitExtended.requireInitialized();
-    this.handle = handle;
+    this.handle = SessionHandle(handle);
     this.command = command;
 
     try {
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
     } catch (e, st) {
       log(
         'MediaInformationSession.fromHandle: error getting session id for ffmpeg_kit_session_get_session_id $command',
@@ -351,7 +358,7 @@ class MediaInformationSession extends FFprobeSession {
         .executeSession(this, () async {
           enableNativeLogCallback();
           try {
-            ffmpeg.media_information_session_execute(handle, _timeout);
+            ffmpeg.media_information_session_execute(_nativeHandle, _timeout);
           } catch (e, st) {
             log(
               'MediaInformationSession.execute: error executing media_information_session_execute $command',
@@ -429,7 +436,7 @@ class MediaInformationSession extends FFprobeSession {
   MediaInformation? getMediaInformation() {
     FFmpegKitExtended.requireInitialized();
     final mediaInfoHandle = ffmpeg
-        .media_information_session_get_media_information(handle);
+        .media_information_session_get_media_information(_nativeHandle);
     if (mediaInfoHandle == nullptr) return null;
 
     try {
@@ -649,7 +656,7 @@ class MediaInformationSession extends FFprobeSession {
     }
 
     try {
-      ffmpeg.media_information_session_execute_async(handle, _timeout);
+      ffmpeg.media_information_session_execute_async(_nativeHandle, _timeout);
     } catch (e, st) {
       log(
         'MediaInformationSession: error starting async session for media_information_session_execute_async '

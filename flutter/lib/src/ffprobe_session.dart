@@ -27,11 +27,14 @@ import 'package:meta/meta.dart';
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
+import 'platform/backend.dart';
 
 /// A session for executing FFprobe commands.
 ///
 /// Use this class to retrieve media metadata and stream information.
 class FFprobeSession extends Session {
+  Pointer<Void> get _nativeHandle => handle.value as Pointer<Void>;
+
   FFprobeSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
   StreamController<List<Log>>? _logBatchStreamController;
@@ -54,7 +57,9 @@ class FFprobeSession extends Session {
     final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
       try {
-        handle = ffmpeg.ffprobe_kit_create_session(cmdPtr.cast());
+        handle = SessionHandle(
+          ffmpeg.ffprobe_kit_create_session(cmdPtr.cast()),
+        );
       } catch (e, st) {
         log(
           'FFprobeSession: error creating session ffprobe_kit_create_session $command',
@@ -65,7 +70,7 @@ class FFprobeSession extends Session {
       }
       this.command = command;
       try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
       } catch (e, st) {
         log(
           'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
@@ -89,10 +94,10 @@ class FFprobeSession extends Session {
   /// Used internally when wrapping handles from the session-history API.
   FFprobeSession.fromHandle(Pointer<Void> handle, String command) {
     FFmpegKitExtended.requireInitialized();
-    this.handle = handle;
+    this.handle = SessionHandle(handle);
     this.command = command;
     try {
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(handle);
+      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
     } catch (e, st) {
       log(
         'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
@@ -182,7 +187,7 @@ class FFprobeSession extends Session {
           FFmpegKitExtended.requireInitialized();
           enableNativeLogCallback();
           try {
-            ffmpeg.ffprobe_kit_session_execute(handle);
+            ffmpeg.ffprobe_kit_session_execute(_nativeHandle);
           } catch (e, st) {
             log(
               'FFprobeSession.execute: error executing session ffprobe_kit_session_execute $command',
@@ -328,7 +333,7 @@ class FFprobeSession extends Session {
     }
 
     try {
-      ffmpeg.ffprobe_kit_session_execute_async(handle);
+      ffmpeg.ffprobe_kit_session_execute_async(_nativeHandle);
     } catch (e, st) {
       log(
         'FFprobeSession: error starting async session $sessionId',

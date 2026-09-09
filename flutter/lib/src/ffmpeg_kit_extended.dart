@@ -1293,7 +1293,9 @@ class FFmpegKitExtended {
   static void enableDebugLog(Session session) {
     requireInitialized();
     try {
-      ffmpeg.ffmpeg_kit_config_enable_debug_log(session.handle);
+      ffmpeg.ffmpeg_kit_config_enable_debug_log(
+        session.handle.value as Pointer<Void>,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_debug_log",
@@ -1308,7 +1310,9 @@ class FFmpegKitExtended {
   static void disableDebugLog(Session session) {
     requireInitialized();
     try {
-      ffmpeg.ffmpeg_kit_config_disable_debug_log(session.handle);
+      ffmpeg.ffmpeg_kit_config_disable_debug_log(
+        session.handle.value as Pointer<Void>,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_disable_debug_log",
@@ -1323,7 +1327,9 @@ class FFmpegKitExtended {
   static bool isDebugLogEnabled(Session session) {
     requireInitialized();
     try {
-      return ffmpeg.ffmpeg_kit_config_is_debug_log_enabled(session.handle);
+      return ffmpeg.ffmpeg_kit_config_is_debug_log_enabled(
+        session.handle.value as Pointer<Void>,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_is_debug_log_enabled",
@@ -1339,7 +1345,9 @@ class FFmpegKitExtended {
     requireInitialized();
     try {
       return _nativeStringOrEmpty(
-        ffmpeg.ffmpeg_kit_config_get_debug_log(session.handle),
+        ffmpeg.ffmpeg_kit_config_get_debug_log(
+          session.handle.value as Pointer<Void>,
+        ),
       );
     } catch (e, stack) {
       log(
@@ -1355,7 +1363,9 @@ class FFmpegKitExtended {
   static void clearDebugLog(Session session) {
     requireInitialized();
     try {
-      ffmpeg.ffmpeg_kit_config_clear_debug_log(session.handle);
+      ffmpeg.ffmpeg_kit_config_clear_debug_log(
+        session.handle.value as Pointer<Void>,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_clear_debug_log",

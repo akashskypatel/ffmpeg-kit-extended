@@ -8,6 +8,32 @@ final class SessionHandle {
   const SessionHandle(this.value);
 }
 
+final class StatisticsSnapshot {
+  final int timeElapsed;
+  final int time;
+  final int size;
+  final double bitrate;
+  final double speed;
+  final int videoFrameNumber;
+  final double videoFps;
+  final double videoQuality;
+  final int dupFrames;
+  final int dropFrames;
+
+  const StatisticsSnapshot({
+    required this.timeElapsed,
+    required this.time,
+    required this.size,
+    required this.bitrate,
+    required this.speed,
+    required this.videoFrameNumber,
+    required this.videoFps,
+    required this.videoQuality,
+    required this.dupFrames,
+    required this.dropFrames,
+  });
+}
+
 abstract interface class FFmpegKitBackend {
   Future<void> initialize();
 
@@ -47,7 +73,29 @@ abstract interface class FFmpegKitBackend {
 
   int getLogLevelAt(SessionHandle handle, int index);
 
+  int getStatisticsCount(SessionHandle handle);
+
+  StatisticsSnapshot? getStatisticsAt(SessionHandle handle, int index);
+
   void cancelSession(SessionHandle handle);
 
   void releaseSession(SessionHandle handle);
+
+  bool isFFmpegSession(SessionHandle handle);
+
+  bool isFFplaySession(SessionHandle handle);
+
+  bool isFFprobeSession(SessionHandle handle);
+
+  bool isMediaInformationSession(SessionHandle handle);
+
+  void enableDebugLog(SessionHandle handle);
+
+  void disableDebugLog(SessionHandle handle);
+
+  bool isDebugLogEnabled(SessionHandle handle);
+
+  String? getDebugLog(SessionHandle handle);
+
+  void clearDebugLog(SessionHandle handle);
 }

@@ -26,6 +26,7 @@ import 'package:ffi/ffi.dart';
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
+import 'platform/backend.dart';
 
 /// A session for executing FFmpeg commands.
 ///
@@ -46,6 +47,8 @@ import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 /// Use [executeAsync] when you need a [Future] that resolves only after
 /// execution finishes.
 class FFmpegSession extends Session {
+  Pointer<Void> get _nativeHandle => handle.value as Pointer<Void>;
+
   FFmpegSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
   FFmpegStatisticsCallback? _statisticsCallback;
@@ -66,7 +69,7 @@ class FFmpegSession extends Session {
   /// No callbacks are registered; call [setCompleteCallback] /
   /// [setLogCallback] / [setStatisticsCallback] if callbacks are needed.
   FFmpegSession.fromHandle(Pointer<Void> handle, String command) {
-    this.handle = handle;
+    this.handle = SessionHandle(handle);
     this.command = command;
     sessionId = FFmpegKitExtended.getSessionId(handle);
     _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
@@ -97,9 +100,9 @@ class FFmpegSession extends Session {
     FFmpegKitExtended.requireInitialized();
     final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      handle = ffmpeg.ffmpeg_kit_create_session(cmdPtr.cast());
+      handle = SessionHandle(ffmpeg.ffmpeg_kit_create_session(cmdPtr.cast()));
       this.command = command;
-      sessionId = FFmpegKitExtended.getSessionId(handle);
+      sessionId = FFmpegKitExtended.getSessionId(_nativeHandle);
       registerFinalizer();
     } catch (e, stack) {
       log(
@@ -143,16 +146,17 @@ class FFmpegSession extends Session {
         argv[i] = nativeString.cast<Char>();
       }
 
-      handle = ffmpeg.ffmpeg_kit_create_session_from_argv(
+      final nativeHandle = ffmpeg.ffmpeg_kit_create_session_from_argv(
         arguments.length,
         argv,
       );
-      if (handle == nullptr) {
+      if (nativeHandle == nullptr) {
         throw StateError('Failed to create FFmpeg session from arguments.');
       }
+      handle = SessionHandle(nativeHandle);
 
       command = FFmpegKitExtended.argumentsToString(arguments);
-      sessionId = FFmpegKitExtended.getSessionId(handle);
+      sessionId = FFmpegKitExtended.getSessionId(_nativeHandle);
       _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
         arguments,
       );
@@ -324,7 +328,7 @@ class FFmpegSession extends Session {
           _enableNativeLogCallback();
           // Blocking native call — returns only after FFmpeg finishes.
           try {
-            ffmpeg.ffmpeg_kit_session_execute(handle);
+            ffmpeg.ffmpeg_kit_session_execute(_nativeHandle);
           } catch (e, st) {
             log(
               'FFmpegSession.execute: error in native function ffmpeg_kit_session_execute for session $sessionId',
@@ -518,7 +522,7 @@ class FFmpegSession extends Session {
 
     // Start async native execution.
     try {
-      ffmpeg.ffmpeg_kit_session_execute_async(handle);
+      ffmpeg.ffmpeg_kit_session_execute_async(_nativeHandle);
     } catch (e, st) {
       log(
         'FFmpegSession: error starting async session $sessionId',

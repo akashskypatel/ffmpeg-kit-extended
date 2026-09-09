@@ -82,8 +82,42 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   int getLogLevelAt(SessionHandle handle, int index) => throw _notMigrated();
 
   @override
+  int getStatisticsCount(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  StatisticsSnapshot? getStatisticsAt(SessionHandle handle, int index) =>
+      throw _notMigrated();
+
+  @override
   void cancelSession(SessionHandle handle) => throw _notMigrated();
 
   @override
   void releaseSession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  bool isFFmpegSession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  bool isFFplaySession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  bool isFFprobeSession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  bool isMediaInformationSession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void enableDebugLog(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void disableDebugLog(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  bool isDebugLogEnabled(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  String? getDebugLog(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void clearDebugLog(SessionHandle handle) => throw _notMigrated();
 }
