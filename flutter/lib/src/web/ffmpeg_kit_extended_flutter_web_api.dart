@@ -10,6 +10,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../log.dart';
 import '../media_information.dart';
 import '../signal.dart';
@@ -134,7 +135,12 @@ class _WasmRuntime {
       'ffmpegKitExtendedModulePromise'.toJS,
     );
     _module = await promise.toDart;
-    _callVoid('_ffmpeg_kit_initialize');
+
+    // Bind ffigen_js to the same Emscripten module instance used for runtime
+    // memory helpers. All FFmpegKit C ABI calls below go through generated
+    // bindings rather than dynamic JS symbol lookup.
+    bindings.NativeLibrary.instance = _module! as bindings.NativeLibrary;
+    bindings.ffmpeg_kit_initialize();
   }
 
   void requireInitialized() {
@@ -145,35 +151,265 @@ class _WasmRuntime {
     }
   }
 
-  JSAny? _call(String name, [List<JSAny?> args = const []]) {
-    requireInitialized();
-    return _module!.callMethodVarArgs<JSAny?>(name.toJS, args);
-  }
-
-  int _callInt(String name, [List<JSAny?> args = const []]) {
-    final value = _call(name, args);
+  int _argInt(JSAny? value) {
+    if (value == null) return 0;
     return globalContext.callMethodVarArgs<JSNumber>('Number'.toJS, [
       value,
     ]).toDartInt;
   }
 
-  double _callDouble(String name, [List<JSAny?> args = const []]) =>
-      (_call(name, args) as JSNumber).toDartDouble;
+  bindings.Pointer<bindings.Void> _handle(int address) =>
+      bindings.Pointer<bindings.Void>.fromAddress(address);
 
-  void _callVoid(String name, [List<JSAny?> args = const []]) =>
-      _call(name, args);
+  bindings.Pointer<bindings.Char> _charPointer(int address) =>
+      bindings.Pointer<bindings.Char>.fromAddress(address);
+
+  bindings.Pointer<bindings.Uint8> _uint8Pointer(int address) =>
+      bindings.Pointer<bindings.Uint8>.fromAddress(address);
+
+  bindings.Pointer<bindings.Int32> _int32Pointer(int address) =>
+      bindings.Pointer<bindings.Int32>.fromAddress(address);
+
+  bindings.Pointer<bindings.Int64> _int64Pointer(int address) =>
+      bindings.Pointer<bindings.Int64>.fromAddress(address);
+
+  bindings.DartFFmpegKitCompleteCallback get _nullFFmpegComplete =>
+      bindings.Pointer<
+        bindings.NativeFunction<bindings.FFmpegKitCompleteCallbackFunction>
+      >.fromAddress(0);
+
+  bindings.DartFFprobeKitCompleteCallback get _nullFFprobeComplete =>
+      bindings.Pointer<
+        bindings.NativeFunction<bindings.FFprobeKitCompleteCallbackFunction>
+      >.fromAddress(0);
+
+  bindings.Pointer<bindings.Void> get _nullPointer =>
+      bindings.Pointer<bindings.Void>.fromAddress(0);
+
+  int _callInt(String name, [List<JSAny?> args = const []]) {
+    requireInitialized();
+    switch (name) {
+      case '_malloc':
+        return (_module!.callMethodVarArgs<JSNumber>('_malloc'.toJS, args))
+            .toDartInt;
+      case '_ffplay_kit_get_frame_buffer_size':
+        return bindings.ffplay_kit_get_frame_buffer_size();
+      case '_ffplay_kit_copy_frame':
+        return bindings.ffplay_kit_copy_frame(
+          _uint8Pointer(_argInt(args[0])),
+          _argInt(args[1]),
+          _int32Pointer(_argInt(args[2])),
+          _int32Pointer(_argInt(args[3])),
+          _int32Pointer(_argInt(args[4])),
+          _int64Pointer(_argInt(args[5])),
+        );
+      case '_ffmpeg_kit_session_get_state':
+        return bindings
+            .ffmpeg_kit_session_get_state(_handle(_argInt(args[0])))
+            .value;
+      case '_ffmpeg_kit_session_get_return_code':
+        return bindings
+            .ffmpeg_kit_session_get_return_code(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffmpeg_kit_session_get_logs_count':
+        return bindings
+            .ffmpeg_kit_session_get_logs_count(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffmpeg_kit_session_get_log_level_at':
+        return bindings
+            .ffmpeg_kit_session_get_log_level_at(
+              _handle(_argInt(args[0])),
+              BigInt.from(_argInt(args[1])),
+            )
+            .toInt();
+      case '_ffmpeg_kit_session_get_create_time':
+        return bindings
+            .ffmpeg_kit_session_get_create_time(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffmpeg_kit_session_get_start_time':
+        return bindings
+            .ffmpeg_kit_session_get_start_time(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffmpeg_kit_session_get_end_time':
+        return bindings
+            .ffmpeg_kit_session_get_end_time(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffmpeg_kit_session_get_duration':
+        return bindings
+            .ffmpeg_kit_session_get_duration(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffmpeg_kit_session_get_session_id':
+        return bindings
+            .ffmpeg_kit_session_get_session_id(_handle(_argInt(args[0])))
+            .toInt();
+      case '_ffplay_kit_session_is_playing':
+        return bindings.ffplay_kit_session_is_playing(
+              _handle(_argInt(args[0])),
+            )
+            ? 1
+            : 0;
+      case '_ffplay_kit_session_is_paused':
+        return bindings.ffplay_kit_session_is_paused(
+              _handle(_argInt(args[0])),
+            )
+            ? 1
+            : 0;
+      case '_ffplay_kit_session_get_video_width':
+        return bindings.ffplay_kit_session_get_video_width(
+          _handle(_argInt(args[0])),
+        );
+      case '_ffplay_kit_session_get_video_height':
+        return bindings.ffplay_kit_session_get_video_height(
+          _handle(_argInt(args[0])),
+        );
+      case '_ffmpeg_kit_packages_get_is_gpl':
+        return bindings.ffmpeg_kit_packages_get_is_gpl() ? 1 : 0;
+      case '_ffmpeg_kit_packages_get_is_nonfree':
+        return bindings.ffmpeg_kit_packages_get_is_nonfree() ? 1 : 0;
+      default:
+        throw UnsupportedError('Unsupported generated int binding: $name');
+    }
+  }
+
+  double _callDouble(String name, [List<JSAny?> args = const []]) {
+    requireInitialized();
+    switch (name) {
+      case '_ffplay_kit_session_get_position':
+        return bindings.ffplay_kit_session_get_position(
+          _handle(_argInt(args[0])),
+        );
+      case '_ffplay_kit_session_get_duration':
+        return bindings.ffplay_kit_session_get_duration(
+          _handle(_argInt(args[0])),
+        );
+      case '_ffplay_kit_session_get_volume':
+        return bindings.ffplay_kit_session_get_volume(
+          _handle(_argInt(args[0])),
+        );
+      default:
+        throw UnsupportedError('Unsupported generated double binding: $name');
+    }
+  }
+
+  void _callVoid(String name, [List<JSAny?> args = const []]) {
+    requireInitialized();
+    switch (name) {
+      case '_free':
+        _module!.callMethodVarArgs<JSAny?>('_free'.toJS, args);
+        return;
+      case '_ffmpeg_kit_cancel_session':
+        bindings.ffmpeg_kit_cancel_session(BigInt.from(_argInt(args[0])));
+        return;
+      case '_ffmpeg_kit_handle_release':
+        bindings.ffmpeg_kit_handle_release(_handle(_argInt(args[0])));
+        return;
+      case '_ffplay_kit_session_execute_async':
+        bindings.ffplay_kit_session_execute_async(
+          _handle(_argInt(args[0])),
+          BigInt.from(_argInt(args[1])),
+        );
+        return;
+      case '_ffplay_kit_session_pause':
+        bindings.ffplay_kit_session_pause(_handle(_argInt(args[0])));
+        return;
+      case '_ffplay_kit_session_resume':
+        bindings.ffplay_kit_session_resume(_handle(_argInt(args[0])));
+        return;
+      case '_ffplay_kit_session_stop':
+        bindings.ffplay_kit_session_stop(_handle(_argInt(args[0])));
+        return;
+      case '_ffplay_kit_session_seek':
+        bindings.ffplay_kit_session_seek(
+          _handle(_argInt(args[0])),
+          (args[1] as JSNumber).toDartDouble,
+        );
+        return;
+      case '_ffplay_kit_session_set_volume':
+        bindings.ffplay_kit_session_set_volume(
+          _handle(_argInt(args[0])),
+          (args[1] as JSNumber).toDartDouble,
+        );
+        return;
+      case '_ffplay_kit_session_close':
+        bindings.ffplay_kit_session_close(_handle(_argInt(args[0])));
+        return;
+      case '_ffmpeg_kit_config_set_log_level':
+        bindings.ffmpeg_kit_config_set_log_level(
+          bindings.FFmpegKitLogLevel.fromValue(_argInt(args[0])),
+        );
+        return;
+      case '_ffmpeg_kit_set_session_history_size':
+        bindings.ffmpeg_kit_set_session_history_size(
+          BigInt.from(_argInt(args[0])),
+        );
+        return;
+      default:
+        throw UnsupportedError('Unsupported generated void binding: $name');
+    }
+  }
 
   String _readAndFree(int pointer) {
     if (pointer == 0) return '';
     final value = (_module!.callMethodVarArgs<JSString>('UTF8ToString'.toJS, [
       pointer.toJS,
     ])).toDart;
-    _callVoid('_ffmpeg_kit_free', [pointer.toJS]);
+    bindings.ffmpeg_kit_free(_handle(pointer));
     return value;
   }
 
-  String callString(String name, [List<JSAny?> args = const []]) =>
-      _readAndFree(_callInt(name, args));
+  String callString(String name, [List<JSAny?> args = const []]) {
+    requireInitialized();
+    final pointer = switch (name) {
+      '_ffmpeg_kit_session_get_output' => bindings
+          .ffmpeg_kit_session_get_output(_handle(_argInt(args[0])))
+          .address,
+      '_ffmpeg_kit_session_get_logs_as_string' => bindings
+          .ffmpeg_kit_session_get_logs_as_string(_handle(_argInt(args[0])))
+          .address,
+      '_ffmpeg_kit_session_get_fail_stack_trace' => bindings
+          .ffmpeg_kit_session_get_fail_stack_trace(_handle(_argInt(args[0])))
+          .address,
+      '_ffmpeg_kit_session_get_log_at' => bindings
+          .ffmpeg_kit_session_get_log_at(
+            _handle(_argInt(args[0])),
+            BigInt.from(_argInt(args[1])),
+          )
+          .address,
+      '_ffmpeg_kit_config_get_ffmpeg_version' =>
+        bindings.ffmpeg_kit_config_get_ffmpeg_version().address,
+      '_ffmpeg_kit_config_get_version' =>
+        bindings.ffmpeg_kit_config_get_version().address,
+      '_ffmpeg_kit_packages_get_package_name' =>
+        bindings.ffmpeg_kit_packages_get_package_name().address,
+      '_ffmpeg_kit_packages_get_external_libraries' =>
+        bindings.ffmpeg_kit_packages_get_external_libraries().address,
+      '_ffmpeg_kit_packages_get_bundle_type' =>
+        bindings.ffmpeg_kit_packages_get_bundle_type().address,
+      '_ffmpeg_kit_packages_get_registered_codecs' =>
+        bindings.ffmpeg_kit_packages_get_registered_codecs().address,
+      '_ffmpeg_kit_packages_get_registered_encoders' =>
+        bindings.ffmpeg_kit_packages_get_registered_encoders().address,
+      '_ffmpeg_kit_packages_get_registered_decoders' =>
+        bindings.ffmpeg_kit_packages_get_registered_decoders().address,
+      '_ffmpeg_kit_packages_get_registered_muxers' =>
+        bindings.ffmpeg_kit_packages_get_registered_muxers().address,
+      '_ffmpeg_kit_packages_get_registered_demuxers' =>
+        bindings.ffmpeg_kit_packages_get_registered_demuxers().address,
+      '_ffmpeg_kit_packages_get_registered_filters' =>
+        bindings.ffmpeg_kit_packages_get_registered_filters().address,
+      '_ffmpeg_kit_packages_get_registered_protocols' =>
+        bindings.ffmpeg_kit_packages_get_registered_protocols().address,
+      '_ffmpeg_kit_packages_get_registered_bitstream_filters' => bindings
+          .ffmpeg_kit_packages_get_registered_bitstream_filters()
+          .address,
+      '_ffmpeg_kit_packages_get_build_configuration' =>
+        bindings.ffmpeg_kit_packages_get_build_configuration().address,
+      '_ffmpeg_kit_config_get_build_date' =>
+        bindings.ffmpeg_kit_config_get_build_date().address,
+      _ => throw UnsupportedError('Unsupported generated string binding: $name'),
+    };
+    return _readAndFree(pointer);
+  }
 
   int _newUtf8(String value) => (_module!.callMethodVarArgs<JSNumber>(
     'stringToNewUTF8'.toJS,
@@ -187,18 +423,41 @@ class _WasmRuntime {
   ]) {
     requireInitialized();
     final commandPointer = _newUtf8(command);
+    final nativeCommand = _charPointer(commandPointer);
     try {
-      return _callInt(entryPoint, [
-        commandPointer.toJS,
-        ...additionalArguments,
-      ]);
+      switch (entryPoint) {
+        case '_ffmpeg_kit_execute':
+          return bindings.ffmpeg_kit_execute(nativeCommand).address;
+        case '_ffmpeg_kit_execute_async':
+          return bindings
+              .ffmpeg_kit_execute_async(
+                nativeCommand,
+                _nullFFmpegComplete,
+                _nullPointer,
+              )
+              .address;
+        case '_ffprobe_kit_execute':
+          return bindings.ffprobe_kit_execute(nativeCommand).address;
+        case '_ffprobe_kit_execute_async':
+          return bindings
+              .ffprobe_kit_execute_async(
+                nativeCommand,
+                _nullFFprobeComplete,
+                _nullPointer,
+              )
+              .address;
+        case '_ffplay_kit_create_session':
+          return bindings.ffplay_kit_create_session(nativeCommand).address;
+        default:
+          throw UnsupportedError('Unsupported generated execute binding: $entryPoint');
+      }
     } finally {
       _callVoid('_free', [commandPointer.toJS]);
     }
   }
 
   void release(int handle) =>
-      _callVoid('_ffmpeg_kit_handle_release', [handle.toJS]);
+      bindings.ffmpeg_kit_handle_release(_handle(handle));
 
   int allocate(int size) => _callInt('_malloc', [size.toJS]);
   void free(int pointer) => _callVoid('_free', [pointer.toJS]);
@@ -678,8 +937,9 @@ class FFplaySession extends Session {
     while (true) {
       if (handle == 0) break;
       final state = getState();
-      if (state == SessionState.completed || state == SessionState.failed)
+      if (state == SessionState.completed || state == SessionState.failed) {
         break;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 50));
     }
     _positionTimer?.cancel();
