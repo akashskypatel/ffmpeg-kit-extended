@@ -24,7 +24,7 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
-import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
+import '../../generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 
 bool _initialized = false;
 Future<void>? _initializeFuture;

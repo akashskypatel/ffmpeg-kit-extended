@@ -5,5 +5,5 @@
 /// copies use different rendering paths.
 library;
 
-export 'ffplay_surface_native.dart'
+export 'platform/native/ffplay_surface_native.dart'
     if (dart.library.js_interop) 'web/ffplay_surface_web.dart';
