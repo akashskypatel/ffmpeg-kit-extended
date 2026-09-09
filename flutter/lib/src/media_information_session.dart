@@ -126,9 +126,8 @@ class MediaInformationSession extends FFprobeSession {
   MediaInformationSession(
     String command, {
     MediaInformationSessionCompleteCallback? completeCallback,
-    int timeout = 500,
-  }) : _timeout = timeout,
-       super.internal() {
+    this._timeout = 500,
+  }) : super.internal() {
     FFmpegKitExtended.requireInitialized();
     final finalCommand = '$_defaultCommandPrefix $command';
     this.command = finalCommand;
@@ -162,9 +161,8 @@ class MediaInformationSession extends FFprobeSession {
   MediaInformationSession.fromArguments(
     List<String> arguments, {
     MediaInformationSessionCompleteCallback? completeCallback,
-    int timeout = 500,
-  }) : _timeout = timeout,
-       super.internal() {
+    this._timeout = 500,
+  }) : super.internal() {
     FFmpegKitExtended.requireInitialized();
     final finalArguments = <String>[
       ..._defaultCommandPrefixArguments,

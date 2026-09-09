@@ -1,18 +1,16 @@
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_method_channel.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_method_channel.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  MethodChannelFfmpegKitExtendedFlutter platform = MethodChannelFfmpegKitExtendedFlutter();
+  final MethodChannelFfmpegKitExtendedFlutter platform = MethodChannelFfmpegKitExtendedFlutter();
   const MethodChannel channel = MethodChannel('ffmpeg_kit_extended_flutter');
 
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-          return '42';
-        });
+        .setMockMethodCallHandler(channel, (MethodCall methodCall) async => '42');
   });
 
   tearDown(() {

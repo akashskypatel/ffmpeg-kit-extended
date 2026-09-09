@@ -1,7 +1,7 @@
 import 'dart:ffi';
 
-import 'ffmpeg_kit_extended_flutter_loader.dart';
 import '../session_finalizer.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 
 SessionFinalizer createSessionFinalizer() => NativeSessionFinalizer();
 

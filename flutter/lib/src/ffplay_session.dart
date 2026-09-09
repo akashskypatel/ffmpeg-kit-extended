@@ -109,12 +109,12 @@ class FFplaySession extends Session {
   /// Creates a new [FFplaySession] for [command].
   /// **Prefer [FFplayKit.createSession]** for proper global tracking.
   /// - [completeCallback]: Invoked once when playback ends.
-  /// - [timeout]: Connection timeout in milliseconds (default 500).
+  /// - [_timeout]: Connection timeout in milliseconds (default 500).
   FFplaySession(
     String command, {
     FFplaySessionCompleteCallback? completeCallback,
-    int timeout = 500,
-  }) : _timeout = timeout {
+    this._timeout = 500,
+  }) {
     FFmpegKitExtended.requireInitialized();
     try {
       handle = ffmpegKitBackend.createFFplaySession(command);
@@ -128,7 +128,7 @@ class FFplaySession extends Session {
     }
     this.command = command;
     try {
-      sessionId = ffmpegKitBackend.getSessionId(this.handle);
+      sessionId = ffmpegKitBackend.getSessionId(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffmpeg_kit_session_get_session_id',
@@ -152,8 +152,8 @@ class FFplaySession extends Session {
   FFplaySession.fromArguments(
     List<String> arguments, {
     FFplaySessionCompleteCallback? completeCallback,
-    int timeout = 500,
-  }) : _timeout = timeout {
+    this._timeout = 500,
+  }) {
     FFmpegKitExtended.requireInitialized();
     if (arguments.isEmpty) {
       throw ArgumentError.value(arguments, 'arguments', 'must not be empty');
@@ -161,7 +161,7 @@ class FFplaySession extends Session {
 
     handle = ffmpegKitBackend.createFFplaySessionFromArguments(arguments);
     command = FFmpegKitExtended.argumentsToString(arguments);
-    sessionId = ffmpegKitBackend.getSessionId(this.handle);
+    sessionId = ffmpegKitBackend.getSessionId(handle);
     registerFinalizer();
 
     _completeCallback = completeCallback;

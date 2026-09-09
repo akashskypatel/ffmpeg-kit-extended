@@ -2,10 +2,10 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
-import 'ffmpeg_kit_extended_flutter_loader.dart';
 import '../../generated/ffmpeg_kit_bindings_native.dart' as bindings;
 import '../backend.dart';
 import 'callback_bridge_native.dart';
+import 'ffmpeg_kit_extended_flutter_loader.dart';
 
 FFmpegKitBackend createPlatformBackend() => NativeFFmpegKitBackend();
 

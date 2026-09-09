@@ -27,10 +27,9 @@ class FFplaySurface {
 
   FFplaySurface._({
     required this.textureId,
-    FFplayAndroidSurface? android,
-    FFplayDesktopTexture? desktop,
-  }) : _android = android,
-       _desktop = desktop;
+    this._android,
+    this._desktop,
+  });
 
   /// Allocates the native surface and wires it to FFplay.
   static Future<FFplaySurface?> create({int width = 1, int height = 1}) async {
