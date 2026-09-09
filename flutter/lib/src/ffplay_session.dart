@@ -26,6 +26,7 @@ import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'platform/backend.dart';
+import 'platform/backend_selector.dart';
 
 /// Session for playing media using FFplay.
 ///
@@ -94,13 +95,13 @@ class FFplaySession extends Session {
   /// Restores an [FFplaySession] from existing native [handle].
   /// Used internally when wrapping handles from session-history API.
   /// No callbacks registered; call [setCompleteCallback] if needed.
-  FFplaySession.fromHandle(Pointer<Void> handle, String command)
+  FFplaySession.fromHandle(Object handle, String command)
     : _timeout = 500 {
     FFmpegKitExtended.requireInitialized();
-    this.handle = SessionHandle(handle);
+    this.handle = handle is SessionHandle ? handle : SessionHandle(handle);
     this.command = command;
     try {
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
+      sessionId = ffmpegKitBackend.getSessionId(this.handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffmpeg_kit_session_get_session_id',

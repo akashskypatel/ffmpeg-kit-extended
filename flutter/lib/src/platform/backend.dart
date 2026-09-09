@@ -34,6 +34,48 @@ final class StatisticsSnapshot {
   });
 }
 
+final class PackageInformationSnapshot {
+  final String ffmpegVersion;
+  final String architecture;
+  final String version;
+  final String packageName;
+  final String externalLibraries;
+  final String bundleType;
+  final bool isGpl;
+  final bool isNonfree;
+  final String registeredCodecs;
+  final String registeredEncoders;
+  final String registeredDecoders;
+  final String registeredMuxers;
+  final String registeredDemuxers;
+  final String registeredFilters;
+  final String registeredProtocols;
+  final String registeredBitstreamFilters;
+  final String buildConfiguration;
+  final String buildDate;
+
+  const PackageInformationSnapshot({
+    required this.ffmpegVersion,
+    required this.architecture,
+    required this.version,
+    required this.packageName,
+    required this.externalLibraries,
+    required this.bundleType,
+    required this.isGpl,
+    required this.isNonfree,
+    required this.registeredCodecs,
+    required this.registeredEncoders,
+    required this.registeredDecoders,
+    required this.registeredMuxers,
+    required this.registeredDemuxers,
+    required this.registeredFilters,
+    required this.registeredProtocols,
+    required this.registeredBitstreamFilters,
+    required this.buildConfiguration,
+    required this.buildDate,
+  });
+}
+
 final class ChapterInformationSnapshot {
   final int id;
   final String? timeBase;
@@ -226,4 +268,82 @@ abstract interface class FFmpegKitBackend {
   String? getDebugLog(SessionHandle handle);
 
   void clearDebugLog(SessionHandle handle);
+
+  PackageInformationSnapshot getPackageInformation();
+
+  void setLogLevel(int level);
+
+  int getLogLevel();
+
+  void enableRedirection();
+
+  void disableRedirection();
+
+  void setFontDirectory(String path, {String? mapping});
+
+  void setAudioOutputDevice(String deviceName);
+
+  String listAudioOutputDevices();
+
+  void setEnvironmentVariable(String name, String value);
+
+  void ignoreSignal(int signal);
+
+  void setSessionHistorySize(int size);
+
+  int getSessionHistorySize();
+
+  List<SessionHandle> getSessions();
+
+  List<SessionHandle> getFFmpegSessions();
+
+  List<SessionHandle> getFFprobeSessions();
+
+  List<SessionHandle> getFFplaySessions();
+
+  List<SessionHandle> getMediaInformationSessions();
+
+  SessionHandle? getSessionById(int sessionId);
+
+  SessionHandle? getLastSession();
+
+  SessionHandle? getLastFFmpegSession();
+
+  SessionHandle? getLastFFprobeSession();
+
+  SessionHandle? getLastFFplaySession();
+
+  SessionHandle? getLastMediaInformationSession();
+
+  SessionHandle? getLastCompletedSession();
+
+  void clearSessions();
+
+  void configureLogCallback();
+
+  void configureStatisticsCallback();
+
+  void configureFFmpegSessionCompleteCallback();
+
+  void configureFFprobeSessionCompleteCallback();
+
+  void configureFFplaySessionCompleteCallback();
+
+  void configureMediaInformationSessionCompleteCallback();
+
+  String? registerNewFFmpegPipe();
+
+  void closeFFmpegPipe(String pipePath);
+
+  void setFontDirectoryList(List<String> directories, {String? mapping});
+
+  String sessionStateToString(int state);
+
+  String? logLevelToString(int level);
+
+  List<String> parseArguments(String command);
+
+  String argumentsToString(List<String> arguments);
+
+  int messagesInTransmit(int sessionId);
 }

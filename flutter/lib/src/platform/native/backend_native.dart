@@ -493,4 +493,341 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void clearDebugLog(SessionHandle handle) =>
       bindings.session_clear_debug_log(_pointer(handle));
+
+  String _requiredString(Pointer<Char> pointer) => _stringAndFree(pointer) ?? '';
+
+  @override
+  PackageInformationSnapshot getPackageInformation() =>
+      PackageInformationSnapshot(
+        ffmpegVersion: _requiredString(
+          bindings.ffmpeg_kit_config_get_ffmpeg_version(),
+        ),
+        architecture: _requiredString(
+          bindings.ffmpeg_kit_config_get_ffmpeg_architecture(),
+        ),
+        version: _requiredString(bindings.ffmpeg_kit_config_get_version()),
+        packageName: _requiredString(
+          bindings.ffmpeg_kit_packages_get_package_name(),
+        ),
+        externalLibraries: _requiredString(
+          bindings.ffmpeg_kit_packages_get_external_libraries(),
+        ),
+        bundleType: _requiredString(
+          bindings.ffmpeg_kit_packages_get_bundle_type(),
+        ),
+        isGpl: bindings.ffmpeg_kit_packages_get_is_gpl(),
+        isNonfree: bindings.ffmpeg_kit_packages_get_is_nonfree(),
+        registeredCodecs: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_codecs(),
+        ),
+        registeredEncoders: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_encoders(),
+        ),
+        registeredDecoders: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_decoders(),
+        ),
+        registeredMuxers: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_muxers(),
+        ),
+        registeredDemuxers: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_demuxers(),
+        ),
+        registeredFilters: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_filters(),
+        ),
+        registeredProtocols: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_protocols(),
+        ),
+        registeredBitstreamFilters: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_bitstream_filters(),
+        ),
+        buildConfiguration: _requiredString(
+          bindings.ffmpeg_kit_packages_get_build_configuration(),
+        ),
+        buildDate: _requiredString(bindings.ffmpeg_kit_config_get_build_date()),
+      );
+
+  @override
+  void setLogLevel(int level) => bindings.ffmpeg_kit_config_set_log_level(
+    bindings.FFmpegKitLogLevel.fromValue(level),
+  );
+
+  @override
+  int getLogLevel() => bindings.ffmpeg_kit_config_get_log_level().value;
+
+  @override
+  void enableRedirection() => bindings.ffmpeg_kit_config_enable_redirection();
+
+  @override
+  void disableRedirection() => bindings.ffmpeg_kit_config_disable_redirection();
+
+  @override
+  void setFontDirectory(String path, {String? mapping}) {
+    final pathPtr = path.toNativeUtf8(allocator: calloc);
+    final mappingPtr = (mapping ?? '').toNativeUtf8(allocator: calloc);
+    try {
+      bindings.ffmpeg_kit_config_set_font_directory(
+        pathPtr.cast(),
+        mappingPtr.cast(),
+      );
+    } finally {
+      calloc.free(pathPtr);
+      calloc.free(mappingPtr);
+    }
+  }
+
+  @override
+  void setAudioOutputDevice(String deviceName) {
+    final ptr = deviceName.toNativeUtf8(allocator: calloc);
+    try {
+      bindings.ffmpeg_kit_config_set_audio_output_device(ptr.cast());
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  @override
+  String listAudioOutputDevices() => _requiredString(
+    bindings.ffmpeg_kit_config_list_audio_output_devices(),
+  );
+
+  @override
+  void setEnvironmentVariable(String name, String value) {
+    final namePtr = name.toNativeUtf8(allocator: calloc);
+    final valuePtr = value.toNativeUtf8(allocator: calloc);
+    try {
+      bindings.ffmpeg_kit_config_set_environment_variable(
+        namePtr.cast(),
+        valuePtr.cast(),
+      );
+    } finally {
+      calloc.free(namePtr);
+      calloc.free(valuePtr);
+    }
+  }
+
+  @override
+  void ignoreSignal(int signal) => bindings.ffmpeg_kit_config_ignore_signal(
+    bindings.FFmpegKitSignal.fromValue(signal),
+  );
+
+  @override
+  void setSessionHistorySize(int size) =>
+      bindings.ffmpeg_kit_set_session_history_size(size);
+
+  @override
+  int getSessionHistorySize() => bindings.ffmpeg_kit_get_session_history_size();
+
+  List<SessionHandle> _sessionList(Pointer<Pointer<Void>> pointer) {
+    if (pointer == nullptr) return const [];
+    final result = <SessionHandle>[];
+    try {
+      for (var i = 0; ; i++) {
+        final value = pointer[i];
+        if (value == nullptr) break;
+        result.add(SessionHandle(value));
+      }
+      return result;
+    } finally {
+      bindings.ffmpeg_kit_free(pointer.cast());
+    }
+  }
+
+  @override
+  List<SessionHandle> getSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_sessions().cast());
+
+  @override
+  List<SessionHandle> getFFmpegSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_ffmpeg_sessions().cast());
+
+  @override
+  List<SessionHandle> getFFprobeSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_ffprobe_sessions().cast());
+
+  @override
+  List<SessionHandle> getFFplaySessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_ffplay_sessions().cast());
+
+  @override
+  List<SessionHandle> getMediaInformationSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_media_information_sessions().cast());
+
+  SessionHandle? _optionalHandle(Pointer<Void> handle) =>
+      handle == nullptr ? null : SessionHandle(handle);
+
+  @override
+  SessionHandle? getSessionById(int sessionId) =>
+      _optionalHandle(bindings.ffmpeg_kit_get_session(sessionId));
+
+  @override
+  SessionHandle? getLastSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_session());
+
+  @override
+  SessionHandle? getLastFFmpegSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_ffmpeg_session());
+
+  @override
+  SessionHandle? getLastFFprobeSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_ffprobe_session());
+
+  @override
+  SessionHandle? getLastFFplaySession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_ffplay_session());
+
+  @override
+  SessionHandle? getLastMediaInformationSession() => _optionalHandle(
+    bindings.ffmpeg_kit_get_last_media_information_session(),
+  );
+
+  @override
+  SessionHandle? getLastCompletedSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_completed_session());
+
+  @override
+  void clearSessions() => bindings.ffmpeg_kit_clear_sessions();
+
+  @override
+  void configureLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
+    nativeFFmpegLog.nativeFunction,
+    nullptr,
+  );
+
+  @override
+  void configureStatisticsCallback() =>
+      bindings.ffmpeg_kit_config_enable_statistics_callback(
+        nativeFFmpegStatistics.nativeFunction,
+        nullptr,
+      );
+
+  @override
+  void configureFFmpegSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+        nativeFFmpegComplete.nativeFunction,
+        nullptr,
+      );
+
+  @override
+  void configureFFprobeSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+        nativeFFprobeComplete.nativeFunction,
+        nullptr,
+      );
+
+  @override
+  void configureFFplaySessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+        nativeFFplayComplete.nativeFunction,
+        nullptr,
+      );
+
+  @override
+  void configureMediaInformationSessionCompleteCallback() =>
+      bindings
+          .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+            nativeMediaInfoComplete.nativeFunction,
+            nullptr,
+          );
+
+  @override
+  String? registerNewFFmpegPipe() => _stringAndFree(
+    bindings.ffmpeg_kit_config_register_new_ffmpeg_pipe(),
+  );
+
+  @override
+  void closeFFmpegPipe(String pipePath) {
+    final ptr = pipePath.toNativeUtf8(allocator: calloc);
+    try {
+      bindings.ffmpeg_kit_config_close_ffmpeg_pipe(ptr.cast());
+    } finally {
+      calloc.free(ptr);
+    }
+  }
+
+  @override
+  void setFontDirectoryList(List<String> directories, {String? mapping}) {
+    final list = calloc<Pointer<Char>>(directories.length);
+    final strings = <Pointer<Utf8>>[];
+    final mappingPtr = mapping?.toNativeUtf8(allocator: calloc) ?? nullptr;
+    try {
+      for (var i = 0; i < directories.length; i++) {
+        final value = directories[i].toNativeUtf8(allocator: calloc);
+        strings.add(value);
+        list[i] = value.cast();
+      }
+      bindings.ffmpeg_kit_config_set_font_directory_list(
+        list,
+        directories.length,
+        mappingPtr.cast(),
+      );
+    } finally {
+      for (final value in strings) {
+        calloc.free(value);
+      }
+      calloc.free(list);
+      if (mappingPtr != nullptr) calloc.free(mappingPtr);
+    }
+  }
+
+  @override
+  String sessionStateToString(int state) => _requiredString(
+    bindings.ffmpeg_kit_config_session_state_to_string(
+      bindings.FFmpegKitSessionState.fromValue(state),
+    ),
+  );
+
+  @override
+  String? logLevelToString(int level) => _stringAndFree(
+    bindings.ffmpeg_kit_config_log_level_to_string(
+      bindings.FFmpegKitLogLevel.fromValue(level),
+    ),
+  );
+
+  @override
+  List<String> parseArguments(String command) {
+    final commandPtr = command.toNativeUtf8(allocator: calloc);
+    final count = calloc<Int64>();
+    try {
+      final args = bindings.ffmpeg_kit_config_parse_arguments(
+        commandPtr.cast(),
+        count,
+      );
+      final result = <String>[];
+      for (var i = 0; i < count.value; i++) {
+        result.add(args[i].cast<Utf8>().toDartString());
+        bindings.ffmpeg_kit_free(args[i].cast());
+      }
+      bindings.ffmpeg_kit_free(args.cast());
+      return result;
+    } finally {
+      calloc.free(commandPtr);
+      calloc.free(count);
+    }
+  }
+
+  @override
+  String argumentsToString(List<String> arguments) {
+    final list = calloc<Pointer<Char>>(arguments.length);
+    final strings = <Pointer<Utf8>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final value = arguments[i].toNativeUtf8(allocator: calloc);
+        strings.add(value);
+        list[i] = value.cast();
+      }
+      return _requiredString(
+        bindings.ffmpeg_kit_config_arguments_to_string(list, arguments.length),
+      );
+    } finally {
+      for (final value in strings) {
+        calloc.free(value);
+      }
+      calloc.free(list);
+    }
+  }
+
+  @override
+  int messagesInTransmit(int sessionId) =>
+      bindings.ffmpeg_kit_config_messages_in_transmit(sessionId);
 }

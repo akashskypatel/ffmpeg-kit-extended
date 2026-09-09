@@ -95,6 +95,126 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       throw _notMigrated();
 
   @override
+  PackageInformationSnapshot getPackageInformation() => throw _notMigrated();
+
+  @override
+  void setLogLevel(int level) => throw _notMigrated();
+
+  @override
+  int getLogLevel() => throw _notMigrated();
+
+  @override
+  void enableRedirection() => throw _notMigrated();
+
+  @override
+  void disableRedirection() => throw _notMigrated();
+
+  @override
+  void setFontDirectory(String path, {String? mapping}) => throw _notMigrated();
+
+  @override
+  void setAudioOutputDevice(String deviceName) => throw _notMigrated();
+
+  @override
+  String listAudioOutputDevices() => throw _notMigrated();
+
+  @override
+  void setEnvironmentVariable(String name, String value) =>
+      throw _notMigrated();
+
+  @override
+  void ignoreSignal(int signal) => throw _notMigrated();
+
+  @override
+  void setSessionHistorySize(int size) => throw _notMigrated();
+
+  @override
+  int getSessionHistorySize() => throw _notMigrated();
+
+  @override
+  List<SessionHandle> getSessions() => throw _notMigrated();
+
+  @override
+  List<SessionHandle> getFFmpegSessions() => throw _notMigrated();
+
+  @override
+  List<SessionHandle> getFFprobeSessions() => throw _notMigrated();
+
+  @override
+  List<SessionHandle> getFFplaySessions() => throw _notMigrated();
+
+  @override
+  List<SessionHandle> getMediaInformationSessions() => throw _notMigrated();
+
+  @override
+  SessionHandle? getSessionById(int sessionId) => throw _notMigrated();
+
+  @override
+  SessionHandle? getLastSession() => throw _notMigrated();
+
+  @override
+  SessionHandle? getLastFFmpegSession() => throw _notMigrated();
+
+  @override
+  SessionHandle? getLastFFprobeSession() => throw _notMigrated();
+
+  @override
+  SessionHandle? getLastFFplaySession() => throw _notMigrated();
+
+  @override
+  SessionHandle? getLastMediaInformationSession() => throw _notMigrated();
+
+  @override
+  SessionHandle? getLastCompletedSession() => throw _notMigrated();
+
+  @override
+  void clearSessions() => throw _notMigrated();
+
+  @override
+  void configureLogCallback() => throw _notMigrated();
+
+  @override
+  void configureStatisticsCallback() => throw _notMigrated();
+
+  @override
+  void configureFFmpegSessionCompleteCallback() => throw _notMigrated();
+
+  @override
+  void configureFFprobeSessionCompleteCallback() => throw _notMigrated();
+
+  @override
+  void configureFFplaySessionCompleteCallback() => throw _notMigrated();
+
+  @override
+  void configureMediaInformationSessionCompleteCallback() =>
+      throw _notMigrated();
+
+  @override
+  String? registerNewFFmpegPipe() => throw _notMigrated();
+
+  @override
+  void closeFFmpegPipe(String pipePath) => throw _notMigrated();
+
+  @override
+  void setFontDirectoryList(List<String> directories, {String? mapping}) =>
+      throw _notMigrated();
+
+  @override
+  String sessionStateToString(int state) => throw _notMigrated();
+
+  @override
+  String? logLevelToString(int level) => throw _notMigrated();
+
+  @override
+  List<String> parseArguments(String command) => throw _notMigrated();
+
+  @override
+  String argumentsToString(List<String> arguments) => throw _notMigrated();
+
+  @override
+  int messagesInTransmit(int sessionId) => throw _notMigrated();
+
+  @override
   int getSessionState(SessionHandle handle) => throw _notMigrated();
 
   @override
