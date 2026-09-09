@@ -26,7 +26,7 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 
 /// A session for executing FFprobe commands.
 ///
@@ -132,8 +132,8 @@ class FFprobeSession extends Session {
 
   /// A batched stream of buffered logs drained from the native session.
   Stream<List<Log>> get logBatchStream {
-    final controller =
-        _logBatchStreamController ??= StreamController<List<Log>>.broadcast(
+    final controller = _logBatchStreamController ??=
+        StreamController<List<Log>>.broadcast(
           onListen: () {
             _ensureRegistered();
             dispatchPendingLogs();
@@ -443,8 +443,7 @@ class FFprobeSession extends Session {
   /// that considers inherited log-delivery state.
   @protected
   bool get hasActiveLogDelivery =>
-      _logCallback != null ||
-      (_logBatchStreamController?.hasListener ?? false);
+      _logCallback != null || (_logBatchStreamController?.hasListener ?? false);
 
   /// Unregisters this session from the callback manager.
   ///

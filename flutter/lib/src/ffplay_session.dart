@@ -24,7 +24,7 @@ import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 
 /// Session for playing media using FFplay.
 ///
@@ -262,8 +262,8 @@ class FFplaySession extends Session {
 
   /// A batched stream of buffered logs drained from the native session.
   Stream<List<Log>> get logBatchStream {
-    final controller =
-        _logBatchStreamController ??= StreamController<List<Log>>.broadcast(
+    final controller = _logBatchStreamController ??=
+        StreamController<List<Log>>.broadcast(
           onListen: () {
             _ensureRegistered();
             dispatchPendingLogs();

@@ -28,7 +28,7 @@ import 'ffmpeg_kit_extended_flutter_loader.dart';
 import 'ffmpeg_session.dart';
 import 'ffplay_session.dart';
 import 'ffprobe_session.dart';
-import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'log.dart';
 import 'media_information_session.dart';
 import 'session.dart';

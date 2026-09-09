@@ -27,7 +27,7 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 
 /// A specialised [FFprobeSession] for retrieving detailed media information.
 ///
@@ -191,9 +191,7 @@ class MediaInformationSession extends FFprobeSession {
     using((Arena arena) {
       final argv = arena<Pointer<Char>>(finalArguments.length);
       for (var i = 0; i < finalArguments.length; i++) {
-        argv[i] = finalArguments[i]
-            .toNativeUtf8(allocator: arena)
-            .cast<Char>();
+        argv[i] = finalArguments[i].toNativeUtf8(allocator: arena).cast<Char>();
       }
 
       try {

@@ -28,7 +28,7 @@ import '../ffmpeg_kit_extended_flutter.dart'
         MediaInformationSession,
         FFmpegKitExtended;
 import 'ffmpeg_kit_extended_flutter_loader.dart' show ffmpegKitHandleReleasePtr;
-import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'log.dart';
 import 'statistics.dart';
 
@@ -509,10 +509,9 @@ abstract class Session implements Finalizable {
       final dropFrames = ffmpeg.ffmpeg_kit_statistics_get_drop_frames(
         statsHandle,
       );
-      final transcodingProgress =
-          this is FFmpegSession
-              ? (this as FFmpegSession).calculateTranscodingProgress(timeMs)
-              : null;
+      final transcodingProgress = this is FFmpegSession
+          ? (this as FFmpegSession).calculateTranscodingProgress(timeMs)
+          : null;
 
       return Statistics(
         sessionId,

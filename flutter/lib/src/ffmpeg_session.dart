@@ -25,7 +25,7 @@ import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings.dart' as ffmpeg;
+import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 
 /// A session for executing FFmpeg commands.
 ///
@@ -153,8 +153,9 @@ class FFmpegSession extends Session {
 
       command = FFmpegKitExtended.argumentsToString(arguments);
       sessionId = FFmpegKitExtended.getSessionId(handle);
-      _expectedTranscodingDurationMs =
-          _deriveExpectedTranscodingDurationMs(arguments);
+      _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
+        arguments,
+      );
       registerFinalizer();
     } finally {
       for (final nativeString in nativeStrings) {
@@ -222,8 +223,8 @@ class FFmpegSession extends Session {
   /// drain. This is the preferred API for high-volume sessions because it keeps
   /// Dart-side dispatch and UI work off the per-line hot path.
   Stream<List<Log>> get logBatchStream {
-    final controller =
-        _logBatchStreamController ??= StreamController<List<Log>>.broadcast(
+    final controller = _logBatchStreamController ??=
+        StreamController<List<Log>>.broadcast(
           onListen: () {
             _ensureRegistered();
             dispatchPendingLogs();
@@ -664,8 +665,9 @@ class FFmpegSession extends Session {
       return null;
     }
 
-    final sexagesimal =
-        RegExp(r'^(-)?(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$').firstMatch(trimmed);
+    final sexagesimal = RegExp(
+      r'^(-)?(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)$',
+    ).firstMatch(trimmed);
     if (sexagesimal != null) {
       final sign = sexagesimal.group(1) == '-' ? -1 : 1;
       final hours = int.tryParse(sexagesimal.group(2) ?? '0') ?? 0;
@@ -679,8 +681,9 @@ class FFmpegSession extends Session {
       return sign * totalMs;
     }
 
-    final unitMatch =
-        RegExp(r'^(-?\d+(?:\.\d+)?)(us|ms|s|m|h)?$').firstMatch(trimmed);
+    final unitMatch = RegExp(
+      r'^(-?\d+(?:\.\d+)?)(us|ms|s|m|h)?$',
+    ).firstMatch(trimmed);
     if (unitMatch == null) {
       return null;
     }
