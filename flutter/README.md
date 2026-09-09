@@ -51,9 +51,11 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 | macOS                    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
 | Linux                    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
 | Windows                  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
-| Web (Wasm)               | ✅ Assets    | ❌             | wasm32              | Flutter Wasm build   |
+| Web (Wasm)               | ✅ Supported | ✅ RGBA frames | wasm32              | Flutter Wasm build   |
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
+
+Flutter Web uses the same public API and shared session implementation as native platforms. The Web backend invokes the generated Wasm bindings and polls session state for completion, logs, and statistics. FFplay copies RGBA frames from Wasm memory into Flutter images; it does not use a native SDL window or texture.
 
 ## 🎬 Demo
 
@@ -113,6 +115,19 @@ You will have to update your app's minimum requirements on your own to match the
    ```
 
    > **Important**: Any FFmpeg, FFprobe, or FFplay API call made before `initialize()` completes will throw a `StateError`.
+
+### Web build and deployment
+
+Build Flutter Web with Wasm:
+
+```bash
+flutter clean
+flutter build web --wasm
+```
+
+The build hook downloads and verifies the configured `wasm32` bundle, then stages `ffmpegkit.mjs` and `ffmpegkit.wasm` as Web assets. When using pthread-enabled bundles, serve the application with cross-origin isolation headers such as `Cross-Origin-Opener-Policy: same-origin` and a suitable `Cross-Origin-Embedder-Policy` value. The browser must expose `crossOriginIsolated` for threaded Wasm execution.
+
+For the current implementation map and maintenance rules, see the [architecture and maintenance handoff](doc/architecture.md).
 
 ### 2.1 Platform specific configuration
 
@@ -191,6 +206,7 @@ You will have to update your app's minimum requirements on your own to match the
 4. Other features are additional features that are not covered by the above categories. See [Supported External Libraries](#libraries) for more information.
 
 5. To deploy a custom build see [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders).
+
 
 ### Bundle Sizes
 
@@ -420,70 +436,72 @@ print('Paused: ${session.isPaused()}');
 | `f`        | Full bundle only.                    |
 | *(empty)*  | not available on this platform.      |
 
-| Library                                                                                    | Android | Linux | Windows | tvOS | iOS | macOS |
-| ---------------------------------------------------------------------                      | ------- | ----- | ------- | ---- | --- | ----- |
-| **System**                                                                                 |         |       |         |      |     |       |
-| bzlib, iconv, lzma, zlib                                                                   | a+      | a+    | a+      | a+   | a+  | a+    |
-| **TLS / HTTPS**<sup>[4](#https-info)</sup> *(one selected per build)*                      |         |       |         |      |     |       |
-| openssl *(default)*, gnutls, mbedtls, libtls                                               | a+      | a+    | a+      | a+   | a+  | a+    |
-| schannel                                                                                   |         |       | a+      |      |     | a+    |
-| **Streaming**                                                                              |         |       |         |      |     |       |
-| libsrt, librist, librtmp                                                                   | a+      | a+    | a+      | a+   | a+  | a+    |
-| **Audio Codecs**                                                                           |         |       |         |      |     |       |
-| libcodec2, libgsm, libilbc, liblc3, libmodplug                                             | a+      | a+    | a+      | a+   | a+  | a+    |
-| libmp3lame, libopencore-amrnb, libopencore-amrwb                                           | a+      | a+    | a+      | a+   | a+  | a+    |
-| libopenmpt, libopus, libsoxr, libspeex, libtwolame                                         | a+      | a+    | a+      | a+   | a+  | a+    |
-| libvo-amrwbenc, libvorbis, openal                                                          | a+      | a+    | a+      | a+   | a+  | a+    |
-| alsa                                                                                       |         | a+    |         |      |     |       |
-| libbs2b<sup>[10](#gpl-info)</sup>                                                          | a+      | a+    | a+      | a+   | a+  | a+    |
-| libmpeghdec<sup>[9](#nonfree-info)</sup> *(custom deployment only)*                        | a+      | a+    | a+      | a+   | a+  | a+    |
-| **Audio Extras** *(not in `small` builds)*                                                 |         |       |         |      |     |       |
-| chromaprint, libflite, libgme, libmysofa, libshine, lv2                                    | a+      | a+    | a+      | a+   | a+  | a+    |
-| libcdio, librubberband<sup>[10](#gpl-info)</sup>                                           | a+      | a+    | a+      | a+   | a+  | a+    |
-| ladspa, libpulse, sndio                                                                    |         | a+    |         |      |     |       |
-| libjack<sup>[10](#gpl-info)</sup>                                                          |         | a+    |         |      |     |       |
-| **Video Libraries**                                                                        |         |       |         |      |     |       |
-| lcms2, libaom, libaribcaption                                                              | v+      | v+    | v+      | v+   | v+  | v+    |
-| libass, libbluray, libcaca, libdav1d                                                       | v+      | v+    | v+      | v+   | v+  | v+    |
-| libdav1d, libfontconfig, libfreetype, libfribidi                                           | v+      | v+    | v+      | v+   | v+  | v+    |
-| libharfbuzz, libjxl, libkvazaar, liblcevc-dec                                              | v+      | v+    | v+      | v+   | v+  | v+    |
-| liboapv, libopenh264, libopenjpeg, librav1e                                                | v+      | v+    | v+      | v+   | v+  | v+    |
-| librsvg, libsnappy, libsvtav1, libtheora                                                   | v+      | v+    | v+      | v+   | v+  | v+    |
-| libuavs3d, libvpx, libvvenc, libwebp                                                       | v+      | v+    | v+      | v+   | v+  | v+    |
-| libxevd, libxeve, libzimg, libzvbi, libxml2, sdl2                                          | v+      | v+    | v+      | v+   | v+  | v+    |
-| libdavs2, libdvdnav, libdvdread, libx264<sup>[10](#gpl-info)</sup>                         | v+      | v+    | v+      | v+   | v+  | v+    |
-| libx265, libxavs, libxavs2, libaribb24<sup>[10](#gpl-info)</sup>                           | v+      | v+    | v+      | v+   | v+  | v+    |
-| libdc1394, libiec61883, libsvtjpegxs                                                       |         | v+    |         |      |     |       |
-| libxvid<sup>[10](#gpl-info)</sup>                                                          |         | v+    |         |      |     |       |
-| libopencolorio<sup>[15](#arch-info)</sup>                                                  | v+      | v+    | v+      | v+   | v+  | v+    |
-| **Video Extras** *(not in `small` builds)*                                                 |         |       |         |      |     |       |
-| libklvanc, liblensfun, libqrencode, libvmaf, vapoursynth                                   | v+      | v+    | v+      | v+   | v+  | v+    |
-| frei0r, libvidstab<sup>[10](#gpl-info)</sup>                                               | v+      | v+    | v+      |      | v+  | v+    |
-| libv4l2, libxcb, libxcb-shape, libxcb-shm, libxcb-xfixes, xlib                             |         | v+    |         |      |     |       |
-| avisynth<sup>[10](#gpl-info)</sup>                                                         |         | v+    | v+      |      |     | v+    |
-| decklink<sup>[9](#nonfree-info)</sup> *(custom deployment only)*                           | v+      | v+    | v+      | v+   | v+  | v+    |
-| **Hardware Acceleration**                                                                  |         |       |         |      |     |       |
-| amf, libmfx, libplacebo, libvpl                                                            | h+      | h+    | h+      | h+   | h+  | h+    |
-| opencl, opengl, vulkan, vulkan-static                                                      | h+      | h+    | h+      | h+   | h+  | h+    |
-| ffnvcodec, cuvid, nvdec, nvenc<sup>[12](#redist-info)</sup> *(custom deployment only)*     |         | h+    | h+      |      |     |       |
-| cuda-llvm, cuda-nvcc<sup>[12](#redist-info)</sup> *(custom deployment only)*               |         | h+    | h+      |      |     |       |
-| libdrm, vaapi, rkmpp, vdpau                                                                |         | h+    |         |      |     |       |
-| v4l2-m2m<sup>[10](#gpl-info)</sup>                                                         |         | h+    |         |      |     |       |
-| **AI** *(Full bundle only)*                                                                |         |       |         |      |     |       |
-| pocketsphinx, whisper                                                                      | f       | f     | f       | f    | f   | f     |
-| libopencv, libquirc, libtesseract<sup>[11](#compute-info)</sup>                            | f       | f     | f       | f    | f   | f     |
-| libopenvino, libtensorflow<sup>[11](#compute-info)</sup>                                   |         | f     | f       |      |     | f     |
-| libonnxruntime<sup>[11](#compute-info)</sup>                                               |         | f     | f       |      |     | f     |
-| libtorch<sup>[11](#compute-info)</sup>                                                     |         | f     |         |      |     | f     |
-| **Nonfree additions** *(custom deployment only)*                                           |         |       |         |      |     |       |
-| libfdk-aac<sup>[9](#nonfree-info)</sup>                                                    | f       | f     | f       | f    | f   | f     |
-| **Platform-specific** *(All bundles)*                                                      |         |       |         |      |     |       |
-| jni, mediacodec                                                                            | b+      |       |         |      |     |       |
-| appkit, avfoundation, audiotoolbox, coreimage, metal, securetransport                      |         |       |         | b+   | b+  | b+    |
-| videotoolbox, schannel, dxva2, d3d12va, d3d11va, mediafoundation                           |         |       |         | b+   | b+  | b+    |
-| appkit                                                                                     |         |       |         |      |     | b+    |
-| schannel, dxva2, d3d12va, d3d11va, mediafoundation                                         |         |       | b+      |      |     |       |
-| alsa                                                                                       |         | b+    |         |      |     |       |
+| Library                                                                                    | Android | Linux | Windows | tvOS | iOS | macOS | Web (Wasm) |
+| ---------------------------------------------------------------------                      | ------- | ----- | ------- | ---- | --- | ----- | ---------- |
+| **System**                                                                                 |         |       |         |      |     |       |            |
+| bzlib, iconv, lzma, zlib                                                                   | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| **TLS / HTTPS**<sup>[4](#https-info)</sup> *(one selected per build)*                      |         |       |         |      |     |       |            |
+| openssl *(default)*, gnutls, mbedtls, libtls                                               | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| schannel                                                                                   |         |       | a+      |      |     | a+    | —          |
+| **Streaming**                                                                              |         |       |         |      |     |       |            |
+| libsrt, librist, librtmp                                                                   | a+      | a+    | a+      | a+   | a+  | a+    | a+*        |
+| **Audio Codecs**                                                                           |         |       |         |      |     |       |            |
+| libcodec2, libgsm, libilbc, liblc3, libmodplug                                             | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| libmp3lame, libopencore-amrnb, libopencore-amrwb                                           | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| libopenmpt, libopus, libsoxr, libspeex, libtwolame                                         | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| libvo-amrwbenc, libvorbis, openal                                                          | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| alsa                                                                                       |         | a+    |         |      |     |       | —          |
+| libbs2b<sup>[10](#gpl-info)</sup>                                                          | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| libmpeghdec<sup>[9](#nonfree-info)</sup> *(custom deployment only)*                        | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| **Audio Extras** *(not in `small` builds)*                                                 |         |       |         |      |     |       |            |
+| chromaprint, libflite, libgme, libmysofa, libshine, lv2                                    | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| libcdio, librubberband<sup>[10](#gpl-info)</sup>                                           | a+      | a+    | a+      | a+   | a+  | a+    | a+         |
+| ladspa, libpulse, sndio                                                                    |         | a+    |         |      |     |       | —          |
+| libjack<sup>[10](#gpl-info)</sup>                                                          |         | a+    |         |      |     |       | —          |
+| **Video Libraries**                                                                        |         |       |         |      |     |       |            |
+| lcms2, libaom, libaribcaption                                                              | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libass, libbluray, libcaca, libdav1d                                                       | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libdav1d, libfontconfig, libfreetype, libfribidi                                           | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libharfbuzz, libjxl, libkvazaar, liblcevc-dec                                              | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| liboapv, libopenh264, libopenjpeg, librav1e                                                | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| librsvg, libsnappy, libsvtav1, libtheora                                                   | v+      | v+    | v+      | v+   | v+  | v+    | v+*        |
+| libuavs3d, libvpx, libvvenc, libwebp                                                       | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libxevd, libxeve, libzimg, libzvbi, libxml2, sdl2                                          | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libdavs2, libdvdnav, libdvdread, libx264<sup>[10](#gpl-info)</sup>                         | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libx265, libxavs, libxavs2, libaribb24<sup>[10](#gpl-info)</sup>                           | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| libdc1394, libiec61883, libsvtjpegxs                                                       |         | v+    |         |      |     |       | —          |
+| libxvid<sup>[10](#gpl-info)</sup>                                                          |         | v+    |         |      |     |       | —          |
+| libopencolorio<sup>[15](#arch-info)</sup>                                                  | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| **Video Extras** *(not in `small` builds)*                                                 |         |       |         |      |     |       |            |
+| libklvanc, liblensfun, libqrencode, libvmaf, vapoursynth                                   | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| frei0r, libvidstab<sup>[10](#gpl-info)</sup>                                               | v+      | v+    | v+      |      | v+  | v+    | v+         |
+| libv4l2, libxcb, libxcb-shape, libxcb-shm, libxcb-xfixes, xlib                             |         | v+    |         |      |     |       | —          |
+| avisynth<sup>[10](#gpl-info)</sup>                                                         |         | v+    | v+      |      |     | v+    | v+         |
+| decklink<sup>[9](#nonfree-info)</sup> *(custom deployment only)*                           | v+      | v+    | v+      | v+   | v+  | v+    | v+         |
+| **Hardware Acceleration**                                                                  |         |       |         |      |     |       |            |
+| amf, libmfx, libplacebo, libvpl                                                            | h+      | h+    | h+      | h+   | h+  | h+    | h+*        |
+| opencl, opengl, vulkan, vulkan-static                                                      | h+      | h+    | h+      | h+   | h+  | h+    | h+*        |
+| ffnvcodec, cuvid, nvdec, nvenc<sup>[12](#redist-info)</sup> *(custom deployment only)*     |         | h+    | h+      |      |     |       | —          |
+| cuda-llvm, cuda-nvcc<sup>[12](#redist-info)</sup> *(custom deployment only)*               |         | h+    | h+      |      |     |       | —          |
+| libdrm, vaapi, rkmpp, vdpau                                                                |         | h+    |         |      |     |       | —          |
+| v4l2-m2m<sup>[10](#gpl-info)</sup>                                                         |         | h+    |         |      |     |       | —          |
+| **AI** *(Full bundle only)*                                                                |         |       |         |      |     |       |            |
+| pocketsphinx, whisper                                                                      | f       | f     | f       | f    | f   | f     | f          |
+| libopencv, libquirc, libtesseract<sup>[11](#compute-info)</sup>                            | f       | f     | f       | f    | f   | f     | f          |
+| libopenvino, libtensorflow<sup>[11](#compute-info)</sup>                                   |         | f     | f       |      |     | f     | —          |
+| libonnxruntime<sup>[11](#compute-info)</sup>                                               |         | f     | f       |      |     | f     | —          |
+| libtorch<sup>[11](#compute-info)</sup>                                                     |         | f     |         |      |     | f     | —          |
+| **Nonfree additions** *(custom deployment only)*                                           |         |       |         |      |     |       |            |
+| libfdk-aac<sup>[9](#nonfree-info)</sup>                                                    | f       | f     | f       | f    | f   | f     | f          |
+| **Platform-specific** *(All bundles)*                                                      |         |       |         |      |     |       |            |
+| jni, mediacodec                                                                            | b+      |       |         |      |     |       | —          |
+| appkit, avfoundation, audiotoolbox, coreimage, metal, securetransport                      |         |       |         | b+   | b+  | b+    | —          |
+| videotoolbox, schannel, dxva2, d3d12va, d3d11va, mediafoundation                           |         |       |         | b+   | b+  | b+    | —          |
+| appkit                                                                                     |         |       |         |      |     | b+    | —          |
+| schannel, dxva2, d3d12va, d3d11va, mediafoundation                                         |         |       | b+      |      |     |       | —          |
+| alsa                                                                                       |         | b+    |         |      |     |       | —          |
+
+The Web column uses the same bundle keys as the other columns. `—` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries.
 
 > frei0r, liblensfun, librsvg, and pocketsphinx are not available on `tvOS`.
 
