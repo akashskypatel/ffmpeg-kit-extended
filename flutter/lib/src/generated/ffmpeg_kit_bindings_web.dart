@@ -24,12 +24,6 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     NativeLibrary.instance = lib as NativeLibrary;
   }
 
-  external void __invalid_parameter_noinfo();
-  external void __invalid_parameter_noinfo_noreturn();
-  external Pointer<Int32> __errno();
-  external errno_t __set_errno(int _Value);
-  external errno_t __get_errno(Pointer<Int32> _Value);
-
   /// Initializes the library and FFmpeg backend.
   /// Should be called once immediately after loading the DLL.
   external void _ffmpeg_kit_initialize();
@@ -1853,32 +1847,6 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
 
   /// Clears the debug log for the session.
   external void _ffmpeg_kit_config_clear_debug_log(Pointer<Void> session);
-}
-
-void _invalid_parameter_noinfo() {
-  final result = GeneratedBindings.instance.__invalid_parameter_noinfo();
-  return result;
-}
-
-void _invalid_parameter_noinfo_noreturn() {
-  final result = GeneratedBindings.instance
-      .__invalid_parameter_noinfo_noreturn();
-  return result;
-}
-
-Pointer<Int32> _errno() {
-  final result = GeneratedBindings.instance.__errno();
-  return Pointer<Int32>(result);
-}
-
-Darterrno_t _set_errno(int _Value) {
-  final result = GeneratedBindings.instance.__set_errno(_Value);
-  return result;
-}
-
-Darterrno_t _get_errno(Pointer<Int32> _Value) {
-  final result = GeneratedBindings.instance.__get_errno(_Value);
-  return result;
 }
 
 /// Initializes the library and FFmpeg backend.
@@ -4829,9 +4797,6 @@ void ffmpeg_kit_config_clear_debug_log(Pointer<Void> session) {
   );
   return result;
 }
-
-typedef errno_t = int;
-typedef Darterrno_t = int;
 
 enum FFmpegKitSessionState {
   FFMPEG_KIT_SESSION_STATE_CREATED(0),
