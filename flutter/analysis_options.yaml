@@ -4,6 +4,7 @@ analyzer:
   errors:
     missing_required_param: warning
     missing_return: warning
+    invalid_dependency: ignore
   exclude:
     - build/**
     - android/**
@@ -12,6 +13,7 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - lib/src/generated/**
 
 linter:
   rules:

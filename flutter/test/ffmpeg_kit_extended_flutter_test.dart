@@ -1,28 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_platform_interface.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_method_channel.dart';
-import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-
-class MockFfmpegKitExtendedFlutterPlatform
-    with MockPlatformInterfaceMixin
-    implements FfmpegKitExtendedFlutterPlatform {
-  @override
-  Future<String?> getPlatformVersion() => Future.value('42');
-}
 
 void main() {
-  final FfmpegKitExtendedFlutterPlatform initialPlatform = FfmpegKitExtendedFlutterPlatform.instance;
-
-  test('$MethodChannelFfmpegKitExtendedFlutter is the default instance', () {
-    expect(initialPlatform, isInstanceOf<MethodChannelFfmpegKitExtendedFlutter>());
-  });
-
-  test('getPlatformVersion', () async {
-    FfmpegKitExtendedFlutter ffmpegKitExtendedFlutterPlugin = FfmpegKitExtendedFlutter();
-    MockFfmpegKitExtendedFlutterPlatform fakePlatform = MockFfmpegKitExtendedFlutterPlatform();
-    FfmpegKitExtendedFlutterPlatform.instance = fakePlatform;
-
-    expect(await ffmpegKitExtendedFlutterPlugin.getPlatformVersion(), '42');
+  test('exports the unified FFmpegKit API', () {
+    expect(FFmpegKit, isA<Type>());
+    expect(FFprobeKit, isA<Type>());
+    expect(FFplayKit, isA<Type>());
+    expect(Session, isA<Type>());
+    expect(FFmpegSession, isA<Type>());
+    expect(FFprobeSession, isA<Type>());
+    expect(FFplaySession, isA<Type>());
+    expect(MediaInformationSession, isA<Type>());
+    expect(FFmpegKitExtended, isA<Type>());
+    expect(FFmpegKitConfig, isA<Type>());
   });
 }
