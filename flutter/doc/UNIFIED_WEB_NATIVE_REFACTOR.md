@@ -53,11 +53,11 @@ remain platform-specific behind the FFplay rendering adapter.
 | `NativeFinalizer`, `Finalizable`, native release callback | `session.dart`, `ffmpeg_kit_extended_flutter_loader.dart` | Native lifetime adapter; explicit release remains part of common behavior |
 | Native generated bindings | `generated/ffmpeg_kit_bindings_native.dart` and current native API/session files | Native backend/callback bridge only |
 | `dart:js_interop`, `dart:js_interop_unsafe`, `package:web` | `platform/web/` and `web/ffplay_surface_web.dart` | Web loader/backend and Web rendering |
-| `ffigen_js` pointer wrappers and `BigInt` ABI values | `generated/ffmpeg_kit_bindings_web.dart`, consumed by the Web implementation | Web backend; normalize values to ordinary Dart types |
+| `ffigen_js` pointer wrappers and `BigInt` ABI values | `generated/ffmpeg_kit_bindings_web.dart`, consumed by the Web backend | Web backend; normalize values to ordinary Dart types |
 | Emscripten module access, `_malloc`, `_free`, `HEAPU8`, `HEAP32`, UTF-8 helpers | `platform/web/wasm_loader.dart`, `platform/web/wasm_memory.dart` | Web loader/memory adapter |
 | callback function pointers and native callback signatures | `callback_manager.dart`, native generated bindings | Shared callback routing plus native/Web callback bridges |
 | FFplay frame copy and `ui.decodeImageFromPixels` | `web/ffplay_surface_web.dart`; native surface/texture files | Platform-specific rendering; shared FFplay controls |
-| Flutter UI surface types | `ffplay_surface.dart`, `ffplay_view.dart`, Android/desktop files, Web implementation | Conditional rendering layer |
+| Flutter UI surface types | `ffplay_surface.dart`, `ffplay_view.dart`, Android/desktop files, `web/ffplay_surface_web.dart` | Conditional rendering layer |
 
 The generated binding files are not interchangeable: native uses `dart:ffi`
 bindings while Web uses `ffigen_js` wrappers. Shared code must not import either

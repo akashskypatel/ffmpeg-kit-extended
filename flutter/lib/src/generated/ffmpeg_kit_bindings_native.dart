@@ -11,38 +11,6 @@ library;
 
 import 'dart:ffi' as ffi;
 
-@ffi.Native<ffi.Pointer<ffi.Int> Function()>()
-external ffi.Pointer<ffi.Int> _errno();
-
-@ffi.Native<errno_t Function(ffi.Pointer<ffi.Int>)>()
-external int _get_errno(ffi.Pointer<ffi.Int> _Value);
-
-@ffi.Native<ffi.Void Function()>()
-external void _invalid_parameter_noinfo();
-
-@ffi.Native<ffi.Void Function()>()
-external void _invalid_parameter_noinfo_noreturn();
-
-@ffi.Native<
-  ffi.Void Function(
-    ffi.Pointer<ffi.WChar>,
-    ffi.Pointer<ffi.WChar>,
-    ffi.Pointer<ffi.WChar>,
-    ffi.UnsignedInt,
-    ffi.UintPtr,
-  )
->()
-external void _invoke_watson(
-  ffi.Pointer<ffi.WChar> _Expression,
-  ffi.Pointer<ffi.WChar> _FunctionName,
-  ffi.Pointer<ffi.WChar> _FileName,
-  int _LineNo,
-  int _Reserved,
-);
-
-@ffi.Native<errno_t Function(ffi.Int)>()
-external int _set_errno(int _Value);
-
 /// Gets the all properties JSON.
 ///
 /// @param handle the handle
@@ -1160,7 +1128,16 @@ external void ffplay_kit_close();
 @ffi.Native<ffi.Void Function(FFplaySessionHandle)>()
 external void ffplay_kit_close_session(FFplaySessionHandle handle);
 
-/// Copies the latest composed RGBA frame into caller-owned Wasm memory.
+/// Copies the latest composed RGBA frame into caller-owned memory.
+///
+/// @param destination caller-owned destination buffer
+/// @param destination_size capacity of destination in bytes
+/// @param width output frame width
+/// @param height output frame height
+/// @param linesize output frame stride in bytes
+/// @param generation output frame generation counter
+/// @return 1 when a frame was copied, 0 when no frame is available or the
+/// destination is too small
 @ffi.Native<
   ffi.Int Function(
     ffi.Pointer<ffi.Uint8>,
@@ -1298,6 +1275,9 @@ external FFplaySessionHandle ffplay_kit_get_current_session();
 external double ffplay_kit_get_duration();
 
 /// Returns the byte size required for the latest composed RGBA frame.
+///
+/// The returned size is zero when no frame is available. The caller owns the
+/// destination buffer passed to ffplay_kit_copy_frame().
 @ffi.Native<ffi.Size Function()>()
 external int ffplay_kit_get_frame_buffer_size();
 
@@ -2576,7 +2556,7 @@ typedef FFplayKitCompleteCallbackFunction =
 typedef DartFFplayKitCompleteCallbackFunction =
     void Function(FFplaySessionHandle session, ffi.Pointer<ffi.Void> user_data);
 
-/// Frame-ready callback type for native desktop and WebAssembly video output.
+/// Frame-ready callback type for desktop (Linux/Windows) video output.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
@@ -2674,45 +2654,6 @@ typedef StatisticsHandle = ffi.Pointer<ffi.Void>;
 
 /// @brief Opaque stream information handle used to reference a specific stream information
 typedef StreamInformationHandle = ffi.Pointer<ffi.Void>;
-
-final class _Mbstatet extends ffi.Struct {
-  @ffi.UnsignedLong()
-  external int _Wchar;
-
-  @ffi.UnsignedShort()
-  external int _Byte;
-
-  @ffi.UnsignedShort()
-  external int _State;
-}
-
-final class __crt_locale_data extends ffi.Opaque {}
-
-final class __crt_locale_data_public extends ffi.Struct {
-  external ffi.Pointer<ffi.UnsignedShort> _locale_pctype;
-
-  @ffi.Int()
-  external int _locale_mb_cur_max;
-
-  @ffi.UnsignedInt()
-  external int _locale_lc_codepage;
-}
-
-final class __crt_locale_pointers extends ffi.Struct {
-  external ffi.Pointer<__crt_locale_data> locinfo;
-
-  external ffi.Pointer<__crt_multibyte_data> mbcinfo;
-}
-
-final class __crt_multibyte_data extends ffi.Opaque {}
-
-typedef __time32_t = ffi.Long;
-typedef Dart__time32_t = int;
-typedef __time64_t = ffi.LongLong;
-typedef Dart__time64_t = int;
-typedef _locale_t = ffi.Pointer<__crt_locale_pointers>;
-typedef errno_t = ffi.Int;
-typedef Darterrno_t = int;
 typedef int_fast16_t = ffi.Int;
 typedef Dartint_fast16_t = int;
 typedef int_fast32_t = ffi.Int;
@@ -2731,12 +2672,8 @@ typedef int_least8_t = ffi.SignedChar;
 typedef Dartint_least8_t = int;
 typedef intmax_t = ffi.LongLong;
 typedef Dartintmax_t = int;
-typedef mbstate_t = _Mbstatet;
 typedef ptrdiff_t = ffi.LongLong;
 typedef Dartptrdiff_t = int;
-typedef rsize_t = ffi.Size;
-typedef Dartrsize_t = int;
-typedef time_t = __time64_t;
 typedef uint_fast16_t = ffi.UnsignedInt;
 typedef Dartuint_fast16_t = int;
 typedef uint_fast32_t = ffi.UnsignedInt;
@@ -2756,7 +2693,3 @@ typedef Dartuint_least8_t = int;
 typedef uintmax_t = ffi.UnsignedLongLong;
 typedef Dartuintmax_t = int;
 typedef va_list = ffi.Pointer<ffi.Char>;
-typedef wctype_t = ffi.UnsignedShort;
-typedef Dartwctype_t = int;
-typedef wint_t = ffi.UnsignedShort;
-typedef Dartwint_t = int;

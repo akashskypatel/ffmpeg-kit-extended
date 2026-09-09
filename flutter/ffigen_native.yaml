@@ -25,6 +25,7 @@ functions:
     - '.*'
   exclude:
     - '^__.*'
+    - '^_.*'
 
 enums:
   include:
@@ -33,6 +34,14 @@ enums:
 typedefs:
   include:
     - '.*'
+  exclude:
+    - '^__.*'
+    - '^_.*'
+    - '^(errno_t|mbstate_t|rsize_t|time_t|wctype_t|wint_t)$'
+
+structs:
+  exclude:
+    - '^_.*'
 
 globals:
   exclude:

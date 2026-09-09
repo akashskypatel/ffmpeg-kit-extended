@@ -714,9 +714,21 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   external void _ffplay_kit_unregister_frame_callback();
 
   /// Returns the byte size required for the latest composed RGBA frame.
+  ///
+  /// The returned size is zero when no frame is available. The caller owns the
+  /// destination buffer passed to ffplay_kit_copy_frame().
   external int _ffplay_kit_get_frame_buffer_size();
 
-  /// Copies the latest composed RGBA frame into caller-owned Wasm memory.
+  /// Copies the latest composed RGBA frame into caller-owned memory.
+  ///
+  /// @param destination caller-owned destination buffer
+  /// @param destination_size capacity of destination in bytes
+  /// @param width output frame width
+  /// @param height output frame height
+  /// @param linesize output frame stride in bytes
+  /// @param generation output frame generation counter
+  /// @return 1 when a frame was copied, 0 when no frame is available or the
+  /// destination is too small
   external int _ffplay_kit_copy_frame(
     Pointer<Uint8> destination,
     int destination_size,
@@ -2964,12 +2976,24 @@ void ffplay_kit_unregister_frame_callback() {
 }
 
 /// Returns the byte size required for the latest composed RGBA frame.
+///
+/// The returned size is zero when no frame is available. The caller owns the
+/// destination buffer passed to ffplay_kit_copy_frame().
 int ffplay_kit_get_frame_buffer_size() {
   final result = GeneratedBindings.instance._ffplay_kit_get_frame_buffer_size();
   return result;
 }
 
-/// Copies the latest composed RGBA frame into caller-owned Wasm memory.
+/// Copies the latest composed RGBA frame into caller-owned memory.
+///
+/// @param destination caller-owned destination buffer
+/// @param destination_size capacity of destination in bytes
+/// @param width output frame width
+/// @param height output frame height
+/// @param linesize output frame stride in bytes
+/// @param generation output frame generation counter
+/// @return 1 when a frame was copied, 0 when no frame is available or the
+/// destination is too small
 int ffplay_kit_copy_frame(
   Pointer<Uint8> destination,
   int destination_size,
@@ -5039,7 +5063,7 @@ typedef FFplayKitCompleteCallbackFunction =
 typedef DartFFplayKitCompleteCallbackFunction =
     void Function(DartFFplaySessionHandle session, Pointer<Void> user_data);
 
-/// Frame-ready callback type for native desktop and WebAssembly video output.
+/// Frame-ready callback type for desktop (Linux/Windows) video output.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
