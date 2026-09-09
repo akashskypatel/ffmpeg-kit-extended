@@ -1,298 +1,772 @@
+import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../backend.dart';
+import 'callback_bridge_web.dart';
+import 'wasm_loader.dart';
+import 'wasm_memory.dart';
 
 FFmpegKitBackend createPlatformBackend() => WebFFmpegKitBackend();
 
-/// Initial Web backend seam.
+/// Web/Wasm implementation of the platform-neutral FFmpegKit backend.
 ///
-/// Web execution remains owned by the existing Web implementation until a
-/// later packet migrates it. Keeping this adapter compile-safe lets shared
-/// code select a backend without importing FFI or exposing JS pointer types.
+/// Every FFmpegKit C ABI call goes through the generated ffigen_js bindings.
+/// The loader and memory helpers are the only code that knows about the
+/// Emscripten module and its heap.
 final class WebFFmpegKitBackend implements FFmpegKitBackend {
-  bool _initialized = false;
+  bindings.Pointer<bindings.Void> _pointer(SessionHandle handle) =>
+      handle.value as bindings.Pointer<bindings.Void>;
 
-  @override
-  Future<void> initialize() async {
-    _initialized = true;
-  }
+  SessionHandle _handle(bindings.Pointer<bindings.Void> pointer) =>
+      SessionHandle(pointer);
 
-  @override
-  bool get initialized => _initialized;
+  String? _stringAndFree(bindings.Pointer<bindings.Char> pointer) =>
+      wasmMemory.readAndFree(pointer);
 
-  @override
-  void requireInitialized() {
-    if (!_initialized) {
-      throw StateError(
-        'FFmpegKit is not initialized. Call FFmpegKitExtended.initialize() '
-        'before using the backend.',
-      );
+  String _requiredString(bindings.Pointer<bindings.Char> pointer) =>
+      _stringAndFree(pointer) ?? '';
+
+  bindings.Pointer<bindings.Void> get _nullPointer =>
+      webCallbackBridge.nullPointer;
+
+  bindings.Pointer<bindings.PointerClass<bindings.Char>> _arguments(
+    List<String> arguments,
+  ) {
+    final result = bindings.PointerClass.allocArray<bindings.Char>(
+      arguments.length,
+    );
+    for (var i = 0; i < arguments.length; i++) {
+      result[i] = wasmMemory.stackUtf8(arguments[i]);
     }
+    return result;
   }
 
-  UnsupportedError _notMigrated() => UnsupportedError(
-    'The Web FFmpegKit backend operation is not migrated yet.',
-  );
+  T _withArguments<T>(
+    List<String> arguments,
+    T Function(bindings.Pointer<bindings.PointerClass<bindings.Char>> argv)
+    action,
+  ) {
+    final argv = _arguments(arguments);
+    return action(argv);
+  }
 
   @override
-  SessionHandle createFFmpegSession(String command) => throw _notMigrated();
+  Future<void> initialize() => wasmLoader.initialize();
 
   @override
-  SessionHandle createFFmpegSessionFromArguments(List<String> arguments) =>
-      throw _notMigrated();
+  bool get initialized => wasmLoader.initialized;
 
   @override
-  SessionHandle createFFprobeSession(String command) => throw _notMigrated();
+  void requireInitialized() => wasmLoader.requireInitialized();
 
   @override
-  SessionHandle createFFprobeSessionFromArguments(List<String> arguments) =>
-      throw _notMigrated();
+  SessionHandle createFFmpegSession(String command) {
+    requireInitialized();
+    return _handle(
+      bindings.ffmpeg_kit_create_session(wasmMemory.stackUtf8(command)),
+    );
+  }
 
   @override
-  SessionHandle createMediaInformationSession(String command) =>
-      throw _notMigrated();
+  SessionHandle createFFmpegSessionFromArguments(List<String> arguments) {
+    requireInitialized();
+    return _withArguments(
+      arguments,
+      (argv) => _handle(
+        bindings.ffmpeg_kit_create_session_from_argv(arguments.length, argv),
+      ),
+    );
+  }
+
+  @override
+  SessionHandle createFFprobeSession(String command) {
+    requireInitialized();
+    return _handle(
+      bindings.ffprobe_kit_create_session(wasmMemory.stackUtf8(command)),
+    );
+  }
+
+  @override
+  SessionHandle createFFprobeSessionFromArguments(List<String> arguments) {
+    requireInitialized();
+    return _withArguments(
+      arguments,
+      (argv) => _handle(
+        bindings.ffprobe_kit_create_session_from_argv(arguments.length, argv),
+      ),
+    );
+  }
+
+  @override
+  SessionHandle createMediaInformationSession(String command) {
+    requireInitialized();
+    return _handle(
+      bindings.media_information_create_session(wasmMemory.stackUtf8(command)),
+    );
+  }
 
   @override
   SessionHandle createMediaInformationSessionFromArguments(
     List<String> arguments,
-  ) => throw _notMigrated();
+  ) {
+    requireInitialized();
+    return _withArguments(
+      arguments,
+      (argv) => _handle(
+        bindings.media_information_create_session_from_argv(
+          arguments.length,
+          argv,
+        ),
+      ),
+    );
+  }
 
   @override
-  void configureFFmpegCallbacks() => throw _notMigrated();
+  void configureFFmpegCallbacks() {
+    bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+      webCallbackBridge.nullFFmpegComplete,
+      _nullPointer,
+    );
+    bindings.ffmpeg_kit_config_enable_statistics_callback(
+      webCallbackBridge.nullStatistics,
+      _nullPointer,
+    );
+  }
 
   @override
-  void enableFFmpegLogCallback() => throw _notMigrated();
+  void enableFFmpegLogCallback() {
+    bindings.ffmpeg_kit_config_enable_log_callback(
+      webCallbackBridge.nullLog,
+      _nullPointer,
+    );
+  }
 
   @override
-  void configureFFprobeCallbacks() => throw _notMigrated();
+  void configureFFprobeCallbacks() {
+    bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+      webCallbackBridge.nullFFprobeComplete,
+      _nullPointer,
+    );
+  }
 
   @override
-  void configureMediaInformationCallbacks() => throw _notMigrated();
+  void configureMediaInformationCallbacks() {
+    bindings
+        .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+          webCallbackBridge.nullMediaInformationComplete,
+          _nullPointer,
+        );
+  }
 
   @override
-  void enableFFprobeLogCallback() => throw _notMigrated();
+  void enableFFprobeLogCallback() {
+    bindings.ffmpeg_kit_config_enable_log_callback(
+      webCallbackBridge.nullLog,
+      _nullPointer,
+    );
+  }
 
   @override
-  void executeFFmpegSession(SessionHandle handle) => throw _notMigrated();
+  void executeFFmpegSession(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_execute(_pointer(handle));
 
   @override
-  void executeFFmpegSessionAsync(SessionHandle handle) => throw _notMigrated();
+  void executeFFmpegSessionAsync(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_execute_async(_pointer(handle));
 
   @override
-  void executeFFprobeSession(SessionHandle handle) => throw _notMigrated();
+  void executeFFprobeSession(SessionHandle handle) =>
+      bindings.ffprobe_kit_session_execute(_pointer(handle));
 
   @override
-  void executeFFprobeSessionAsync(SessionHandle handle) => throw _notMigrated();
+  void executeFFprobeSessionAsync(SessionHandle handle) =>
+      bindings.ffprobe_kit_session_execute_async(_pointer(handle));
 
   @override
   void executeMediaInformationSession(SessionHandle handle, int timeout) =>
-      throw _notMigrated();
+      bindings.media_information_session_execute(
+        _pointer(handle),
+        BigInt.from(timeout),
+      );
 
   @override
   void executeMediaInformationSessionAsync(SessionHandle handle, int timeout) =>
-      throw _notMigrated();
+      bindings.media_information_session_execute_async(
+        _pointer(handle),
+        BigInt.from(timeout),
+      );
+
+  @override
+  MediaInformationSnapshot? getMediaInformation(SessionHandle handle) {
+    final mediaHandle = bindings
+        .media_information_session_get_media_information(_pointer(handle));
+    if (mediaHandle.address == 0) return null;
+
+    final chapters = <ChapterInformationSnapshot>[];
+    final chapterCount = bindings
+        .media_information_get_chapters_count(mediaHandle)
+        .toInt();
+    for (var i = 0; i < chapterCount; i++) {
+      final chapter = bindings.media_information_get_chapter_at(
+        mediaHandle,
+        BigInt.from(i),
+      );
+      if (chapter.address == 0) continue;
+      try {
+        chapters.add(
+          ChapterInformationSnapshot(
+            id: bindings.chapter_get_id(chapter).toInt(),
+            timeBase: _stringAndFree(bindings.chapter_get_time_base(chapter)),
+            start: bindings.chapter_get_start(chapter).toInt(),
+            startTime: _stringAndFree(bindings.chapter_get_start_time(chapter)),
+            end: bindings.chapter_get_end(chapter).toInt(),
+            endTime: _stringAndFree(bindings.chapter_get_end_time(chapter)),
+            tagsJson: _stringAndFree(bindings.chapter_get_tags_json(chapter)),
+            allPropertiesJson: _stringAndFree(
+              bindings.chapter_get_all_properties_json(chapter),
+            ),
+          ),
+        );
+      } finally {
+        bindings.ffmpeg_kit_handle_release(chapter);
+      }
+    }
+
+    final streams = <StreamInformationSnapshot>[];
+    final streamCount = bindings
+        .media_information_get_streams_count(mediaHandle)
+        .toInt();
+    for (var i = 0; i < streamCount; i++) {
+      final stream = bindings.media_information_get_stream_at(
+        mediaHandle,
+        BigInt.from(i),
+      );
+      if (stream.address == 0) continue;
+      try {
+        streams.add(
+          StreamInformationSnapshot(
+            index: bindings.stream_information_get_index(stream).toInt(),
+            type: _stringAndFree(bindings.stream_information_get_type(stream)),
+            codec: _stringAndFree(
+              bindings.stream_information_get_codec(stream),
+            ),
+            codecLong: _stringAndFree(
+              bindings.stream_information_get_codec_long(stream),
+            ),
+            format: _stringAndFree(
+              bindings.stream_information_get_format(stream),
+            ),
+            width: bindings.stream_information_get_width(stream).toInt(),
+            height: bindings.stream_information_get_height(stream).toInt(),
+            bitrate: _stringAndFree(
+              bindings.stream_information_get_bitrate(stream),
+            ),
+            sampleRate: _stringAndFree(
+              bindings.stream_information_get_sample_rate(stream),
+            ),
+            sampleFormat: _stringAndFree(
+              bindings.stream_information_get_sample_format(stream),
+            ),
+            channelLayout: _stringAndFree(
+              bindings.stream_information_get_channel_layout(stream),
+            ),
+            sampleAspectRatio: _stringAndFree(
+              bindings.stream_information_get_sample_aspect_ratio(stream),
+            ),
+            displayAspectRatio: _stringAndFree(
+              bindings.stream_information_get_display_aspect_ratio(stream),
+            ),
+            averageFrameRate: _stringAndFree(
+              bindings.stream_information_get_average_frame_rate(stream),
+            ),
+            realFrameRate: _stringAndFree(
+              bindings.stream_information_get_real_frame_rate(stream),
+            ),
+            timeBase: _stringAndFree(
+              bindings.stream_information_get_time_base(stream),
+            ),
+            codecTimeBase: _stringAndFree(
+              bindings.stream_information_get_codec_time_base(stream),
+            ),
+            tagsJson: _stringAndFree(
+              bindings.stream_information_get_tags_json(stream),
+            ),
+            allPropertiesJson: _stringAndFree(
+              bindings.stream_information_get_all_properties_json(stream),
+            ),
+          ),
+        );
+      } finally {
+        bindings.ffmpeg_kit_handle_release(stream);
+      }
+    }
 
-  @override
-  MediaInformationSnapshot? getMediaInformation(SessionHandle handle) =>
-      throw _notMigrated();
-
-  @override
-  PackageInformationSnapshot getPackageInformation() => throw _notMigrated();
-
-  @override
-  void setLogLevel(int level) => throw _notMigrated();
-
-  @override
-  int getLogLevel() => throw _notMigrated();
+    try {
+      return MediaInformationSnapshot(
+        filename: _stringAndFree(
+          bindings.media_information_get_filename(mediaHandle),
+        ),
+        format: _stringAndFree(
+          bindings.media_information_get_format(mediaHandle),
+        ),
+        longFormat: _stringAndFree(
+          bindings.media_information_get_long_format(mediaHandle),
+        ),
+        duration: _stringAndFree(
+          bindings.media_information_get_duration(mediaHandle),
+        ),
+        startTime: _stringAndFree(
+          bindings.media_information_get_start_time(mediaHandle),
+        ),
+        bitrate: _stringAndFree(
+          bindings.media_information_get_bitrate(mediaHandle),
+        ),
+        size: _stringAndFree(bindings.media_information_get_size(mediaHandle)),
+        tagsJson: _stringAndFree(
+          bindings.media_information_get_tags_json(mediaHandle),
+        ),
+        allPropertiesJson: _stringAndFree(
+          bindings.media_information_get_all_properties_json(mediaHandle),
+        ),
+        streams: streams,
+        chapters: chapters,
+      );
+    } finally {
+      bindings.ffmpeg_kit_handle_release(mediaHandle);
+    }
+  }
+
+  @override
+  int getSessionState(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_state(_pointer(handle)).value;
+
+  @override
+  int getReturnCode(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_return_code(_pointer(handle)).toInt();
+
+  @override
+  int getSessionId(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_session_id(_pointer(handle)).toInt();
+
+  @override
+  int getCreateTime(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_create_time(_pointer(handle)).toInt();
+
+  @override
+  int getStartTime(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_start_time(_pointer(handle)).toInt();
 
-  @override
-  void enableRedirection() => throw _notMigrated();
-
-  @override
-  void disableRedirection() => throw _notMigrated();
+  @override
+  int getEndTime(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_end_time(_pointer(handle)).toInt();
 
   @override
-  void setFontDirectory(String path, {String? mapping}) => throw _notMigrated();
+  int getDuration(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_duration(_pointer(handle)).toInt();
 
   @override
-  void setAudioOutputDevice(String deviceName) => throw _notMigrated();
+  String? getCommand(SessionHandle handle) =>
+      _stringAndFree(bindings.ffmpeg_kit_session_get_command(_pointer(handle)));
 
   @override
-  String listAudioOutputDevices() => throw _notMigrated();
+  String? getOutput(SessionHandle handle) =>
+      _stringAndFree(bindings.ffmpeg_kit_session_get_output(_pointer(handle)));
 
   @override
-  void setEnvironmentVariable(String name, String value) =>
-      throw _notMigrated();
+  String? getLogsAsString(SessionHandle handle) => _stringAndFree(
+    bindings.ffmpeg_kit_session_get_logs_as_string(_pointer(handle)),
+  );
 
   @override
-  void ignoreSignal(int signal) => throw _notMigrated();
+  String? getFailStackTrace(SessionHandle handle) => _stringAndFree(
+    bindings.ffmpeg_kit_session_get_fail_stack_trace(_pointer(handle)),
+  );
 
   @override
-  void setSessionHistorySize(int size) => throw _notMigrated();
+  int getLogsCount(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_get_logs_count(_pointer(handle)).toInt();
 
   @override
-  int getSessionHistorySize() => throw _notMigrated();
+  String? getLogAt(SessionHandle handle, int index) => _stringAndFree(
+    bindings.ffmpeg_kit_session_get_log_at(
+      _pointer(handle),
+      BigInt.from(index),
+    ),
+  );
 
   @override
-  List<SessionHandle> getSessions() => throw _notMigrated();
+  int getLogLevelAt(SessionHandle handle, int index) => bindings
+      .ffmpeg_kit_session_get_log_level_at(_pointer(handle), BigInt.from(index))
+      .toInt();
 
   @override
-  List<SessionHandle> getFFmpegSessions() => throw _notMigrated();
+  int getStatisticsCount(SessionHandle handle) => bindings
+      .ffmpeg_kit_session_get_statistics_count(_pointer(handle))
+      .toInt();
 
   @override
-  List<SessionHandle> getFFprobeSessions() => throw _notMigrated();
+  StatisticsSnapshot? getStatisticsAt(SessionHandle handle, int index) {
+    final statisticsHandle = bindings.ffmpeg_kit_session_get_statistics_at(
+      _pointer(handle),
+      BigInt.from(index),
+    );
+    if (statisticsHandle.address == 0) return null;
+    try {
+      return StatisticsSnapshot(
+        timeElapsed: bindings
+            .ffmpeg_kit_statistics_get_time_elapsed(statisticsHandle)
+            .round(),
+        time: bindings.ffmpeg_kit_statistics_get_time(statisticsHandle).round(),
+        size: bindings.ffmpeg_kit_statistics_get_size(statisticsHandle).toInt(),
+        bitrate: bindings.ffmpeg_kit_statistics_get_bitrate(statisticsHandle),
+        speed: bindings.ffmpeg_kit_statistics_get_speed(statisticsHandle),
+        videoFrameNumber: bindings
+            .ffmpeg_kit_statistics_get_video_frame_number(statisticsHandle)
+            .toInt(),
+        videoFps: bindings.ffmpeg_kit_statistics_get_video_fps(
+          statisticsHandle,
+        ),
+        videoQuality: bindings.ffmpeg_kit_statistics_get_video_quality(
+          statisticsHandle,
+        ),
+        dupFrames: bindings
+            .ffmpeg_kit_statistics_get_dup_frames(statisticsHandle)
+            .toInt(),
+        dropFrames: bindings
+            .ffmpeg_kit_statistics_get_drop_frames(statisticsHandle)
+            .toInt(),
+      );
+    } finally {
+      bindings.ffmpeg_kit_handle_release(statisticsHandle);
+    }
+  }
+
+  @override
+  void cancelSession(SessionHandle handle) =>
+      bindings.ffmpeg_kit_session_cancel(_pointer(handle));
+
+  @override
+  void releaseSession(SessionHandle handle) =>
+      bindings.ffmpeg_kit_handle_release(_pointer(handle));
 
   @override
-  List<SessionHandle> getFFplaySessions() => throw _notMigrated();
+  bool isFFmpegSession(SessionHandle handle) =>
+      bindings.session_is_ffmpeg_session(_pointer(handle));
 
   @override
-  List<SessionHandle> getMediaInformationSessions() => throw _notMigrated();
+  bool isFFplaySession(SessionHandle handle) =>
+      bindings.session_is_ffplay_session(_pointer(handle));
 
   @override
-  SessionHandle? getSessionById(int sessionId) => throw _notMigrated();
+  bool isFFprobeSession(SessionHandle handle) =>
+      bindings.session_is_ffprobe_session(_pointer(handle));
 
   @override
-  SessionHandle? getLastSession() => throw _notMigrated();
+  bool isMediaInformationSession(SessionHandle handle) =>
+      bindings.session_is_media_information_session(_pointer(handle));
 
   @override
-  SessionHandle? getLastFFmpegSession() => throw _notMigrated();
+  void enableDebugLog(SessionHandle handle) =>
+      bindings.session_enable_debug_log(_pointer(handle));
 
   @override
-  SessionHandle? getLastFFprobeSession() => throw _notMigrated();
+  void disableDebugLog(SessionHandle handle) =>
+      bindings.session_disable_debug_log(_pointer(handle));
 
   @override
-  SessionHandle? getLastFFplaySession() => throw _notMigrated();
+  bool isDebugLogEnabled(SessionHandle handle) =>
+      bindings.session_is_debug_log_enabled(_pointer(handle));
 
   @override
-  SessionHandle? getLastMediaInformationSession() => throw _notMigrated();
+  String? getDebugLog(SessionHandle handle) =>
+      _stringAndFree(bindings.session_get_debug_log(_pointer(handle)));
 
   @override
-  SessionHandle? getLastCompletedSession() => throw _notMigrated();
+  void clearDebugLog(SessionHandle handle) =>
+      bindings.session_clear_debug_log(_pointer(handle));
 
   @override
-  void clearSessions() => throw _notMigrated();
+  PackageInformationSnapshot getPackageInformation() =>
+      PackageInformationSnapshot(
+        ffmpegVersion: _requiredString(
+          bindings.ffmpeg_kit_config_get_ffmpeg_version(),
+        ),
+        architecture: _requiredString(
+          bindings.ffmpeg_kit_config_get_ffmpeg_architecture(),
+        ),
+        version: _requiredString(bindings.ffmpeg_kit_config_get_version()),
+        packageName: _requiredString(
+          bindings.ffmpeg_kit_packages_get_package_name(),
+        ),
+        externalLibraries: _requiredString(
+          bindings.ffmpeg_kit_packages_get_external_libraries(),
+        ),
+        bundleType: _requiredString(
+          bindings.ffmpeg_kit_packages_get_bundle_type(),
+        ),
+        isGpl: bindings.ffmpeg_kit_packages_get_is_gpl(),
+        isNonfree: bindings.ffmpeg_kit_packages_get_is_nonfree(),
+        registeredCodecs: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_codecs(),
+        ),
+        registeredEncoders: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_encoders(),
+        ),
+        registeredDecoders: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_decoders(),
+        ),
+        registeredMuxers: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_muxers(),
+        ),
+        registeredDemuxers: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_demuxers(),
+        ),
+        registeredFilters: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_filters(),
+        ),
+        registeredProtocols: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_protocols(),
+        ),
+        registeredBitstreamFilters: _requiredString(
+          bindings.ffmpeg_kit_packages_get_registered_bitstream_filters(),
+        ),
+        buildConfiguration: _requiredString(
+          bindings.ffmpeg_kit_packages_get_build_configuration(),
+        ),
+        buildDate: _requiredString(bindings.ffmpeg_kit_config_get_build_date()),
+      );
 
   @override
-  void configureLogCallback() => throw _notMigrated();
+  void setLogLevel(int level) => bindings.ffmpeg_kit_config_set_log_level(
+    bindings.FFmpegKitLogLevel.fromValue(level),
+  );
 
   @override
-  void configureStatisticsCallback() => throw _notMigrated();
+  int getLogLevel() => bindings.ffmpeg_kit_config_get_log_level().value;
 
   @override
-  void configureFFmpegSessionCompleteCallback() => throw _notMigrated();
+  void enableRedirection() => bindings.ffmpeg_kit_config_enable_redirection();
 
   @override
-  void configureFFprobeSessionCompleteCallback() => throw _notMigrated();
+  void disableRedirection() => bindings.ffmpeg_kit_config_disable_redirection();
 
   @override
-  void configureFFplaySessionCompleteCallback() => throw _notMigrated();
+  void setFontDirectory(String path, {String? mapping}) {
+    bindings.ffmpeg_kit_config_set_font_directory(
+      wasmMemory.stackUtf8(path),
+      wasmMemory.stackUtf8(mapping ?? ''),
+    );
+  }
 
   @override
-  void configureMediaInformationSessionCompleteCallback() =>
-      throw _notMigrated();
+  void setAudioOutputDevice(String deviceName) =>
+      bindings.ffmpeg_kit_config_set_audio_output_device(
+        wasmMemory.stackUtf8(deviceName),
+      );
 
   @override
-  String? registerNewFFmpegPipe() => throw _notMigrated();
+  String listAudioOutputDevices() =>
+      _requiredString(bindings.ffmpeg_kit_config_list_audio_output_devices());
 
   @override
-  void closeFFmpegPipe(String pipePath) => throw _notMigrated();
+  void setEnvironmentVariable(String name, String value) {
+    bindings.ffmpeg_kit_config_set_environment_variable(
+      wasmMemory.stackUtf8(name),
+      wasmMemory.stackUtf8(value),
+    );
+  }
 
   @override
-  void setFontDirectoryList(List<String> directories, {String? mapping}) =>
-      throw _notMigrated();
+  void ignoreSignal(int signal) => bindings.ffmpeg_kit_config_ignore_signal(
+    bindings.FFmpegKitSignal.fromValue(signal),
+  );
 
   @override
-  String sessionStateToString(int state) => throw _notMigrated();
+  void setSessionHistorySize(int size) =>
+      bindings.ffmpeg_kit_set_session_history_size(BigInt.from(size));
 
   @override
-  String? logLevelToString(int level) => throw _notMigrated();
+  int getSessionHistorySize() =>
+      bindings.ffmpeg_kit_get_session_history_size().toInt();
 
-  @override
-  List<String> parseArguments(String command) => throw _notMigrated();
-
-  @override
-  String argumentsToString(List<String> arguments) => throw _notMigrated();
+  List<SessionHandle> _sessionList(
+    bindings.Pointer<bindings.PointerClass<bindings.Void>> pointer,
+  ) {
+    if (pointer.address == 0) return const [];
+    final result = <SessionHandle>[];
+    try {
+      for (var i = 0; ; i++) {
+        final value = pointer[i];
+        if (value.address == 0) break;
+        result.add(_handle(value));
+      }
+      return result;
+    } finally {
+      bindings.ffmpeg_kit_free(pointer.cast());
+    }
+  }
 
   @override
-  int messagesInTransmit(int sessionId) => throw _notMigrated();
+  List<SessionHandle> getSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_sessions());
 
   @override
-  int getSessionState(SessionHandle handle) => throw _notMigrated();
+  List<SessionHandle> getFFmpegSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_ffmpeg_sessions());
 
   @override
-  int getReturnCode(SessionHandle handle) => throw _notMigrated();
+  List<SessionHandle> getFFprobeSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_ffprobe_sessions());
 
   @override
-  int getSessionId(SessionHandle handle) => throw _notMigrated();
+  List<SessionHandle> getFFplaySessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_ffplay_sessions());
 
   @override
-  int getCreateTime(SessionHandle handle) => throw _notMigrated();
+  List<SessionHandle> getMediaInformationSessions() =>
+      _sessionList(bindings.ffmpeg_kit_get_media_information_sessions());
 
-  @override
-  int getStartTime(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? _optionalHandle(bindings.Pointer<bindings.Void> pointer) =>
+      pointer.address == 0 ? null : _handle(pointer);
 
   @override
-  int getEndTime(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getSessionById(int sessionId) =>
+      _optionalHandle(bindings.ffmpeg_kit_get_session(BigInt.from(sessionId)));
 
   @override
-  int getDuration(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getLastSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_session());
 
   @override
-  String? getCommand(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getLastFFmpegSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_ffmpeg_session());
 
   @override
-  String? getOutput(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getLastFFprobeSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_ffprobe_session());
 
   @override
-  String? getLogsAsString(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getLastFFplaySession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_ffplay_session());
 
   @override
-  String? getFailStackTrace(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getLastMediaInformationSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_media_information_session());
 
   @override
-  int getLogsCount(SessionHandle handle) => throw _notMigrated();
+  SessionHandle? getLastCompletedSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_completed_session());
 
   @override
-  String? getLogAt(SessionHandle handle, int index) => throw _notMigrated();
+  void clearSessions() => bindings.ffmpeg_kit_clear_sessions();
 
   @override
-  int getLogLevelAt(SessionHandle handle, int index) => throw _notMigrated();
+  void configureLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
+    webCallbackBridge.nullLog,
+    _nullPointer,
+  );
 
   @override
-  int getStatisticsCount(SessionHandle handle) => throw _notMigrated();
+  void configureStatisticsCallback() =>
+      bindings.ffmpeg_kit_config_enable_statistics_callback(
+        webCallbackBridge.nullStatistics,
+        _nullPointer,
+      );
 
   @override
-  StatisticsSnapshot? getStatisticsAt(SessionHandle handle, int index) =>
-      throw _notMigrated();
+  void configureFFmpegSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+        webCallbackBridge.nullFFmpegComplete,
+        _nullPointer,
+      );
 
   @override
-  void cancelSession(SessionHandle handle) => throw _notMigrated();
+  void configureFFprobeSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+        webCallbackBridge.nullFFprobeComplete,
+        _nullPointer,
+      );
 
   @override
-  void releaseSession(SessionHandle handle) => throw _notMigrated();
+  void configureFFplaySessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+        webCallbackBridge.nullFFplayComplete,
+        _nullPointer,
+      );
 
   @override
-  bool isFFmpegSession(SessionHandle handle) => throw _notMigrated();
+  void configureMediaInformationSessionCompleteCallback() => bindings
+      .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+        webCallbackBridge.nullMediaInformationComplete,
+        _nullPointer,
+      );
 
   @override
-  bool isFFplaySession(SessionHandle handle) => throw _notMigrated();
+  String? registerNewFFmpegPipe() =>
+      _stringAndFree(bindings.ffmpeg_kit_config_register_new_ffmpeg_pipe());
 
   @override
-  bool isFFprobeSession(SessionHandle handle) => throw _notMigrated();
+  void closeFFmpegPipe(String pipePath) => bindings
+      .ffmpeg_kit_config_close_ffmpeg_pipe(wasmMemory.stackUtf8(pipePath));
 
   @override
-  bool isMediaInformationSession(SessionHandle handle) => throw _notMigrated();
+  void setFontDirectoryList(List<String> directories, {String? mapping}) {
+    _withArguments<void>(directories, (list) {
+      bindings.ffmpeg_kit_config_set_font_directory_list(
+        list,
+        BigInt.from(directories.length),
+        wasmMemory.stackUtf8(mapping ?? ''),
+      );
+    });
+  }
 
   @override
-  void enableDebugLog(SessionHandle handle) => throw _notMigrated();
+  String sessionStateToString(int state) => _requiredString(
+    bindings.ffmpeg_kit_config_session_state_to_string(
+      bindings.FFmpegKitSessionState.fromValue(state),
+    ),
+  );
 
   @override
-  void disableDebugLog(SessionHandle handle) => throw _notMigrated();
+  String? logLevelToString(int level) => _stringAndFree(
+    bindings.ffmpeg_kit_config_log_level_to_string(
+      bindings.FFmpegKitLogLevel.fromValue(level),
+    ),
+  );
 
   @override
-  bool isDebugLogEnabled(SessionHandle handle) => throw _notMigrated();
+  List<String> parseArguments(String command) {
+    final count = bindings.malloc<bindings.Int64>(8);
+    final args = bindings.ffmpeg_kit_config_parse_arguments(
+      wasmMemory.stackUtf8(command),
+      count,
+    );
+    final result = <String>[];
+    try {
+      final length = count.getValue();
+      for (var i = 0; i < length; i++) {
+        final value = args[i];
+        result.add(value.toDartString());
+        bindings.ffmpeg_kit_free(value.cast());
+      }
+      bindings.ffmpeg_kit_free(args.cast());
+      return result;
+    } finally {
+      bindings.free(count);
+    }
+  }
 
   @override
-  String? getDebugLog(SessionHandle handle) => throw _notMigrated();
+  String argumentsToString(List<String> arguments) => _withArguments(
+    arguments,
+    (list) => _requiredString(
+      bindings.ffmpeg_kit_config_arguments_to_string(
+        list,
+        BigInt.from(arguments.length),
+      ),
+    ),
+  );
 
   @override
-  void clearDebugLog(SessionHandle handle) => throw _notMigrated();
+  int messagesInTransmit(int sessionId) => bindings
+      .ffmpeg_kit_config_messages_in_transmit(BigInt.from(sessionId))
+      .toInt();
 }

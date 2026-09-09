@@ -8,12 +8,12 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
-
 import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../log.dart';
 import '../media_information.dart';
 import '../platform/web/callback_bridge_web.dart';
+import '../platform/web/wasm_loader.dart';
+import '../platform/web/wasm_memory.dart';
 import '../signal.dart';
 
 export '../chapter_information.dart';
@@ -97,58 +97,16 @@ class SessionCancelledException implements Exception {
 class _WasmRuntime {
   _WasmRuntime._();
   static final instance = _WasmRuntime._();
-  static const _assetRoot = 'assets/packages/ffmpeg_kit_extended_flutter/wasm';
-
-  JSObject? _module;
-  Future<void>? _initializing;
   final _frameSizeController = StreamController<(int, int)>.broadcast();
 
-  bool get initialized => _module != null;
+  bool get initialized => wasmLoader.initialized;
   Stream<(int, int)> get frameSizeStream => _frameSizeController.stream;
 
-  Future<void> initialize() => _initializing ??= _load();
-
-  Future<void> _load() async {
-    final existing = globalContext.getProperty<JSAny?>(
-      'ffmpegKitExtendedModulePromise'.toJS,
-    );
-    if (existing == null) {
-      final loaded = Completer<void>();
-      final script = web.HTMLScriptElement()
-        ..type = 'module'
-        ..src = '$_assetRoot/ffmpegkit_bridge.mjs';
-      script.addEventListener(
-        'load',
-        ((web.Event _) => loaded.complete()).toJS,
-        web.AddEventListenerOptions(once: true),
-      );
-      script.addEventListener(
-        'error',
-        ((web.Event _) => loaded.completeError(
-          StateError('Unable to load $_assetRoot/ffmpegkit_bridge.mjs'),
-        )).toJS,
-        web.AddEventListenerOptions(once: true),
-      );
-      web.document.head!.append(script);
-      await loaded.future;
-    }
-    final promise = globalContext.getProperty<JSPromise<JSObject>>(
-      'ffmpegKitExtendedModulePromise'.toJS,
-    );
-    _module = await promise.toDart;
-
-    // Bind ffigen_js to the same Emscripten module instance used for runtime
-    // memory helpers. All FFmpegKit C ABI calls below go through generated
-    // bindings rather than dynamic JS symbol lookup.
-    bindings.NativeLibrary.instance = _module! as bindings.NativeLibrary;
-    bindings.ffmpeg_kit_initialize();
-  }
+  Future<void> initialize() => wasmLoader.initialize();
 
   void requireInitialized() {
     if (!initialized) {
-      throw StateError(
-        'FFmpegKitExtended.initialize() must be awaited before use on web.',
-      );
+      wasmLoader.requireInitialized();
     }
   }
 
@@ -178,8 +136,7 @@ class _WasmRuntime {
     requireInitialized();
     switch (name) {
       case '_malloc':
-        return (_module!.callMethodVarArgs<JSNumber>('_malloc'.toJS, args))
-            .toDartInt;
+        return wasmMemory.allocate(_argInt(args[0])).address;
       case '_ffplay_kit_get_frame_buffer_size':
         return bindings.ffplay_kit_get_frame_buffer_size();
       case '_ffplay_kit_copy_frame':
@@ -231,15 +188,11 @@ class _WasmRuntime {
             .ffmpeg_kit_session_get_session_id(_handle(_argInt(args[0])))
             .toInt();
       case '_ffplay_kit_session_is_playing':
-        return bindings.ffplay_kit_session_is_playing(
-              _handle(_argInt(args[0])),
-            )
+        return bindings.ffplay_kit_session_is_playing(_handle(_argInt(args[0])))
             ? 1
             : 0;
       case '_ffplay_kit_session_is_paused':
-        return bindings.ffplay_kit_session_is_paused(
-              _handle(_argInt(args[0])),
-            )
+        return bindings.ffplay_kit_session_is_paused(_handle(_argInt(args[0])))
             ? 1
             : 0;
       case '_ffplay_kit_session_get_video_width':
@@ -283,7 +236,9 @@ class _WasmRuntime {
     requireInitialized();
     switch (name) {
       case '_free':
-        _module!.callMethodVarArgs<JSAny?>('_free'.toJS, args);
+        wasmMemory.free(
+          bindings.Pointer<bindings.Uint8>.fromAddress(_argInt(args[0])),
+        );
         return;
       case '_ffmpeg_kit_cancel_session':
         bindings.ffmpeg_kit_cancel_session(BigInt.from(_argInt(args[0])));
@@ -336,33 +291,34 @@ class _WasmRuntime {
     }
   }
 
-  String _readAndFree(int pointer) {
-    if (pointer == 0) return '';
-    final value = (_module!.callMethodVarArgs<JSString>('UTF8ToString'.toJS, [
-      pointer.toJS,
-    ])).toDart;
-    bindings.ffmpeg_kit_free(_handle(pointer));
-    return value;
-  }
+  String _readAndFree(int pointer) =>
+      wasmMemory.readAndFree(
+        bindings.Pointer<bindings.Char>.fromAddress(pointer),
+      ) ??
+      '';
 
   String callString(String name, [List<JSAny?> args = const []]) {
     requireInitialized();
     final pointer = switch (name) {
-      '_ffmpeg_kit_session_get_output' => bindings
-          .ffmpeg_kit_session_get_output(_handle(_argInt(args[0])))
-          .address,
-      '_ffmpeg_kit_session_get_logs_as_string' => bindings
-          .ffmpeg_kit_session_get_logs_as_string(_handle(_argInt(args[0])))
-          .address,
-      '_ffmpeg_kit_session_get_fail_stack_trace' => bindings
-          .ffmpeg_kit_session_get_fail_stack_trace(_handle(_argInt(args[0])))
-          .address,
-      '_ffmpeg_kit_session_get_log_at' => bindings
-          .ffmpeg_kit_session_get_log_at(
-            _handle(_argInt(args[0])),
-            BigInt.from(_argInt(args[1])),
-          )
-          .address,
+      '_ffmpeg_kit_session_get_output' =>
+        bindings
+            .ffmpeg_kit_session_get_output(_handle(_argInt(args[0])))
+            .address,
+      '_ffmpeg_kit_session_get_logs_as_string' =>
+        bindings
+            .ffmpeg_kit_session_get_logs_as_string(_handle(_argInt(args[0])))
+            .address,
+      '_ffmpeg_kit_session_get_fail_stack_trace' =>
+        bindings
+            .ffmpeg_kit_session_get_fail_stack_trace(_handle(_argInt(args[0])))
+            .address,
+      '_ffmpeg_kit_session_get_log_at' =>
+        bindings
+            .ffmpeg_kit_session_get_log_at(
+              _handle(_argInt(args[0])),
+              BigInt.from(_argInt(args[1])),
+            )
+            .address,
       '_ffmpeg_kit_config_get_ffmpeg_version' =>
         bindings.ffmpeg_kit_config_get_ffmpeg_version().address,
       '_ffmpeg_kit_config_get_version' =>
@@ -387,22 +343,20 @@ class _WasmRuntime {
         bindings.ffmpeg_kit_packages_get_registered_filters().address,
       '_ffmpeg_kit_packages_get_registered_protocols' =>
         bindings.ffmpeg_kit_packages_get_registered_protocols().address,
-      '_ffmpeg_kit_packages_get_registered_bitstream_filters' => bindings
-          .ffmpeg_kit_packages_get_registered_bitstream_filters()
-          .address,
+      '_ffmpeg_kit_packages_get_registered_bitstream_filters' =>
+        bindings.ffmpeg_kit_packages_get_registered_bitstream_filters().address,
       '_ffmpeg_kit_packages_get_build_configuration' =>
         bindings.ffmpeg_kit_packages_get_build_configuration().address,
       '_ffmpeg_kit_config_get_build_date' =>
         bindings.ffmpeg_kit_config_get_build_date().address,
-      _ => throw UnsupportedError('Unsupported generated string binding: $name'),
+      _ => throw UnsupportedError(
+        'Unsupported generated string binding: $name',
+      ),
     };
     return _readAndFree(pointer);
   }
 
-  int _newUtf8(String value) => (_module!.callMethodVarArgs<JSNumber>(
-    'stringToNewUTF8'.toJS,
-    [value.toJS],
-  )).toDartInt;
+  int _newUtf8(String value) => wasmMemory.allocateUtf8(value).address;
 
   int execute(
     String entryPoint,
@@ -437,23 +391,22 @@ class _WasmRuntime {
         case '_ffplay_kit_create_session':
           return bindings.ffplay_kit_create_session(nativeCommand).address;
         default:
-          throw UnsupportedError('Unsupported generated execute binding: $entryPoint');
+          throw UnsupportedError(
+            'Unsupported generated execute binding: $entryPoint',
+          );
       }
     } finally {
-      _callVoid('_free', [commandPointer.toJS]);
+      wasmMemory.free(nativeCommand);
     }
   }
 
   void release(int handle) =>
       bindings.ffmpeg_kit_handle_release(_handle(handle));
 
-  int allocate(int size) => _callInt('_malloc', [size.toJS]);
-  void free(int pointer) => _callVoid('_free', [pointer.toJS]);
+  int allocate(int size) => wasmMemory.allocate(size).address;
 
-  Int32List get heap32 =>
-      _module!.getProperty<JSInt32Array>('HEAP32'.toJS).toDart;
-  Uint8List get heapU8 =>
-      _module!.getProperty<JSUint8Array>('HEAPU8'.toJS).toDart;
+  void free(int pointer) =>
+      wasmMemory.free(bindings.Pointer<bindings.Uint8>.fromAddress(pointer));
 
   void publishFrameSize(int width, int height) {
     _frameSizeController.add((width, height));
@@ -487,7 +440,8 @@ class _WasmFrameReader {
   int _lastGeneration = -1;
 
   _WasmFrame? copyLatest() {
-    final required = _runtime._callInt('_ffplay_kit_get_frame_buffer_size');
+    _runtime.requireInitialized();
+    final required = bindings.ffplay_kit_get_frame_buffer_size();
     if (required <= 0) return null;
     if (_capacity < required) {
       if (_pixels != 0) _runtime.free(_pixels);
@@ -495,33 +449,38 @@ class _WasmFrameReader {
       _capacity = required;
     }
 
-    final result = _runtime._callInt('_ffplay_kit_copy_frame', [
-      _pixels.toJS,
-      _capacity.toJS,
-      _metadata.toJS,
-      (_metadata + 4).toJS,
-      (_metadata + 8).toJS,
-      (_metadata + 16).toJS,
-    ]);
+    final result = bindings.ffplay_kit_copy_frame(
+      bindings.Pointer<bindings.Uint8>.fromAddress(_pixels),
+      _capacity,
+      bindings.Pointer<bindings.Int32>.fromAddress(_metadata),
+      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 4),
+      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 8),
+      bindings.Pointer<bindings.Int64>.fromAddress(_metadata + 16),
+    );
     if (result != 1) return null;
 
-    final heap32 = _runtime.heap32;
-    final width = heap32[_metadata >> 2];
-    final height = heap32[(_metadata + 4) >> 2];
-    final linesize = heap32[(_metadata + 8) >> 2];
-    final heap = _runtime.heapU8;
-    final generation = ByteData.sublistView(
-      heap,
-      _metadata + 16,
-      _metadata + 24,
-    ).getUint64(0, Endian.little);
+    final width = wasmMemory.readInt32(
+      bindings.Pointer<bindings.Int32>.fromAddress(_metadata),
+    );
+    final height = wasmMemory.readInt32(
+      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 4),
+    );
+    final linesize = wasmMemory.readInt32(
+      bindings.Pointer<bindings.Int32>.fromAddress(_metadata + 8),
+    );
+    final generation = wasmMemory.readInt64(
+      bindings.Pointer<bindings.Int64>.fromAddress(_metadata + 16),
+    );
     if (generation == _lastGeneration || width <= 0 || height <= 0) {
       return null;
     }
     _lastGeneration = generation;
     final byteCount = linesize * height;
     final pixels = Uint8List.fromList(
-      heap.sublist(_pixels, _pixels + byteCount),
+      wasmMemory.readBytes(
+        bindings.Pointer<bindings.Uint8>.fromAddress(_pixels),
+        byteCount,
+      ),
     );
     _runtime.publishFrameSize(width, height);
     return _WasmFrame(pixels, width, height, linesize, generation);

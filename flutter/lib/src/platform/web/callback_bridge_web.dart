@@ -17,6 +17,29 @@ final class WebCallbackBridge {
         bindings.NativeFunction<bindings.FFprobeKitCompleteCallbackFunction>
       >.fromAddress(0);
 
+  bindings.DartFFmpegKitLogCallback get nullLog =>
+      const bindings.Pointer<
+        bindings.NativeFunction<bindings.FFmpegKitLogCallbackFunction>
+      >.fromAddress(0);
+
+  bindings.DartFFmpegKitStatisticsCallback get nullStatistics =>
+      const bindings.Pointer<
+        bindings.NativeFunction<bindings.FFmpegKitStatisticsCallbackFunction>
+      >.fromAddress(0);
+
+  bindings.DartFFplayKitCompleteCallback get nullFFplayComplete =>
+      const bindings.Pointer<
+        bindings.NativeFunction<bindings.FFplayKitCompleteCallbackFunction>
+      >.fromAddress(0);
+
+  bindings.DartMediaInformationSessionCompleteCallback
+  get nullMediaInformationComplete =>
+      const bindings.Pointer<
+        bindings.NativeFunction<
+          bindings.MediaInformationSessionCompleteCallbackFunction
+        >
+      >.fromAddress(0);
+
   bindings.Pointer<bindings.Void> get nullPointer =>
       const bindings.Pointer<bindings.Void>.fromAddress(0);
 }
