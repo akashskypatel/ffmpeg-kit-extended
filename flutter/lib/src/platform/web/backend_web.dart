@@ -96,6 +96,25 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
+  SessionHandle createFFplaySession(String command) {
+    requireInitialized();
+    return _handle(
+      bindings.ffplay_kit_create_session(wasmMemory.stackUtf8(command)),
+    );
+  }
+
+  @override
+  SessionHandle createFFplaySessionFromArguments(List<String> arguments) {
+    requireInitialized();
+    return _withArguments(
+      arguments,
+      (argv) => _handle(
+        bindings.ffplay_kit_create_session_from_argv(arguments.length, argv),
+      ),
+    );
+  }
+
+  @override
   SessionHandle createMediaInformationSession(String command) {
     requireInitialized();
     return _handle(
@@ -179,6 +198,74 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void executeFFprobeSessionAsync(SessionHandle handle) =>
       bindings.ffprobe_kit_session_execute_async(_pointer(handle));
+
+  @override
+  void executeFFplaySession(SessionHandle handle, int timeout) => bindings
+      .ffplay_kit_session_execute(_pointer(handle), BigInt.from(timeout));
+
+  @override
+  void executeFFplaySessionAsync(SessionHandle handle, int timeout) => bindings
+      .ffplay_kit_session_execute_async(_pointer(handle), BigInt.from(timeout));
+
+  @override
+  void startFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_start(_pointer(handle));
+
+  @override
+  void pauseFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_pause(_pointer(handle));
+
+  @override
+  void resumeFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_resume(_pointer(handle));
+
+  @override
+  void stopFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_stop(_pointer(handle));
+
+  @override
+  void closeFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_close(_pointer(handle));
+
+  @override
+  void seekFFplaySession(SessionHandle handle, double seconds) =>
+      bindings.ffplay_kit_session_seek(_pointer(handle), seconds);
+
+  @override
+  void setFFplayPosition(SessionHandle handle, double seconds) =>
+      bindings.ffplay_kit_session_set_position(_pointer(handle), seconds);
+
+  @override
+  double getFFplayPosition(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_position(_pointer(handle));
+
+  @override
+  double getFFplayDuration(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_duration(_pointer(handle));
+
+  @override
+  bool isFFplayPlaying(SessionHandle handle) =>
+      bindings.ffplay_kit_session_is_playing(_pointer(handle));
+
+  @override
+  bool isFFplayPaused(SessionHandle handle) =>
+      bindings.ffplay_kit_session_is_paused(_pointer(handle));
+
+  @override
+  void setFFplayVolume(SessionHandle handle, double volume) =>
+      bindings.ffplay_kit_session_set_volume(_pointer(handle), volume);
+
+  @override
+  double getFFplayVolume(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_volume(_pointer(handle));
+
+  @override
+  int getFFplayVideoWidth(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_video_width(_pointer(handle));
+
+  @override
+  int getFFplayVideoHeight(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_video_height(_pointer(handle));
 
   @override
   void executeMediaInformationSession(SessionHandle handle, int timeout) =>

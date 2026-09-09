@@ -185,6 +185,10 @@ abstract interface class FFmpegKitBackend {
 
   SessionHandle createFFprobeSessionFromArguments(List<String> arguments);
 
+  SessionHandle createFFplaySession(String command);
+
+  SessionHandle createFFplaySessionFromArguments(List<String> arguments);
+
   SessionHandle createMediaInformationSession(String command);
 
   SessionHandle createMediaInformationSessionFromArguments(
@@ -208,6 +212,40 @@ abstract interface class FFmpegKitBackend {
   void executeFFprobeSession(SessionHandle handle);
 
   void executeFFprobeSessionAsync(SessionHandle handle);
+
+  void executeFFplaySession(SessionHandle handle, int timeout);
+
+  void executeFFplaySessionAsync(SessionHandle handle, int timeout);
+
+  void startFFplaySession(SessionHandle handle);
+
+  void pauseFFplaySession(SessionHandle handle);
+
+  void resumeFFplaySession(SessionHandle handle);
+
+  void stopFFplaySession(SessionHandle handle);
+
+  void closeFFplaySession(SessionHandle handle);
+
+  void seekFFplaySession(SessionHandle handle, double seconds);
+
+  void setFFplayPosition(SessionHandle handle, double seconds);
+
+  double getFFplayPosition(SessionHandle handle);
+
+  double getFFplayDuration(SessionHandle handle);
+
+  bool isFFplayPlaying(SessionHandle handle);
+
+  bool isFFplayPaused(SessionHandle handle);
+
+  void setFFplayVolume(SessionHandle handle, double volume);
+
+  double getFFplayVolume(SessionHandle handle);
+
+  int getFFplayVideoWidth(SessionHandle handle);
+
+  int getFFplayVideoHeight(SessionHandle handle);
 
   void executeMediaInformationSession(SessionHandle handle, int timeout);
 

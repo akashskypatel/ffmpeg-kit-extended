@@ -18,13 +18,9 @@ library;
 
 import 'dart:async';
 import 'dart:developer';
-import 'dart:ffi';
-
-import 'package:ffi/ffi.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 
@@ -37,8 +33,6 @@ import 'platform/backend_selector.dart';
 /// Use [FFplayKit] to create and execute sessions for global tracking.
 /// Deprecated static helpers still work but bypass tracking.
 class FFplaySession extends Session {
-  Pointer<Void> get _nativeHandle => handle.value as Pointer<Void>;
-
   FFplaySessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
   StreamController<List<Log>>? _logBatchStreamController;
@@ -95,8 +89,7 @@ class FFplaySession extends Session {
   /// Restores an [FFplaySession] from existing native [handle].
   /// Used internally when wrapping handles from session-history API.
   /// No callbacks registered; call [setCompleteCallback] if needed.
-  FFplaySession.fromHandle(Object handle, String command)
-    : _timeout = 500 {
+  FFplaySession.fromHandle(Object handle, String command) : _timeout = 500 {
     FFmpegKitExtended.requireInitialized();
     this.handle = handle is SessionHandle ? handle : SessionHandle(handle);
     this.command = command;
@@ -123,34 +116,28 @@ class FFplaySession extends Session {
     int timeout = 500,
   }) : _timeout = timeout {
     FFmpegKitExtended.requireInitialized();
-    // toNativeUtf8 uses the calloc allocator by default.
-    final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      try {
-        handle = SessionHandle(ffmpeg.ffplay_kit_create_session(cmdPtr.cast()));
-      } catch (e, st) {
-        log(
-          'FFplaySession: error in native function ffplay_kit_create_session',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
-      this.command = command;
-      try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
-      } catch (e, st) {
-        log(
-          'FFplaySession: error in native function ffmpeg_kit_session_get_session_id',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
-      registerFinalizer();
-    } finally {
-      calloc.free(cmdPtr); // must match the allocator used by toNativeUtf8
+      handle = ffmpegKitBackend.createFFplaySession(command);
+    } catch (e, st) {
+      log(
+        'FFplaySession: error creating FFplay session',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
     }
+    this.command = command;
+    try {
+      sessionId = ffmpegKitBackend.getSessionId(this.handle);
+    } catch (e, st) {
+      log(
+        'FFplaySession: error in native function ffmpeg_kit_session_get_session_id',
+        error: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
+    registerFinalizer();
 
     _completeCallback = completeCallback;
 
@@ -172,32 +159,10 @@ class FFplaySession extends Session {
       throw ArgumentError.value(arguments, 'arguments', 'must not be empty');
     }
 
-    final argv = calloc<Pointer<Char>>(arguments.length);
-    final nativeStrings = <Pointer<Utf8>>[];
-    try {
-      for (var i = 0; i < arguments.length; i++) {
-        final nativeString = arguments[i].toNativeUtf8(allocator: calloc);
-        nativeStrings.add(nativeString);
-        argv[i] = nativeString.cast<Char>();
-      }
-
-      final nativeHandle = ffmpeg.ffplay_kit_create_session_from_argv(
-        arguments.length,
-        argv,
-      );
-      if (nativeHandle == nullptr) {
-        throw StateError('Failed to create FFplay session from arguments.');
-      }
-      handle = SessionHandle(nativeHandle);
-      command = FFmpegKitExtended.argumentsToString(arguments);
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
-      registerFinalizer();
-    } finally {
-      for (final nativeString in nativeStrings) {
-        calloc.free(nativeString);
-      }
-      calloc.free(argv);
-    }
+    handle = ffmpegKitBackend.createFFplaySessionFromArguments(arguments);
+    command = FFmpegKitExtended.argumentsToString(arguments);
+    sessionId = ffmpegKitBackend.getSessionId(this.handle);
+    registerFinalizer();
 
     _completeCallback = completeCallback;
     CallbackManager().registerFFplaySession(this);
@@ -324,7 +289,7 @@ class FFplaySession extends Session {
   void start() {
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_start(_nativeHandle);
+      ffmpegKitBackend.startFFplaySession(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_start',
@@ -339,7 +304,7 @@ class FFplaySession extends Session {
   void pause() {
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_pause(_nativeHandle);
+      ffmpegKitBackend.pauseFFplaySession(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_pause',
@@ -349,7 +314,7 @@ class FFplaySession extends Session {
       rethrow;
     }
     try {
-      final pausePos = ffmpeg.ffplay_kit_session_get_position(_nativeHandle);
+      final pausePos = ffmpegKitBackend.getFFplayPosition(handle);
       _syncedPos = pausePos.isNaN ? _lastEmittedPos : pausePos;
     } catch (e, st) {
       log(
@@ -367,7 +332,7 @@ class FFplaySession extends Session {
   void resume() {
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_resume(_nativeHandle);
+      ffmpegKitBackend.resumeFFplaySession(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_resume',
@@ -377,7 +342,7 @@ class FFplaySession extends Session {
       rethrow;
     }
     try {
-      final resumePos = ffmpeg.ffplay_kit_session_get_position(_nativeHandle);
+      final resumePos = ffmpegKitBackend.getFFplayPosition(handle);
       _syncedPos = resumePos.isNaN ? _lastEmittedPos : resumePos;
     } catch (e, st) {
       log(
@@ -395,7 +360,7 @@ class FFplaySession extends Session {
   void stop() {
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_stop(_nativeHandle);
+      ffmpegKitBackend.stopFFplaySession(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_stop',
@@ -410,7 +375,7 @@ class FFplaySession extends Session {
   void close() {
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_close(_nativeHandle);
+      ffmpegKitBackend.closeFFplaySession(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_close',
@@ -433,7 +398,7 @@ class FFplaySession extends Session {
     if (seconds.isNaN || seconds.isInfinite) return;
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_seek(_nativeHandle, seconds);
+      ffmpegKitBackend.seekFFplaySession(handle, seconds);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_seek',
@@ -466,7 +431,7 @@ class FFplaySession extends Session {
           FFmpegKitExtended.requireInitialized();
           _enableNativeLogCallback();
           try {
-            ffmpeg.ffplay_kit_session_execute(_nativeHandle, _timeout);
+            ffmpegKitBackend.executeFFplaySession(handle, _timeout);
           } catch (e, st) {
             log(
               'FFplaySession: error in native function ffplay_kit_session_execute',
@@ -540,7 +505,7 @@ class FFplaySession extends Session {
   double getMediaDuration() {
     FFmpegKitExtended.requireInitialized();
     try {
-      final d = ffmpeg.ffplay_kit_session_get_duration(_nativeHandle);
+      final d = ffmpegKitBackend.getFFplayDuration(handle);
       return d;
     } catch (e, st) {
       log(
@@ -556,7 +521,7 @@ class FFplaySession extends Session {
   double getPosition() {
     FFmpegKitExtended.requireInitialized();
     try {
-      final p = ffmpeg.ffplay_kit_session_get_position(_nativeHandle);
+      final p = ffmpegKitBackend.getFFplayPosition(handle);
       return p;
     } catch (e, st) {
       log(
@@ -572,7 +537,7 @@ class FFplaySession extends Session {
   void setPosition(double seconds) {
     FFmpegKitExtended.requireInitialized();
     try {
-      ffmpeg.ffplay_kit_session_set_position(_nativeHandle, seconds);
+      ffmpegKitBackend.setFFplayPosition(handle, seconds);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_set_position',
@@ -594,7 +559,7 @@ class FFplaySession extends Session {
     // (or has been torn down); any value >= 0 is a real reading, including 0.0
     // for a legitimately muted session.
     try {
-      final v = ffmpeg.ffplay_kit_session_get_volume(_nativeHandle);
+      final v = ffmpegKitBackend.getFFplayVolume(handle);
       if (v >= 0) _cachedVolume = v;
       return _cachedVolume;
     } catch (e, st) {
@@ -617,7 +582,7 @@ class FFplaySession extends Session {
     // as a 0.0–1.0 fraction (multiplies by 100 to get a percentage).
     // Do NOT pre-scale to SDL_MIX_MAXVOLUME (0–128) here.
     try {
-      ffmpeg.ffplay_kit_session_set_volume(_nativeHandle, clamped);
+      ffmpegKitBackend.setFFplayVolume(handle, clamped);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_set_volume',
@@ -632,7 +597,7 @@ class FFplaySession extends Session {
   bool isPlaying() {
     FFmpegKitExtended.requireInitialized();
     try {
-      final playing = ffmpeg.ffplay_kit_session_is_playing(_nativeHandle);
+      final playing = ffmpegKitBackend.isFFplayPlaying(handle);
       return playing;
     } catch (e, st) {
       log(
@@ -648,7 +613,7 @@ class FFplaySession extends Session {
   int getVideoWidth() {
     FFmpegKitExtended.requireInitialized();
     try {
-      return ffmpeg.ffplay_kit_session_get_video_width(_nativeHandle);
+      return ffmpegKitBackend.getFFplayVideoWidth(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_get_video_width',
@@ -663,7 +628,7 @@ class FFplaySession extends Session {
   int getVideoHeight() {
     FFmpegKitExtended.requireInitialized();
     try {
-      return ffmpeg.ffplay_kit_session_get_video_height(_nativeHandle);
+      return ffmpegKitBackend.getFFplayVideoHeight(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error in native function ffplay_kit_session_get_video_height',
@@ -678,7 +643,7 @@ class FFplaySession extends Session {
   bool isPaused() {
     FFmpegKitExtended.requireInitialized();
     try {
-      final paused = ffmpeg.ffplay_kit_session_is_paused(_nativeHandle);
+      final paused = ffmpegKitBackend.isFFplayPaused(handle);
       return paused;
     } catch (e, st) {
       log(
@@ -764,7 +729,7 @@ class FFplaySession extends Session {
     }
 
     try {
-      ffmpeg.ffplay_kit_session_execute_async(_nativeHandle, _timeout);
+      ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
     } catch (e, st) {
       log(
         'FFplaySession: error starting async session ffplay_kit_session_execute_async $sessionId',
@@ -880,7 +845,7 @@ class FFplaySession extends Session {
     // yet (e.g., called before the first frame is decoded).  A NaN here would
     // poison _lastEmittedPos and cause ArgumentError inside .clamp() later.
     try {
-      _syncedPos = ffmpeg.ffplay_kit_session_get_position(_nativeHandle);
+      _syncedPos = ffmpegKitBackend.getFFplayPosition(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error getting position ffplay_kit_session_get_position $sessionId',
@@ -891,7 +856,7 @@ class FFplaySession extends Session {
     }
     if (_syncedPos.isNaN) _syncedPos = 0.0;
     try {
-      _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(_nativeHandle);
+      _cachedDuration = ffmpegKitBackend.getFFplayDuration(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error getting duration ffplay_kit_session_get_duration $sessionId',
@@ -901,7 +866,7 @@ class FFplaySession extends Session {
       _cachedDuration = 0;
     }
     try {
-      _locallyPlaying = ffmpeg.ffplay_kit_session_is_playing(_nativeHandle);
+      _locallyPlaying = ffmpegKitBackend.isFFplayPlaying(handle);
     } catch (e, st) {
       log(
         'FFplaySession: error checking playing state ffplay_kit_session_is_playing $sessionId',
@@ -928,8 +893,8 @@ class FFplaySession extends Session {
       double newPos;
       bool newPlaying;
       try {
-        newPos = ffmpeg.ffplay_kit_session_get_position(_nativeHandle);
-        newPlaying = ffmpeg.ffplay_kit_session_is_playing(_nativeHandle);
+        newPos = ffmpegKitBackend.getFFplayPosition(handle);
+        newPlaying = ffmpegKitBackend.isFFplayPlaying(handle);
       } catch (e, st) {
         log(
           'FFplaySession: error getting position or playing state ffplay_kit_session_get_position/ffplay_kit_session_is_playing $sessionId',
@@ -943,9 +908,7 @@ class FFplaySession extends Session {
       // Keep retrying until we get a valid value so the Dart clamp activates.
       if (_cachedDuration <= 0.0 || _cachedDuration.isNaN) {
         try {
-          _cachedDuration = ffmpeg.ffplay_kit_session_get_duration(
-            _nativeHandle,
-          );
+          _cachedDuration = ffmpegKitBackend.getFFplayDuration(handle);
         } catch (e, st) {
           log(
             'FFplaySession: error getting duration ffplay_kit_session_get_duration $sessionId',
@@ -1068,8 +1031,8 @@ class FFplaySession extends Session {
       int w;
       int h;
       try {
-        w = ffmpeg.ffplay_kit_session_get_video_width(_nativeHandle);
-        h = ffmpeg.ffplay_kit_session_get_video_height(_nativeHandle);
+        w = ffmpegKitBackend.getFFplayVideoWidth(handle);
+        h = ffmpegKitBackend.getFFplayVideoHeight(handle);
       } catch (e, st) {
         log(
           'FFplaySession: error getting video width or height ffplay_kit_session_get_video_width/ffplay_kit_session_get_video_height $sessionId',

@@ -108,6 +108,41 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
+  SessionHandle createFFplaySession(String command) {
+    requireInitialized();
+    final commandPointer = command.toNativeUtf8(allocator: calloc);
+    try {
+      return SessionHandle(
+        bindings.ffplay_kit_create_session(commandPointer.cast()),
+      );
+    } finally {
+      calloc.free(commandPointer);
+    }
+  }
+
+  @override
+  SessionHandle createFFplaySessionFromArguments(List<String> arguments) {
+    requireInitialized();
+    final argv = calloc<Pointer<Char>>(arguments.length);
+    final strings = <Pointer<Utf8>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final value = arguments[i].toNativeUtf8(allocator: calloc);
+        strings.add(value);
+        argv[i] = value.cast();
+      }
+      return SessionHandle(
+        bindings.ffplay_kit_create_session_from_argv(arguments.length, argv),
+      );
+    } finally {
+      for (final value in strings) {
+        calloc.free(value);
+      }
+      calloc.free(argv);
+    }
+  }
+
+  @override
   SessionHandle createMediaInformationSession(String command) {
     requireInitialized();
     final commandPointer = command.toNativeUtf8(allocator: calloc);
@@ -209,20 +244,88 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
       bindings.ffprobe_kit_session_execute_async(_pointer(handle));
 
   @override
+  void executeFFplaySession(SessionHandle handle, int timeout) =>
+      bindings.ffplay_kit_session_execute(_pointer(handle), timeout);
+
+  @override
+  void executeFFplaySessionAsync(SessionHandle handle, int timeout) =>
+      bindings.ffplay_kit_session_execute_async(_pointer(handle), timeout);
+
+  @override
+  void startFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_start(_pointer(handle));
+
+  @override
+  void pauseFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_pause(_pointer(handle));
+
+  @override
+  void resumeFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_resume(_pointer(handle));
+
+  @override
+  void stopFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_stop(_pointer(handle));
+
+  @override
+  void closeFFplaySession(SessionHandle handle) =>
+      bindings.ffplay_kit_session_close(_pointer(handle));
+
+  @override
+  void seekFFplaySession(SessionHandle handle, double seconds) =>
+      bindings.ffplay_kit_session_seek(_pointer(handle), seconds);
+
+  @override
+  void setFFplayPosition(SessionHandle handle, double seconds) =>
+      bindings.ffplay_kit_session_set_position(_pointer(handle), seconds);
+
+  @override
+  double getFFplayPosition(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_position(_pointer(handle));
+
+  @override
+  double getFFplayDuration(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_duration(_pointer(handle));
+
+  @override
+  bool isFFplayPlaying(SessionHandle handle) =>
+      bindings.ffplay_kit_session_is_playing(_pointer(handle));
+
+  @override
+  bool isFFplayPaused(SessionHandle handle) =>
+      bindings.ffplay_kit_session_is_paused(_pointer(handle));
+
+  @override
+  void setFFplayVolume(SessionHandle handle, double volume) =>
+      bindings.ffplay_kit_session_set_volume(_pointer(handle), volume);
+
+  @override
+  double getFFplayVolume(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_volume(_pointer(handle));
+
+  @override
+  int getFFplayVideoWidth(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_video_width(_pointer(handle));
+
+  @override
+  int getFFplayVideoHeight(SessionHandle handle) =>
+      bindings.ffplay_kit_session_get_video_height(_pointer(handle));
+
+  @override
   void executeMediaInformationSession(SessionHandle handle, int timeout) =>
       bindings.media_information_session_execute(_pointer(handle), timeout);
 
   @override
-  void executeMediaInformationSessionAsync(
-    SessionHandle handle,
-    int timeout,
-  ) => bindings.media_information_session_execute_async(_pointer(handle), timeout);
+  void executeMediaInformationSessionAsync(SessionHandle handle, int timeout) =>
+      bindings.media_information_session_execute_async(
+        _pointer(handle),
+        timeout,
+      );
 
   @override
   MediaInformationSnapshot? getMediaInformation(SessionHandle handle) {
-    final mediaHandle = bindings.media_information_session_get_media_information(
-      _pointer(handle),
-    );
+    final mediaHandle = bindings
+        .media_information_session_get_media_information(_pointer(handle));
     if (mediaHandle.address == 0) return null;
 
     try {
@@ -231,7 +334,10 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
         mediaHandle,
       );
       for (var i = 0; i < chapterCount; i++) {
-        final chapter = bindings.media_information_get_chapter_at(mediaHandle, i);
+        final chapter = bindings.media_information_get_chapter_at(
+          mediaHandle,
+          i,
+        );
         if (chapter.address == 0) continue;
         try {
           chapters.add(
@@ -239,7 +345,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
               id: bindings.chapter_get_id(chapter),
               timeBase: _stringAndFree(bindings.chapter_get_time_base(chapter)),
               start: bindings.chapter_get_start(chapter),
-              startTime: _stringAndFree(bindings.chapter_get_start_time(chapter)),
+              startTime: _stringAndFree(
+                bindings.chapter_get_start_time(chapter),
+              ),
               end: bindings.chapter_get_end(chapter),
               endTime: _stringAndFree(bindings.chapter_get_end_time(chapter)),
               tagsJson: _stringAndFree(bindings.chapter_get_tags_json(chapter)),
@@ -264,12 +372,18 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
           streams.add(
             StreamInformationSnapshot(
               index: bindings.stream_information_get_index(stream),
-              type: _stringAndFree(bindings.stream_information_get_type(stream)),
-              codec: _stringAndFree(bindings.stream_information_get_codec(stream)),
+              type: _stringAndFree(
+                bindings.stream_information_get_type(stream),
+              ),
+              codec: _stringAndFree(
+                bindings.stream_information_get_codec(stream),
+              ),
               codecLong: _stringAndFree(
                 bindings.stream_information_get_codec_long(stream),
               ),
-              format: _stringAndFree(bindings.stream_information_get_format(stream)),
+              format: _stringAndFree(
+                bindings.stream_information_get_format(stream),
+              ),
               width: bindings.stream_information_get_width(stream),
               height: bindings.stream_information_get_height(stream),
               bitrate: _stringAndFree(
@@ -319,7 +433,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
         filename: _stringAndFree(
           bindings.media_information_get_filename(mediaHandle),
         ),
-        format: _stringAndFree(bindings.media_information_get_format(mediaHandle)),
+        format: _stringAndFree(
+          bindings.media_information_get_format(mediaHandle),
+        ),
         longFormat: _stringAndFree(
           bindings.media_information_get_long_format(mediaHandle),
         ),
@@ -494,7 +610,8 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   void clearDebugLog(SessionHandle handle) =>
       bindings.session_clear_debug_log(_pointer(handle));
 
-  String _requiredString(Pointer<Char> pointer) => _stringAndFree(pointer) ?? '';
+  String _requiredString(Pointer<Char> pointer) =>
+      _stringAndFree(pointer) ?? '';
 
   @override
   PackageInformationSnapshot getPackageInformation() =>
@@ -587,9 +704,8 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
-  String listAudioOutputDevices() => _requiredString(
-    bindings.ffmpeg_kit_config_list_audio_output_devices(),
-  );
+  String listAudioOutputDevices() =>
+      _requiredString(bindings.ffmpeg_kit_config_list_audio_output_devices());
 
   @override
   void setEnvironmentVariable(String name, String value) {
@@ -677,9 +793,8 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
       _optionalHandle(bindings.ffmpeg_kit_get_last_ffplay_session());
 
   @override
-  SessionHandle? getLastMediaInformationSession() => _optionalHandle(
-    bindings.ffmpeg_kit_get_last_media_information_session(),
-  );
+  SessionHandle? getLastMediaInformationSession() =>
+      _optionalHandle(bindings.ffmpeg_kit_get_last_media_information_session());
 
   @override
   SessionHandle? getLastCompletedSession() =>
@@ -723,17 +838,15 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
       );
 
   @override
-  void configureMediaInformationSessionCompleteCallback() =>
-      bindings
-          .ffmpeg_kit_config_enable_media_information_session_complete_callback(
-            nativeMediaInfoComplete.nativeFunction,
-            nullptr,
-          );
+  void configureMediaInformationSessionCompleteCallback() => bindings
+      .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+        nativeMediaInfoComplete.nativeFunction,
+        nullptr,
+      );
 
   @override
-  String? registerNewFFmpegPipe() => _stringAndFree(
-    bindings.ffmpeg_kit_config_register_new_ffmpeg_pipe(),
-  );
+  String? registerNewFFmpegPipe() =>
+      _stringAndFree(bindings.ffmpeg_kit_config_register_new_ffmpeg_pipe());
 
   @override
   void closeFFmpegPipe(String pipePath) {
