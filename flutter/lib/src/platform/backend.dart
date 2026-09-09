@@ -34,6 +34,100 @@ final class StatisticsSnapshot {
   });
 }
 
+final class ChapterInformationSnapshot {
+  final int id;
+  final String? timeBase;
+  final int start;
+  final String? startTime;
+  final int end;
+  final String? endTime;
+  final String? tagsJson;
+  final String? allPropertiesJson;
+
+  const ChapterInformationSnapshot({
+    required this.id,
+    required this.timeBase,
+    required this.start,
+    required this.startTime,
+    required this.end,
+    required this.endTime,
+    required this.tagsJson,
+    required this.allPropertiesJson,
+  });
+}
+
+final class StreamInformationSnapshot {
+  final int index;
+  final String? type;
+  final String? codec;
+  final String? codecLong;
+  final String? format;
+  final int width;
+  final int height;
+  final String? bitrate;
+  final String? sampleRate;
+  final String? sampleFormat;
+  final String? channelLayout;
+  final String? sampleAspectRatio;
+  final String? displayAspectRatio;
+  final String? averageFrameRate;
+  final String? realFrameRate;
+  final String? timeBase;
+  final String? codecTimeBase;
+  final String? tagsJson;
+  final String? allPropertiesJson;
+
+  const StreamInformationSnapshot({
+    required this.index,
+    required this.type,
+    required this.codec,
+    required this.codecLong,
+    required this.format,
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    required this.sampleRate,
+    required this.sampleFormat,
+    required this.channelLayout,
+    required this.sampleAspectRatio,
+    required this.displayAspectRatio,
+    required this.averageFrameRate,
+    required this.realFrameRate,
+    required this.timeBase,
+    required this.codecTimeBase,
+    required this.tagsJson,
+    required this.allPropertiesJson,
+  });
+}
+
+final class MediaInformationSnapshot {
+  final String? filename;
+  final String? format;
+  final String? longFormat;
+  final String? duration;
+  final String? startTime;
+  final String? bitrate;
+  final String? size;
+  final String? tagsJson;
+  final String? allPropertiesJson;
+  final List<StreamInformationSnapshot> streams;
+  final List<ChapterInformationSnapshot> chapters;
+
+  const MediaInformationSnapshot({
+    required this.filename,
+    required this.format,
+    required this.longFormat,
+    required this.duration,
+    required this.startTime,
+    required this.bitrate,
+    required this.size,
+    required this.tagsJson,
+    required this.allPropertiesJson,
+    required this.streams,
+    required this.chapters,
+  });
+}
+
 abstract interface class FFmpegKitBackend {
   Future<void> initialize();
 
@@ -45,13 +139,39 @@ abstract interface class FFmpegKitBackend {
 
   SessionHandle createFFmpegSessionFromArguments(List<String> arguments);
 
+  SessionHandle createFFprobeSession(String command);
+
+  SessionHandle createFFprobeSessionFromArguments(List<String> arguments);
+
+  SessionHandle createMediaInformationSession(String command);
+
+  SessionHandle createMediaInformationSessionFromArguments(
+    List<String> arguments,
+  );
+
   void configureFFmpegCallbacks();
 
   void enableFFmpegLogCallback();
 
+  void configureFFprobeCallbacks();
+
+  void configureMediaInformationCallbacks();
+
+  void enableFFprobeLogCallback();
+
   void executeFFmpegSession(SessionHandle handle);
 
   void executeFFmpegSessionAsync(SessionHandle handle);
+
+  void executeFFprobeSession(SessionHandle handle);
+
+  void executeFFprobeSessionAsync(SessionHandle handle);
+
+  void executeMediaInformationSession(SessionHandle handle, int timeout);
+
+  void executeMediaInformationSessionAsync(SessionHandle handle, int timeout);
+
+  MediaInformationSnapshot? getMediaInformation(SessionHandle handle);
 
   int getSessionState(SessionHandle handle);
 

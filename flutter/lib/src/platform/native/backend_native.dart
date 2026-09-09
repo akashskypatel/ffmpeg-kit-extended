@@ -73,6 +73,81 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
+  SessionHandle createFFprobeSession(String command) {
+    requireInitialized();
+    final commandPointer = command.toNativeUtf8(allocator: calloc);
+    try {
+      return SessionHandle(
+        bindings.ffprobe_kit_create_session(commandPointer.cast()),
+      );
+    } finally {
+      calloc.free(commandPointer);
+    }
+  }
+
+  @override
+  SessionHandle createFFprobeSessionFromArguments(List<String> arguments) {
+    requireInitialized();
+    final argv = calloc<Pointer<Char>>(arguments.length);
+    final strings = <Pointer<Utf8>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final value = arguments[i].toNativeUtf8(allocator: calloc);
+        strings.add(value);
+        argv[i] = value.cast();
+      }
+      return SessionHandle(
+        bindings.ffprobe_kit_create_session_from_argv(arguments.length, argv),
+      );
+    } finally {
+      for (final value in strings) {
+        calloc.free(value);
+      }
+      calloc.free(argv);
+    }
+  }
+
+  @override
+  SessionHandle createMediaInformationSession(String command) {
+    requireInitialized();
+    final commandPointer = command.toNativeUtf8(allocator: calloc);
+    try {
+      return SessionHandle(
+        bindings.media_information_create_session(commandPointer.cast()),
+      );
+    } finally {
+      calloc.free(commandPointer);
+    }
+  }
+
+  @override
+  SessionHandle createMediaInformationSessionFromArguments(
+    List<String> arguments,
+  ) {
+    requireInitialized();
+    final argv = calloc<Pointer<Char>>(arguments.length);
+    final strings = <Pointer<Utf8>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final value = arguments[i].toNativeUtf8(allocator: calloc);
+        strings.add(value);
+        argv[i] = value.cast();
+      }
+      return SessionHandle(
+        bindings.media_information_create_session_from_argv(
+          arguments.length,
+          argv,
+        ),
+      );
+    } finally {
+      for (final value in strings) {
+        calloc.free(value);
+      }
+      calloc.free(argv);
+    }
+  }
+
+  @override
   void configureFFmpegCallbacks() {
     bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
       nativeFFmpegComplete.nativeFunction,
@@ -93,12 +168,184 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
+  void configureFFprobeCallbacks() {
+    bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+      nativeFFprobeComplete.nativeFunction,
+      nullptr,
+    );
+  }
+
+  @override
+  void configureMediaInformationCallbacks() {
+    bindings
+        .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+          nativeMediaInfoComplete.nativeFunction,
+          nullptr,
+        );
+  }
+
+  @override
+  void enableFFprobeLogCallback() {
+    bindings.ffmpeg_kit_config_enable_log_callback(
+      nativeFFmpegLog.nativeFunction,
+      nullptr,
+    );
+  }
+
+  @override
   void executeFFmpegSession(SessionHandle handle) =>
       bindings.ffmpeg_kit_session_execute(_pointer(handle));
 
   @override
   void executeFFmpegSessionAsync(SessionHandle handle) =>
       bindings.ffmpeg_kit_session_execute_async(_pointer(handle));
+
+  @override
+  void executeFFprobeSession(SessionHandle handle) =>
+      bindings.ffprobe_kit_session_execute(_pointer(handle));
+
+  @override
+  void executeFFprobeSessionAsync(SessionHandle handle) =>
+      bindings.ffprobe_kit_session_execute_async(_pointer(handle));
+
+  @override
+  void executeMediaInformationSession(SessionHandle handle, int timeout) =>
+      bindings.media_information_session_execute(_pointer(handle), timeout);
+
+  @override
+  void executeMediaInformationSessionAsync(
+    SessionHandle handle,
+    int timeout,
+  ) => bindings.media_information_session_execute_async(_pointer(handle), timeout);
+
+  @override
+  MediaInformationSnapshot? getMediaInformation(SessionHandle handle) {
+    final mediaHandle = bindings.media_information_session_get_media_information(
+      _pointer(handle),
+    );
+    if (mediaHandle.address == 0) return null;
+
+    try {
+      final chapters = <ChapterInformationSnapshot>[];
+      final chapterCount = bindings.media_information_get_chapters_count(
+        mediaHandle,
+      );
+      for (var i = 0; i < chapterCount; i++) {
+        final chapter = bindings.media_information_get_chapter_at(mediaHandle, i);
+        if (chapter.address == 0) continue;
+        try {
+          chapters.add(
+            ChapterInformationSnapshot(
+              id: bindings.chapter_get_id(chapter),
+              timeBase: _stringAndFree(bindings.chapter_get_time_base(chapter)),
+              start: bindings.chapter_get_start(chapter),
+              startTime: _stringAndFree(bindings.chapter_get_start_time(chapter)),
+              end: bindings.chapter_get_end(chapter),
+              endTime: _stringAndFree(bindings.chapter_get_end_time(chapter)),
+              tagsJson: _stringAndFree(bindings.chapter_get_tags_json(chapter)),
+              allPropertiesJson: _stringAndFree(
+                bindings.chapter_get_all_properties_json(chapter),
+              ),
+            ),
+          );
+        } finally {
+          bindings.ffmpeg_kit_handle_release(chapter);
+        }
+      }
+
+      final streams = <StreamInformationSnapshot>[];
+      final streamCount = bindings.media_information_get_streams_count(
+        mediaHandle,
+      );
+      for (var i = 0; i < streamCount; i++) {
+        final stream = bindings.media_information_get_stream_at(mediaHandle, i);
+        if (stream.address == 0) continue;
+        try {
+          streams.add(
+            StreamInformationSnapshot(
+              index: bindings.stream_information_get_index(stream),
+              type: _stringAndFree(bindings.stream_information_get_type(stream)),
+              codec: _stringAndFree(bindings.stream_information_get_codec(stream)),
+              codecLong: _stringAndFree(
+                bindings.stream_information_get_codec_long(stream),
+              ),
+              format: _stringAndFree(bindings.stream_information_get_format(stream)),
+              width: bindings.stream_information_get_width(stream),
+              height: bindings.stream_information_get_height(stream),
+              bitrate: _stringAndFree(
+                bindings.stream_information_get_bitrate(stream),
+              ),
+              sampleRate: _stringAndFree(
+                bindings.stream_information_get_sample_rate(stream),
+              ),
+              sampleFormat: _stringAndFree(
+                bindings.stream_information_get_sample_format(stream),
+              ),
+              channelLayout: _stringAndFree(
+                bindings.stream_information_get_channel_layout(stream),
+              ),
+              sampleAspectRatio: _stringAndFree(
+                bindings.stream_information_get_sample_aspect_ratio(stream),
+              ),
+              displayAspectRatio: _stringAndFree(
+                bindings.stream_information_get_display_aspect_ratio(stream),
+              ),
+              averageFrameRate: _stringAndFree(
+                bindings.stream_information_get_average_frame_rate(stream),
+              ),
+              realFrameRate: _stringAndFree(
+                bindings.stream_information_get_real_frame_rate(stream),
+              ),
+              timeBase: _stringAndFree(
+                bindings.stream_information_get_time_base(stream),
+              ),
+              codecTimeBase: _stringAndFree(
+                bindings.stream_information_get_codec_time_base(stream),
+              ),
+              tagsJson: _stringAndFree(
+                bindings.stream_information_get_tags_json(stream),
+              ),
+              allPropertiesJson: _stringAndFree(
+                bindings.stream_information_get_all_properties_json(stream),
+              ),
+            ),
+          );
+        } finally {
+          bindings.ffmpeg_kit_handle_release(stream);
+        }
+      }
+
+      return MediaInformationSnapshot(
+        filename: _stringAndFree(
+          bindings.media_information_get_filename(mediaHandle),
+        ),
+        format: _stringAndFree(bindings.media_information_get_format(mediaHandle)),
+        longFormat: _stringAndFree(
+          bindings.media_information_get_long_format(mediaHandle),
+        ),
+        duration: _stringAndFree(
+          bindings.media_information_get_duration(mediaHandle),
+        ),
+        startTime: _stringAndFree(
+          bindings.media_information_get_start_time(mediaHandle),
+        ),
+        bitrate: _stringAndFree(
+          bindings.media_information_get_bitrate(mediaHandle),
+        ),
+        size: _stringAndFree(bindings.media_information_get_size(mediaHandle)),
+        tagsJson: _stringAndFree(
+          bindings.media_information_get_tags_json(mediaHandle),
+        ),
+        allPropertiesJson: _stringAndFree(
+          bindings.media_information_get_all_properties_json(mediaHandle),
+        ),
+        streams: streams,
+        chapters: chapters,
+      );
+    } finally {
+      bindings.ffmpeg_kit_handle_release(mediaHandle);
+    }
+  }
 
   @override
   int getSessionState(SessionHandle handle) {

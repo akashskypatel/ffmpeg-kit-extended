@@ -40,16 +40,59 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       throw _notMigrated();
 
   @override
+  SessionHandle createFFprobeSession(String command) => throw _notMigrated();
+
+  @override
+  SessionHandle createFFprobeSessionFromArguments(List<String> arguments) =>
+      throw _notMigrated();
+
+  @override
+  SessionHandle createMediaInformationSession(String command) =>
+      throw _notMigrated();
+
+  @override
+  SessionHandle createMediaInformationSessionFromArguments(
+    List<String> arguments,
+  ) => throw _notMigrated();
+
+  @override
   void configureFFmpegCallbacks() => throw _notMigrated();
 
   @override
   void enableFFmpegLogCallback() => throw _notMigrated();
 
   @override
+  void configureFFprobeCallbacks() => throw _notMigrated();
+
+  @override
+  void configureMediaInformationCallbacks() => throw _notMigrated();
+
+  @override
+  void enableFFprobeLogCallback() => throw _notMigrated();
+
+  @override
   void executeFFmpegSession(SessionHandle handle) => throw _notMigrated();
 
   @override
   void executeFFmpegSessionAsync(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void executeFFprobeSession(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void executeFFprobeSessionAsync(SessionHandle handle) => throw _notMigrated();
+
+  @override
+  void executeMediaInformationSession(SessionHandle handle, int timeout) =>
+      throw _notMigrated();
+
+  @override
+  void executeMediaInformationSessionAsync(SessionHandle handle, int timeout) =>
+      throw _notMigrated();
+
+  @override
+  MediaInformationSnapshot? getMediaInformation(SessionHandle handle) =>
+      throw _notMigrated();
 
   @override
   int getSessionState(SessionHandle handle) => throw _notMigrated();

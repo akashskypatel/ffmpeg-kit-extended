@@ -19,22 +19,18 @@
 
 import 'dart:async';
 import 'dart:developer';
-import 'dart:ffi';
 
-import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'generated/ffmpeg_kit_bindings_native.dart' as ffmpeg;
 import 'platform/backend.dart';
+import 'platform/backend_selector.dart';
 
 /// A session for executing FFprobe commands.
 ///
 /// Use this class to retrieve media metadata and stream information.
 class FFprobeSession extends Session {
-  Pointer<Void> get _nativeHandle => handle.value as Pointer<Void>;
-
   FFprobeSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
   StreamController<List<Log>>? _logBatchStreamController;
@@ -54,34 +50,14 @@ class FFprobeSession extends Session {
     FFprobeSessionCompleteCallback? completeCallback,
   }) {
     FFmpegKitExtended.requireInitialized();
-    final cmdPtr = command.toNativeUtf8(allocator: calloc);
     try {
-      try {
-        handle = SessionHandle(
-          ffmpeg.ffprobe_kit_create_session(cmdPtr.cast()),
-        );
-      } catch (e, st) {
-        log(
-          'FFprobeSession: error creating session ffprobe_kit_create_session $command',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
+      handle = ffmpegKitBackend.createFFprobeSession(command);
       this.command = command;
-      try {
-        sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
-      } catch (e, st) {
-        log(
-          'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
-          error: e,
-          stackTrace: st,
-        );
-        rethrow;
-      }
+      sessionId = ffmpegKitBackend.getSessionId(handle);
       registerFinalizer();
-    } finally {
-      calloc.free(cmdPtr);
+    } catch (e, st) {
+      log('FFprobeSession: error creating session $command', error: e, stackTrace: st);
+      rethrow;
     }
 
     _completeCallback = completeCallback;
@@ -92,20 +68,11 @@ class FFprobeSession extends Session {
   /// Restores an [FFprobeSession] from an existing native [handle].
   ///
   /// Used internally when wrapping handles from the session-history API.
-  FFprobeSession.fromHandle(Pointer<Void> handle, String command) {
+  FFprobeSession.fromHandle(Object handle, String command) {
     FFmpegKitExtended.requireInitialized();
-    this.handle = SessionHandle(handle);
+    this.handle = handle is SessionHandle ? handle : SessionHandle(handle);
     this.command = command;
-    try {
-      sessionId = ffmpeg.ffmpeg_kit_session_get_session_id(_nativeHandle);
-    } catch (e, st) {
-      log(
-        'FFprobeSession: error getting session id ffmpeg_kit_session_get_session_id $command',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
+    sessionId = ffmpegKitBackend.getSessionId(this.handle);
     registerFinalizer();
   }
 
@@ -187,7 +154,7 @@ class FFprobeSession extends Session {
           FFmpegKitExtended.requireInitialized();
           enableNativeLogCallback();
           try {
-            ffmpeg.ffprobe_kit_session_execute(_nativeHandle);
+            ffmpegKitBackend.executeFFprobeSession(handle);
           } catch (e, st) {
             log(
               'FFprobeSession.execute: error executing session ffprobe_kit_session_execute $command',
@@ -319,10 +286,7 @@ class FFprobeSession extends Session {
     };
     enableNativeLogCallback();
     try {
-      ffmpeg.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-        nativeFFprobeComplete.nativeFunction,
-        nullptr,
-      );
+      ffmpegKitBackend.configureFFprobeCallbacks();
     } catch (e, st) {
       log(
         'FFprobeSession: error enabling ffprobe session complete callback $command',
@@ -333,7 +297,7 @@ class FFprobeSession extends Session {
     }
 
     try {
-      ffmpeg.ffprobe_kit_session_execute_async(_nativeHandle);
+      ffmpegKitBackend.executeFFprobeSessionAsync(handle);
     } catch (e, st) {
       log(
         'FFprobeSession: error starting async session $sessionId',
@@ -415,10 +379,7 @@ class FFprobeSession extends Session {
   @protected
   void enableNativeLogCallback() {
     try {
-      ffmpeg.ffmpeg_kit_config_enable_log_callback(
-        nativeFFmpegLog.nativeFunction,
-        nullptr,
-      );
+      ffmpegKitBackend.enableFFprobeLogCallback();
     } catch (e, st) {
       log(
         'FFprobeSession: error enabling ffmpeg log callback for session $sessionId',
