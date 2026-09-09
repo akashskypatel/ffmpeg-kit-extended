@@ -13,26 +13,28 @@ headers:
 compiler-opts:
   - '-I../libs/libffmpegkit/FFmpegKit/src'
   # Set the macro to empty so Clang ignores the __declspec parts
-  - '-DFFMPEG_KIT_C_EXPORT=' 
+  - '-DFFMPEG_KIT_C_EXPORT='
   # Tell Clang NOT to error out on macro redefinitions
   - '-Wno-macro-redefined'
   # Basic C compatibility
   - '-std=c11'
   - '-D__STDC_CONSTANT_MACROS'
 
+# Restrict generation to declarations owned by the public FFmpegKit C wrapper.
+# The wrapper header pulls in platform/CRT headers transitively; using `.*`
+# here causes unrelated declarations such as _errno and
+# _invalid_parameter_noinfo to leak into the generated web bindings.
 functions:
   include:
-    - '.*'
-  exclude:
-    - '^__.*'
+    - '^(ffmpeg_kit_|ffprobe_kit_|ffplay_kit_|media_information_|stream_information_|chapter_|session_).*'
 
 enums:
   include:
-    - '.*'
+    - '^FFmpegKit.*'
 
 typedefs:
   include:
-    - '.*'
+    - '^(FFmpeg|FFprobe|FFplay|MediaInformation|StreamInformation|Chapter|Statistics).*'
 
 globals:
   exclude:
