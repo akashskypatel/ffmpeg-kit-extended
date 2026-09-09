@@ -1,10 +1,14 @@
+import 'dart:async';
+
+import '../../callback_manager.dart';
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../backend.dart';
-import 'callback_bridge_web.dart';
 import 'wasm_loader.dart';
 import 'wasm_memory.dart';
 
 FFmpegKitBackend createPlatformBackend() => WebFFmpegKitBackend();
+
+enum _WebCompletionKind { ffmpeg, ffprobe, ffplay, mediaInformation }
 
 /// Web/Wasm implementation of the platform-neutral FFmpegKit backend.
 ///
@@ -12,6 +16,88 @@ FFmpegKitBackend createPlatformBackend() => WebFFmpegKitBackend();
 /// The loader and memory helpers are the only code that knows about the
 /// Emscripten module and its heap.
 final class WebFFmpegKitBackend implements FFmpegKitBackend {
+  final Set<int> _polledSessions = <int>{};
+
+  void _startSessionPolling(
+    SessionHandle handle,
+    _WebCompletionKind completionKind,
+  ) {
+    final sessionId = getSessionId(handle);
+    if (!_polledSessions.add(sessionId)) return;
+
+    unawaited(
+      _pollSession(handle, sessionId, completionKind).whenComplete(() {
+        _polledSessions.remove(sessionId);
+      }),
+    );
+  }
+
+  Future<void> _pollSession(
+    SessionHandle handle,
+    int sessionId,
+    _WebCompletionKind completionKind,
+  ) async {
+    var statisticsProcessed = 0;
+
+    while (true) {
+      CallbackManager().dispatchPendingLogs(sessionId);
+      statisticsProcessed = _dispatchStatistics(
+        handle,
+        sessionId,
+        statisticsProcessed,
+      );
+
+      if (getSessionState(handle) >= 2) break;
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
+
+    // Drain anything emitted between the last poll and the terminal state.
+    CallbackManager().dispatchPendingLogs(sessionId);
+    _dispatchStatistics(handle, sessionId, statisticsProcessed);
+
+    switch (completionKind) {
+      case _WebCompletionKind.ffmpeg:
+        CallbackManager().dispatchFFmpegComplete(sessionId);
+      case _WebCompletionKind.ffprobe:
+        CallbackManager().dispatchFFprobeComplete(sessionId);
+      case _WebCompletionKind.ffplay:
+        CallbackManager().dispatchFFplayComplete(sessionId);
+      case _WebCompletionKind.mediaInformation:
+        CallbackManager().dispatchMediaInformationComplete(sessionId);
+    }
+  }
+
+  int _dispatchStatistics(
+    SessionHandle handle,
+    int sessionId,
+    int statisticsProcessed,
+  ) {
+    if (!_isFfmpegSession(sessionId)) return statisticsProcessed;
+
+    final count = getStatisticsCount(handle);
+    for (var index = statisticsProcessed; index < count; index++) {
+      final snapshot = getStatisticsAt(handle, index);
+      if (snapshot == null) continue;
+      CallbackManager().dispatchStatistics(
+        sessionId: sessionId,
+        timeElapsed: snapshot.timeElapsed,
+        time: snapshot.time,
+        size: snapshot.size,
+        bitrate: snapshot.bitrate,
+        speed: snapshot.speed,
+        videoFrameNumber: snapshot.videoFrameNumber,
+        videoFps: snapshot.videoFps,
+        videoQuality: snapshot.videoQuality,
+        dupFrames: snapshot.dupFrames,
+        dropFrames: snapshot.dropFrames,
+      );
+    }
+    return count;
+  }
+
+  bool _isFfmpegSession(int sessionId) =>
+      CallbackManager().ffmpegSessions.containsKey(sessionId);
+
   bindings.Pointer<bindings.Void> _pointer(SessionHandle handle) =>
       handle.value as bindings.Pointer<bindings.Void>;
 
@@ -23,9 +109,6 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   String _requiredString(bindings.Pointer<bindings.Char> pointer) =>
       _stringAndFree(pointer) ?? '';
-
-  bindings.Pointer<bindings.Void> get _nullPointer =>
-      webCallbackBridge.nullPointer;
 
   bindings.Pointer<bindings.PointerClass<bindings.Char>> _arguments(
     List<String> arguments,
@@ -140,72 +223,55 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   void configureFFmpegCallbacks() {
-    bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-      webCallbackBridge.ffmpegComplete,
-      _nullPointer,
-    );
-    bindings.ffmpeg_kit_config_enable_statistics_callback(
-      webCallbackBridge.statistics,
-      _nullPointer,
-    );
+    // The published Wasm bundle has no growable callback table. Web async
+    // completion is therefore delivered by _pollSession below, which routes
+    // through the same CallbackManager used by native callbacks.
   }
 
   @override
-  void enableFFmpegLogCallback() {
-    bindings.ffmpeg_kit_config_enable_log_callback(
-      webCallbackBridge.log,
-      _nullPointer,
-    );
-  }
+  void enableFFmpegLogCallback() {}
 
   @override
-  void configureFFprobeCallbacks() {
-    bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-      webCallbackBridge.ffprobeComplete,
-      _nullPointer,
-    );
-  }
+  void configureFFprobeCallbacks() {}
 
   @override
-  void configureMediaInformationCallbacks() {
-    bindings
-        .ffmpeg_kit_config_enable_media_information_session_complete_callback(
-          webCallbackBridge.mediaInformationComplete,
-          _nullPointer,
-        );
-  }
+  void configureMediaInformationCallbacks() {}
 
   @override
-  void enableFFprobeLogCallback() {
-    bindings.ffmpeg_kit_config_enable_log_callback(
-      webCallbackBridge.log,
-      _nullPointer,
-    );
-  }
+  void enableFFprobeLogCallback() {}
 
   @override
   void executeFFmpegSession(SessionHandle handle) =>
       bindings.ffmpeg_kit_session_execute(_pointer(handle));
 
   @override
-  void executeFFmpegSessionAsync(SessionHandle handle) =>
-      bindings.ffmpeg_kit_session_execute_async(_pointer(handle));
+  void executeFFmpegSessionAsync(SessionHandle handle) {
+    bindings.ffmpeg_kit_session_execute_async(_pointer(handle));
+    _startSessionPolling(handle, _WebCompletionKind.ffmpeg);
+  }
 
   @override
   void executeFFprobeSession(SessionHandle handle) =>
       bindings.ffprobe_kit_session_execute(_pointer(handle));
 
   @override
-  void executeFFprobeSessionAsync(SessionHandle handle) =>
-      bindings.ffprobe_kit_session_execute_async(_pointer(handle));
+  void executeFFprobeSessionAsync(SessionHandle handle) {
+    bindings.ffprobe_kit_session_execute_async(_pointer(handle));
+    _startSessionPolling(handle, _WebCompletionKind.ffprobe);
+  }
 
   @override
   void executeFFplaySession(SessionHandle handle, int timeout) => bindings
       .ffplay_kit_session_execute(_pointer(handle), BigInt.from(timeout));
 
   @override
-  void executeFFplaySessionAsync(SessionHandle handle, int timeout) => bindings
-      .ffplay_kit_session_execute_async(_pointer(handle), BigInt.from(timeout));
+  void executeFFplaySessionAsync(SessionHandle handle, int timeout) {
+    bindings.ffplay_kit_session_execute_async(
+      _pointer(handle),
+      BigInt.from(timeout),
+    );
+    _startSessionPolling(handle, _WebCompletionKind.ffplay);
+  }
 
   @override
   void startFFplaySession(SessionHandle handle) =>
@@ -275,11 +341,13 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       );
 
   @override
-  void executeMediaInformationSessionAsync(SessionHandle handle, int timeout) =>
-      bindings.media_information_session_execute_async(
-        _pointer(handle),
-        BigInt.from(timeout),
-      );
+  void executeMediaInformationSessionAsync(SessionHandle handle, int timeout) {
+    bindings.media_information_session_execute_async(
+      _pointer(handle),
+      BigInt.from(timeout),
+    );
+    _startSessionPolling(handle, _WebCompletionKind.mediaInformation);
+  }
 
   @override
   MediaInformationSnapshot? getMediaInformation(SessionHandle handle) {
@@ -746,45 +814,22 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   void clearSessions() => bindings.ffmpeg_kit_clear_sessions();
 
   @override
-  void configureLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
-    webCallbackBridge.log,
-    _nullPointer,
-  );
+  void configureLogCallback() {}
 
   @override
-  void configureStatisticsCallback() =>
-      bindings.ffmpeg_kit_config_enable_statistics_callback(
-        webCallbackBridge.statistics,
-        _nullPointer,
-      );
+  void configureStatisticsCallback() {}
 
   @override
-  void configureFFmpegSessionCompleteCallback() =>
-      bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-        webCallbackBridge.ffmpegComplete,
-        _nullPointer,
-      );
+  void configureFFmpegSessionCompleteCallback() {}
 
   @override
-  void configureFFprobeSessionCompleteCallback() =>
-      bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-        webCallbackBridge.ffprobeComplete,
-        _nullPointer,
-      );
+  void configureFFprobeSessionCompleteCallback() {}
 
   @override
-  void configureFFplaySessionCompleteCallback() =>
-      bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-        webCallbackBridge.ffplayComplete,
-        _nullPointer,
-      );
+  void configureFFplaySessionCompleteCallback() {}
 
   @override
-  void configureMediaInformationSessionCompleteCallback() => bindings
-      .ffmpeg_kit_config_enable_media_information_session_complete_callback(
-        webCallbackBridge.mediaInformationComplete,
-        _nullPointer,
-      );
+  void configureMediaInformationSessionCompleteCallback() {}
 
   @override
   String? registerNewFFmpegPipe() =>

@@ -114,9 +114,9 @@ class FFplayViewController extends ChangeNotifier {
 ///
 /// ### Sizing in normal mode
 ///
-/// * Both [aspectRatio] and [videoWidth] provided → widget sizes itself to
-///   `min(containerWidth, videoWidth) × (w / aspectRatio)`.  Never upscales
-///   beyond native dimensions.
+/// * Both [aspectRatio] and source dimensions provided → widget expands to the
+///   full available width, while its height is capped at the source video's
+///   natural height. The frame preserves its aspect ratio inside the surface.
 /// * Only [aspectRatio] → fills parent container at that ratio.
 /// * Neither → expands to fill parent.
 ///
@@ -151,8 +151,8 @@ class FFplayView extends StatefulWidget {
   /// Aspect ratio of the video (e.g. `16 / 9`).
   final double? aspectRatio;
 
-  /// Native pixel width of the video stream.  Used to cap the widget to the
-  /// video's natural dimensions in normal mode.
+  /// Native pixel width of the video stream. Used to derive the source height
+  /// when [videoHeight] is not supplied.
   final int? videoWidth;
 
   /// Native pixel height of the video stream (informational).
@@ -244,6 +244,7 @@ class _FFplayViewState extends State<FFplayView> {
   Widget _buildVideo() {
     final ar = widget.aspectRatio;
     final nativeW = widget.videoWidth?.toDouble();
+    final nativeH = widget.videoHeight?.toDouble();
 
     final video = ColoredBox(
       color: widget.backgroundColor,
@@ -252,15 +253,15 @@ class _FFplayViewState extends State<FFplayView> {
 
     if (ar == null) return SizedBox.expand(child: video);
 
-    if (nativeW != null) {
+    if (nativeW != null || nativeH != null) {
       return LayoutBuilder(
         builder: (_, constraints) {
+          final sourceH = nativeH ?? nativeW! / ar;
           final maxW = constraints.maxWidth.isFinite
               ? constraints.maxWidth
-              : nativeW;
-          final w = min(maxW, nativeW);
-          final h = w / ar;
-          return SizedBox(width: w, height: h, child: video);
+              : nativeW ?? sourceH * ar;
+          final h = min(maxW / ar, sourceH);
+          return SizedBox(width: maxW, height: h, child: video);
         },
       );
     }

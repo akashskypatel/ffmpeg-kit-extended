@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as path;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
@@ -163,6 +164,7 @@ class _HomePageState extends State<HomePage>
         text: "https://endpnt.com/hls/nasa4k/playlist.m3u8",
       );
   String? _selectedProbePath;
+  final Set<String> _webGeneratedFiles = <String>{};
   String _status = 'Ready';
   final _mediaStore = AndroidMediaStore.instance;
   StreamSubscription<bool>? _permissionStreamSub;
@@ -408,23 +410,46 @@ class _HomePageState extends State<HomePage>
 
   void _runFFmpegInfoSync() {
     _addLog("--- Running FFmpeg -version (Sync) ---", printToConsole: true);
-    // Synchronous execution blocks the current isolate.
-    final session = FFmpegKit.execute("-version");
-    final output = session.getOutput();
+    try {
+      // Synchronous execution blocks the current isolate.
+      final session = FFmpegKit.execute("-version");
+      final output = session.getOutput();
 
-    _addLog("Output captured from sync session:");
-    _addLog(output ?? "No output captured.");
-    _addLog("Return code: ${session.getReturnCode()}");
+      _addLog("Output captured from sync session:");
+      _addLog(output ?? "No output captured.");
+      _addLog("Return code: ${session.getReturnCode()}");
+    } catch (error, stackTrace) {
+      _addLog(
+        "FFmpeg sync execution failed: $error\n$stackTrace",
+        printToConsole: true,
+      );
+    }
   }
 
-  Future<void> _generateTestVideo() async {
-    // Use temporary directory for FFmpeg output.
+  Future<String> _exampleDirectoryPath() async {
+    if (kIsWeb) {
+      // Web FFmpeg uses Emscripten's in-memory filesystem. Keep generated
+      // media at its always-present root so FFplay and FFprobe can reuse it
+      // without relying on the native-only path_provider plugin or a separate
+      // virtual-filesystem directory API.
+      return '/';
+    }
+
     final tempDir = await getTemporaryDirectory();
     final exampleDir = Directory(
       path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
     );
     await exampleDir.create(recursive: true);
-    final tempOutputPath = path.join(exampleDir.path, 'test_video.mp4');
+    return exampleDir.path;
+  }
+
+  bool _exampleFileExists(String filePath) => kIsWeb
+      ? _webGeneratedFiles.contains(filePath)
+      : File(filePath).existsSync();
+
+  Future<void> _generateTestVideo() async {
+    final exampleDirPath = await _exampleDirectoryPath();
+    final tempOutputPath = path.join(exampleDirPath, 'test_video.mp4');
     _addLog(
       "--- Generating Test Video with Audio to temporary path: $tempOutputPath ---",
       printToConsole: true,
@@ -441,6 +466,7 @@ class _HomePageState extends State<HomePage>
       },
       onComplete: (session) {
         if (ReturnCode.isSuccess(session.getReturnCode())) {
+          if (kIsWeb) _webGeneratedFiles.add(tempOutputPath);
           _addLog("✅ Video with audio generated successfully!");
         } else {
           _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
@@ -450,12 +476,8 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _generateTestAudio() async {
-    final tempDir = await getTemporaryDirectory();
-    final exampleDir = Directory(
-      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
-    );
-    await exampleDir.create(recursive: true);
-    final outputPath = path.join(exampleDir.path, 'test_audio.wav');
+    final exampleDirPath = await _exampleDirectoryPath();
+    final outputPath = path.join(exampleDirPath, 'test_audio.wav');
     _addLog(
       "--- Generating Test Audio to: $outputPath ---",
       printToConsole: true,
@@ -472,6 +494,7 @@ class _HomePageState extends State<HomePage>
       },
       onComplete: (session) {
         if (ReturnCode.isSuccess(session.getReturnCode())) {
+          if (kIsWeb) _webGeneratedFiles.add(outputPath);
           _addLog("✅ Audio generated successfully!");
         } else {
           _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
@@ -503,34 +526,28 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
-    final tempDir = await getTemporaryDirectory();
-    final exampleDir = Directory(
-      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
-    );
-    await exampleDir.create(recursive: true);
+    final exampleDirPath = await _exampleDirectoryPath();
 
     // Use picked file or generate test video
     String inputPath;
     String outputPath;
 
     if (_transcodeInputPath != null &&
-        File(_transcodeInputPath!).existsSync()) {
+        _exampleFileExists(_transcodeInputPath!)) {
       inputPath = _transcodeInputPath!;
       outputPath =
-          _transcodeOutputPath ?? path.join(exampleDir.path, 'test_video.avi');
+          _transcodeOutputPath ?? path.join(exampleDirPath, 'test_video.avi');
     } else {
-      inputPath = path.join(exampleDir.path, 'test_video.mp4');
-      outputPath = path.join(exampleDir.path, 'test_video.avi');
+      inputPath = path.join(exampleDirPath, 'test_video.mp4');
+      outputPath = path.join(exampleDirPath, 'test_video.avi');
 
       // Check if source file exists
-      if (!File(inputPath).existsSync()) {
+      if (!_exampleFileExists(inputPath)) {
         _addLog("⚠️ Source video not found. Generating test video first...");
         await _generateTestVideo();
-        // Wait a bit for generation to complete (simplified approach)
-        await Future.delayed(const Duration(seconds: 6));
       }
 
-      if (!File(inputPath).existsSync()) {
+      if (!_exampleFileExists(inputPath)) {
         _addLog("❌ Failed to generate source video.");
         return;
       }
@@ -975,17 +992,13 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _runMediaInformation() async {
     // Use picked file, local test video, or remote URL fallback.
-    final tempDir = await getTemporaryDirectory();
-    final exampleDir = Directory(
-      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
-    );
-    await exampleDir.create(recursive: true);
-    final localTestPath = path.join(exampleDir.path, 'test_video.mp4');
+    final exampleDirPath = await _exampleDirectoryPath();
+    final localTestPath = path.join(exampleDirPath, 'test_video.mp4');
 
     final String probePath;
-    if (_selectedProbePath != null && File(_selectedProbePath!).existsSync()) {
+    if (_selectedProbePath != null && _exampleFileExists(_selectedProbePath!)) {
       probePath = _selectedProbePath!;
-    } else if (File(localTestPath).existsSync()) {
+    } else if (_exampleFileExists(localTestPath)) {
       probePath = localTestPath;
     } else {
       probePath =
@@ -1101,14 +1114,10 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runFFplay(String fileName) async {
-    final tempDir = await getTemporaryDirectory();
-    final exampleDir = Directory(
-      path.join(tempDir.path, 'ffmpeg_kit_extended_flutter_example'),
-    );
-    await exampleDir.create(recursive: true);
-    final localPath = path.join(exampleDir.path, fileName);
+    final exampleDirPath = await _exampleDirectoryPath();
+    final localPath = path.join(exampleDirPath, fileName);
 
-    if (!File(localPath).existsSync()) {
+    if (!_exampleFileExists(localPath)) {
       _addLog("⚠️ File not found: $localPath. Please generate it first!");
       return;
     }
