@@ -56,7 +56,7 @@ The runtime check is `window.crossOriginIsolated === true`. Without it, `SharedA
 
 ## Callback routing
 
-`CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. The current Web bundle does not expose usable callback-table slots, so `WebFFmpegKitBackend` polls session state and pending logs/statistics, then dispatches the same shared callbacks. This is an intentional transport fallback, not a separate SDK behavior.
+`CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. The synchronized Web bundles expose a mutable but fixed-size Wasm table with no usable callback capacity: the current bundles have only the reserved null slot available, and `WebAssembly.Table.grow()` fails. Because `ffigen_js.addFunction()` requires a free table slot, `WebFFmpegKitBackend` polls session state and pending logs/statistics, then dispatches the same shared callbacks. This is an intentional transport fallback, not a separate SDK behavior.
 
 ## Handles, finalizers, and memory
 
@@ -86,7 +86,7 @@ flutter build web --wasm --no-pub
 ## Known limitations and maintenance rules
 
 - Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.
-- Web completion, log, and statistics delivery currently uses polling because the published bundle lacks usable callback-table slots.
+- Web completion, log, and statistics delivery currently uses polling because the synchronized bundles lack usable callback-table slots; callback-table registration must remain disabled until a bundle with reserved or growable slots and a validated pthread callback path is available.
 - The hook’s Web asset staging follows the current Flutter data-asset behavior and contains a compatibility fallback for direct build output staging.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
 - Keep platform-specific imports below the platform directories and preserve the shared backend interfaces when extending the API.
