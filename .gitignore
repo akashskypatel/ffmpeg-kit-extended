@@ -126,3 +126,4 @@ ffmpegkit_wrapper.h
 **/vendor/*
 .playwright-mcp/
 .playwright-cli/
+.tmp/

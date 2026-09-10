@@ -126,8 +126,11 @@ Future<void> _buildWebDataAssets(
     for (final name in requiredRuntimeFiles) {
       final source = runtimeFilesByName[name]!;
       final destination = File(p.join(webAssetDir.path, name));
-      if (!destination.existsSync() ||
-          destination.lengthSync() != source.lengthSync()) {
+      final destinationHash = destination.existsSync()
+          ? await _computeFileSha256(destination)
+          : null;
+      final sourceHash = await _computeFileSha256(source);
+      if (destinationHash != sourceHash) {
         source.copySync(destination.path);
       }
       output.dependencies.add(source.uri);
