@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import '../../callback_manager.dart';
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../backend.dart';
+import 'statistics_dispatcher.dart';
 import 'wasm_loader.dart';
 import 'wasm_memory.dart';
 
@@ -130,25 +131,26 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   ) {
     if (!_isFfmpegSession(sessionId)) return statisticsProcessed;
 
-    final count = getStatisticsCount(handle);
-    for (var index = statisticsProcessed; index < count; index++) {
-      final snapshot = getStatisticsAt(handle, index);
-      if (snapshot == null) continue;
-      CallbackManager().dispatchStatistics(
-        sessionId: sessionId,
-        timeElapsed: snapshot.timeElapsed,
-        time: snapshot.time,
-        size: snapshot.size,
-        bitrate: snapshot.bitrate,
-        speed: snapshot.speed,
-        videoFrameNumber: snapshot.videoFrameNumber,
-        videoFps: snapshot.videoFps,
-        videoQuality: snapshot.videoQuality,
-        dupFrames: snapshot.dupFrames,
-        dropFrames: snapshot.dropFrames,
-      );
-    }
-    return count;
+    return dispatchStatisticsSnapshots(
+      statisticsProcessed: statisticsProcessed,
+      count: getStatisticsCount(handle),
+      getSnapshot: (index) => getStatisticsAt(handle, index),
+      onSnapshot: (snapshot) {
+        CallbackManager().dispatchStatistics(
+          sessionId: sessionId,
+          timeElapsed: snapshot.timeElapsed,
+          time: snapshot.time,
+          size: snapshot.size,
+          bitrate: snapshot.bitrate,
+          speed: snapshot.speed,
+          videoFrameNumber: snapshot.videoFrameNumber,
+          videoFps: snapshot.videoFps,
+          videoQuality: snapshot.videoQuality,
+          dupFrames: snapshot.dupFrames,
+          dropFrames: snapshot.dropFrames,
+        );
+      },
+    );
   }
 
   bool _isFfmpegSession(int sessionId) =>
@@ -286,8 +288,15 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   void enableFFprobeLogCallback() {}
 
   @override
-  void executeFFmpegSession(SessionHandle handle) =>
-      bindings.ffmpeg_kit_session_execute(_pointer(handle));
+  void executeFFmpegSession(SessionHandle handle) {
+    bindings.ffmpeg_kit_session_execute(_pointer(handle));
+
+    // Synchronous Wasm execution cannot use the native callback bridge. Drain
+    // the statistics buffer before the shared session code dispatches the
+    // completion callback, matching native's callback-before-completion order.
+    final sessionId = getSessionId(handle);
+    _dispatchStatistics(handle, sessionId, 0);
+  }
 
   @override
   void executeFFmpegSessionAsync(SessionHandle handle) {
