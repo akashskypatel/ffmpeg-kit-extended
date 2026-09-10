@@ -86,6 +86,26 @@ The Windows implementation uses `libffmpegkit.dll`. No specific configuration is
 
 Ensure you have basic `ffmpeg` runtime dependencies installed on your system if you are building from source.
 
+### WebAssembly Web
+
+Build the Web target with Flutter Wasm:
+
+```bash
+flutter clean
+flutter build web --wasm
+```
+
+Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
+
+If the selected Wasm bundle uses pthreads, the deployed site must return:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Check `window.crossOriginIsolated` in the browser; it must be `true` for threaded Wasm execution.
+
 ## 4. Troubleshooting Installation
 
 ### Missing Binaries

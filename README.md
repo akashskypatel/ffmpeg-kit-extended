@@ -58,7 +58,16 @@ Flutter currently does not natively support tvOS, so tvOS support is not availab
 
 React-native currently does not natively support Linux, so Linux support is not available for React-native.
 
-Flutter Web requires `flutter build web --wasm`. Deployments using pthread-enabled Wasm bundles must provide cross-origin isolation headers (COOP and COEP). See the [Flutter architecture and maintenance handoff](flutter/doc/architecture.md) for platform boundaries, initialization, callback routing, memory ownership, and Web limitations.
+Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
+
+Flutter Web requires `flutter build web --wasm`. Deployments using pthread-enabled Wasm bundles must provide cross-origin isolation headers:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Verify `window.crossOriginIsolated === true` in the browser. See the [Flutter architecture and maintenance handoff](flutter/doc/architecture.md) for platform boundaries, initialization, callback routing, memory ownership, and Web limitations.
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
 

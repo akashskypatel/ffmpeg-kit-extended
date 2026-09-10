@@ -43,7 +43,16 @@ dart run ffigen --config ffigen_js.yaml
 
 Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization loads the staged `ffmpegkit.mjs`/`ffmpegkit.wasm` pair and exposes the generated module to the Web backend. Calls made before initialization are rejected by the backend contract.
 
-The build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and stages them under the package Web asset directory. The Web build must use `flutter build web --wasm`; pthread-enabled bundles require deployment with cross-origin isolation headers.
+Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
+
+The build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and stages them under the package Web asset directory. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+The runtime check is `window.crossOriginIsolated === true`. Without it, `SharedArrayBuffer` and Emscripten pthread workers cannot be used reliably.
 
 ## Callback routing
 
@@ -76,9 +85,8 @@ flutter build web --wasm --no-pub
 
 ## Known limitations and maintenance rules
 
-- Web deployment must serve Wasm and pthread assets with suitable COOP/COEP headers when using pthread-enabled bundles.
+- Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.
 - Web completion, log, and statistics delivery currently uses polling because the published bundle lacks usable callback-table slots.
 - The hook’s Web asset staging follows the current Flutter data-asset behavior and contains a compatibility fallback for direct build output staging.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
 - Keep platform-specific imports below the platform directories and preserve the shared backend interfaces when extending the API.
-

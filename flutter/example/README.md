@@ -1,6 +1,6 @@
 # FFmpegKit Extended Flutter Example
 
-This example application demonstrates the core features of the `ffmpeg_kit_extended_flutter` plugin, providing a practical implementation of media processing and playback on Desktop platforms.
+This example application demonstrates the core features of the `ffmpeg_kit_extended_flutter` plugin, providing a practical implementation of media processing and playback on desktop and Web Wasm platforms.
 
 ## Getting Started
 
@@ -23,6 +23,26 @@ flutter pub get
 ```bash
 flutter run
 ```
+
+### Web Wasm deployment
+
+Build the example for WebAssembly with:
+
+```bash
+flutter clean
+flutter build web --wasm
+```
+
+Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
+
+When using a pthread-enabled Wasm bundle, the deployment server must return:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Verify `window.crossOriginIsolated === true` in the browser.
 
 ## Features Demonstrated
 

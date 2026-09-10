@@ -124,10 +124,16 @@ Build Flutter Web with Wasm:
 flutter clean
 flutter build web --wasm
 ```
+Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The build hook downloads and verifies the configured `wasm32` bundle, then stages `ffmpegkit.mjs` and `ffmpegkit.wasm` as Web assets. When using pthread-enabled bundles, serve the application with cross-origin isolation headers such as `Cross-Origin-Opener-Policy: same-origin` and a suitable `Cross-Origin-Embedder-Policy` value. The browser must expose `crossOriginIsolated` for threaded Wasm execution.
+The build hook downloads and verifies the configured `wasm32` bundle, then stages `ffmpegkit.mjs` and `ffmpegkit.wasm` as Web assets. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
 
-For the current implementation map and maintenance rules, see the [architecture and maintenance handoff](doc/architecture.md).
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Confirm that `window.crossOriginIsolated` is `true` before using the WebAssembly bundle. All Wasm, JavaScript, worker, and other fetched assets must be same-origin or explicitly compatible with the selected COEP policy. See the [architecture and maintenance handoff](doc/architecture.md) for more details.
 
 ### 2.1 Platform specific configuration
 

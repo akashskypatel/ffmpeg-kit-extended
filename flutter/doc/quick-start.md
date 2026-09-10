@@ -34,6 +34,26 @@ Get up and running with FFmpeg Kit Extended Flutter in minutes!
 
 **Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
 
+## WebAssembly deployment
+
+Build the Web application with:
+
+```bash
+flutter clean
+flutter build web --wasm
+```
+
+Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
+
+Pthread-enabled Wasm bundles require cross-origin isolation. Configure the Web server to return:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+The browser must report `window.crossOriginIsolated === true`.
+
 ## Initialize the Plugin
 
 **Before calling any FFmpeg, FFprobe, or FFplay API**, you must initialize the plugin once at application startup. This loads the native library and sets up the FFI bindings.
