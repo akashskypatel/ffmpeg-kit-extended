@@ -110,26 +110,11 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   String _requiredString(bindings.Pointer<bindings.Char> pointer) =>
       _stringAndFree(pointer) ?? '';
 
-  bindings.Pointer<bindings.PointerClass<bindings.Char>> _arguments(
-    List<String> arguments,
-  ) {
-    final result = bindings.PointerClass.allocArray<bindings.Char>(
-      arguments.length,
-    );
-    for (var i = 0; i < arguments.length; i++) {
-      result[i] = wasmMemory.stackUtf8(arguments[i]);
-    }
-    return result;
-  }
-
   T _withArguments<T>(
     List<String> arguments,
     T Function(bindings.Pointer<bindings.PointerClass<bindings.Char>> argv)
     action,
-  ) {
-    final argv = _arguments(arguments);
-    return action(argv);
-  }
+  ) => wasmMemory.withArguments(arguments, action);
 
   @override
   Future<void> initialize() => wasmLoader.initialize();
@@ -143,8 +128,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   SessionHandle createFFmpegSession(String command) {
     requireInitialized();
-    return _handle(
-      bindings.ffmpeg_kit_create_session(wasmMemory.stackUtf8(command)),
+    return wasmMemory.withUtf8(
+      command,
+      (pointer) => _handle(bindings.ffmpeg_kit_create_session(pointer)),
     );
   }
 
@@ -162,8 +148,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   SessionHandle createFFprobeSession(String command) {
     requireInitialized();
-    return _handle(
-      bindings.ffprobe_kit_create_session(wasmMemory.stackUtf8(command)),
+    return wasmMemory.withUtf8(
+      command,
+      (pointer) => _handle(bindings.ffprobe_kit_create_session(pointer)),
     );
   }
 
@@ -181,8 +168,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   SessionHandle createFFplaySession(String command) {
     requireInitialized();
-    return _handle(
-      bindings.ffplay_kit_create_session(wasmMemory.stackUtf8(command)),
+    return wasmMemory.withUtf8(
+      command,
+      (pointer) => _handle(bindings.ffplay_kit_create_session(pointer)),
     );
   }
 
@@ -200,8 +188,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   SessionHandle createMediaInformationSession(String command) {
     requireInitialized();
-    return _handle(
-      bindings.media_information_create_session(wasmMemory.stackUtf8(command)),
+    return wasmMemory.withUtf8(
+      command,
+      (pointer) => _handle(bindings.media_information_create_session(pointer)),
     );
   }
 
@@ -705,17 +694,21 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   void setFontDirectory(String path, {String? mapping}) {
-    bindings.ffmpeg_kit_config_set_font_directory(
-      wasmMemory.stackUtf8(path),
-      wasmMemory.stackUtf8(mapping ?? ''),
-    );
+    wasmMemory.withUtf8(path, (pathPointer) {
+      wasmMemory.withUtf8(mapping ?? '', (mappingPointer) {
+        bindings.ffmpeg_kit_config_set_font_directory(
+          pathPointer,
+          mappingPointer,
+        );
+      });
+    });
   }
 
   @override
-  void setAudioOutputDevice(String deviceName) =>
-      bindings.ffmpeg_kit_config_set_audio_output_device(
-        wasmMemory.stackUtf8(deviceName),
-      );
+  void setAudioOutputDevice(String deviceName) => wasmMemory.withUtf8(
+    deviceName,
+    bindings.ffmpeg_kit_config_set_audio_output_device,
+  );
 
   @override
   String listAudioOutputDevices() =>
@@ -723,10 +716,14 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   void setEnvironmentVariable(String name, String value) {
-    bindings.ffmpeg_kit_config_set_environment_variable(
-      wasmMemory.stackUtf8(name),
-      wasmMemory.stackUtf8(value),
-    );
+    wasmMemory.withUtf8(name, (namePointer) {
+      wasmMemory.withUtf8(value, (valuePointer) {
+        bindings.ffmpeg_kit_config_set_environment_variable(
+          namePointer,
+          valuePointer,
+        );
+      });
+    });
   }
 
   @override
@@ -836,17 +833,21 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       _stringAndFree(bindings.ffmpeg_kit_config_register_new_ffmpeg_pipe());
 
   @override
-  void closeFFmpegPipe(String pipePath) => bindings
-      .ffmpeg_kit_config_close_ffmpeg_pipe(wasmMemory.stackUtf8(pipePath));
+  void closeFFmpegPipe(String pipePath) => wasmMemory.withUtf8(
+    pipePath,
+    bindings.ffmpeg_kit_config_close_ffmpeg_pipe,
+  );
 
   @override
   void setFontDirectoryList(List<String> directories, {String? mapping}) {
-    _withArguments<void>(directories, (list) {
-      bindings.ffmpeg_kit_config_set_font_directory_list(
-        list,
-        BigInt.from(directories.length),
-        wasmMemory.stackUtf8(mapping ?? ''),
-      );
+    _withArguments(directories, (list) {
+      wasmMemory.withUtf8(mapping ?? '', (mappingPointer) {
+        bindings.ffmpeg_kit_config_set_font_directory_list(
+          list,
+          BigInt.from(directories.length),
+          mappingPointer,
+        );
+      });
     });
   }
 
@@ -866,23 +867,31 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   List<String> parseArguments(String command) {
-    final count = bindings.malloc<bindings.Int64>(8);
-    final args = bindings.ffmpeg_kit_config_parse_arguments(
-      wasmMemory.stackUtf8(command),
-      count,
-    );
+    final count = wasmMemory.allocate<bindings.Int64>(8);
+    bindings.Pointer<bindings.PointerClass<bindings.Char>>? args;
     final result = <String>[];
     try {
+      args = wasmMemory.withUtf8(
+        command,
+        (commandPointer) =>
+            bindings.ffmpeg_kit_config_parse_arguments(commandPointer, count),
+      );
+      final argsPointer = args;
+      if (argsPointer == null || argsPointer.address == 0) return result;
+
       final length = count.getValue();
       for (var i = 0; i < length; i++) {
-        final value = args[i];
-        result.add(value.toDartString());
-        bindings.ffmpeg_kit_free(value.cast());
+        final value = argsPointer[i];
+        try {
+          result.add(value.toDartString());
+        } finally {
+          wasmMemory.free(value.cast());
+        }
       }
-      bindings.ffmpeg_kit_free(args.cast());
       return result;
     } finally {
-      bindings.free(count);
+      if (args != null && args.address != 0) wasmMemory.free(args.cast());
+      wasmMemory.free(count.cast());
     }
   }
 

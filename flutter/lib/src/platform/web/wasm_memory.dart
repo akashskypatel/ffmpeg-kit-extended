@@ -10,18 +10,60 @@ final class WasmMemory {
   bindings.Pointer<T> allocate<T extends bindings.NativeType>(int bytes) =>
       bindings.malloc<T>(bytes);
 
-  void free(bindings.Pointer pointer) => bindings.free(pointer);
+  void free(bindings.Pointer pointer) =>
+      bindings.ffmpeg_kit_free(pointer.cast());
 
-  bindings.Pointer<bindings.Char> stackUtf8(String value) =>
-      value.toNativeUtf8();
+  T withUtf8<T>(
+    String value,
+    T Function(bindings.Pointer<bindings.Char> pointer) action,
+  ) {
+    final pointer = allocateUtf8(value);
+    try {
+      return action(pointer);
+    } finally {
+      free(pointer);
+    }
+  }
 
   bindings.Pointer<bindings.Char> allocateUtf8(String value) {
     final bytes = utf8.encode(value);
     final pointer = allocate<bindings.Char>(bytes.length + 1);
-    final output = pointer.cast<bindings.Uint8>().asTypedList(bytes.length + 1);
-    output.setRange(0, bytes.length, bytes);
-    output[bytes.length] = 0;
-    return pointer;
+    try {
+      final output = pointer.cast<bindings.Uint8>().asTypedList(
+        bytes.length + 1,
+      );
+      output.setRange(0, bytes.length, bytes);
+      output[bytes.length] = 0;
+      return pointer;
+    } catch (_) {
+      free(pointer);
+      rethrow;
+    }
+  }
+
+  T withArguments<T>(
+    List<String> arguments,
+    T Function(bindings.Pointer<bindings.PointerClass<bindings.Char>> argv)
+    action,
+  ) {
+    // The Web bundle targets wasm32, so each argv slot is one 32-bit pointer.
+    final argv = allocate<bindings.PointerClass<bindings.Char>>(
+      4 * arguments.length,
+    );
+    final values = <bindings.Pointer<bindings.Char>>[];
+    try {
+      for (var i = 0; i < arguments.length; i++) {
+        final value = allocateUtf8(arguments[i]);
+        values.add(value);
+        argv[i] = value;
+      }
+      return action(argv);
+    } finally {
+      for (final value in values) {
+        free(value);
+      }
+      free(argv.cast());
+    }
   }
 
   String? read(bindings.Pointer<bindings.Char> pointer) {

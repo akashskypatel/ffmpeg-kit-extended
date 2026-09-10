@@ -84,14 +84,6 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
     HEAPF32: { configurable: true, get: () => heap(Float32Array) },
   });
 
-  // The generated Dart bindings call stackAlloc for temporary UTF-8 values.
-  // The C wrapper copies those values synchronously while creating a session,
-  // so the module allocator is a safe fallback for bundles without an
-  // exported Emscripten stack API.
-  module.stackAlloc = (byteCount) => module._malloc(byteCount);
-  module.stackSave = () => 0;
-  module.stackRestore = () => {};
-
   module.getValue = (address, type = 'i8') => {
     switch (type.endsWith('*') ? '*' : type) {
       case 'i8': return heap(Int8Array)[address];
