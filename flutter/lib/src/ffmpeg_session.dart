@@ -58,6 +58,28 @@ class FFmpegSession extends Session {
   // Constructors
   // ---------------------------------------------------------------------------
 
+  /// Creates an in-memory session for package tests.
+  ///
+  /// This constructor does not call the platform backend. It is intentionally
+  /// kept in the package's internal source tree so callback-manager tests can
+  /// exercise the real session type without requiring a native library.
+  FFmpegSession.test({
+    int sessionId = 1,
+    String command = 'test',
+    FFmpegSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
+    FFmpegStatisticsCallback? statisticsCallback,
+  }) : super.noFinalizer() {
+    handle = const SessionHandle(Object());
+    this.sessionId = sessionId;
+    this.command = command;
+    _completeCallback = completeCallback;
+    _logCallback = logCallback;
+    _statisticsCallback = statisticsCallback;
+    CallbackManager().registerFFmpegSession(this);
+    _registered = true;
+  }
+
   /// Restores an [FFmpegSession] from an existing native [handle].
   ///
   /// Used internally when wrapping handles returned by session-history APIs.

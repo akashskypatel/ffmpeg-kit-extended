@@ -146,6 +146,7 @@ abstract class Session {
   /// When `true`, [registerFinalizer] is a no-op for this specific instance.
   /// Set exclusively by [Session.noFinalizer]; immutable after construction.
   final bool _skipFinalizer;
+  final SessionFinalizer _sessionFinalizer;
 
   bool _disposed = false;
   bool _disposing = false;
@@ -154,7 +155,9 @@ abstract class Session {
 
   /// Standard constructor — [registerFinalizer] will attach the native
   /// finalizer after [handle] is assigned.
-  Session() : _skipFinalizer = false;
+  Session({SessionFinalizer? finalizer})
+    : _skipFinalizer = false,
+      _sessionFinalizer = finalizer ?? sessionFinalizer;
 
   /// Constructor for use in test subclasses where no native library is loaded.
   ///
@@ -162,7 +165,9 @@ abstract class Session {
   /// concurrently-live sessions are unaffected.
   ///
   /// **Production code must never call this constructor.**
-  Session.noFinalizer() : _skipFinalizer = true;
+  Session.noFinalizer({SessionFinalizer? finalizer})
+    : _skipFinalizer = true,
+      _sessionFinalizer = finalizer ?? sessionFinalizer;
 
   /// Attaches the platform finalizer to this session when supported.
   ///
@@ -173,7 +178,7 @@ abstract class Session {
   /// and the platform finalizer own duplicate-attachment behavior.
   void registerFinalizer() {
     if (_skipFinalizer) return;
-    sessionFinalizer.attach(this, handle.value, detachToken: this);
+    _sessionFinalizer.attach(this, handle.value, detachToken: this);
   }
 
   /// Whether this session has released its native handle.
@@ -194,14 +199,14 @@ abstract class Session {
     _disposing = true;
     try {
       try {
-        sessionFinalizer.detach(this);
+        _sessionFinalizer.detach(this);
       } finally {
         clearExecutionErrorHandler();
         try {
           onDispose();
         } finally {
           try {
-            ffmpegKitBackend.releaseSession(_handle);
+            releaseHandle(_handle);
           } finally {
             for (final completer in _executionCompleters) {
               if (!completer.isCompleted) completer.complete();
@@ -220,6 +225,15 @@ abstract class Session {
   /// the backend releases their native handle.
   @protected
   void onDispose() {}
+
+  /// Releases the platform handle owned by this session.
+  ///
+  /// Kept as a protected seam so lifecycle tests can verify release ordering
+  /// without loading a native or Web FFmpegKit library.
+  @protected
+  void releaseHandle(SessionHandle handle) {
+    ffmpegKitBackend.releaseSession(handle);
+  }
 
   /// Tracks an asynchronous execution so [dispose] can settle its internal
   /// wait even when disposal unregisters the completion callback first.

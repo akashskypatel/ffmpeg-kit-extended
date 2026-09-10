@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import '../../callback_manager.dart';
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../backend.dart';
+import 'session_poller.dart';
 import 'statistics_dispatcher.dart';
 import 'wasm_loader.dart';
 import 'wasm_memory.dart';
@@ -18,16 +19,19 @@ enum _WebCompletionKind { ffmpeg, ffprobe, ffplay, mediaInformation }
 /// The loader and memory helpers are the only code that knows about the
 /// Emscripten module and its heap.
 final class WebFFmpegKitBackend implements FFmpegKitBackend {
-  final Set<int> _polledSessions = <int>{};
+  final SessionPollRegistry _polledSessions = SessionPollRegistry();
 
   void _startSessionPolling(
     SessionHandle handle,
     _WebCompletionKind completionKind,
   ) {
     final sessionId = getSessionId(handle);
-    if (!_polledSessions.add(sessionId)) return;
-
-    unawaited(_runSessionPolling(handle, sessionId, completionKind));
+    unawaited(
+      _polledSessions.run(
+        sessionId,
+        () => _runSessionPolling(handle, sessionId, completionKind),
+      ),
+    );
   }
 
   Future<void> _runSessionPolling(
@@ -41,8 +45,6 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       // Keep the poller itself failure-safe even if a future maintenance change
       // adds an exception outside _pollSession's guarded transport work.
       _dispatchPollingError(sessionId, error, stackTrace);
-    } finally {
-      _polledSessions.remove(sessionId);
     }
   }
 
@@ -64,33 +66,29 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     _WebCompletionKind completionKind,
   ) async {
     var statisticsProcessed = 0;
-
-    while (true) {
-      CallbackManager().dispatchPendingLogs(sessionId);
-      statisticsProcessed = _dispatchStatistics(
-        handle,
-        sessionId,
-        statisticsProcessed,
-      );
-
-      if (getSessionState(handle) >= 2) break;
-      await Future<void>.delayed(const Duration(milliseconds: 16));
-    }
-
-    // Drain anything emitted between the last poll and the terminal state.
-    CallbackManager().dispatchPendingLogs(sessionId);
-    _dispatchStatistics(handle, sessionId, statisticsProcessed);
-
-    switch (completionKind) {
-      case _WebCompletionKind.ffmpeg:
-        CallbackManager().dispatchFFmpegComplete(sessionId);
-      case _WebCompletionKind.ffprobe:
-        CallbackManager().dispatchFFprobeComplete(sessionId);
-      case _WebCompletionKind.ffplay:
-        CallbackManager().dispatchFFplayComplete(sessionId);
-      case _WebCompletionKind.mediaInformation:
-        CallbackManager().dispatchMediaInformationComplete(sessionId);
-    }
+    await pollSessionUntilTerminal(
+      getState: () => getSessionState(handle),
+      dispatchLogs: () => CallbackManager().dispatchPendingLogs(sessionId),
+      dispatchStatistics: () {
+        statisticsProcessed = _dispatchStatistics(
+          handle,
+          sessionId,
+          statisticsProcessed,
+        );
+      },
+      onComplete: () {
+        switch (completionKind) {
+          case _WebCompletionKind.ffmpeg:
+            CallbackManager().dispatchFFmpegComplete(sessionId);
+          case _WebCompletionKind.ffprobe:
+            CallbackManager().dispatchFFprobeComplete(sessionId);
+          case _WebCompletionKind.ffplay:
+            CallbackManager().dispatchFFplayComplete(sessionId);
+          case _WebCompletionKind.mediaInformation:
+            CallbackManager().dispatchMediaInformationComplete(sessionId);
+        }
+      },
+    );
   }
 
   void _dispatchPollingError(
