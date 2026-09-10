@@ -156,10 +156,10 @@ class _HomePageState extends State<HomePage>
   final TextEditingController _outputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _ffmpegCommandController = TextEditingController(
-    text: "-version",
+    text: "-nostdin -version",
   );
   final TextEditingController _ffprobeCommandController = TextEditingController(
-    text: "-version",
+    text: "-nostdin -version",
   );
   final TextEditingController _ffplayCommandController = TextEditingController(
     text: "-i test_video.mp4",
@@ -403,7 +403,7 @@ class _HomePageState extends State<HomePage>
 
     // Async execution captures logs in real-time.
     await FFmpegKit.executeAsync(
-      "-version",
+      "-nostdin -version",
       onLog: (log) {
         _addLog(log.message);
       },
@@ -417,7 +417,7 @@ class _HomePageState extends State<HomePage>
     _addLog("--- Running FFmpeg -version (Sync) ---", printToConsole: true);
     try {
       // Synchronous execution blocks the current isolate.
-      final session = FFmpegKit.execute("-version");
+      final session = FFmpegKit.execute("-nostdin -version");
       final output = session.getOutput();
 
       _addLog("Output captured from sync session:");
@@ -462,7 +462,7 @@ class _HomePageState extends State<HomePage>
 
     // Command with both video and audio streams
     final command =
-        "-hide_banner -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
+        "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$tempOutputPath\"",
@@ -490,7 +490,7 @@ class _HomePageState extends State<HomePage>
 
     // Command from integration tests
     final command =
-        "-hide_banner -loglevel ${_currentLogLevel.name} -f lavfi -i sine=frequency=1000:duration=10 -y";
+        "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i sine=frequency=1000:duration=10 -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$outputPath\"",
@@ -575,7 +575,7 @@ class _HomePageState extends State<HomePage>
         (double.tryParse((mediaInfo?.duration ?? "0")) ?? 0) * 1000;
 
     final command =
-        "-hide_banner -i \"$inputPath\" -c:v mpeg4 -c:a aac -b:v 2M -y \"$outputPath\"";
+        "-hide_banner -nostdin -i \"$inputPath\" -c:v mpeg4 -c:a aac -b:v 2M -y \"$outputPath\"";
 
     final session = FFmpegKit.createSession(command);
     session.setExpectedTranscodingDuration(
@@ -755,7 +755,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runCustomFFmpeg() async {
-    final command = _ffmpegCommandController.text;
+    final command = _ensureNoStdin(_ffmpegCommandController.text);
     _addLog("--- Running Custom FFmpeg: $command ---", printToConsole: true);
     await FFmpegKit.executeAsync(
       command,
@@ -960,12 +960,20 @@ class _HomePageState extends State<HomePage>
     return input;
   }
 
+  String _ensureNoStdin(String command) {
+    final trimmed = command.trim();
+    if (RegExp(r'(^|\s)-nostdin(?:\s|$)').hasMatch(trimmed)) {
+      return trimmed;
+    }
+    return '-nostdin $trimmed';
+  }
+
   // --- FFprobe Examples ---
 
   Future<void> _runFFprobeVersion() async {
     _addLog("--- Running FFprobe -version (Async) ---", printToConsole: true);
     await FFprobeKit.executeAsync(
-      "-version",
+      "-nostdin -version",
       onComplete: (session) {
         final output = session.getOutput();
         _addLog(output ?? "No output found in session object.");
@@ -977,7 +985,7 @@ class _HomePageState extends State<HomePage>
   void _runFFprobeInfoSync() {
     _addLog("--- Running FFprobe -version (Sync) ---", printToConsole: true);
     // Capturing output from synchronous ffprobe call.
-    final session = FFprobeKit.execute("-version");
+    final session = FFprobeKit.execute("-nostdin -version");
     final output = session.getOutput();
 
     _addLog("Output captured from sync ffprobe:");
@@ -1043,7 +1051,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runCustomFFprobe() async {
-    final command = _ffprobeCommandController.text;
+    final command = _ensureNoStdin(_ffprobeCommandController.text);
     _addLog("--- Running Custom FFprobe: $command ---", printToConsole: true);
     await FFprobeKit.executeAsync(
       command,
@@ -1149,7 +1157,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runCustomFFplay() async {
-    final command = _ffplayCommandController.text;
+    final command = _ffplayCommandController.text.trim();
     _addLog("--- Running Custom FFplay: $command ---", printToConsole: true);
 
     await _prepareSurface();
@@ -1592,7 +1600,7 @@ class _HomePageState extends State<HomePage>
                 () async {
                   _addLog("--- Running Help ---", printToConsole: true);
                   await FFmpegKit.executeAsync(
-                    "-h",
+                    "-nostdin -h",
                     onLog: (l) => _addLog(l.message),
                   );
                 },
