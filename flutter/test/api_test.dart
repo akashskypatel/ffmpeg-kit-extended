@@ -555,6 +555,43 @@ void main() {
       });
     });
 
+    test('FFmpegKitTest Cancellation', () async {
+      await using((Arena arena) async {
+        const cmdStr =
+            '-hide_banner -loglevel fatal -re -f lavfi -i testsrc=duration=30:size=128x128:rate=30 -f null -';
+        final cmd = cmdStr.toNativeUtf8(allocator: arena).cast<Char>();
+        final session = ffmpeg.ffmpeg_kit_create_session(cmd);
+        expect(session, isNot(nullptr));
+
+        ffmpeg.ffmpeg_kit_session_execute_async(session);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        expect(
+          ffmpeg.ffmpeg_kit_session_get_state(session),
+          equals(ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_RUNNING),
+        );
+
+        final cancelTime = DateTime.now();
+        ffmpeg.ffmpeg_kit_session_cancel(session);
+        while (ffmpeg.ffmpeg_kit_session_get_state(session) ==
+            ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_RUNNING) {
+          if (DateTime.now().difference(cancelTime).inSeconds >= 5) {
+            fail('Cancellation did not reach a terminal state');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+
+        expect(
+          ffmpeg.ffmpeg_kit_session_get_state(session),
+          isNot(
+            equals(
+              ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_RUNNING,
+            ),
+          ),
+        );
+        ffmpeg.ffmpeg_kit_handle_release(session);
+      });
+    });
+
     test('FFmpegKitTest MediaInformation', () {
       if (!File(getTestVideoFile()).existsSync()) {
         generateTestVideoFile();
