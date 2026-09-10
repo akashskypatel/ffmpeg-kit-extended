@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
@@ -9,10 +9,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:android_media_store/android_media_store.dart';
 import 'package:path_provider/path_provider.dart'; // Import for getTemporaryDirectory
 import 'package:window_manager/window_manager.dart';
+import 'package:marionette_flutter/marionette_flutter.dart';
 import 'platform_flags.dart' as platform;
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
+  if (kDebugMode) {
+    MarionetteBinding.ensureInitialized();
+  } else {
+    WidgetsFlutterBinding.ensureInitialized();
+  }
   runApp(const _BootstrapApp());
 }
 

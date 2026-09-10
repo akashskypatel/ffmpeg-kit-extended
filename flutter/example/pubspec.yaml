@@ -23,6 +23,7 @@ dependencies:
   permission_handler: ^13.0.1
   path_provider: ^2.1.6
   window_manager: ^0.5.2
+  marionette_flutter: ^0.6.0
 
 dev_dependencies:
   integration_test:
@@ -36,10 +37,10 @@ flutter:
   uses-material-design: true
 
 ffmpeg_kit_extended_config:
-  # type: "full"
-  # gpl: true
-  # small: false
-  wasm: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\bundle-base-wasm-wasm32-static-gpl.zip"
+  type: "base"
+  gpl: true
+  small: true
+  # wasm: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\bundle-base-wasm-wasm32-static-gpl.zip"
   # macos: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-macos-universal-gpl.xcframework.zip"
   # ios: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-ios-universal-gpl.xcframework.zip"
   # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-video-windows-x86_64-shared-gpl.zip"
