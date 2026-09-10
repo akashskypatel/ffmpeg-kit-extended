@@ -43,7 +43,9 @@ dependencies:
   data_assets: ^0.20.0
   ffi: ^2.2.0
   ffigen_js:
-    path: ../../ffigen_js
+    git:
+      url: https://github.com/akashskypatel/ffigen_js.git
+      ref: fix/uint64-wasm-interop
   flutter:
     sdk: flutter
   flutter_web_plugins:
