@@ -159,7 +159,7 @@ class _HomePageState extends State<HomePage>
     text: "-nostdin -version",
   );
   final TextEditingController _ffprobeCommandController = TextEditingController(
-    text: "-nostdin -version",
+    text: "-version",
   );
   final TextEditingController _ffplayCommandController = TextEditingController(
     text: "-i test_video.mp4",
@@ -968,12 +968,19 @@ class _HomePageState extends State<HomePage>
     return '-nostdin $trimmed';
   }
 
+  String _removeNoStdin(String command) {
+    return command
+        .replaceAll(RegExp(r'(^|\s)-nostdin(?=\s|$)'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
   // --- FFprobe Examples ---
 
   Future<void> _runFFprobeVersion() async {
     _addLog("--- Running FFprobe -version (Async) ---", printToConsole: true);
     await FFprobeKit.executeAsync(
-      "-nostdin -version",
+      "-version",
       onComplete: (session) {
         final output = session.getOutput();
         _addLog(output ?? "No output found in session object.");
@@ -985,7 +992,7 @@ class _HomePageState extends State<HomePage>
   void _runFFprobeInfoSync() {
     _addLog("--- Running FFprobe -version (Sync) ---", printToConsole: true);
     // Capturing output from synchronous ffprobe call.
-    final session = FFprobeKit.execute("-nostdin -version");
+    final session = FFprobeKit.execute("-version");
     final output = session.getOutput();
 
     _addLog("Output captured from sync ffprobe:");
@@ -1051,7 +1058,7 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _runCustomFFprobe() async {
-    final command = _ensureNoStdin(_ffprobeCommandController.text);
+    final command = _removeNoStdin(_ffprobeCommandController.text);
     _addLog("--- Running Custom FFprobe: $command ---", printToConsole: true);
     await FFprobeKit.executeAsync(
       command,
