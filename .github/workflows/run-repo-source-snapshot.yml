@@ -1,0 +1,21 @@
+name: One-shot dev-wasm source snapshot
+
+on:
+  push:
+    branches:
+      - automation/repo-source-snapshot-996c172
+    paths:
+      - '.github/workflows/run-repo-source-snapshot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    uses: ./.github/workflows/repo-source-snapshot.yml
+    with:
+      source_ref: 996c1728465dd7c30e0d85a778939d621a779860
+      artifact_prefix: dev-wasm-source-snapshot
+      retention_days: 7
+      include_submodules: true
+      include_lfs: false
