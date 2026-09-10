@@ -1,6 +1,6 @@
 # Flutter architecture and maintenance handoff
 
-Status: current for Goal 18. This document describes the implementation after the unified native/Web refactor.
+Status: current through Goal 14. This document describes the implementation after the unified native/Web refactor.
 
 ## Contract and architecture
 
@@ -38,6 +38,13 @@ cd flutter
 dart run ffigen --config ffigen_native.yaml
 dart run ffigen --config ffigen_js.yaml
 ```
+
+The Web generator is currently sourced from the `akashskypatel/ffigen_js`
+fork at commit `429ef72aa61cd509296215d84ce910b578f321a9`, which contains the
+required Wasm `uint64` interop support. Keep this exact SHA in `pubspec.yaml`;
+when upstream incorporates the fix, migrate the dependency only after
+regenerating the bindings and rerunning the analyzer, package tests, and Web
+Wasm/browser verification.
 
 ## Initialization and execution
 
