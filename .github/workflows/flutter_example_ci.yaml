@@ -195,10 +195,11 @@ jobs:
           path: flutter/example/${{ matrix.artifact_name }}
           retention-days: 7
 
-  analyze:
+  verify:
     if: github.event.pull_request.draft == false
-    name: Static Analysis
+    name: Package Verification
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -210,10 +211,26 @@ jobs:
           channel: "stable"
           cache: true
 
-      - name: Install dependencies
+      - name: Get plugin dependencies
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Run Dart analyze
+        working-directory: flutter
+        run: dart analyze
+
+      - name: Run Flutter analyze
+        working-directory: flutter
+        run: flutter analyze
+
+      - name: Run Flutter tests
+        working-directory: flutter
+        run: flutter test
+
+      - name: Get example dependencies
         working-directory: flutter/example
         run: flutter pub get
 
-      - name: Run Flutter analyze
+      - name: Build Web Wasm example
         working-directory: flutter/example
-        run: flutter analyze --no-fatal-infos
+        run: flutter build web --wasm
