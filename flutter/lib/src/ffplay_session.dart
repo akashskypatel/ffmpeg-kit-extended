@@ -700,9 +700,35 @@ class FFplaySession extends Session {
     final userCompleteCallback = _completeCallback;
 
     var completionHandled = false;
+    void handleExecutionError(Object error, StackTrace stackTrace) {
+      if (completionHandled) return;
+      completionHandled = true;
+      clearExecutionErrorHandler();
+      _completeCallback = userCompleteCallback;
+      completeExecutionWithError(
+        completer: sessionCompleter,
+        error: error,
+        stackTrace: stackTrace,
+        cleanup: () {
+          try {
+            _closeLogStreams();
+          } finally {
+            try {
+              _unregister();
+            } finally {
+              _stopPositionStream();
+              _stopVideoSizeStream();
+            }
+          }
+        },
+      );
+    }
+
+    registerExecutionErrorHandler(handleExecutionError);
     _completeCallback = (FFplaySession s) {
       if (completionHandled) return;
       completionHandled = true;
+      clearExecutionErrorHandler();
 
       try {
         dispatchPendingLogs();
@@ -749,6 +775,7 @@ class FFplaySession extends Session {
         error: e,
         stackTrace: st,
       );
+      clearExecutionErrorHandler();
       _completeCallback = userCompleteCallback;
       _closeLogStreams();
       _unregister();

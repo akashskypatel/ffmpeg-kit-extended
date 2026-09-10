@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import '../../callback_manager.dart';
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
@@ -25,14 +26,38 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     final sessionId = getSessionId(handle);
     if (!_polledSessions.add(sessionId)) return;
 
-    unawaited(
-      _pollSession(handle, sessionId, completionKind).whenComplete(() {
-        _polledSessions.remove(sessionId);
-      }),
-    );
+    unawaited(_runSessionPolling(handle, sessionId, completionKind));
+  }
+
+  Future<void> _runSessionPolling(
+    SessionHandle handle,
+    int sessionId,
+    _WebCompletionKind completionKind,
+  ) async {
+    try {
+      await _pollSession(handle, sessionId, completionKind);
+    } catch (error, stackTrace) {
+      // Keep the poller itself failure-safe even if a future maintenance change
+      // adds an exception outside _pollSession's guarded transport work.
+      _dispatchPollingError(sessionId, error, stackTrace);
+    } finally {
+      _polledSessions.remove(sessionId);
+    }
   }
 
   Future<void> _pollSession(
+    SessionHandle handle,
+    int sessionId,
+    _WebCompletionKind completionKind,
+  ) async {
+    try {
+      await _pollSessionUntilTerminal(handle, sessionId, completionKind);
+    } catch (error, stackTrace) {
+      _dispatchPollingError(sessionId, error, stackTrace);
+    }
+  }
+
+  Future<void> _pollSessionUntilTerminal(
     SessionHandle handle,
     int sessionId,
     _WebCompletionKind completionKind,
@@ -64,6 +89,37 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
         CallbackManager().dispatchFFplayComplete(sessionId);
       case _WebCompletionKind.mediaInformation:
         CallbackManager().dispatchMediaInformationComplete(sessionId);
+    }
+  }
+
+  void _dispatchPollingError(
+    int sessionId,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    try {
+      final dispatched = CallbackManager().dispatchSessionError(
+        sessionId,
+        error,
+        stackTrace,
+      );
+      if (!dispatched) {
+        developer.log(
+          'Web polling failed for unknown session $sessionId',
+          name: 'ffmpeg_kit',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    } catch (dispatchError, dispatchStackTrace) {
+      // Callback dispatch must never turn a handled polling failure into an
+      // unhandled unawaited Future. The original failure remains in the log.
+      developer.log(
+        'Web polling error dispatch failed for session $sessionId',
+        name: 'ffmpeg_kit',
+        error: dispatchError,
+        stackTrace: dispatchStackTrace,
+      );
     }
   }
 

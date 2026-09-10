@@ -268,9 +268,30 @@ class FFprobeSession extends Session {
     final userCompleteCallback = _completeCallback;
 
     var completionHandled = false;
+    void handleExecutionError(Object error, StackTrace stackTrace) {
+      if (completionHandled) return;
+      completionHandled = true;
+      clearExecutionErrorHandler();
+      _completeCallback = userCompleteCallback;
+      completeExecutionWithError(
+        completer: sessionCompleter,
+        error: error,
+        stackTrace: stackTrace,
+        cleanup: () {
+          try {
+            closeLogStreams();
+          } finally {
+            _unregister();
+          }
+        },
+      );
+    }
+
+    registerExecutionErrorHandler(handleExecutionError);
     _completeCallback = (FFprobeSession s) {
       if (completionHandled) return;
       completionHandled = true;
+      clearExecutionErrorHandler();
 
       try {
         dispatchPendingLogs();
@@ -313,6 +334,7 @@ class FFprobeSession extends Session {
         error: e,
         stackTrace: st,
       );
+      clearExecutionErrorHandler();
       _completeCallback = userCompleteCallback;
       closeLogStreams();
       _unregister();

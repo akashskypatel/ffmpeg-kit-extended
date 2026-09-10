@@ -35,6 +35,9 @@ import 'platform/backend_selector.dart';
 import 'platform/session_finalizer.dart';
 import 'statistics.dart';
 
+typedef SessionExecutionErrorCallback =
+    void Function(Object error, StackTrace stackTrace);
+
 // ---------------------------------------------------------------------------
 // Return-code sentinel values
 // ---------------------------------------------------------------------------
@@ -147,6 +150,7 @@ abstract class Session {
   bool _disposed = false;
   bool _disposing = false;
   final Set<Completer<void>> _executionCompleters = <Completer<void>>{};
+  SessionExecutionErrorCallback? _executionErrorCallback;
 
   /// Standard constructor — [registerFinalizer] will attach the native
   /// finalizer after [handle] is assigned.
@@ -192,6 +196,7 @@ abstract class Session {
       try {
         sessionFinalizer.detach(this);
       } finally {
+        clearExecutionErrorHandler();
         try {
           onDispose();
         } finally {
@@ -221,6 +226,85 @@ abstract class Session {
   @protected
   void trackExecution(Completer<void> completer) {
     _executionCompleters.add(completer);
+  }
+
+  /// Registers the handler used when the platform cannot deliver a normal
+  /// completion event for an asynchronous execution.
+  ///
+  /// Platform backends route transport failures back to this shared execution
+  /// layer. The concrete session owns cleanup and completes its execution
+  /// Future with the original error.
+  @protected
+  void registerExecutionErrorHandler(SessionExecutionErrorCallback callback) {
+    _executionErrorCallback = callback;
+  }
+
+  /// Clears the error handler for a settled execution.
+  @protected
+  void clearExecutionErrorHandler() {
+    _executionErrorCallback = null;
+  }
+
+  /// Dispatches an asynchronous execution failure to the active execution.
+  ///
+  /// The fallback completes any tracked execution directly if a concrete
+  /// session failed to install its cleanup handler. This keeps the queue from
+  /// waiting forever even when the callback registration itself is missing.
+  void dispatchExecutionError(Object error, StackTrace stackTrace) {
+    final callback = _executionErrorCallback;
+    _executionErrorCallback = null;
+    if (callback == null) {
+      _completeTrackedExecutionsWithError(error, stackTrace);
+      return;
+    }
+
+    try {
+      callback(error, stackTrace);
+    } catch (handlerError, handlerStackTrace) {
+      log(
+        'Session: execution error handler failed for session $sessionId',
+        error: handlerError,
+        stackTrace: handlerStackTrace,
+      );
+      _completeTrackedExecutionsWithError(error, stackTrace);
+    }
+  }
+
+  /// Cleans up an asynchronous execution and preserves its original failure.
+  ///
+  /// Cleanup failures are logged but do not replace the platform error that
+  /// caused the execution to terminate. This keeps the Future useful to the
+  /// caller while still making cleanup failures visible for diagnosis.
+  @protected
+  void completeExecutionWithError({
+    required Completer<void> completer,
+    required Object error,
+    required StackTrace stackTrace,
+    required void Function() cleanup,
+  }) {
+    try {
+      cleanup();
+    } catch (cleanupError, cleanupStackTrace) {
+      log(
+        'Session: error cleaning up failed execution for session $sessionId',
+        error: cleanupError,
+        stackTrace: cleanupStackTrace,
+      );
+    }
+    if (!completer.isCompleted) {
+      completer.completeError(error, stackTrace);
+    }
+  }
+
+  void _completeTrackedExecutionsWithError(
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    for (final completer in _executionCompleters) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, stackTrace);
+      }
+    }
   }
 
   void _ensureNotDisposed() {

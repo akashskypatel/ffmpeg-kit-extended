@@ -474,9 +474,30 @@ class MediaInformationSession extends FFprobeSession {
     final userCb = _mediaInfoCompleteCallback;
 
     var completionHandled = false;
+    void handleExecutionError(Object error, StackTrace stackTrace) {
+      if (completionHandled) return;
+      completionHandled = true;
+      clearExecutionErrorHandler();
+      _mediaInfoCompleteCallback = userCb;
+      completeExecutionWithError(
+        completer: sessionCompleter,
+        error: error,
+        stackTrace: stackTrace,
+        cleanup: () {
+          try {
+            closeLogStreams();
+          } finally {
+            unregister();
+          }
+        },
+      );
+    }
+
+    registerExecutionErrorHandler(handleExecutionError);
     _mediaInfoCompleteCallback = (MediaInformationSession s) {
       if (completionHandled) return;
       completionHandled = true;
+      clearExecutionErrorHandler();
 
       try {
         dispatchPendingLogs();
@@ -522,6 +543,7 @@ class MediaInformationSession extends FFprobeSession {
         error: e,
         stackTrace: st,
       );
+      clearExecutionErrorHandler();
       _mediaInfoCompleteCallback = userCb;
       closeLogStreams();
       unregister();

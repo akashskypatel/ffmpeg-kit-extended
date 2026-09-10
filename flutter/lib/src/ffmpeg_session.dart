@@ -428,9 +428,30 @@ class FFmpegSession extends Session {
     // This wrapper is visible to the native _onFFmpegComplete handler via
     // CallbackManager (the session is keyed by sessionId).
     var completionHandled = false;
+    void handleExecutionError(Object error, StackTrace stackTrace) {
+      if (completionHandled) return;
+      completionHandled = true;
+      clearExecutionErrorHandler();
+      _completeCallback = userCompleteCallback;
+      completeExecutionWithError(
+        completer: sessionCompleter,
+        error: error,
+        stackTrace: stackTrace,
+        cleanup: () {
+          try {
+            _closeLogStreams();
+          } finally {
+            _unregister();
+          }
+        },
+      );
+    }
+
+    registerExecutionErrorHandler(handleExecutionError);
     _completeCallback = (FFmpegSession s) {
       if (completionHandled) return;
       completionHandled = true;
+      clearExecutionErrorHandler();
 
       try {
         dispatchPendingLogs();
@@ -476,6 +497,7 @@ class FFmpegSession extends Session {
         error: e,
         stackTrace: st,
       );
+      clearExecutionErrorHandler();
       _completeCallback = userCompleteCallback;
       _closeLogStreams();
       _unregister();
