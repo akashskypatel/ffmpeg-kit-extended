@@ -63,8 +63,10 @@ class CallbackManager {
       _warn('FFmpeg completion for unknown session $sessionId');
       return;
     }
-    _invoke('FFmpeg completion', sessionId, () {
+    _invoke('FFmpeg session completion', sessionId, () {
       session.completeCallback?.call(session);
+    });
+    _invoke('FFmpeg global completion', sessionId, () {
       globalFFmpegSessionCompleteCallback?.call(session);
     });
   }
@@ -76,15 +78,21 @@ class CallbackManager {
       _warn('FFprobe completion for unknown session $sessionId');
       return;
     }
-    _invoke('FFprobe completion', sessionId, () {
-      if (session is MediaInformationSession) {
+    if (session is MediaInformationSession) {
+      _invoke('Media-information session completion', sessionId, () {
         session.mediaInfoCompleteCallback?.call(session);
+      });
+      _invoke('Media-information global completion', sessionId, () {
         globalMediaInformationSessionCompleteCallback?.call(session);
-      } else {
+      });
+    } else {
+      _invoke('FFprobe session completion', sessionId, () {
         session.completeCallback?.call(session);
+      });
+      _invoke('FFprobe global completion', sessionId, () {
         globalFFprobeSessionCompleteCallback?.call(session);
-      }
-    });
+      });
+    }
   }
 
   void dispatchFFplayComplete(int sessionId) {
@@ -93,8 +101,10 @@ class CallbackManager {
       _warn('FFplay completion for unknown session $sessionId');
       return;
     }
-    _invoke('FFplay completion', sessionId, () {
+    _invoke('FFplay session completion', sessionId, () {
       session.completeCallback?.call(session);
+    });
+    _invoke('FFplay global completion', sessionId, () {
       globalFFplaySessionCompleteCallback?.call(session);
     });
   }
@@ -105,8 +115,10 @@ class CallbackManager {
       _warn('Media-information completion for unknown session $sessionId');
       return;
     }
-    _invoke('Media-information completion', sessionId, () {
+    _invoke('Media-information session completion', sessionId, () {
       session.mediaInfoCompleteCallback?.call(session);
+    });
+    _invoke('Media-information global completion', sessionId, () {
       globalMediaInformationSessionCompleteCallback?.call(session);
     });
   }
@@ -119,9 +131,7 @@ class CallbackManager {
   /// Dispatches one already-decoded log event.
   void dispatchLog(int sessionId, int level, String message) {
     if (message.isEmpty) return;
-    sessionForId(sessionId)?.onLogsDispatched([
-      Log(sessionId, level, message),
-    ]);
+    sessionForId(sessionId)?.onLogsDispatched([Log(sessionId, level, message)]);
   }
 
   void dispatchStatistics({
@@ -152,8 +162,12 @@ class CallbackManager {
       dropFrames,
       session?.calculateTranscodingProgress(time),
     );
-    globalStatisticsCallback?.call(statistics);
-    session?.statisticsCallback?.call(statistics);
+    _invoke('global statistics callback', sessionId, () {
+      globalStatisticsCallback?.call(statistics);
+    });
+    _invoke('session statistics callback', sessionId, () {
+      session?.statisticsCallback?.call(statistics);
+    });
   }
 
   void registerFFmpegSession(FFmpegSession session) {
@@ -200,6 +214,12 @@ class CallbackManager {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  /// Invokes a user callback without allowing its exception to escape into
+  /// native completion or queue-management code.
+  void invokeSafely(String event, int sessionId, void Function() callback) {
+    _invoke(event, sessionId, callback);
   }
 
   void _warn(String message) => developer.log('CallbackManager: $message');

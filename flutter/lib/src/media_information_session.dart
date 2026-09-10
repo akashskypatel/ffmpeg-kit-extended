@@ -327,19 +327,13 @@ class MediaInformationSession extends FFprobeSession {
             rethrow;
           }
           dispatchPendingLogs();
-          try {
-            _mediaInfoCompleteCallback?.call(this);
-          } catch (e, st) {
-            log(
-              'MediaInformationSession.execute: error in completeCallback',
-              error: e,
-              stackTrace: st,
-            );
-            rethrow;
-          } finally {
-            closeLogStreams();
-            unregister();
-          }
+          CallbackManager().invokeSafely(
+            'Media-information completion callback',
+            sessionId,
+            () => _mediaInfoCompleteCallback?.call(this),
+          );
+          closeLogStreams();
+          unregister();
         })
         .catchError((Object e, StackTrace st) {
           log(
@@ -479,46 +473,47 @@ class MediaInformationSession extends FFprobeSession {
     trackExecution(sessionCompleter);
     final userCb = _mediaInfoCompleteCallback;
 
+    var completionHandled = false;
     _mediaInfoCompleteCallback = (MediaInformationSession s) {
-      dispatchPendingLogs();
-      // Restore and unregister before calling user code or completing the
-      // future, so the session is fully settled from any observer's perspective.
-      _mediaInfoCompleteCallback = userCb;
-      closeLogStreams();
-      unregister();
+      if (completionHandled) return;
+      completionHandled = true;
 
       try {
-        userCb?.call(s);
+        dispatchPendingLogs();
       } catch (e, st) {
         log(
-          'MediaInformationSession: error in completeCallback for session '
-          '$sessionId',
+          'MediaInformationSession: error flushing logs for session $sessionId',
           error: e,
           stackTrace: st,
         );
+      } finally {
+        // Restore and unregister before calling user code or completing the
+        // future, so the session is fully settled from any observer's
+        // perspective.
+        _mediaInfoCompleteCallback = userCb;
+        try {
+          closeLogStreams();
+        } finally {
+          try {
+            unregister();
+          } finally {
+            CallbackManager().invokeSafely(
+              'Media-information completion callback',
+              sessionId,
+              () => userCb?.call(s),
+            );
+            // Complete last — callback failures are reported separately and
+            // never prevent the execution future from settling.
+            if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          }
+        }
       }
-
-      // Complete last — everything is torn down, so any awaiter gets a fully
-      // settled session.
-      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
     };
 
-    enableNativeLogCallback();
-
-    // Register the global native callback for media information completion.
     try {
+      enableNativeLogCallback();
+      // Register the global native callback for media information completion.
       ffmpegKitBackend.configureMediaInformationCallbacks();
-    } catch (e, st) {
-      log(
-        'MediaInformationSession: error registering global callback for session ffmpeg_kit_config_enable_media_information_session_complete_callback '
-        '$sessionId',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
-
-    try {
       ffmpegKitBackend.executeMediaInformationSessionAsync(handle, _timeout);
     } catch (e, st) {
       log(
@@ -527,6 +522,7 @@ class MediaInformationSession extends FFprobeSession {
         error: e,
         stackTrace: st,
       );
+      _mediaInfoCompleteCallback = userCb;
       closeLogStreams();
       unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();

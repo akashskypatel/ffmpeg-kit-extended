@@ -168,12 +168,11 @@ class FFprobeSession extends Session {
             rethrow;
           }
           dispatchPendingLogs();
-          try {
-            _completeCallback?.call(this);
-          } catch (e, st) {
-            log('FFprobeSession.execute: error in completeCallback: $e\n$st');
-            rethrow;
-          }
+          CallbackManager().invokeSafely(
+            'FFprobe completion callback',
+            sessionId,
+            () => _completeCallback?.call(this),
+          );
           closeLogStreams();
           _unregister();
         })
@@ -268,40 +267,45 @@ class FFprobeSession extends Session {
     trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;
 
+    var completionHandled = false;
     _completeCallback = (FFprobeSession s) {
-      dispatchPendingLogs();
-      // Restore and unregister before calling user code or completing the
-      // future, so the session is fully settled from any observer's perspective.
-      _completeCallback = userCompleteCallback;
-      closeLogStreams();
-      _unregister();
+      if (completionHandled) return;
+      completionHandled = true;
 
       try {
-        userCompleteCallback?.call(s);
+        dispatchPendingLogs();
       } catch (e, st) {
         log(
-          'FFprobeSession: error in completeCallback for session $sessionId: $e\n$st',
+          'FFprobeSession: error flushing logs for session $sessionId',
+          error: e,
+          stackTrace: st,
         );
-        rethrow;
+      } finally {
+        // Restore and unregister before calling user code or completing the
+        // future, so the session is fully settled from any observer's
+        // perspective.
+        _completeCallback = userCompleteCallback;
+        try {
+          closeLogStreams();
+        } finally {
+          try {
+            _unregister();
+          } finally {
+            CallbackManager().invokeSafely(
+              'FFprobe completion callback',
+              sessionId,
+              () => userCompleteCallback?.call(s),
+            );
+            // Complete last — callback failures are reported separately and
+            // never prevent the execution future from settling.
+            if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          }
+        }
       }
-
-      // Complete last — everything is torn down, so any awaiter gets a fully
-      // settled session.
-      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
     };
-    enableNativeLogCallback();
     try {
+      enableNativeLogCallback();
       ffmpegKitBackend.configureFFprobeCallbacks();
-    } catch (e, st) {
-      log(
-        'FFprobeSession: error enabling ffprobe session complete callback $command',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
-
-    try {
       ffmpegKitBackend.executeFFprobeSessionAsync(handle);
     } catch (e, st) {
       log(
@@ -309,6 +313,7 @@ class FFprobeSession extends Session {
         error: e,
         stackTrace: st,
       );
+      _completeCallback = userCompleteCallback;
       closeLogStreams();
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
@@ -364,16 +369,16 @@ class FFprobeSession extends Session {
     }
 
     for (final logObj in batch) {
-      try {
-        CallbackManager().globalLogCallback?.call(logObj);
-        _logCallback?.call(logObj);
-      } catch (e, st) {
-        log(
-          'FFprobeSession: error dispatching log for session '
-          '$sessionId: $e\n$st',
-        );
-        rethrow;
-      }
+      CallbackManager().invokeSafely(
+        'FFprobe global log callback',
+        sessionId,
+        () => CallbackManager().globalLogCallback?.call(logObj),
+      );
+      CallbackManager().invokeSafely(
+        'FFprobe session log callback',
+        sessionId,
+        () => _logCallback?.call(logObj),
+      );
     }
   }
 

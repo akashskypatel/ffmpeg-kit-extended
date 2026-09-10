@@ -441,12 +441,11 @@ class FFplaySession extends Session {
             rethrow;
           }
           dispatchPendingLogs();
-          try {
-            _completeCallback?.call(this);
-          } catch (e, st) {
-            log('FFplaySession.execute: error in completeCallback: $e\n$st');
-            rethrow;
-          }
+          CallbackManager().invokeSafely(
+            'FFplay completion callback',
+            sessionId,
+            () => _completeCallback?.call(this),
+          );
           _closeLogStreams();
           _unregister();
         })
@@ -700,37 +699,50 @@ class FFplaySession extends Session {
     trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;
 
+    var completionHandled = false;
     _completeCallback = (FFplaySession s) {
-      dispatchPendingLogs();
+      if (completionHandled) return;
+      completionHandled = true;
+
       try {
-        userCompleteCallback?.call(s);
+        dispatchPendingLogs();
       } catch (e, st) {
-        log('FFplaySession: error in completeCallback: $e\n$st');
-        rethrow;
+        log(
+          'FFplaySession: error flushing logs for session $sessionId',
+          error: e,
+          stackTrace: st,
+        );
+      } finally {
+        _completeCallback = userCompleteCallback;
+        try {
+          _closeLogStreams();
+        } finally {
+          try {
+            _unregister();
+          } finally {
+            _stopPositionStream();
+            _stopVideoSizeStream();
+            CallbackManager().invokeSafely(
+              'FFplay completion callback',
+              sessionId,
+              () => userCompleteCallback?.call(s),
+            );
+            // Complete last — callback failures are reported separately and
+            // never prevent the execution future from settling.
+            if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          }
+        }
       }
-      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
-      _closeLogStreams();
-      _unregister();
-      _stopPositionStream();
-      _stopVideoSizeStream();
     };
 
-    _enableNativeLogCallback();
     try {
+      _enableNativeLogCallback();
       ffmpegKitBackend.configureFFplaySessionCompleteCallback();
-    } catch (e, st) {
-      log('FFplaySession: error enabling complete callback: $e\n$st');
-      _completeCallback = userCompleteCallback;
-      _closeLogStreams();
-      _unregister();
-      _stopPositionStream();
-      _stopVideoSizeStream();
-      if (!sessionCompleter.isCompleted) sessionCompleter.complete();
-      rethrow;
-    }
-
-    try {
       ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
+      // Start polling only after the native session is executing so timers
+      // never fire against a not-yet-started session during queue delays.
+      _startPositionStream();
+      _startVideoSizeStream();
     } catch (e, st) {
       log(
         'FFplaySession: error starting async session ffplay_kit_session_execute_async $sessionId',
@@ -745,11 +757,6 @@ class FFplaySession extends Session {
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
-
-    // Start polling only after the native session is executing so timers never
-    // fire against a not-yet-started session during SessionQueueManager delays.
-    _startPositionStream();
-    _startVideoSizeStream();
 
     await sessionCompleter.future;
   }
@@ -774,16 +781,16 @@ class FFplaySession extends Session {
     }
 
     for (final logObj in batch) {
-      try {
-        CallbackManager().globalLogCallback?.call(logObj);
-        _logCallback?.call(logObj);
-      } catch (e, st) {
-        log(
-          'FFplaySession: error dispatching log for session '
-          '$sessionId: $e\n$st',
-        );
-        rethrow;
-      }
+      CallbackManager().invokeSafely(
+        'FFplay global log callback',
+        sessionId,
+        () => CallbackManager().globalLogCallback?.call(logObj),
+      );
+      CallbackManager().invokeSafely(
+        'FFplay session log callback',
+        sessionId,
+        () => _logCallback?.call(logObj),
+      );
     }
   }
 

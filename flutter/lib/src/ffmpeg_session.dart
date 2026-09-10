@@ -309,21 +309,15 @@ class FFmpegSession extends Session {
           }
           // Flush any remaining log entries before invoking the callback.
           dispatchPendingLogs();
-          // Invoke the completion callback so callers using fire-and-forget
-          // still receive the notification.
-          try {
-            _completeCallback?.call(this);
-          } catch (e, st) {
-            log(
-              'FFmpegSession.execute: error in completeCallback for session $sessionId',
-              error: e,
-              stackTrace: st,
-            );
-            rethrow;
-          } finally {
-            _closeLogStreams();
-            _unregister();
-          }
+          // Invoke the completion callback without allowing user code to
+          // control cleanup of this fire-and-forget execution.
+          CallbackManager().invokeSafely(
+            'FFmpeg completion callback',
+            sessionId,
+            () => _completeCallback?.call(this),
+          );
+          _closeLogStreams();
+          _unregister();
         })
         .catchError((Object e, StackTrace st) {
           log(
@@ -433,56 +427,56 @@ class FFmpegSession extends Session {
     //
     // This wrapper is visible to the native _onFFmpegComplete handler via
     // CallbackManager (the session is keyed by sessionId).
+    var completionHandled = false;
     _completeCallback = (FFmpegSession s) {
-      dispatchPendingLogs();
-
-      // Restore and unregister before calling user code or completing the
-      // future, so the session is fully settled from any observer's perspective.
-      _completeCallback = userCompleteCallback;
-      _closeLogStreams();
-      _unregister();
+      if (completionHandled) return;
+      completionHandled = true;
 
       try {
-        userCompleteCallback?.call(s);
+        dispatchPendingLogs();
       } catch (e, st) {
         log(
-          'FFmpegSession: error in completeCallback for session $sessionId',
+          'FFmpegSession: error flushing logs for session $sessionId',
           error: e,
           stackTrace: st,
         );
-        rethrow;
-      }
-
-      // Complete last — everything is torn down, so any awaiter (test or
-      // production) gets a fully settled session.
-      if (!sessionCompleter.isCompleted) {
-        sessionCompleter.complete();
+      } finally {
+        // Restore and unregister before calling user code or completing the
+        // future, so the session is fully settled from any observer's
+        // perspective.
+        _completeCallback = userCompleteCallback;
+        try {
+          _closeLogStreams();
+        } finally {
+          try {
+            _unregister();
+          } finally {
+            CallbackManager().invokeSafely(
+              'FFmpeg completion callback',
+              sessionId,
+              () => userCompleteCallback?.call(s),
+            );
+            // Complete last — callback failures are reported separately and
+            // never prevent the execution future from settling.
+            if (!sessionCompleter.isCompleted) sessionCompleter.complete();
+          }
+        }
       }
     };
 
-    _enableNativeLogCallback();
-
-    // Enable the global native completion and statistics callbacks so the C
-    // layer can post events back to Dart.  These calls are idempotent.
     try {
+      _enableNativeLogCallback();
+      // Enable the global native completion and statistics callbacks so the C
+      // layer can post events back to Dart. These calls are idempotent.
       ffmpegKitBackend.configureFFmpegCallbacks();
-    } catch (e, st) {
-      log(
-        'FFmpegSession: error enabling ffmpeg session complete callback for session $sessionId',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
-    // Start async native execution.
-    try {
       ffmpegKitBackend.executeFFmpegSessionAsync(handle);
     } catch (e, st) {
       log(
-        'FFmpegSession: error starting async session $sessionId',
+        'FFmpegSession: error starting async execution for session $sessionId',
         error: e,
         stackTrace: st,
       );
+      _completeCallback = userCompleteCallback;
       _closeLogStreams();
       _unregister();
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
@@ -511,16 +505,16 @@ class FFmpegSession extends Session {
     }
 
     for (final logObj in batch) {
-      try {
-        CallbackManager().globalLogCallback?.call(logObj);
-        _logCallback?.call(logObj);
-      } catch (e, st) {
-        log(
-          'FFmpegSession: error dispatching log for session '
-          '$sessionId: $e\n$st',
-        );
-        rethrow;
-      }
+      CallbackManager().invokeSafely(
+        'FFmpeg global log callback',
+        sessionId,
+        () => CallbackManager().globalLogCallback?.call(logObj),
+      );
+      CallbackManager().invokeSafely(
+        'FFmpeg session log callback',
+        sessionId,
+        () => _logCallback?.call(logObj),
+      );
     }
   }
 
