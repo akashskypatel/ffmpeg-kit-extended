@@ -56,7 +56,11 @@ class FFprobeSession extends Session {
       sessionId = ffmpegKitBackend.getSessionId(handle);
       registerFinalizer();
     } catch (e, st) {
-      log('FFprobeSession: error creating session $command', error: e, stackTrace: st);
+      log(
+        'FFprobeSession: error creating session $command',
+        error: e,
+        stackTrace: st,
+      );
       rethrow;
     }
 
@@ -261,6 +265,7 @@ class FFprobeSession extends Session {
   Future<void> _runAsync() async {
     FFmpegKitExtended.requireInitialized();
     final sessionCompleter = Completer<void>();
+    trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;
 
     _completeCallback = (FFprobeSession s) {
@@ -325,6 +330,7 @@ class FFprobeSession extends Session {
   /// route registration through the correct [CallbackManager] map.
   @protected
   void ensureRegistered() {
+    if (isDisposed) return;
     if (_registered) return;
     CallbackManager().registerFFprobeSession(this);
     _registered = true;
@@ -399,6 +405,14 @@ class FFprobeSession extends Session {
     if (controller != null && !controller.isClosed) {
       controller.close();
     }
+  }
+
+  @override
+  void onDispose() {
+    _completeCallback = null;
+    _logCallback = null;
+    closeLogStreams();
+    unregister();
   }
 
   /// Returns `true` while any log-delivery sink (callback or batch stream

@@ -476,6 +476,7 @@ class MediaInformationSession extends FFprobeSession {
   Future<void> _runAsyncMediaInfo() async {
     FFmpegKitExtended.requireInitialized();
     final sessionCompleter = Completer<void>();
+    trackExecution(sessionCompleter);
     final userCb = _mediaInfoCompleteCallback;
 
     _mediaInfoCompleteCallback = (MediaInformationSession s) {
@@ -545,6 +546,12 @@ class MediaInformationSession extends FFprobeSession {
     // No post-await restore needed — already done inside the callback above.
   }
 
+  @override
+  void onDispose() {
+    _mediaInfoCompleteCallback = null;
+    super.onDispose();
+  }
+
   /// Routes registration through [CallbackManager.registerMediaInformationSession]
   /// so the session lands in both the media-information and ffprobe maps.
   ///
@@ -553,6 +560,7 @@ class MediaInformationSession extends FFprobeSession {
   @override
   @protected
   void ensureRegistered() {
+    if (isDisposed) return;
     if (isRegistered) return;
     CallbackManager().registerMediaInformationSession(this);
     markRegistered(true);

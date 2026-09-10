@@ -79,6 +79,11 @@ class SessionQueueManager {
     Session session,
     Future<void> Function() executor,
   ) {
+    if (session.isDisposed) {
+      return Future<void>.error(
+        StateError('Cannot execute a disposed session'),
+      );
+    }
     final completer = Completer<void>();
     _queue.add(_QueuedSession(session, executor, completer));
 
@@ -96,6 +101,14 @@ class SessionQueueManager {
       while (_queue.isNotEmpty &&
           _activeSessions.length < _maxConcurrentSessions) {
         final queued = _queue.removeFirst();
+        if (queued.session.isDisposed) {
+          if (!queued.completer.isCompleted) {
+            queued.completer.completeError(
+              StateError('Cannot execute a disposed session'),
+            );
+          }
+          continue;
+        }
         _activeSessions.add(queued.session);
         _executeQueuedSession(queued);
       }

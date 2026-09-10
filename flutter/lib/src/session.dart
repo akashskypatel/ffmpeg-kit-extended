@@ -17,7 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+import 'dart:async';
 import 'dart:developer';
+
+import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart'
     show
@@ -101,7 +104,21 @@ abstract class Session {
   // ---- Core fields --------------------------------------------------------
 
   /// The platform-neutral opaque handle for this session.
-  late SessionHandle handle;
+  late SessionHandle _handle;
+
+  /// The platform-neutral opaque handle for this session.
+  ///
+  /// Accessing the handle after [dispose] throws [StateError] instead of
+  /// allowing a backend call to use a released native object.
+  SessionHandle get handle {
+    _ensureNotDisposed();
+    return _handle;
+  }
+
+  set handle(SessionHandle value) {
+    _ensureNotDisposed();
+    _handle = value;
+  }
 
   /// The C-layer session identifier.  Stable for the session's entire lifetime.
   late int sessionId;
@@ -127,6 +144,10 @@ abstract class Session {
   /// Set exclusively by [Session.noFinalizer]; immutable after construction.
   final bool _skipFinalizer;
 
+  bool _disposed = false;
+  bool _disposing = false;
+  final Set<Completer<void>> _executionCompleters = <Completer<void>>{};
+
   /// Standard constructor — [registerFinalizer] will attach the native
   /// finalizer after [handle] is assigned.
   Session() : _skipFinalizer = false;
@@ -149,6 +170,63 @@ abstract class Session {
   void registerFinalizer() {
     if (_skipFinalizer) return;
     sessionFinalizer.attach(this, handle.value, detachToken: this);
+  }
+
+  /// Whether this session has released its native handle.
+  bool get isDisposed => _disposed;
+
+  /// Releases this session's native handle and associated Dart resources.
+  ///
+  /// Disposal is deterministic, idempotent, and valid for sessions that have
+  /// completed, been cancelled, or were never executed. Native finalizer
+  /// attachment is detached before the handle is released, while Web uses
+  /// this explicit path because it has no native-finalizer equivalent.
+  ///
+  /// Dispose a running session only when cancellation/release semantics of the
+  /// selected backend are acceptable to the caller. The native wrapper cancels
+  /// a running session before releasing it.
+  void dispose() {
+    if (_disposed || _disposing) return;
+    _disposing = true;
+    try {
+      try {
+        sessionFinalizer.detach(this);
+      } finally {
+        try {
+          onDispose();
+        } finally {
+          try {
+            ffmpegKitBackend.releaseSession(_handle);
+          } finally {
+            for (final completer in _executionCompleters) {
+              if (!completer.isCompleted) completer.complete();
+            }
+            _executionCompleters.clear();
+          }
+        }
+      }
+    } finally {
+      _disposed = true;
+      _disposing = false;
+    }
+  }
+
+  /// Gives concrete session types a hook to close Dart-side resources before
+  /// the backend releases their native handle.
+  @protected
+  void onDispose() {}
+
+  /// Tracks an asynchronous execution so [dispose] can settle its internal
+  /// wait even when disposal unregisters the completion callback first.
+  @protected
+  void trackExecution(Completer<void> completer) {
+    _executionCompleters.add(completer);
+  }
+
+  void _ensureNotDisposed() {
+    if (_disposed) {
+      throw StateError('Session $sessionId has already been disposed');
+    }
   }
 
   // ---- State & return code ------------------------------------------------

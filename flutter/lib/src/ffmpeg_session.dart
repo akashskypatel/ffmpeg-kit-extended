@@ -416,6 +416,7 @@ class FFmpegSession extends Session {
   Future<void> _runAsync() async {
     FFmpegKitExtended.requireInitialized();
     final sessionCompleter = Completer<void>();
+    trackExecution(sessionCompleter);
 
     // Capture the user-supplied callback before we install the internal
     // wrapper so we can restore it after execution.
@@ -543,12 +544,22 @@ class FFmpegSession extends Session {
     }
   }
 
+  @override
+  void onDispose() {
+    _completeCallback = null;
+    _logCallback = null;
+    _statisticsCallback = null;
+    _closeLogStreams();
+    _unregister();
+  }
+
   /// Ensures the session is registered with [CallbackManager].
   ///
   /// No-op if already registered. Re-registers if the session was previously
   /// fully unregistered (e.g. after all callbacks were removed and a new
   /// callback is set).
   void _ensureRegistered() {
+    if (isDisposed) return;
     if (_registered) return;
     CallbackManager().registerFFmpegSession(this);
     _registered = true;

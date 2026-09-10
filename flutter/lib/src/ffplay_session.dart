@@ -697,6 +697,7 @@ class FFplaySession extends Session {
   /// Core async execution body, called by [executeAsync] through the queue.
   Future<void> _runAsync() async {
     final sessionCompleter = Completer<void>();
+    trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;
 
     _completeCallback = (FFplaySession s) {
@@ -755,6 +756,7 @@ class FFplaySession extends Session {
 
   /// Ensures session is registered with the callback manager.
   void _ensureRegistered() {
+    if (isDisposed) return;
     if (_registered) return;
     CallbackManager().registerFFplaySession(this);
     _registered = true;
@@ -803,6 +805,16 @@ class FFplaySession extends Session {
     if (controller != null && !controller.isClosed) {
       controller.close();
     }
+  }
+
+  @override
+  void onDispose() {
+    _completeCallback = null;
+    _logCallback = null;
+    _stopPositionStream();
+    _stopVideoSizeStream();
+    _closeLogStreams();
+    _unregister();
   }
 
   /// Unregisters session from the callback manager.
