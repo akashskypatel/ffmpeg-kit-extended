@@ -1,7 +1,5 @@
 # Flutter architecture and maintenance handoff
 
-Status: current through Goal 14. This document describes the implementation after the unified native/Web refactor.
-
 ## Contract and architecture
 
 Flutter Web uses the same FFmpegKit Dart SDK implementation as native. Only platform integration layers differ. Shared sessions, models, callbacks, and public APIs depend on the platform backend contract; native and Web provide the transport, memory, loading, and rendering details.
