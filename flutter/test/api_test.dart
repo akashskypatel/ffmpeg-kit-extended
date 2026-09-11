@@ -3350,4 +3350,320 @@ void main() {
       });
     });
   });
+
+  group('Async Completion Callback Settlement', () {
+    const timeout = Duration(seconds: 15);
+
+    Future<void> expectSettled<T extends Session>(
+      Future<T> Function() firstOperation,
+      Future<T> Function() nextOperation,
+    ) async {
+      T? firstSession;
+      T? nextSession;
+      try {
+        firstSession = await firstOperation().timeout(timeout);
+        nextSession = await nextOperation().timeout(timeout);
+      } finally {
+        nextSession?.dispose();
+        firstSession?.dispose();
+      }
+    }
+
+    Future<void> expectQueuedSettled<T extends Session>(
+      Future<T> Function() firstOperation,
+      Future<T> Function() nextOperation,
+    ) async {
+      final firstFuture = firstOperation();
+      final nextFuture = nextOperation();
+      T? firstSession;
+      T? nextSession;
+      try {
+        firstSession = await firstFuture.timeout(timeout);
+        nextSession = await nextFuture.timeout(timeout);
+      } finally {
+        nextSession?.dispose();
+        firstSession?.dispose();
+      }
+    }
+
+    Future<FFmpegSession> executeFFmpeg({
+      FFmpegSessionCompleteCallback? completeCallback,
+    }) => FFmpegSession.executeCommandAsync(
+      '-version',
+      completeCallback: completeCallback,
+    );
+
+    Future<FFprobeSession> executeFFprobe({
+      FFprobeSessionCompleteCallback? completeCallback,
+    }) => FFprobeSession.executeCommandAsync(
+      '-version',
+      completeCallback: completeCallback,
+    );
+
+    String ffplayCommand() =>
+        '-hide_banner -loglevel fatal -autoexit -t 0.5 ${getTestVideoFile()}';
+
+    Future<FFplaySession> executeFFplay({
+      FFplaySessionCompleteCallback? completeCallback,
+    }) => FFplaySession.create(
+      ffplayCommand(),
+      completeCallback: completeCallback,
+    ).executeAsync();
+
+    Future<MediaInformationSession> executeMediaInformation({
+      void Function(MediaInformationSession)? completeCallback,
+    }) => FFprobeSession.createMediaInformationSessionAsync(
+      getTestVideoFile(),
+      onComplete: completeCallback,
+    ).executeAsync();
+
+    void ensureTestVideo() {
+      if (!File(getTestVideoFile()).existsSync()) {
+        generateTestVideoFile();
+      }
+    }
+
+    test('FFmpeg executeAsync settles when the local callback throws', () async {
+      var callbackCount = 0;
+      await expectQueuedSettled(
+        () => executeFFmpeg(
+          completeCallback: (_) {
+            callbackCount++;
+            throw StateError('local FFmpeg callback failure');
+          },
+        ),
+        () => executeFFmpeg(),
+      );
+      expect(callbackCount, equals(1));
+    });
+
+    test('FFmpeg executeAsync settles when the global callback throws',
+        () async {
+      var callbackCount = 0;
+      FFmpegKitConfig.enableFFmpegSessionCompleteCallback((_) {
+        callbackCount++;
+        throw StateError('global FFmpeg callback failure');
+      });
+      try {
+        await expectQueuedSettled(
+          () => executeFFmpeg(),
+          () => executeFFmpeg(),
+        );
+      } finally {
+        FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
+      }
+      expect(callbackCount, equals(2));
+    });
+
+    test('FFmpeg executeAsync settles when local and global callbacks throw',
+        () async {
+      var localCount = 0;
+      var globalCount = 0;
+      FFmpegKitConfig.enableFFmpegSessionCompleteCallback((_) {
+        globalCount++;
+        throw StateError('global FFmpeg callback failure');
+      });
+      try {
+        await expectQueuedSettled(
+          () => executeFFmpeg(
+            completeCallback: (_) {
+              localCount++;
+              throw StateError('local FFmpeg callback failure');
+            },
+          ),
+          () => executeFFmpeg(),
+        );
+      } finally {
+        FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
+      }
+      expect(localCount, equals(1));
+      expect(globalCount, equals(2));
+    });
+
+    test('FFprobe executeAsync settles when the local callback throws',
+        () async {
+      var callbackCount = 0;
+      await expectSettled(
+        () => executeFFprobe(
+          completeCallback: (_) {
+            callbackCount++;
+            throw StateError('local FFprobe callback failure');
+          },
+        ),
+        () => executeFFprobe(),
+      );
+      expect(callbackCount, equals(1));
+    });
+
+    test('FFprobe executeAsync settles when the global callback throws',
+        () async {
+      var callbackCount = 0;
+      FFmpegKitConfig.enableFFprobeSessionCompleteCallback((_) {
+        callbackCount++;
+        throw StateError('global FFprobe callback failure');
+      });
+      try {
+        await expectSettled(
+          () => executeFFprobe(),
+          () => executeFFprobe(),
+        );
+      } finally {
+        FFmpegKitConfig.enableFFprobeSessionCompleteCallback(null);
+      }
+      expect(callbackCount, equals(2));
+    });
+
+    test('FFprobe executeAsync settles when local and global callbacks throw',
+        () async {
+      var localCount = 0;
+      var globalCount = 0;
+      FFmpegKitConfig.enableFFprobeSessionCompleteCallback((_) {
+        globalCount++;
+        throw StateError('global FFprobe callback failure');
+      });
+      try {
+        await expectSettled(
+          () => executeFFprobe(
+            completeCallback: (_) {
+              localCount++;
+              throw StateError('local FFprobe callback failure');
+            },
+          ),
+          () => executeFFprobe(),
+        );
+      } finally {
+        FFmpegKitConfig.enableFFprobeSessionCompleteCallback(null);
+      }
+      expect(localCount, equals(1));
+      expect(globalCount, equals(2));
+    });
+
+    test('FFplay executeAsync settles when the local callback throws',
+        () async {
+      ensureTestVideo();
+      var callbackCount = 0;
+      await expectSettled(
+        () => executeFFplay(
+          completeCallback: (_) {
+            callbackCount++;
+            throw StateError('local FFplay callback failure');
+          },
+        ),
+        () => executeFFplay(),
+      );
+      expect(callbackCount, equals(1));
+    });
+
+    test('FFplay executeAsync settles when the global callback throws',
+        () async {
+      ensureTestVideo();
+      var callbackCount = 0;
+      FFmpegKitConfig.enableFFplaySessionCompleteCallback((_) {
+        callbackCount++;
+        throw StateError('global FFplay callback failure');
+      });
+      try {
+        await expectSettled(
+          () => executeFFplay(),
+          () => executeFFplay(),
+        );
+      } finally {
+        FFmpegKitConfig.enableFFplaySessionCompleteCallback(null);
+      }
+      expect(callbackCount, equals(2));
+    });
+
+    test('FFplay executeAsync settles when local and global callbacks throw',
+        () async {
+      ensureTestVideo();
+      var localCount = 0;
+      var globalCount = 0;
+      FFmpegKitConfig.enableFFplaySessionCompleteCallback((_) {
+        globalCount++;
+        throw StateError('global FFplay callback failure');
+      });
+      try {
+        await expectSettled(
+          () => executeFFplay(
+            completeCallback: (_) {
+              localCount++;
+              throw StateError('local FFplay callback failure');
+            },
+          ),
+          () => executeFFplay(),
+        );
+      } finally {
+        FFmpegKitConfig.enableFFplaySessionCompleteCallback(null);
+      }
+      expect(localCount, equals(1));
+      expect(globalCount, equals(2));
+    });
+
+    test(
+      'media-information executeAsync settles when the local callback throws',
+      () async {
+        ensureTestVideo();
+        var callbackCount = 0;
+        await expectSettled(
+          () => executeMediaInformation(
+            completeCallback: (_) {
+              callbackCount++;
+              throw StateError('local media-information callback failure');
+            },
+          ),
+          () => executeMediaInformation(),
+        );
+        expect(callbackCount, equals(1));
+      },
+    );
+
+    test(
+      'media-information executeAsync settles when the global callback throws',
+      () async {
+        ensureTestVideo();
+        var callbackCount = 0;
+        FFmpegKitConfig.enableMediaInformationSessionCompleteCallback((_) {
+          callbackCount++;
+          throw StateError('global media-information callback failure');
+        });
+        try {
+          await expectSettled(
+            () => executeMediaInformation(),
+            () => executeMediaInformation(),
+          );
+        } finally {
+          FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(null);
+        }
+        expect(callbackCount, equals(2));
+      },
+    );
+
+    test(
+      'media-information executeAsync settles when local and global callbacks throw',
+      () async {
+        ensureTestVideo();
+        var localCount = 0;
+        var globalCount = 0;
+        FFmpegKitConfig.enableMediaInformationSessionCompleteCallback((_) {
+          globalCount++;
+          throw StateError('global media-information callback failure');
+        });
+        try {
+          await expectSettled(
+            () => executeMediaInformation(
+              completeCallback: (_) {
+                localCount++;
+                throw StateError('local media-information callback failure');
+              },
+            ),
+            () => executeMediaInformation(),
+          );
+        } finally {
+          FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(null);
+        }
+        expect(localCount, equals(1));
+        expect(globalCount, equals(2));
+      },
+    );
+  });
 }
