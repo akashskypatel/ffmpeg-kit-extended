@@ -142,10 +142,31 @@ Future<void> _buildWebDataAssets(
   if (!bridgeSource.existsSync()) {
     throw _exception('Missing web runtime bridge: ${bridgeSource.path}');
   }
+  final callbackRuntimeSource = File(
+    p.fromUri(
+      input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs'),
+    ),
+  );
+  if (!callbackRuntimeSource.existsSync()) {
+    throw _exception(
+      'Missing web callback runtime: ${callbackRuntimeSource.path}',
+    );
+  }
   final bridgeName = p.posix.join('wasm', 'ffmpegkit_bridge.mjs');
+  final callbackRuntimeName = p.posix.join(
+    'wasm',
+    'ffmpegkit_callback_runtime.mjs',
+  );
   if (input.config.buildDataAssets) {
     output.assets.data.add(
       DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
+    );
+    output.assets.data.add(
+      DataAsset(
+        package: packageName,
+        name: callbackRuntimeName,
+        file: callbackRuntimeSource.uri,
+      ),
     );
   } else {
     final destination = File(
@@ -170,10 +191,33 @@ Future<void> _buildWebDataAssets(
       bridgeSource.copySync(destination.path);
     }
     output.dependencies.add(bridgeSource.uri);
+
+    final callbackRuntimeDestination = File(
+      p.join(
+        configResult.baseDir,
+        'build',
+        'web',
+        'assets',
+        'packages',
+        packageName,
+        callbackRuntimeName,
+      ),
+    );
+    callbackRuntimeDestination.parent.createSync(recursive: true);
+    final callbackRuntimeUnchanged =
+        callbackRuntimeDestination.existsSync() &&
+        callbackRuntimeDestination.lengthSync() ==
+            callbackRuntimeSource.lengthSync() &&
+        await _computeFileSha256(callbackRuntimeDestination) ==
+            await _computeFileSha256(callbackRuntimeSource);
+    if (!callbackRuntimeUnchanged) {
+      callbackRuntimeSource.copySync(callbackRuntimeDestination.path);
+    }
+    output.dependencies.add(callbackRuntimeSource.uri);
   }
   _log(
-    'Staged ffmpegkit.mjs, ffmpegkit.wasm, and bridge for $packageName at '
-    'assets/packages/$packageName/wasm/',
+    'Staged ffmpegkit.mjs, ffmpegkit.wasm, bridge, and callback runtime for '
+    '$packageName at assets/packages/$packageName/wasm/',
   );
 }
 

@@ -1,4 +1,8 @@
 import createFFmpegKit from './ffmpegkit.mjs';
+import {
+  createCallbackRegistry,
+  discoverWasmTable,
+} from './ffmpegkit_callback_runtime.mjs';
 
 // The release bundles export the FFmpegKit C ABI, but intentionally keep most
 // Emscripten runtime helpers private. ffigen_js uses a small subset of those
@@ -6,77 +10,6 @@ import createFFmpegKit from './ffmpegkit.mjs';
 // surface on the module object after it has been initialized.
 function installFfigenRuntime(module, wasmMemory, wasmTable) {
   const heap = (View) => new View(wasmMemory.buffer);
-
-  const encodeU32 = (value) => {
-    const bytes = [];
-    do {
-      let byte = value & 0x7f;
-      value >>>= 7;
-      if (value !== 0) byte |= 0x80;
-      bytes.push(byte);
-    } while (value !== 0);
-    return bytes;
-  };
-  const encodeString = (value) => {
-    const bytes = Array.from(new TextEncoder().encode(value));
-    return [...encodeU32(bytes.length), ...bytes];
-  };
-  const wasmType = (type) => {
-    switch (type) {
-      case 'p':
-      case 'i': return 0x7f; // i32
-      case 'j': return 0x7e; // i64
-      case 'f': return 0x7d; // f32
-      case 'd': return 0x7c; // f64
-      default: throw new TypeError(`Unsupported callback type: ${type}`);
-    }
-  };
-  const makeCallbackWrapper = (fn, signature) => {
-    const parameterTypes = Array.from(signature.slice(1), wasmType);
-    const resultType = signature[0] === 'v' ? [] : [wasmType(signature[0])];
-    const functionType = [
-      0x60,
-      ...encodeU32(parameterTypes.length),
-      ...parameterTypes,
-      ...encodeU32(resultType.length),
-      ...resultType,
-    ];
-    const body = [
-      0x00, // no local declarations
-      ...parameterTypes.map((_, index) => [0x20, ...encodeU32(index)]).flat(),
-      0x10, 0x00, // call imported callback
-      0x0b, // end
-    ];
-    const importSection = [
-      0x01,
-      ...encodeString('env'),
-      ...encodeString('callback'),
-      0x00, 0x00, // imported function, type 0
-    ];
-    const functionSection = [0x01, 0x00];
-    const exportName = encodeString('wrapper');
-    const exportSection = [
-      0x01,
-      ...exportName,
-      0x00, 0x01, // function export, function index 1
-    ];
-    const codeBody = [...encodeU32(body.length), ...body];
-    const codeSection = [0x01, ...codeBody];
-    const section = (id, payload) => [id, ...encodeU32(payload.length), ...payload];
-    const binary = new Uint8Array([
-      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
-      ...section(1, [0x01, ...functionType]),
-      ...section(2, importSection),
-      ...section(3, functionSection),
-      ...section(7, exportSection),
-      ...section(10, codeSection),
-    ]);
-    const instance = new WebAssembly.Instance(
-      new WebAssembly.Module(binary),
-      { env: { callback: fn } },
-    );
-    return instance.exports.wrapper;
-  };
 
   Object.defineProperties(module, {
     HEAPU8: { configurable: true, get: () => heap(Uint8Array) },
@@ -133,23 +66,11 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
     heap(Int8Array).set(array, address);
   };
 
-  // addFunction is a runtime helper in a normal Emscripten export. The
-  // generated Wasm module still exports its function table, so retain the
-  // same table-index contract for Dart callback pointers.
-  module.addFunction = (fn, signature) => {
-    // Table index zero is the C null function pointer and must never be used
-    // for a callback, even if the corresponding table slot is empty.
-    for (let index = 1; index < wasmTable.length; index++) {
-      if (wasmTable.get(index) === null) {
-        wasmTable.set(index, makeCallbackWrapper(fn, signature));
-        return index;
-      }
-    }
-    throw new RangeError(
-      'The FFmpegKit Wasm function table has no free callback slots.',
-    );
-  };
-  module.removeFunction = (index) => wasmTable.set(index, null);
+  // Keep callback ownership local to this initialized module so slots can be
+  // recycled only after the caller has unregistered the C callback.
+  const callbackRegistry = createCallbackRegistry(wasmTable);
+  module.addFunction = callbackRegistry.addFunction;
+  module.removeFunction = callbackRegistry.removeFunction;
 }
 
 globalThis.ffmpegKitExtendedModulePromise ??= (() => {
@@ -174,7 +95,7 @@ globalThis.ffmpegKitExtendedModulePromise ??= (() => {
         })
         .then((bytes) => WebAssembly.instantiate(bytes, imports))
         .then(({ instance, module }) => {
-          wasmTable = instance.exports.jj;
+          wasmTable = discoverWasmTable(instance.exports);
           receiveInstance(instance, module);
         });
       return {};
