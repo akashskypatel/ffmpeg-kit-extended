@@ -19,6 +19,8 @@ compiler-opts:
   # Basic C compatibility
   - '-std=c11'
   - '-D__STDC_CONSTANT_MACROS'
+  - '-target'
+  - 'wasm32-unknown-emscripten'
 
 # Restrict generation to declarations owned by the public FFmpegKit C wrapper.
 # The wrapper header pulls in platform/CRT headers transitively; using `.*`
