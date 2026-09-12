@@ -12,7 +12,8 @@ import 'package:yaml/yaml.dart';
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
-const String version = "0.11.1";
+// This version is pinned per release. Changing this version manually may cause runtime failures. DO NOT CHANGE from official pinned version.
+const String version = "0.11.2";
 const String _extractMarkerFileName = '.extract_complete';
 const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
@@ -143,9 +144,7 @@ Future<void> _buildWebDataAssets(
     throw _exception('Missing web runtime bridge: ${bridgeSource.path}');
   }
   final callbackRuntimeSource = File(
-    p.fromUri(
-      input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs'),
-    ),
+    p.fromUri(input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs')),
   );
   if (!callbackRuntimeSource.existsSync()) {
     throw _exception(

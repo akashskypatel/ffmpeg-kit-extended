@@ -4,28 +4,21 @@ import 'dart:js_interop';
 import '../../callback_manager.dart';
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 
-void _onFFmpegComplete(
-  bindings.DartFFmpegSessionHandle sessionHandle,
-  bindings.Pointer<bindings.Void> userData,
-) {
+void _onFFmpegComplete(JSBigInt sessionId, int userData) {
   _dispatch('FFmpeg completion', () {
-    CallbackManager().dispatchFFmpegComplete(_sessionId(sessionHandle));
+    CallbackManager().dispatchFFmpegComplete(sessionId.toDart.toInt());
   });
 }
 
-void _onFFmpegLog(
-  bindings.DartFFmpegSessionHandle sessionHandle,
-  bindings.Pointer<bindings.Char> logPointer,
-  bindings.Pointer<bindings.Void> userData,
-) {
-  if (logPointer.address == 0) return;
+void _onFFmpegLog(JSBigInt sessionId, int logPointer, int userData) {
+  if (logPointer == 0) return;
   _dispatch('FFmpeg log', () {
-    CallbackManager().dispatchPendingLogs(_sessionId(sessionHandle));
+    CallbackManager().dispatchPendingLogs(sessionId.toDart.toInt());
   });
 }
 
 void _onFFmpegStatistics(
-  bindings.DartFFmpegSessionHandle sessionHandle,
+  JSBigInt sessionId,
   JSBigInt timeElapsed,
   JSBigInt time,
   JSBigInt size,
@@ -36,11 +29,11 @@ void _onFFmpegStatistics(
   double videoQuality,
   JSBigInt dupFrames,
   JSBigInt dropFrames,
-  bindings.Pointer<bindings.Void> userData,
+  int userData,
 ) {
   _dispatch('FFmpeg statistics', () {
     CallbackManager().dispatchStatistics(
-      sessionId: _sessionId(sessionHandle),
+      sessionId: sessionId.toDart.toInt(),
       timeElapsed: timeElapsed.toDart.toInt(),
       time: time.toDart.toInt(),
       size: size.toDart.toInt(),
@@ -55,38 +48,24 @@ void _onFFmpegStatistics(
   });
 }
 
-void _onFFprobeComplete(
-  bindings.DartFFprobeSessionHandle sessionHandle,
-  bindings.Pointer<bindings.Void> userData,
-) {
+void _onFFprobeComplete(JSBigInt sessionId, int userData) {
   _dispatch('FFprobe completion', () {
-    CallbackManager().dispatchFFprobeComplete(_sessionId(sessionHandle));
+    CallbackManager().dispatchFFprobeComplete(sessionId.toDart.toInt());
   });
 }
 
-void _onMediaInformationComplete(
-  bindings.DartMediaInformationSessionHandle sessionHandle,
-  bindings.Pointer<bindings.Void> userData,
-) {
+void _onMediaInformationComplete(JSBigInt sessionId, int userData) {
   _dispatch('Media-information completion', () {
     CallbackManager().dispatchMediaInformationComplete(
-      _sessionId(sessionHandle),
+      sessionId.toDart.toInt(),
     );
   });
 }
 
-void _onFFplayComplete(
-  bindings.DartFFplaySessionHandle sessionHandle,
-  bindings.Pointer<bindings.Void> userData,
-) {
+void _onFFplayComplete(JSBigInt sessionId, int userData) {
   _dispatch('FFplay completion', () {
-    CallbackManager().dispatchFFplayComplete(_sessionId(sessionHandle));
+    CallbackManager().dispatchFFplayComplete(sessionId.toDart.toInt());
   });
-}
-
-int _sessionId(bindings.Pointer<bindings.Void> sessionHandle) {
-  if (sessionHandle.address == 0) return 0;
-  return bindings.ffmpeg_kit_session_get_session_id(sessionHandle).toInt();
 }
 
 void _dispatch(String event, void Function() callback) {
@@ -107,47 +86,123 @@ void _dispatch(String event, void Function() callback) {
 /// populated by the Web Wasm loader during initialization. The pointers are retained
 /// for the lifetime of the bridge because the C runtime stores them globally.
 final class WebCallbackBridge {
-  late final bindings.DartFFmpegKitCompleteCallback ffmpegComplete = bindings
-      .addFunction<bindings.DartFFmpegKitCompleteCallbackFunction>(
-        _onFFmpegComplete.toJS,
-        'vjp',
-      )
-      .cast();
+  bool _disposed = false;
 
-  late final bindings.DartFFprobeKitCompleteCallback ffprobeComplete = bindings
-      .addFunction<bindings.DartFFprobeKitCompleteCallbackFunction>(
-        _onFFprobeComplete.toJS,
-        'vjp',
-      )
-      .cast();
+  bindings.DartFFmpegKitGlobalCompleteCallback? _ffmpegComplete;
+  bindings.DartFFprobeKitGlobalCompleteCallback? _ffprobeComplete;
+  bindings.DartFFmpegKitGlobalLogCallback? _log;
+  bindings.DartFFmpegKitGlobalStatisticsCallback? _statistics;
+  bindings.DartFFplayKitGlobalCompleteCallback? _ffplayComplete;
+  bindings.DartMediaInformationSessionGlobalCompleteCallback?
+  _mediaInformationComplete;
 
-  late final bindings.DartFFmpegKitLogCallback log = bindings
-      .addFunction<bindings.DartFFmpegKitLogCallbackFunction>(
-        _onFFmpegLog.toJS,
-        'vjpp',
-      )
-      .cast();
+  bindings.DartFFmpegKitGlobalCompleteCallback get ffmpegComplete {
+    _checkActive();
+    return _ffmpegComplete ??= bindings
+        .addFunction<bindings.DartFFmpegKitGlobalCompleteCallbackFunction>(
+          _onFFmpegComplete.toJS,
+          'vjp',
+        )
+        .cast();
+  }
 
-  late final bindings.DartFFmpegKitStatisticsCallback statistics = bindings
-      .addFunction<bindings.DartFFmpegKitStatisticsCallbackFunction>(
-        _onFFmpegStatistics.toJS,
-        'vjjjjddjddjjp',
-      )
-      .cast();
+  bindings.DartFFprobeKitGlobalCompleteCallback get ffprobeComplete {
+    _checkActive();
+    return _ffprobeComplete ??= bindings
+        .addFunction<bindings.DartFFprobeKitGlobalCompleteCallbackFunction>(
+          _onFFprobeComplete.toJS,
+          'vjp',
+        )
+        .cast();
+  }
 
-  late final bindings.DartFFplayKitCompleteCallback ffplayComplete = bindings
-      .addFunction<bindings.DartFFplayKitCompleteCallbackFunction>(
-        _onFFplayComplete.toJS,
-        'vjp',
-      )
-      .cast();
+  bindings.DartFFmpegKitGlobalLogCallback get log {
+    _checkActive();
+    return _log ??= bindings
+        .addFunction<bindings.DartFFmpegKitGlobalLogCallbackFunction>(
+          _onFFmpegLog.toJS,
+          'vjpp',
+        )
+        .cast();
+  }
 
-  late final bindings.DartMediaInformationSessionCompleteCallback
-  mediaInformationComplete = bindings
-      .addFunction<
-        bindings.DartMediaInformationSessionCompleteCallbackFunction
-      >(_onMediaInformationComplete.toJS, 'vjp')
-      .cast();
+  bindings.DartFFmpegKitGlobalStatisticsCallback get statistics {
+    _checkActive();
+    return _statistics ??= bindings
+        .addFunction<bindings.DartFFmpegKitGlobalStatisticsCallbackFunction>(
+          _onFFmpegStatistics.toJS,
+          'vjjjjddjddjjp',
+        )
+        .cast();
+  }
+
+  bindings.DartFFplayKitGlobalCompleteCallback get ffplayComplete {
+    _checkActive();
+    return _ffplayComplete ??= bindings
+        .addFunction<bindings.DartFFplayKitGlobalCompleteCallbackFunction>(
+          _onFFplayComplete.toJS,
+          'vjp',
+        )
+        .cast();
+  }
+
+  bindings.DartMediaInformationSessionGlobalCompleteCallback
+  get mediaInformationComplete {
+    _checkActive();
+    return _mediaInformationComplete ??= bindings
+        .addFunction<
+          bindings.DartMediaInformationSessionGlobalCompleteCallbackFunction
+        >(_onMediaInformationComplete.toJS, 'vjp')
+        .cast();
+  }
+
+  void _checkActive() {
+    if (_disposed) {
+      throw StateError('The Web callback bridge has been disposed.');
+    }
+  }
+
+  /// Disables every native callback before releasing its Wasm table slots.
+  ///
+  /// The event-loop turn after the C-side disable is the lifetime barrier for
+  /// callbacks already executing on the browser main runtime thread.
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    final nullCallback = nullPointer;
+    bindings.ffmpeg_kit_config_enable_log_callback(
+      nullCallback.cast(),
+      nullCallback,
+    );
+    bindings.ffmpeg_kit_config_enable_statistics_callback(
+      nullCallback.cast(),
+      nullCallback,
+    );
+    bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+      nullCallback.cast(),
+      nullCallback,
+    );
+    bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+      nullCallback.cast(),
+      nullCallback,
+    );
+    bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+      nullCallback.cast(),
+      nullCallback,
+    );
+    bindings
+        .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+          nullCallback.cast(),
+          nullCallback,
+        );
+    await Future<void>.delayed(Duration.zero);
+    _ffmpegComplete?.dispose();
+    _ffprobeComplete?.dispose();
+    _log?.dispose();
+    _statistics?.dispose();
+    _ffplayComplete?.dispose();
+    _mediaInformationComplete?.dispose();
+  }
 
   // Compatibility values for the legacy Web API. The shared backend above
   // never uses these; the legacy API is removed by the public-API migration.

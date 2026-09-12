@@ -53,6 +53,25 @@ typedef NativeStatisticsCallback =
       Int64 dropFrames,
       Pointer<Void> userData,
     );
+typedef NativeGlobalLogCallback =
+    Void Function(Int64 sessionId, Pointer<Char> log, Pointer<Void> userData);
+typedef NativeGlobalCompleteCallback =
+    Void Function(Int64 sessionId, Pointer<Void> userData);
+typedef NativeGlobalStatisticsCallback =
+    Void Function(
+      Int64 sessionId,
+      Int64 timeElapsed,
+      Int64 time,
+      Int64 size,
+      Double bitrate,
+      Double speed,
+      Int64 videoFrameNumber,
+      Double videoFps,
+      Double videoQuality,
+      Int64 dupFrames,
+      Int64 dropFrames,
+      Pointer<Void> userData,
+    );
 
 // --- Helper Functions and Type Definitions ---
 
@@ -1438,13 +1457,10 @@ void main() {
         // playback thread is detached asynchronously.
         final state2 = ffmpeg.ffmpeg_kit_session_get_state(session2);
         if (kDebugMode) print("State 2: $state2");
-        expect(
-          [
-            ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_RUNNING,
-            ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_FAILED,
-          ],
-          contains(state2),
-        );
+        expect([
+          ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_RUNNING,
+          ffmpeg.FFmpegKitSessionState.FFMPEG_KIT_SESSION_STATE_FAILED,
+        ], contains(state2));
 
         // Verify an active session can be stopped and release both handles.
         if (state2 ==
@@ -2963,39 +2979,41 @@ void main() {
         const expectedCompletions = 4;
 
         // Setup Global Callbacks
-        final logCb = NativeCallable<NativeLogCallback>.listener((
-          Pointer<Void> session,
+        final logCb = NativeCallable<NativeGlobalLogCallback>.listener((
+          int sessionId,
           Pointer<Char> log,
           Pointer<Void> userData,
         ) {
           capturer.logCalled = true;
         });
-        final statsCb = NativeCallable<NativeStatisticsCallback>.listener((
-          Pointer<Void> session,
-          int timeElapsed,
-          int time,
-          int size,
-          double bitrate,
-          double speed,
-          int videoFrameNumber,
-          double videoFps,
-          double videoQuality,
-          int dupFrames,
-          int dropFrames,
-          Pointer<Void> userData,
-        ) {
-          capturer.statsCalled = true;
-        });
-        final completeCb = NativeCallable<NativeCompleteCallback>.listener((
-          Pointer<Void> session,
-          Pointer<Void> userData,
-        ) {
-          capturer.completeCount++;
-          if (capturer.completeCount == expectedCompletions &&
-              !completer.isCompleted) {
-            completer.complete();
-          }
-        });
+        final statsCb =
+            NativeCallable<NativeGlobalStatisticsCallback>.listener((
+              int sessionId,
+              int timeElapsed,
+              int time,
+              int size,
+              double bitrate,
+              double speed,
+              int videoFrameNumber,
+              double videoFps,
+              double videoQuality,
+              int dupFrames,
+              int dropFrames,
+              Pointer<Void> userData,
+            ) {
+              capturer.statsCalled = true;
+            });
+        final completeCb =
+            NativeCallable<NativeGlobalCompleteCallback>.listener((
+              int sessionId,
+              Pointer<Void> userData,
+            ) {
+              capturer.completeCount++;
+              if (capturer.completeCount == expectedCompletions &&
+                  !completer.isCompleted) {
+                completer.complete();
+              }
+            });
 
         ffmpeg.ffmpeg_kit_config_enable_log_callback(
           logCb.nativeFunction,
@@ -3423,181 +3441,191 @@ void main() {
       }
     }
 
-    test('FFmpeg executeAsync settles when the local callback throws', () async {
-      var callbackCount = 0;
-      await expectQueuedSettled(
-        () => executeFFmpeg(
-          completeCallback: (_) {
-            callbackCount++;
-            throw StateError('local FFmpeg callback failure');
-          },
-        ),
-        () => executeFFmpeg(),
-      );
-      expect(callbackCount, equals(1));
-    });
-
-    test('FFmpeg executeAsync settles when the global callback throws',
-        () async {
-      var callbackCount = 0;
-      FFmpegKitConfig.enableFFmpegSessionCompleteCallback((_) {
-        callbackCount++;
-        throw StateError('global FFmpeg callback failure');
-      });
-      try {
-        await expectQueuedSettled(
-          () => executeFFmpeg(),
-          () => executeFFmpeg(),
-        );
-      } finally {
-        FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
-      }
-      expect(callbackCount, equals(2));
-    });
-
-    test('FFmpeg executeAsync settles when local and global callbacks throw',
-        () async {
-      var localCount = 0;
-      var globalCount = 0;
-      FFmpegKitConfig.enableFFmpegSessionCompleteCallback((_) {
-        globalCount++;
-        throw StateError('global FFmpeg callback failure');
-      });
-      try {
+    test(
+      'FFmpeg executeAsync settles when the local callback throws',
+      () async {
+        var callbackCount = 0;
         await expectQueuedSettled(
           () => executeFFmpeg(
             completeCallback: (_) {
-              localCount++;
+              callbackCount++;
               throw StateError('local FFmpeg callback failure');
             },
           ),
-          () => executeFFmpeg(),
+          executeFFmpeg,
         );
-      } finally {
-        FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
-      }
-      expect(localCount, equals(1));
-      expect(globalCount, equals(2));
-    });
+        expect(callbackCount, equals(1));
+      },
+    );
 
-    test('FFprobe executeAsync settles when the local callback throws',
-        () async {
-      var callbackCount = 0;
-      await expectSettled(
-        () => executeFFprobe(
-          completeCallback: (_) {
-            callbackCount++;
-            throw StateError('local FFprobe callback failure');
-          },
-        ),
-        () => executeFFprobe(),
-      );
-      expect(callbackCount, equals(1));
-    });
+    test(
+      'FFmpeg executeAsync settles when the global callback throws',
+      () async {
+        var callbackCount = 0;
+        FFmpegKitConfig.enableFFmpegSessionCompleteCallback((_) {
+          callbackCount++;
+          throw StateError('global FFmpeg callback failure');
+        });
+        try {
+          await expectQueuedSettled(executeFFmpeg, executeFFmpeg);
+        } finally {
+          FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
+        }
+        expect(callbackCount, equals(2));
+      },
+    );
 
-    test('FFprobe executeAsync settles when the global callback throws',
-        () async {
-      var callbackCount = 0;
-      FFmpegKitConfig.enableFFprobeSessionCompleteCallback((_) {
-        callbackCount++;
-        throw StateError('global FFprobe callback failure');
-      });
-      try {
-        await expectSettled(
-          () => executeFFprobe(),
-          () => executeFFprobe(),
-        );
-      } finally {
-        FFmpegKitConfig.enableFFprobeSessionCompleteCallback(null);
-      }
-      expect(callbackCount, equals(2));
-    });
+    test(
+      'FFmpeg executeAsync settles when local and global callbacks throw',
+      () async {
+        var localCount = 0;
+        var globalCount = 0;
+        FFmpegKitConfig.enableFFmpegSessionCompleteCallback((_) {
+          globalCount++;
+          throw StateError('global FFmpeg callback failure');
+        });
+        try {
+          await expectQueuedSettled(
+            () => executeFFmpeg(
+              completeCallback: (_) {
+                localCount++;
+                throw StateError('local FFmpeg callback failure');
+              },
+            ),
+            executeFFmpeg,
+          );
+        } finally {
+          FFmpegKitConfig.enableFFmpegSessionCompleteCallback(null);
+        }
+        expect(localCount, equals(1));
+        expect(globalCount, equals(2));
+      },
+    );
 
-    test('FFprobe executeAsync settles when local and global callbacks throw',
-        () async {
-      var localCount = 0;
-      var globalCount = 0;
-      FFmpegKitConfig.enableFFprobeSessionCompleteCallback((_) {
-        globalCount++;
-        throw StateError('global FFprobe callback failure');
-      });
-      try {
+    test(
+      'FFprobe executeAsync settles when the local callback throws',
+      () async {
+        var callbackCount = 0;
         await expectSettled(
           () => executeFFprobe(
             completeCallback: (_) {
-              localCount++;
+              callbackCount++;
               throw StateError('local FFprobe callback failure');
             },
           ),
-          () => executeFFprobe(),
+          executeFFprobe,
         );
-      } finally {
-        FFmpegKitConfig.enableFFprobeSessionCompleteCallback(null);
-      }
-      expect(localCount, equals(1));
-      expect(globalCount, equals(2));
-    });
+        expect(callbackCount, equals(1));
+      },
+    );
 
-    test('FFplay executeAsync settles when the local callback throws',
-        () async {
-      ensureTestVideo();
-      var callbackCount = 0;
-      await expectSettled(
-        () => executeFFplay(
-          completeCallback: (_) {
-            callbackCount++;
-            throw StateError('local FFplay callback failure');
-          },
-        ),
-        () => executeFFplay(),
-      );
-      expect(callbackCount, equals(1));
-    });
+    test(
+      'FFprobe executeAsync settles when the global callback throws',
+      () async {
+        var callbackCount = 0;
+        FFmpegKitConfig.enableFFprobeSessionCompleteCallback((_) {
+          callbackCount++;
+          throw StateError('global FFprobe callback failure');
+        });
+        try {
+          await expectSettled(executeFFprobe, executeFFprobe);
+        } finally {
+          FFmpegKitConfig.enableFFprobeSessionCompleteCallback(null);
+        }
+        expect(callbackCount, equals(2));
+      },
+    );
 
-    test('FFplay executeAsync settles when the global callback throws',
-        () async {
-      ensureTestVideo();
-      var callbackCount = 0;
-      FFmpegKitConfig.enableFFplaySessionCompleteCallback((_) {
-        callbackCount++;
-        throw StateError('global FFplay callback failure');
-      });
-      try {
-        await expectSettled(
-          () => executeFFplay(),
-          () => executeFFplay(),
-        );
-      } finally {
-        FFmpegKitConfig.enableFFplaySessionCompleteCallback(null);
-      }
-      expect(callbackCount, equals(2));
-    });
+    test(
+      'FFprobe executeAsync settles when local and global callbacks throw',
+      () async {
+        var localCount = 0;
+        var globalCount = 0;
+        FFmpegKitConfig.enableFFprobeSessionCompleteCallback((_) {
+          globalCount++;
+          throw StateError('global FFprobe callback failure');
+        });
+        try {
+          await expectSettled(
+            () => executeFFprobe(
+              completeCallback: (_) {
+                localCount++;
+                throw StateError('local FFprobe callback failure');
+              },
+            ),
+            executeFFprobe,
+          );
+        } finally {
+          FFmpegKitConfig.enableFFprobeSessionCompleteCallback(null);
+        }
+        expect(localCount, equals(1));
+        expect(globalCount, equals(2));
+      },
+    );
 
-    test('FFplay executeAsync settles when local and global callbacks throw',
-        () async {
-      ensureTestVideo();
-      var localCount = 0;
-      var globalCount = 0;
-      FFmpegKitConfig.enableFFplaySessionCompleteCallback((_) {
-        globalCount++;
-        throw StateError('global FFplay callback failure');
-      });
-      try {
+    test(
+      'FFplay executeAsync settles when the local callback throws',
+      () async {
+        ensureTestVideo();
+        var callbackCount = 0;
         await expectSettled(
           () => executeFFplay(
             completeCallback: (_) {
-              localCount++;
+              callbackCount++;
               throw StateError('local FFplay callback failure');
             },
           ),
-          () => executeFFplay(),
+          executeFFplay,
         );
-      } finally {
-        FFmpegKitConfig.enableFFplaySessionCompleteCallback(null);
-      }
-      expect(localCount, equals(1));
-      expect(globalCount, equals(2));
-    });
+        expect(callbackCount, equals(1));
+      },
+    );
+
+    test(
+      'FFplay executeAsync settles when the global callback throws',
+      () async {
+        ensureTestVideo();
+        var callbackCount = 0;
+        FFmpegKitConfig.enableFFplaySessionCompleteCallback((_) {
+          callbackCount++;
+          throw StateError('global FFplay callback failure');
+        });
+        try {
+          await expectSettled(executeFFplay, executeFFplay);
+        } finally {
+          FFmpegKitConfig.enableFFplaySessionCompleteCallback(null);
+        }
+        expect(callbackCount, equals(2));
+      },
+    );
+
+    test(
+      'FFplay executeAsync settles when local and global callbacks throw',
+      () async {
+        ensureTestVideo();
+        var localCount = 0;
+        var globalCount = 0;
+        FFmpegKitConfig.enableFFplaySessionCompleteCallback((_) {
+          globalCount++;
+          throw StateError('global FFplay callback failure');
+        });
+        try {
+          await expectSettled(
+            () => executeFFplay(
+              completeCallback: (_) {
+                localCount++;
+                throw StateError('local FFplay callback failure');
+              },
+            ),
+            executeFFplay,
+          );
+        } finally {
+          FFmpegKitConfig.enableFFplaySessionCompleteCallback(null);
+        }
+        expect(localCount, equals(1));
+        expect(globalCount, equals(2));
+      },
+    );
 
     test(
       'media-information executeAsync settles when the local callback throws',
@@ -3611,7 +3639,7 @@ void main() {
               throw StateError('local media-information callback failure');
             },
           ),
-          () => executeMediaInformation(),
+          executeMediaInformation,
         );
         expect(callbackCount, equals(1));
       },
@@ -3627,10 +3655,7 @@ void main() {
           throw StateError('global media-information callback failure');
         });
         try {
-          await expectSettled(
-            () => executeMediaInformation(),
-            () => executeMediaInformation(),
-          );
+          await expectSettled(executeMediaInformation, executeMediaInformation);
         } finally {
           FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(null);
         }
@@ -3656,7 +3681,7 @@ void main() {
                 throw StateError('local media-information callback failure');
               },
             ),
-            () => executeMediaInformation(),
+            executeMediaInformation,
           );
         } finally {
           FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(null);

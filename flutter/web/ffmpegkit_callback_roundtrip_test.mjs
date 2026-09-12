@@ -42,12 +42,12 @@ const requiredExports = [
   'ffmpeg_kit_session_execute_async',
   'ffmpeg_kit_session_get_session_id',
   'ffmpeg_kit_handle_release',
-  'ffmpeg_kit_config_enable_log_callback_v2',
-  'ffmpeg_kit_config_enable_statistics_callback_v2',
-  'ffmpeg_kit_config_enable_ffmpeg_session_complete_callback_v2',
-  'ffmpeg_kit_test_emit_v2_log_with_session_id',
-  'ffmpeg_kit_test_emit_v2_statistics_with_session_id',
-  'ffmpeg_kit_test_emit_v2_ffmpeg_completion_with_session_id',
+  'ffmpeg_kit_config_enable_log_callback',
+  'ffmpeg_kit_config_enable_statistics_callback',
+  'ffmpeg_kit_config_enable_ffmpeg_session_complete_callback',
+  'ffmpeg_kit_test_emit_log_with_session_id',
+  'ffmpeg_kit_test_emit_statistics_with_session_id',
+  'ffmpeg_kit_test_emit_ffmpeg_completion_with_session_id',
   'ffmpeg_kit_test_process_wasm_callback_queue',
   'malloc',
   'free',
@@ -92,23 +92,23 @@ const completionPointer = registry.addFunction((id, owner) => {
   events.push(['completion', id, owner]);
 }, 'vjp');
 
-instance.exports.ffmpeg_kit_config_enable_log_callback_v2(logPointer, userData);
-instance.exports.ffmpeg_kit_config_enable_statistics_callback_v2(
+instance.exports.ffmpeg_kit_config_enable_log_callback(logPointer, userData);
+instance.exports.ffmpeg_kit_config_enable_statistics_callback(
   statisticsPointer,
   userData,
 );
-instance.exports.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback_v2(
+instance.exports.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
   completionPointer,
   userData,
 );
 
-const messageAddress = writeString('g12-roundtrip');
-instance.exports.ffmpeg_kit_test_emit_v2_log_with_session_id(
+const messageAddress = writeString('callback-roundtrip');
+instance.exports.ffmpeg_kit_test_emit_log_with_session_id(
   sessionId,
   messageAddress,
 );
 instance.exports.free(messageAddress);
-instance.exports.ffmpeg_kit_test_emit_v2_statistics_with_session_id(
+instance.exports.ffmpeg_kit_test_emit_statistics_with_session_id(
   sessionId,
   1n,
   2n,
@@ -121,11 +121,11 @@ instance.exports.ffmpeg_kit_test_emit_v2_statistics_with_session_id(
   9n,
   10n,
 );
-instance.exports.ffmpeg_kit_test_emit_v2_ffmpeg_completion_with_session_id(sessionId);
+instance.exports.ffmpeg_kit_test_emit_ffmpeg_completion_with_session_id(sessionId);
 instance.exports.ffmpeg_kit_test_process_wasm_callback_queue();
 
 assert.deepEqual(events, [
-  ['log', sessionId, 'g12-roundtrip', userData],
+  ['log', sessionId, 'callback-roundtrip', userData],
   ['statistics', sessionId, 1n, 2n, 3n, 4.5, 5.5, 6n, 7.5, 8.5, 9n, 10n, userData],
   ['completion', sessionId, userData],
 ]);
@@ -161,9 +161,9 @@ for (const event of events) {
   assert.equal(event[1], expectedSessionId, `callback used the wrong session ID: ${event[1]}`);
 }
 
-instance.exports.ffmpeg_kit_config_enable_log_callback_v2(0, 0);
-instance.exports.ffmpeg_kit_config_enable_statistics_callback_v2(0, 0);
-instance.exports.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback_v2(0, 0);
+instance.exports.ffmpeg_kit_config_enable_log_callback(0, 0);
+instance.exports.ffmpeg_kit_config_enable_statistics_callback(0, 0);
+instance.exports.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(0, 0);
 registry.removeFunction(logPointer);
 registry.removeFunction(statisticsPointer);
 registry.removeFunction(completionPointer);

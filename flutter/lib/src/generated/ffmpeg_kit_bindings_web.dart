@@ -714,21 +714,9 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   external void _ffplay_kit_unregister_frame_callback();
 
   /// Returns the byte size required for the latest composed RGBA frame.
-  ///
-  /// The returned size is zero when no frame is available. The caller owns the
-  /// destination buffer passed to ffplay_kit_copy_frame().
   external int _ffplay_kit_get_frame_buffer_size();
 
-  /// Copies the latest composed RGBA frame into caller-owned memory.
-  ///
-  /// @param destination caller-owned destination buffer
-  /// @param destination_size capacity of destination in bytes
-  /// @param width output frame width
-  /// @param height output frame height
-  /// @param linesize output frame stride in bytes
-  /// @param generation output frame generation counter
-  /// @return 1 when a frame was copied, 0 when no frame is available or the
-  /// destination is too small
+  /// Copies the latest composed RGBA frame into caller-owned Wasm memory.
   external int _ffplay_kit_copy_frame(
     Pointer<Uint8> destination,
     int destination_size,
@@ -1399,7 +1387,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @note The user data is owned by the callback and should be freed by the
   /// callback owner including the handle.
   external void _ffmpeg_kit_config_enable_log_callback(
-    FFmpegKitLogCallback log_cb,
+    FFmpegKitGlobalLogCallback log_cb,
     Pointer<Void> user_data,
   );
 
@@ -1408,7 +1396,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param stats_cb the statistics callback
   /// @param user_data the user data
   external void _ffmpeg_kit_config_enable_statistics_callback(
-    FFmpegKitStatisticsCallback stats_cb,
+    FFmpegKitGlobalStatisticsCallback stats_cb,
     Pointer<Void> user_data,
   );
 
@@ -1419,7 +1407,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @note The user data is owned by the callback and should be freed by the
   /// callback owner including the handle.
   external void _ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-    FFmpegKitCompleteCallback complete_cb,
+    FFmpegKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
   );
 
@@ -1430,7 +1418,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @note The user data is owned by the callback and should be freed by the
   /// callback owner including the handle.
   external void _ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-    FFprobeKitCompleteCallback complete_cb,
+    FFprobeKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
   );
 
@@ -1441,7 +1429,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @note The user data is owned by the callback and should be freed by the
   /// callback owner including the handle.
   external void _ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-    FFplayKitCompleteCallback complete_cb,
+    FFplayKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
   );
 
@@ -1453,7 +1441,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// callback owner including the handle.
   external void
   _ffmpeg_kit_config_enable_media_information_session_complete_callback(
-    MediaInformationSessionCompleteCallback complete_cb,
+    MediaInformationSessionGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
   );
 
@@ -2976,24 +2964,12 @@ void ffplay_kit_unregister_frame_callback() {
 }
 
 /// Returns the byte size required for the latest composed RGBA frame.
-///
-/// The returned size is zero when no frame is available. The caller owns the
-/// destination buffer passed to ffplay_kit_copy_frame().
 int ffplay_kit_get_frame_buffer_size() {
   final result = GeneratedBindings.instance._ffplay_kit_get_frame_buffer_size();
   return result;
 }
 
-/// Copies the latest composed RGBA frame into caller-owned memory.
-///
-/// @param destination caller-owned destination buffer
-/// @param destination_size capacity of destination in bytes
-/// @param width output frame width
-/// @param height output frame height
-/// @param linesize output frame stride in bytes
-/// @param generation output frame generation counter
-/// @return 1 when a frame was copied, 0 when no frame is available or the
-/// destination is too small
+/// Copies the latest composed RGBA frame into caller-owned Wasm memory.
 int ffplay_kit_copy_frame(
   Pointer<Uint8> destination,
   int destination_size,
@@ -4092,12 +4068,12 @@ void ffmpeg_kit_clear_sessions() {
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 void ffmpeg_kit_config_enable_log_callback(
-  DartFFmpegKitLogCallback log_cb,
+  DartFFmpegKitGlobalLogCallback log_cb,
   Pointer<Void> user_data,
 ) {
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_log_callback(
-        log_cb as Pointer<NativeFunction<FFmpegKitLogCallbackFunction>>,
+        log_cb as Pointer<NativeFunction<FFmpegKitGlobalLogCallbackFunction>>,
         user_data,
       );
   return result;
@@ -4108,13 +4084,15 @@ void ffmpeg_kit_config_enable_log_callback(
 /// @param stats_cb the statistics callback
 /// @param user_data the user data
 void ffmpeg_kit_config_enable_statistics_callback(
-  DartFFmpegKitStatisticsCallback stats_cb,
+  DartFFmpegKitGlobalStatisticsCallback stats_cb,
   Pointer<Void> user_data,
 ) {
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_statistics_callback(
         stats_cb
-            as Pointer<NativeFunction<FFmpegKitStatisticsCallbackFunction>>,
+            as Pointer<
+              NativeFunction<FFmpegKitGlobalStatisticsCallbackFunction>
+            >,
         user_data,
       );
   return result;
@@ -4127,13 +4105,13 @@ void ffmpeg_kit_config_enable_statistics_callback(
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-  DartFFmpegKitCompleteCallback complete_cb,
+  DartFFmpegKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
 ) {
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
         complete_cb
-            as Pointer<NativeFunction<FFmpegKitCompleteCallbackFunction>>,
+            as Pointer<NativeFunction<FFmpegKitGlobalCompleteCallbackFunction>>,
         user_data,
       );
   return result;
@@ -4146,13 +4124,15 @@ void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-  DartFFprobeKitCompleteCallback complete_cb,
+  DartFFprobeKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
 ) {
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
         complete_cb
-            as Pointer<NativeFunction<FFprobeKitCompleteCallbackFunction>>,
+            as Pointer<
+              NativeFunction<FFprobeKitGlobalCompleteCallbackFunction>
+            >,
         user_data,
       );
   return result;
@@ -4165,13 +4145,13 @@ void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-  DartFFplayKitCompleteCallback complete_cb,
+  DartFFplayKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
 ) {
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_ffplay_session_complete_callback(
         complete_cb
-            as Pointer<NativeFunction<FFplayKitCompleteCallbackFunction>>,
+            as Pointer<NativeFunction<FFplayKitGlobalCompleteCallbackFunction>>,
         user_data,
       );
   return result;
@@ -4184,14 +4164,16 @@ void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 void ffmpeg_kit_config_enable_media_information_session_complete_callback(
-  DartMediaInformationSessionCompleteCallback complete_cb,
+  DartMediaInformationSessionGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
 ) {
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_media_information_session_complete_callback(
         complete_cb
             as Pointer<
-              NativeFunction<MediaInformationSessionCompleteCallbackFunction>
+              NativeFunction<
+                MediaInformationSessionGlobalCompleteCallbackFunction
+              >
             >,
         user_data,
       );
@@ -5063,7 +5045,7 @@ typedef FFplayKitCompleteCallbackFunction =
 typedef DartFFplayKitCompleteCallbackFunction =
     void Function(DartFFplaySessionHandle session, Pointer<Void> user_data);
 
-/// Frame-ready callback type for desktop (Linux/Windows) video output.
+/// Frame-ready callback type for native desktop and WebAssembly video output.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
@@ -5121,6 +5103,95 @@ typedef DartStreamInformationHandle = Pointer<Void>;
 /// @brief Opaque chapter handle used to reference a specific chapter
 typedef ChapterHandle = Pointer<Void>;
 typedef DartChapterHandle = Pointer<Void>;
+
+/// Global callback types. These callbacks identify sessions with their stable
+/// session IDs instead of passing IDs through opaque pointer values.
+typedef FFmpegKitGlobalLogCallback =
+    Pointer<NativeFunction<FFmpegKitGlobalLogCallbackFunction>>;
+typedef DartFFmpegKitGlobalLogCallback =
+    Pointer<NativeFunction<FFmpegKitGlobalLogCallbackFunction>>;
+typedef FFmpegKitGlobalLogCallbackFunction =
+    void Function(
+      JSBigInt session_id,
+      Pointer<Char> log,
+      Pointer<Void> user_data,
+    );
+typedef DartFFmpegKitGlobalLogCallbackFunction =
+    void Function(
+      BigInt session_id,
+      Pointer<Char> log,
+      Pointer<Void> user_data,
+    );
+typedef FFmpegKitGlobalStatisticsCallback =
+    Pointer<NativeFunction<FFmpegKitGlobalStatisticsCallbackFunction>>;
+typedef DartFFmpegKitGlobalStatisticsCallback =
+    Pointer<NativeFunction<FFmpegKitGlobalStatisticsCallbackFunction>>;
+typedef FFmpegKitGlobalStatisticsCallbackFunction =
+    void Function(
+      JSBigInt session_id,
+      JSBigInt time_elapsed,
+      JSBigInt time,
+      JSBigInt size,
+      double bitrate,
+      double speed,
+      JSBigInt videoFrameNumber,
+      double videoFps,
+      double videoQuality,
+      JSBigInt dupFrames,
+      JSBigInt dropFrames,
+      Pointer<Void> user_data,
+    );
+typedef DartFFmpegKitGlobalStatisticsCallbackFunction =
+    void Function(
+      BigInt session_id,
+      BigInt time_elapsed,
+      BigInt time,
+      BigInt size,
+      double bitrate,
+      double speed,
+      BigInt videoFrameNumber,
+      double videoFps,
+      double videoQuality,
+      BigInt dupFrames,
+      BigInt dropFrames,
+      Pointer<Void> user_data,
+    );
+typedef FFmpegKitGlobalCompleteCallback =
+    Pointer<NativeFunction<FFmpegKitGlobalCompleteCallbackFunction>>;
+typedef DartFFmpegKitGlobalCompleteCallback =
+    Pointer<NativeFunction<FFmpegKitGlobalCompleteCallbackFunction>>;
+typedef FFmpegKitGlobalCompleteCallbackFunction =
+    void Function(JSBigInt session_id, Pointer<Void> user_data);
+typedef DartFFmpegKitGlobalCompleteCallbackFunction =
+    void Function(BigInt session_id, Pointer<Void> user_data);
+typedef FFprobeKitGlobalCompleteCallback =
+    Pointer<NativeFunction<FFprobeKitGlobalCompleteCallbackFunction>>;
+typedef DartFFprobeKitGlobalCompleteCallback =
+    Pointer<NativeFunction<FFprobeKitGlobalCompleteCallbackFunction>>;
+typedef FFprobeKitGlobalCompleteCallbackFunction =
+    void Function(JSBigInt session_id, Pointer<Void> user_data);
+typedef DartFFprobeKitGlobalCompleteCallbackFunction =
+    void Function(BigInt session_id, Pointer<Void> user_data);
+typedef FFplayKitGlobalCompleteCallback =
+    Pointer<NativeFunction<FFplayKitGlobalCompleteCallbackFunction>>;
+typedef DartFFplayKitGlobalCompleteCallback =
+    Pointer<NativeFunction<FFplayKitGlobalCompleteCallbackFunction>>;
+typedef FFplayKitGlobalCompleteCallbackFunction =
+    void Function(JSBigInt session_id, Pointer<Void> user_data);
+typedef DartFFplayKitGlobalCompleteCallbackFunction =
+    void Function(BigInt session_id, Pointer<Void> user_data);
+typedef MediaInformationSessionGlobalCompleteCallback =
+    Pointer<
+      NativeFunction<MediaInformationSessionGlobalCompleteCallbackFunction>
+    >;
+typedef DartMediaInformationSessionGlobalCompleteCallback =
+    Pointer<
+      NativeFunction<MediaInformationSessionGlobalCompleteCallbackFunction>
+    >;
+typedef MediaInformationSessionGlobalCompleteCallbackFunction =
+    void Function(JSBigInt session_id, Pointer<Void> user_data);
+typedef DartMediaInformationSessionGlobalCompleteCallbackFunction =
+    void Function(BigInt session_id, Pointer<Void> user_data);
 
 /// @brief Opaque statistics handle used to reference a specific statistics
 typedef StatisticsHandle = Pointer<Void>;

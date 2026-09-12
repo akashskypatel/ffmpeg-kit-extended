@@ -1,22 +1,20 @@
-import 'dart:developer' as developer;
 import 'dart:ffi';
 
 import '../../callback_manager.dart';
-import '../../generated/ffmpeg_kit_bindings_native.dart' as bindings;
 
-typedef FFmpegKitCompleteCallbackFunction =
-    Void Function(bindings.FFmpegSessionHandle, Pointer<Void>);
-typedef FFprobeKitCompleteCallbackFunction =
-    Void Function(bindings.FFprobeSessionHandle, Pointer<Void>);
-typedef FFplayKitCompleteCallbackFunction =
-    Void Function(bindings.FFplaySessionHandle, Pointer<Void>);
-typedef MediaInformationSessionCompleteCallbackFunction =
-    Void Function(bindings.MediaInformationSessionHandle, Pointer<Void>);
-typedef FFmpegKitLogCallbackFunction =
-    Void Function(bindings.FFmpegSessionHandle, Pointer<Char>, Pointer<Void>);
-typedef FFmpegKitStatisticsCallbackFunction =
+typedef NativeFFmpegGlobalCompleteCallback =
+    Void Function(Int64 sessionId, Pointer<Void>);
+typedef NativeFFprobeGlobalCompleteCallback =
+    Void Function(Int64 sessionId, Pointer<Void>);
+typedef NativeFFplayGlobalCompleteCallback =
+    Void Function(Int64 sessionId, Pointer<Void>);
+typedef NativeMediaInformationGlobalCompleteCallback =
+    Void Function(Int64 sessionId, Pointer<Void>);
+typedef NativeFFmpegGlobalLogCallback =
+    Void Function(Int64 sessionId, Pointer<Char>, Pointer<Void>);
+typedef NativeFFmpegGlobalStatisticsCallback =
     Void Function(
-      bindings.FFmpegSessionHandle,
+      Int64 sessionId,
       Int64,
       Int64,
       Int64,
@@ -30,33 +28,20 @@ typedef FFmpegKitStatisticsCallbackFunction =
       Pointer<Void>,
     );
 
-void _onFFmpegComplete(
-  bindings.FFmpegSessionHandle sessionHandle,
-  Pointer<Void> userData,
-) {
-  CallbackManager().dispatchFFmpegComplete(
-    _safeGetSessionId(sessionHandle, '_onFFmpegComplete'),
-  );
+void _onFFmpegComplete(int sessionId, Pointer<Void> userData) {
+  CallbackManager().dispatchFFmpegComplete(sessionId);
 }
 
-void _onFFmpegLog(
-  bindings.FFmpegSessionHandle sessionHandle,
-  Pointer<Char> logPtr,
-  Pointer<Void> userData,
-) {
+void _onFFmpegLog(int sessionId, Pointer<Char> logPtr, Pointer<Void> userData) {
   if (logPtr.address == 0) return;
 
-  // Native global log callbacks use the first pointer-sized argument as the
-  // numeric session ID. Drain the session buffer so log ordering and the
-  // shared cursor remain consistent with polling and completion flushes.
-  final sessionId = sessionHandle.address;
   if (sessionId > 0) {
     CallbackManager().dispatchPendingLogs(sessionId);
   }
 }
 
 void _onFFmpegStatistics(
-  bindings.FFmpegSessionHandle sessionHandle,
+  int sessionId,
   int timeElapsed,
   int time,
   int size,
@@ -70,7 +55,7 @@ void _onFFmpegStatistics(
   Pointer<Void> userData,
 ) {
   CallbackManager().dispatchStatistics(
-    sessionId: _safeGetSessionId(sessionHandle, '_onFFmpegStatistics'),
+    sessionId: sessionId,
     timeElapsed: timeElapsed,
     time: time,
     size: size,
@@ -84,72 +69,43 @@ void _onFFmpegStatistics(
   );
 }
 
-void _onFFprobeComplete(
-  bindings.FFprobeSessionHandle sessionHandle,
-  Pointer<Void> userData,
-) {
-  CallbackManager().dispatchFFprobeComplete(
-    _safeGetSessionId(sessionHandle, '_onFFprobeComplete'),
-  );
+void _onFFprobeComplete(int sessionId, Pointer<Void> userData) {
+  CallbackManager().dispatchFFprobeComplete(sessionId);
 }
 
-void _onMediaInfoComplete(
-  bindings.MediaInformationSessionHandle sessionHandle,
-  Pointer<Void> userData,
-) {
-  CallbackManager().dispatchMediaInformationComplete(
-    _safeGetSessionId(sessionHandle, '_onMediaInfoComplete'),
-  );
+void _onMediaInfoComplete(int sessionId, Pointer<Void> userData) {
+  CallbackManager().dispatchMediaInformationComplete(sessionId);
 }
 
-void _onFFplayComplete(
-  bindings.FFplaySessionHandle sessionHandle,
-  Pointer<Void> userData,
-) {
-  CallbackManager().dispatchFFplayComplete(
-    _safeGetSessionId(sessionHandle, '_onFFplayComplete'),
-  );
-}
-
-int _safeGetSessionId(Pointer<Void> handle, String caller) {
-  if (handle.address == 0) return 0;
-  try {
-    return bindings.ffmpeg_kit_session_get_session_id(handle);
-  } catch (error, stackTrace) {
-    developer.log(
-      '$caller: failed to resolve session ID from native handle',
-      error: error,
-      stackTrace: stackTrace,
-    );
-    return 0;
-  }
+void _onFFplayComplete(int sessionId, Pointer<Void> userData) {
+  CallbackManager().dispatchFFplayComplete(sessionId);
 }
 
 final nativeFFmpegComplete =
-    NativeCallable<FFmpegKitCompleteCallbackFunction>.listener(
+    NativeCallable<NativeFFmpegGlobalCompleteCallback>.listener(
       _onFFmpegComplete,
     );
 
-final nativeFFmpegLog = NativeCallable<FFmpegKitLogCallbackFunction>.listener(
+final nativeFFmpegLog = NativeCallable<NativeFFmpegGlobalLogCallback>.listener(
   _onFFmpegLog,
 );
 
 final nativeFFmpegStatistics =
-    NativeCallable<FFmpegKitStatisticsCallbackFunction>.listener(
+    NativeCallable<NativeFFmpegGlobalStatisticsCallback>.listener(
       _onFFmpegStatistics,
     );
 
 final nativeFFprobeComplete =
-    NativeCallable<FFprobeKitCompleteCallbackFunction>.listener(
+    NativeCallable<NativeFFprobeGlobalCompleteCallback>.listener(
       _onFFprobeComplete,
     );
 
 final nativeMediaInfoComplete =
-    NativeCallable<MediaInformationSessionCompleteCallbackFunction>.listener(
+    NativeCallable<NativeMediaInformationGlobalCompleteCallback>.listener(
       _onMediaInfoComplete,
     );
 
 final nativeFFplayComplete =
-    NativeCallable<FFplayKitCompleteCallbackFunction>.listener(
+    NativeCallable<NativeFFplayGlobalCompleteCallback>.listener(
       _onFFplayComplete,
     );

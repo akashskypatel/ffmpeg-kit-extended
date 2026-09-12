@@ -163,10 +163,10 @@ external void ffmpeg_kit_config_enable_debug_log(ffi.Pointer<ffi.Void> session);
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 @ffi.Native<
-  ffi.Void Function(FFmpegKitCompleteCallback, ffi.Pointer<ffi.Void>)
+  ffi.Void Function(FFmpegKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
 external void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
-  FFmpegKitCompleteCallback complete_cb,
+  FFmpegKitGlobalCompleteCallback complete_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -177,10 +177,10 @@ external void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 @ffi.Native<
-  ffi.Void Function(FFplayKitCompleteCallback, ffi.Pointer<ffi.Void>)
+  ffi.Void Function(FFplayKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
 external void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
-  FFplayKitCompleteCallback complete_cb,
+  FFplayKitGlobalCompleteCallback complete_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -191,10 +191,10 @@ external void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
 @ffi.Native<
-  ffi.Void Function(FFprobeKitCompleteCallback, ffi.Pointer<ffi.Void>)
+  ffi.Void Function(FFprobeKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
 external void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
-  FFprobeKitCompleteCallback complete_cb,
+  FFprobeKitGlobalCompleteCallback complete_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -204,9 +204,11 @@ external void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 /// @param user_data the user data
 /// @note The user data is owned by the callback and should be freed by the
 /// callback owner including the handle.
-@ffi.Native<ffi.Void Function(FFmpegKitLogCallback, ffi.Pointer<ffi.Void>)>()
+@ffi.Native<
+  ffi.Void Function(FFmpegKitGlobalLogCallback, ffi.Pointer<ffi.Void>)
+>()
 external void ffmpeg_kit_config_enable_log_callback(
-  FFmpegKitLogCallback log_cb,
+  FFmpegKitGlobalLogCallback log_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -218,13 +220,13 @@ external void ffmpeg_kit_config_enable_log_callback(
 /// callback owner including the handle.
 @ffi.Native<
   ffi.Void Function(
-    MediaInformationSessionCompleteCallback,
+    MediaInformationSessionGlobalCompleteCallback,
     ffi.Pointer<ffi.Void>,
   )
 >()
 external void
 ffmpeg_kit_config_enable_media_information_session_complete_callback(
-  MediaInformationSessionCompleteCallback complete_cb,
+  MediaInformationSessionGlobalCompleteCallback complete_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -237,10 +239,10 @@ external void ffmpeg_kit_config_enable_redirection();
 /// @param stats_cb the statistics callback
 /// @param user_data the user data
 @ffi.Native<
-  ffi.Void Function(FFmpegKitStatisticsCallback, ffi.Pointer<ffi.Void>)
+  ffi.Void Function(FFmpegKitGlobalStatisticsCallback, ffi.Pointer<ffi.Void>)
 >()
 external void ffmpeg_kit_config_enable_statistics_callback(
-  FFmpegKitStatisticsCallback stats_cb,
+  FFmpegKitGlobalStatisticsCallback stats_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -1128,16 +1130,7 @@ external void ffplay_kit_close();
 @ffi.Native<ffi.Void Function(FFplaySessionHandle)>()
 external void ffplay_kit_close_session(FFplaySessionHandle handle);
 
-/// Copies the latest composed RGBA frame into caller-owned memory.
-///
-/// @param destination caller-owned destination buffer
-/// @param destination_size capacity of destination in bytes
-/// @param width output frame width
-/// @param height output frame height
-/// @param linesize output frame stride in bytes
-/// @param generation output frame generation counter
-/// @return 1 when a frame was copied, 0 when no frame is available or the
-/// destination is too small
+/// Copies the latest composed RGBA frame into caller-owned Wasm memory.
 @ffi.Native<
   ffi.Int Function(
     ffi.Pointer<ffi.Uint8>,
@@ -1275,9 +1268,6 @@ external FFplaySessionHandle ffplay_kit_get_current_session();
 external double ffplay_kit_get_duration();
 
 /// Returns the byte size required for the latest composed RGBA frame.
-///
-/// The returned size is zero when no frame is available. The caller owns the
-/// destination buffer passed to ffplay_kit_copy_frame().
 @ffi.Native<ffi.Size Function()>()
 external int ffplay_kit_get_frame_buffer_size();
 
@@ -2370,6 +2360,61 @@ typedef FFmpegKitCompleteCallbackFunction =
     );
 typedef DartFFmpegKitCompleteCallbackFunction =
     void Function(FFmpegSessionHandle session, ffi.Pointer<ffi.Void> user_data);
+typedef FFmpegKitGlobalCompleteCallback =
+    ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalCompleteCallbackFunction>>;
+typedef FFmpegKitGlobalCompleteCallbackFunction =
+    ffi.Void Function(ffi.Int64 session_id, ffi.Pointer<ffi.Void> user_data);
+typedef DartFFmpegKitGlobalCompleteCallbackFunction =
+    void Function(int session_id, ffi.Pointer<ffi.Void> user_data);
+
+/// Global callback types. These callbacks identify sessions with their stable
+/// session IDs instead of passing IDs through opaque pointer values.
+typedef FFmpegKitGlobalLogCallback =
+    ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalLogCallbackFunction>>;
+typedef FFmpegKitGlobalLogCallbackFunction =
+    ffi.Void Function(
+      ffi.Int64 session_id,
+      ffi.Pointer<ffi.Char> log,
+      ffi.Pointer<ffi.Void> user_data,
+    );
+typedef DartFFmpegKitGlobalLogCallbackFunction =
+    void Function(
+      int session_id,
+      ffi.Pointer<ffi.Char> log,
+      ffi.Pointer<ffi.Void> user_data,
+    );
+typedef FFmpegKitGlobalStatisticsCallback =
+    ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalStatisticsCallbackFunction>>;
+typedef FFmpegKitGlobalStatisticsCallbackFunction =
+    ffi.Void Function(
+      ffi.Int64 session_id,
+      ffi.Int64 time_elapsed,
+      ffi.Int64 time,
+      ffi.Int64 size,
+      ffi.Double bitrate,
+      ffi.Double speed,
+      ffi.Int64 videoFrameNumber,
+      ffi.Double videoFps,
+      ffi.Double videoQuality,
+      ffi.Int64 dupFrames,
+      ffi.Int64 dropFrames,
+      ffi.Pointer<ffi.Void> user_data,
+    );
+typedef DartFFmpegKitGlobalStatisticsCallbackFunction =
+    void Function(
+      int session_id,
+      int time_elapsed,
+      int time,
+      int size,
+      double bitrate,
+      double speed,
+      int videoFrameNumber,
+      double videoFps,
+      double videoQuality,
+      int dupFrames,
+      int dropFrames,
+      ffi.Pointer<ffi.Void> user_data,
+    );
 
 /// @brief Log callback function type
 ///
@@ -2556,7 +2601,7 @@ typedef FFplayKitCompleteCallbackFunction =
 typedef DartFFplayKitCompleteCallbackFunction =
     void Function(FFplaySessionHandle session, ffi.Pointer<ffi.Void> user_data);
 
-/// Frame-ready callback type for desktop (Linux/Windows) video output.
+/// Frame-ready callback type for native desktop and WebAssembly video output.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
@@ -2600,6 +2645,12 @@ typedef DartFFplayKitFrameCallbackFunction =
       int linesize,
       ffi.Pointer<ffi.Char> format,
     );
+typedef FFplayKitGlobalCompleteCallback =
+    ffi.Pointer<ffi.NativeFunction<FFplayKitGlobalCompleteCallbackFunction>>;
+typedef FFplayKitGlobalCompleteCallbackFunction =
+    ffi.Void Function(ffi.Int64 session_id, ffi.Pointer<ffi.Void> user_data);
+typedef DartFFplayKitGlobalCompleteCallbackFunction =
+    void Function(int session_id, ffi.Pointer<ffi.Void> user_data);
 
 /// @brief Opaque FFplay session handle used to reference a specific FFplay session
 typedef FFplaySessionHandle = ffi.Pointer<ffi.Void>;
@@ -2620,6 +2671,12 @@ typedef DartFFprobeKitCompleteCallbackFunction =
       FFprobeSessionHandle session,
       ffi.Pointer<ffi.Void> user_data,
     );
+typedef FFprobeKitGlobalCompleteCallback =
+    ffi.Pointer<ffi.NativeFunction<FFprobeKitGlobalCompleteCallbackFunction>>;
+typedef FFprobeKitGlobalCompleteCallbackFunction =
+    ffi.Void Function(ffi.Int64 session_id, ffi.Pointer<ffi.Void> user_data);
+typedef DartFFprobeKitGlobalCompleteCallbackFunction =
+    void Function(int session_id, ffi.Pointer<ffi.Void> user_data);
 
 /// @brief Opaque FFprobe session handle used to reference a specific FFprobe session
 typedef FFprobeSessionHandle = ffi.Pointer<ffi.Void>;
@@ -2645,6 +2702,14 @@ typedef DartMediaInformationSessionCompleteCallbackFunction =
       MediaInformationSessionHandle session,
       ffi.Pointer<ffi.Void> user_data,
     );
+typedef MediaInformationSessionGlobalCompleteCallback =
+    ffi.Pointer<
+      ffi.NativeFunction<MediaInformationSessionGlobalCompleteCallbackFunction>
+    >;
+typedef MediaInformationSessionGlobalCompleteCallbackFunction =
+    ffi.Void Function(ffi.Int64 session_id, ffi.Pointer<ffi.Void> user_data);
+typedef DartMediaInformationSessionGlobalCompleteCallbackFunction =
+    void Function(int session_id, ffi.Pointer<ffi.Void> user_data);
 
 /// @brief Opaque media information session handle used to reference a specific media information session
 typedef MediaInformationSessionHandle = ffi.Pointer<ffi.Void>;
