@@ -110,35 +110,35 @@ final class WebCallbackBridge {
   late final bindings.DartFFmpegKitCompleteCallback ffmpegComplete = bindings
       .addFunction<bindings.DartFFmpegKitCompleteCallbackFunction>(
         _onFFmpegComplete.toJS,
-        'vpp',
+        'vjp',
       )
       .cast();
 
   late final bindings.DartFFprobeKitCompleteCallback ffprobeComplete = bindings
       .addFunction<bindings.DartFFprobeKitCompleteCallbackFunction>(
         _onFFprobeComplete.toJS,
-        'vpp',
+        'vjp',
       )
       .cast();
 
   late final bindings.DartFFmpegKitLogCallback log = bindings
       .addFunction<bindings.DartFFmpegKitLogCallbackFunction>(
         _onFFmpegLog.toJS,
-        'vppp',
+        'vjpp',
       )
       .cast();
 
   late final bindings.DartFFmpegKitStatisticsCallback statistics = bindings
       .addFunction<bindings.DartFFmpegKitStatisticsCallbackFunction>(
         _onFFmpegStatistics.toJS,
-        'vpjjjddjddjjp',
+        'vjjjjddjddjjp',
       )
       .cast();
 
   late final bindings.DartFFplayKitCompleteCallback ffplayComplete = bindings
       .addFunction<bindings.DartFFplayKitCompleteCallbackFunction>(
         _onFFplayComplete.toJS,
-        'vpp',
+        'vjp',
       )
       .cast();
 
@@ -146,7 +146,7 @@ final class WebCallbackBridge {
   mediaInformationComplete = bindings
       .addFunction<
         bindings.DartMediaInformationSessionCompleteCallbackFunction
-      >(_onMediaInformationComplete.toJS, 'vpp')
+      >(_onMediaInformationComplete.toJS, 'vjp')
       .cast();
 
   // Compatibility values for the legacy Web API. The shared backend above

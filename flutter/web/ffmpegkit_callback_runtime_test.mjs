@@ -17,22 +17,22 @@ const calls = [];
 
 const completionPointer = registry.addFunction((session, userData) => {
   calls.push(['completion', session, userData]);
-}, 'vpp');
+}, 'vjp');
 assert.equal(completionPointer, 1);
-table.get(completionPointer)(0x11, 0x22);
-assert.deepEqual(calls.pop(), ['completion', 0x11, 0x22]);
+table.get(completionPointer)(0x11n, 0x22);
+assert.deepEqual(calls.pop(), ['completion', 0x11n, 0x22]);
 
 const logPointer = registry.addFunction((session, level, message) => {
   calls.push(['log', session, level, message]);
-}, 'vppp');
-table.get(logPointer)(0x31, 0x32, 0x33);
-assert.deepEqual(calls.pop(), ['log', 0x31, 0x32, 0x33]);
+}, 'vjpp');
+table.get(logPointer)(0x31n, 0x32, 0x33);
+assert.deepEqual(calls.pop(), ['log', 0x31n, 0x32, 0x33]);
 
 const statisticsPointer = registry.addFunction((...values) => {
   calls.push(['statistics', ...values]);
-}, 'vpjjjddjddjjp');
+}, 'vjjjjddjddjjp');
 const statisticsArgs = [
-  0x41, 1n, 2n, 3n, 4.5, 5.5, 6n, 7.5, 8.5, 9n, 10n, 0x42,
+  0x41n, 1n, 2n, 3n, 4.5, 5.5, 6n, 7.5, 8.5, 9n, 10n, 0x42,
 ];
 table.get(statisticsPointer)(...statisticsArgs);
 assert.deepEqual(calls.pop(), ['statistics', ...statisticsArgs]);
@@ -65,7 +65,7 @@ registry.removeFunction(statisticsPointer);
 assert.equal(registry.ownedCount, 0);
 
 console.log(JSON.stringify({
-  signatures: ['vpp', 'vppp', 'vpjjjddjddjjp'],
+  signatures: ['vjp', 'vjpp', 'vjjjjddjddjjp'],
   cycles: 10000,
   recycledPointer,
   finalTableLength: table.length,
