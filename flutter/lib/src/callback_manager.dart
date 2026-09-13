@@ -125,8 +125,8 @@ class CallbackManager {
 
   /// Routes a platform execution failure to the active session.
   ///
-  /// This is intentionally separate from completion dispatch: a transport or
-  /// polling failure must settle the execution Future with an error and must
+  /// This is intentionally separate from completion dispatch: a transport
+  /// failure must settle the execution Future with an error and must
   /// never be represented as successful FFmpeg completion.
   bool dispatchSessionError(
     int sessionId,

@@ -132,8 +132,8 @@ abstract class Session {
   /// Index of the next log entry not yet dispatched to Dart callbacks.
   ///
   /// Shared between [Session], `FFmpegSession`, and `CallbackManager` so
-  /// that the log-polling loop and the completion flush both advance from the
-  /// same cursor and never deliver the same entry twice.
+  /// callback delivery and the completion flush advance from the same cursor
+  /// and never deliver the same entry twice.
   int logsProcessed = 0;
 
   // ---- Cancellation -------------------------------------------------------

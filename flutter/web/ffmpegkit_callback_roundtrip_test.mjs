@@ -23,7 +23,7 @@ const wasmMemory = new WebAssembly.Memory({
   shared: true,
 });
 let instance;
-await createFFmpegKit({
+const module = await createFFmpegKit({
   wasmMemory,
   instantiateWasm: (imports, receiveInstance) => {
     readFile(artifactPath)
@@ -36,6 +36,7 @@ await createFFmpegKit({
   },
 });
 assert(instance, 'Emscripten loader did not expose the Wasm instance');
+const wasmExport = (name) => instance.exports[name] ?? module[`_${name}`];
 const requiredExports = [
   'ffmpeg_kit_initialize',
   'ffmpeg_kit_create_session',
@@ -53,7 +54,7 @@ const requiredExports = [
   'free',
 ];
 for (const name of requiredExports) {
-  assert.equal(typeof instance.exports[name], 'function', `missing export ${name}`);
+  assert.equal(typeof wasmExport(name), 'function', `missing export ${name}`);
 }
 
 const table = discoverWasmTable(instance.exports);
@@ -70,7 +71,7 @@ const decodeString = (address) => {
 };
 const writeString = (value) => {
   const bytes = new TextEncoder().encode(value);
-  const address = instance.exports.malloc(bytes.length + 1);
+  const address = wasmExport('malloc')(bytes.length + 1);
   new Uint8Array(memory.buffer).set(bytes, address);
   new Uint8Array(memory.buffer)[address + bytes.length] = 0;
   return address;
@@ -92,23 +93,23 @@ const completionPointer = registry.addFunction((id, owner) => {
   events.push(['completion', id, owner]);
 }, 'vjp');
 
-instance.exports.ffmpeg_kit_config_enable_log_callback(logPointer, userData);
-instance.exports.ffmpeg_kit_config_enable_statistics_callback(
+wasmExport('ffmpeg_kit_config_enable_log_callback')(logPointer, userData);
+wasmExport('ffmpeg_kit_config_enable_statistics_callback')(
   statisticsPointer,
   userData,
 );
-instance.exports.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+wasmExport('ffmpeg_kit_config_enable_ffmpeg_session_complete_callback')(
   completionPointer,
   userData,
 );
 
 const messageAddress = writeString('callback-roundtrip');
-instance.exports.ffmpeg_kit_test_emit_log_with_session_id(
+wasmExport('ffmpeg_kit_test_emit_log_with_session_id')(
   sessionId,
   messageAddress,
 );
-instance.exports.free(messageAddress);
-instance.exports.ffmpeg_kit_test_emit_statistics_with_session_id(
+wasmExport('free')(messageAddress);
+wasmExport('ffmpeg_kit_test_emit_statistics_with_session_id')(
   sessionId,
   1n,
   2n,
@@ -121,8 +122,8 @@ instance.exports.ffmpeg_kit_test_emit_statistics_with_session_id(
   9n,
   10n,
 );
-instance.exports.ffmpeg_kit_test_emit_ffmpeg_completion_with_session_id(sessionId);
-instance.exports.ffmpeg_kit_test_process_wasm_callback_queue();
+wasmExport('ffmpeg_kit_test_emit_ffmpeg_completion_with_session_id')(sessionId);
+wasmExport('ffmpeg_kit_test_process_wasm_callback_queue')();
 
 assert.deepEqual(events, [
   ['log', sessionId, 'callback-roundtrip', userData],
@@ -131,25 +132,25 @@ assert.deepEqual(events, [
 ]);
 
 events.length = 0;
-instance.exports.ffmpeg_kit_initialize();
+wasmExport('ffmpeg_kit_initialize')();
 const commandAddress = writeString(
   '-loglevel info -f lavfi -i testsrc=duration=1:size=16x16:rate=5 -f null -',
 );
-const session = instance.exports.ffmpeg_kit_create_session(commandAddress);
-instance.exports.free(commandAddress);
+const session = wasmExport('ffmpeg_kit_create_session')(commandAddress);
+wasmExport('free')(commandAddress);
 assert(session, 'FFmpegKit did not create the real async session');
 const expectedSessionId = BigInt(
-  instance.exports.ffmpeg_kit_session_get_session_id(session),
+  wasmExport('ffmpeg_kit_session_get_session_id')(session),
 );
-instance.exports.ffmpeg_kit_session_execute_async(session);
+wasmExport('ffmpeg_kit_session_execute_async')(session);
 
 const deadline = Date.now() + 15000;
 while (!events.some(([kind]) => kind === 'completion') && Date.now() < deadline) {
-  instance.exports.ffmpeg_kit_test_process_wasm_callback_queue();
+  wasmExport('ffmpeg_kit_test_process_wasm_callback_queue')();
   await new Promise((resolve) => setTimeout(resolve, 1));
 }
-instance.exports.ffmpeg_kit_test_process_wasm_callback_queue();
-instance.exports.ffmpeg_kit_handle_release(session);
+wasmExport('ffmpeg_kit_test_process_wasm_callback_queue')();
+wasmExport('ffmpeg_kit_handle_release')(session);
 
 const realLogs = events.filter(([kind]) => kind === 'log');
 const realStatistics = events.filter(([kind]) => kind === 'statistics');
@@ -161,9 +162,9 @@ for (const event of events) {
   assert.equal(event[1], expectedSessionId, `callback used the wrong session ID: ${event[1]}`);
 }
 
-instance.exports.ffmpeg_kit_config_enable_log_callback(0, 0);
-instance.exports.ffmpeg_kit_config_enable_statistics_callback(0, 0);
-instance.exports.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(0, 0);
+wasmExport('ffmpeg_kit_config_enable_log_callback')(0, 0);
+wasmExport('ffmpeg_kit_config_enable_statistics_callback')(0, 0);
+wasmExport('ffmpeg_kit_config_enable_ffmpeg_session_complete_callback')(0, 0);
 registry.removeFunction(logPointer);
 registry.removeFunction(statisticsPointer);
 registry.removeFunction(completionPointer);

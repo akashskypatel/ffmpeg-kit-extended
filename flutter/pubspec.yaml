@@ -45,7 +45,8 @@ dependencies:
   ffigen_js:
     git:
       url: https://github.com/akashskypatel/ffigen_js.git
-      ref: 429ef72aa61cd509296215d84ce910b578f321a9
+      ref: bc03f738207eb88bcd8e9cece93756bbae80cdd5
+    # path: ../../ffigen_js
   flutter:
     sdk: flutter
   flutter_web_plugins:

@@ -142,5 +142,6 @@ export function createCallbackRegistry(table) {
     addFunction,
     removeFunction,
     get ownedCount() { return owners.size; },
+    get freeSlotCount() { return freeSlots.length; },
   };
 }

@@ -12,7 +12,7 @@ Public API and shared session lifecycle
  Native backend        Web/Wasm backend
  dart:ffi + assets      ffigen_js + Emscripten
           |             |
- native callbacks      polling + JS bridge
+ native callbacks      Wasm callbacks + JS bridge
  Android/desktop       Wasm memory + RGBA frames
  FFplay surfaces       Web FFplay surface
 ```
@@ -34,7 +34,7 @@ Conditional exports are concentrated in the platform barrels (`ffmpeg_kit_extend
 ```powershell
 cd flutter
 dart run ffigen --config ffigen_native.yaml
-dart run ffigen --config ffigen_js.yaml
+dart run ffigen_js --config ffigen_js.yaml
 ```
 
 The Web generator is currently sourced from the `akashskypatel/ffigen_js`
@@ -61,7 +61,7 @@ The runtime check is `window.crossOriginIsolated === true`. Without it, `SharedA
 
 ## Callback routing
 
-`CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. The synchronized Web bundles expose a mutable but fixed-size Wasm table with no usable callback capacity: the current bundles have only the reserved null slot available, and `WebAssembly.Table.grow()` fails. Because `ffigen_js.addFunction()` requires a free table slot, `WebFFmpegKitBackend` polls session state and pending logs/statistics, then dispatches the same shared callbacks. This is an intentional transport fallback, not a separate SDK behavior.
+`CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. The Web callback bridge creates generated `ffigen_js` function pointers, registers them with the C wrapper, and routes callback events directly to the same manager. Callback pointers remain owned until the C callback slots are disabled and the event-loop lifetime barrier has elapsed.
 
 ## Handles, finalizers, and memory
 
@@ -91,7 +91,7 @@ flutter build web --wasm --no-pub
 ## Known limitations and maintenance rules
 
 - Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.
-- Web completion, log, and statistics delivery currently uses polling because the synchronized bundles lack usable callback-table slots; callback-table registration must remain disabled until a bundle with reserved or growable slots and a validated pthread callback path is available.
+- Web completion, log, and statistics delivery uses generated callback pointers. The bridge requires a bundle with a usable Wasm function table and a browser deployment that supports the bundle's pthread configuration.
 - The hook’s Web asset staging follows the current Flutter data-asset behavior and contains a compatibility fallback for direct build output staging.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
 - Keep platform-specific imports below the platform directories and preserve the shared backend interfaces when extending the API.

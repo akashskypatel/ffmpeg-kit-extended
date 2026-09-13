@@ -4,20 +4,38 @@ import {
   discoverWasmTable,
 } from './ffmpegkit_callback_runtime.mjs';
 
-// The release bundles export the FFmpegKit C ABI, but intentionally keep most
-// Emscripten runtime helpers private. ffigen_js uses a small subset of those
-// helpers for pointer/string and callback marshalling, so provide the same
-// surface on the module object after it has been initialized.
+  // ffigen_js uses a small subset of Emscripten runtime helpers for
+  // pointer/string and callback marshalling. Some runtimes expose these
+  // helpers as read-only module properties, while others keep them private.
+  // Extend only the missing surface so both runtime shapes remain supported.
 function installFfigenRuntime(module, wasmMemory, wasmTable) {
   const heap = (View) => new View(wasmMemory.buffer);
 
-  Object.defineProperties(module, {
-    HEAPU8: { configurable: true, get: () => heap(Uint8Array) },
-    HEAPU32: { configurable: true, get: () => heap(Uint32Array) },
-    HEAPF32: { configurable: true, get: () => heap(Float32Array) },
+  const defineRuntime = (name, descriptor) => {
+    try {
+      Object.defineProperty(module, name, descriptor);
+    } catch (error) {
+      // A runtime may expose a non-configurable implementation. Keep it when
+      // it cannot be replaced; the generated binding can use the native
+      // implementation in that case.
+      if (!Object.prototype.hasOwnProperty.call(module, name)) throw error;
+    }
+  };
+
+  defineRuntime('HEAPU8', {
+    configurable: true,
+    get: () => heap(Uint8Array),
+  });
+  defineRuntime('HEAPU32', {
+    configurable: true,
+    get: () => heap(Uint32Array),
+  });
+  defineRuntime('HEAPF32', {
+    configurable: true,
+    get: () => heap(Float32Array),
   });
 
-  module.getValue = (address, type = 'i8') => {
+  defineRuntime('getValue', { configurable: true, value: (address, type = 'i8') => {
     switch (type.endsWith('*') ? '*' : type) {
       case 'i8': return heap(Int8Array)[address];
       case 'i16': return heap(Int16Array)[address >> 1];
@@ -31,16 +49,16 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
       case '*': return heap(Uint32Array)[address >> 2];
       default: throw new TypeError(`Unsupported getValue type: ${type}`);
     }
-  };
+  } });
 
-  module.getValueBigInt = (address, type) => {
+  defineRuntime('getValueBigInt', { configurable: true, value: (address, type) => {
     if (type !== 'i64') {
       throw new TypeError(`Unsupported getValueBigInt type: ${type}`);
     }
     return heap(BigInt64Array)[address >> 3];
-  };
+  } });
 
-  module.setValue = (address, value, type = 'i8') => {
+  defineRuntime('setValue', { configurable: true, value: (address, value, type = 'i8') => {
     switch (type.endsWith('*') ? '*' : type) {
       case 'i8': heap(Int8Array)[address] = Number(value); break;
       case 'i16': heap(Int16Array)[address >> 1] = Number(value); break;
@@ -51,26 +69,35 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
       case '*': heap(Uint32Array)[address >> 2] = Number(value); break;
       default: throw new TypeError(`Unsupported setValue type: ${type}`);
     }
-  };
+  } });
 
-  module.lengthBytesUTF8 = (value) => new TextEncoder().encode(value).length;
-  module.stringToUTF8 = (value, address, maxBytesToWrite) => {
+  defineRuntime('lengthBytesUTF8', {
+    configurable: true,
+    value: (value) => new TextEncoder().encode(value).length,
+  });
+  defineRuntime('stringToUTF8', { configurable: true, value: (value, address, maxBytesToWrite) => {
     const bytes = new TextEncoder().encode(value);
     const output = heap(Uint8Array);
     const length = Math.max(0, Math.min(bytes.length, maxBytesToWrite - 1));
     output.set(bytes.subarray(0, length), address);
     output[address + length] = 0;
     return length;
-  };
-  module.writeArrayToMemory = (array, address) => {
+  } });
+  defineRuntime('writeArrayToMemory', { configurable: true, value: (array, address) => {
     heap(Int8Array).set(array, address);
-  };
+  } });
 
   // Keep callback ownership local to this initialized module so slots can be
   // recycled only after the caller has unregistered the C callback.
   const callbackRegistry = createCallbackRegistry(wasmTable);
-  module.addFunction = callbackRegistry.addFunction;
-  module.removeFunction = callbackRegistry.removeFunction;
+  defineRuntime('addFunction', {
+    configurable: true,
+    value: callbackRegistry.addFunction,
+  });
+  defineRuntime('removeFunction', {
+    configurable: true,
+    value: callbackRegistry.removeFunction,
+  });
 }
 
 globalThis.ffmpegKitExtendedModulePromise ??= (() => {
@@ -83,6 +110,9 @@ globalThis.ffmpegKitExtendedModulePromise ??= (() => {
 
   const modulePromise = createFFmpegKit({
     wasmMemory,
+    // Web execution is non-interactive. Return EOF instead of allowing the
+    // Emscripten default to open a browser prompt when a command reads stdin.
+    stdin: () => null,
     locateFile: (file) => new URL(file, import.meta.url).href,
     instantiateWasm: (imports, receiveInstance) => {
       const wasmUrl = new URL('ffmpegkit.wasm', import.meta.url);

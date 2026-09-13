@@ -55,7 +55,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
 
-Flutter Web uses the same public API and shared session implementation as native platforms. The Web backend invokes the generated Wasm bindings and polls session state for completion, logs, and statistics. FFplay copies RGBA frames from Wasm memory into Flutter images; it does not use a native SDL window or texture.
+Flutter Web uses the same public API and shared session implementation as native platforms. The Web backend invokes the generated Wasm bindings and routes completion, log, and statistics callbacks through the generated callback bridge. FFplay copies RGBA frames from Wasm memory into Flutter images; it does not use a native SDL window or texture.
 
 ## 🎬 Demo
 
@@ -94,7 +94,7 @@ Flutter Web uses the same public API and shared session implementation as native
      # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-   **Note**: Native libraries and the WebAssembly bundle are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds use the `wasm` or `web` config override when supplied; otherwise the hook selects the matching `v0.11.1-wasm` release archive. No manual configuration script is required.
+   **Note**: Native libraries and the WebAssembly bundle are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds use the `wasm` or `web` config override when supplied; otherwise the hook selects the bundle matching the pinned library release. No manual configuration script is required.
 
 **Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
 

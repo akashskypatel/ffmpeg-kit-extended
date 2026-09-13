@@ -2,10 +2,9 @@ import '../backend.dart';
 
 /// Dispatches newly appended statistics snapshots exactly once.
 ///
-/// Web execution reads statistics from the Wasm session buffer because the
-/// published bundle cannot install native callback function pointers. Keeping
-/// the cursor in this helper lets synchronous execution and the asynchronous
-/// poller share the same drain semantics.
+/// Synchronous Web execution drains statistics from the Wasm session buffer
+/// after the native call returns. Asynchronous execution receives statistics
+/// through the generated callback bridge and does not use this helper.
 int dispatchStatisticsSnapshots({
   required int statisticsProcessed,
   required int count,
