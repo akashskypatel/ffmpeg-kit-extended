@@ -14,7 +14,7 @@ jobs:
   snapshot:
     uses: ./.github/workflows/repo-source-snapshot.yml
     with:
-      source_ref: 410599c877190e6cc96d65fc75d9a7a357660ad8
+      source_ref: b861325f921ad424dc24790872997257cf8f7015
       artifact_prefix: dev-wasm-source-snapshot
       retention_days: 7
       include_submodules: true
