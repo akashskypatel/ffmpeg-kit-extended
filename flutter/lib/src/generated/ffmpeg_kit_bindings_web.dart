@@ -48,8 +48,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// completed
   /// @param user_data the user data to be passed to the callback
   /// @return the FFmpeg session handle
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external FFmpegSessionHandle _ffmpeg_kit_execute_async(
     Pointer<Char> command,
     FFmpegKitCompleteCallback complete_cb,
@@ -66,8 +66,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param user_data the user data to be passed to the callback
   /// @param waitTimeout the timeout in milliseconds
   /// @return the FFmpeg session handle
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external FFmpegSessionHandle _ffmpeg_kit_execute_async_full(
     Pointer<Char> command,
     FFmpegKitCompleteCallback complete_cb,
@@ -228,8 +228,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// completed
   /// @param user_data the user data to be passed to the callback
   /// @return the FFprobe session handle
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external FFprobeSessionHandle _ffprobe_kit_execute_async(
     Pointer<Char> command,
     FFprobeKitCompleteCallback complete_cb,
@@ -361,8 +361,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// session is completed
   /// @param user_data the user data to be passed to the callback
   /// @return the media information session handle
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external MediaInformationSessionHandle
   _ffprobe_kit_get_media_information_async(
     Pointer<Char> path,
@@ -388,8 +388,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param user_data the user data to be passed to the callback
   /// @param waitTimeout the timeout in milliseconds
   /// @return the FFplay session handle
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external FFplaySessionHandle _ffplay_kit_execute_async(
     Pointer<Char> command,
     FFplayKitCompleteCallback complete_cb,
@@ -1384,8 +1384,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param log_cb the log callback
   /// @param user_data the user data
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_log_callback(
     FFmpegKitGlobalLogCallback log_cb,
     Pointer<Void> user_data,
@@ -1404,8 +1404,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the FFmpeg session complete callback
   /// @param user_data the user data
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
     FFmpegKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
@@ -1415,8 +1415,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the FFprobe session complete callback
   /// @param user_data the user data
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
     FFprobeKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
@@ -1426,8 +1426,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the FFplay session complete callback
   /// @param user_data the user data
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_ffplay_session_complete_callback(
     FFplayKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
@@ -1437,8 +1437,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the media information session complete callback
   /// @param user_data the user data
-  /// @note The user data is owned by the callback and should be freed by the
-  /// callback owner including the handle.
+  /// @note The caller owns the user data and must keep it valid until callback
+  /// delivery completes. The callback does not transfer ownership.
   external void
   _ffmpeg_kit_config_enable_media_information_session_complete_callback(
     MediaInformationSessionGlobalCompleteCallback complete_cb,
@@ -1882,8 +1882,8 @@ DartFFmpegSessionHandle ffmpeg_kit_execute(Pointer<Char> command) {
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFmpeg session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 DartFFmpegSessionHandle ffmpeg_kit_execute_async(
   Pointer<Char> command,
   DartFFmpegKitCompleteCallback complete_cb,
@@ -1907,8 +1907,8 @@ DartFFmpegSessionHandle ffmpeg_kit_execute_async(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFmpeg session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 DartFFmpegSessionHandle ffmpeg_kit_execute_async_full(
   Pointer<Char> command,
   DartFFmpegKitCompleteCallback complete_cb,
@@ -2176,8 +2176,8 @@ DartFFprobeSessionHandle ffprobe_kit_execute(Pointer<Char> command) {
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFprobe session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 DartFFprobeSessionHandle ffprobe_kit_execute_async(
   Pointer<Char> command,
   DartFFprobeKitCompleteCallback complete_cb,
@@ -2391,8 +2391,8 @@ DartMediaInformationSessionHandle ffprobe_kit_get_media_information(
 /// session is completed
 /// @param user_data the user data to be passed to the callback
 /// @return the media information session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 DartMediaInformationSessionHandle ffprobe_kit_get_media_information_async(
   Pointer<Char> path,
   DartMediaInformationSessionCompleteCallback complete_cb,
@@ -2434,8 +2434,8 @@ DartFFplaySessionHandle ffplay_kit_execute(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFplay session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 DartFFplaySessionHandle ffplay_kit_execute_async(
   Pointer<Char> command,
   DartFFplayKitCompleteCallback complete_cb,
@@ -4065,8 +4065,8 @@ void ffmpeg_kit_clear_sessions() {
 ///
 /// @param log_cb the log callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_log_callback(
   DartFFmpegKitGlobalLogCallback log_cb,
   Pointer<Void> user_data,
@@ -4102,8 +4102,8 @@ void ffmpeg_kit_config_enable_statistics_callback(
 ///
 /// @param complete_cb the FFmpeg session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
   DartFFmpegKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -4121,8 +4121,8 @@ void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
 ///
 /// @param complete_cb the FFprobe session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
   DartFFprobeKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -4142,8 +4142,8 @@ void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 ///
 /// @param complete_cb the FFplay session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
   DartFFplayKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -4161,8 +4161,8 @@ void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
 ///
 /// @param complete_cb the media information session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_media_information_session_complete_callback(
   DartMediaInformationSessionGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,

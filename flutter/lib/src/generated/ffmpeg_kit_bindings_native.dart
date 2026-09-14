@@ -160,8 +160,8 @@ external void ffmpeg_kit_config_enable_debug_log(ffi.Pointer<ffi.Void> session);
 ///
 /// @param complete_cb the FFmpeg session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFmpegKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -174,8 +174,8 @@ external void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
 ///
 /// @param complete_cb the FFplay session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFplayKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -188,8 +188,8 @@ external void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
 ///
 /// @param complete_cb the FFprobe session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFprobeKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -202,8 +202,8 @@ external void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 ///
 /// @param log_cb the log callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFmpegKitGlobalLogCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -216,8 +216,8 @@ external void ffmpeg_kit_config_enable_log_callback(
 ///
 /// @param complete_cb the media information session complete callback
 /// @param user_data the user data
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(
     MediaInformationSessionGlobalCompleteCallback,
@@ -527,8 +527,8 @@ external FFmpegSessionHandle ffmpeg_kit_execute(ffi.Pointer<ffi.Char> command);
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFmpeg session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   FFmpegSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -552,8 +552,8 @@ external FFmpegSessionHandle ffmpeg_kit_execute_async(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFmpeg session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   FFmpegSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -1238,8 +1238,8 @@ external FFplaySessionHandle ffplay_kit_execute(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFplay session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   FFplaySessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -1675,8 +1675,8 @@ external FFprobeSessionHandle ffprobe_kit_execute(
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFprobe session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   FFprobeSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -1718,8 +1718,8 @@ external MediaInformationSessionHandle ffprobe_kit_get_media_information(
 /// session is completed
 /// @param user_data the user data to be passed to the callback
 /// @return the media information session handle
-/// @note The user data is owned by the callback and should be freed by the
-/// callback owner including the handle.
+/// @note The caller owns the user data and must keep it valid until callback
+/// delivery completes. The callback does not transfer ownership.
 @ffi.Native<
   MediaInformationSessionHandle Function(
     ffi.Pointer<ffi.Char>,

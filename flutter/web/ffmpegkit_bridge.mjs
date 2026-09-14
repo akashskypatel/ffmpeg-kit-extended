@@ -3,6 +3,7 @@ import {
   createCallbackRegistry,
   discoverWasmTable,
 } from './ffmpegkit_callback_runtime.mjs';
+import {fetchAndCompileWasm} from './ffmpegkit_loader.mjs';
 
   // ffigen_js uses a small subset of Emscripten runtime helpers for
   // pointer/string and callback marshalling. Some runtimes expose these
@@ -100,40 +101,35 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
   });
 }
 
-globalThis.ffmpegKitExtendedModulePromise ??= (() => {
+async function loadFFmpegKitModule() {
   const wasmMemory = new WebAssembly.Memory({
     initial: 1024,
     maximum: 32768,
     shared: true,
   });
+  const wasmUrl = new URL('ffmpegkit.wasm', import.meta.url);
+  const wasmModule = await fetchAndCompileWasm(wasmUrl);
   let wasmTable;
 
-  const modulePromise = createFFmpegKit({
+  const module = await createFFmpegKit({
     wasmMemory,
     // Web execution is non-interactive. Return EOF instead of allowing the
     // Emscripten default to open a browser prompt when a command reads stdin.
     stdin: () => null,
     locateFile: (file) => new URL(file, import.meta.url).href,
     instantiateWasm: (imports, receiveInstance) => {
-      const wasmUrl = new URL('ffmpegkit.wasm', import.meta.url);
-      fetch(wasmUrl, { credentials: 'same-origin' })
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error(`${response.status}: ${response.url}`);
-          }
-          return response.arrayBuffer();
-        })
-        .then((bytes) => WebAssembly.instantiate(bytes, imports))
-        .then(({ instance, module }) => {
-          wasmTable = discoverWasmTable(instance.exports);
-          receiveInstance(instance, module);
-        });
-      return {};
+      const instance = new WebAssembly.Instance(wasmModule, imports);
+      wasmTable = discoverWasmTable(instance.exports);
+      receiveInstance(instance, wasmModule);
+      return instance.exports;
     },
   });
 
-  return modulePromise.then((module) => {
-    installFfigenRuntime(module, wasmMemory, wasmTable);
-    return module;
-  });
-})();
+  if (!wasmTable) {
+    throw new Error('Emscripten did not expose the Wasm callback table.');
+  }
+  installFfigenRuntime(module, wasmMemory, wasmTable);
+  return module;
+}
+
+globalThis.ffmpegKitExtendedModulePromise ??= loadFFmpegKitModule();

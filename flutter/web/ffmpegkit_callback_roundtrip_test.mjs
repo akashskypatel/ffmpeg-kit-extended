@@ -1,12 +1,37 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import process from 'node:process';
+import {Worker as NodeWorker} from 'node:worker_threads';
 import {pathToFileURL} from 'node:url';
 
 import {
   createCallbackRegistry,
   discoverWasmTable,
 } from './ffmpegkit_callback_runtime.mjs';
+
+const nodeWorkerShim = new URL(
+  './ffmpegkit_node_worker_shim.mjs',
+  import.meta.url,
+).pathname;
+class BrowserWorker {
+  constructor(url, options = {}) {
+    this.worker = new NodeWorker(url, {
+      ...options,
+      execArgv: [...process.execArgv, '--import', nodeWorkerShim],
+    });
+    this.worker.on('message', (data) => this.onmessage?.({data}));
+    this.worker.on('error', (error) => this.onerror?.(error));
+  }
+
+  postMessage(value, transferList) {
+    this.worker.postMessage(value, transferList);
+  }
+
+  terminate() {
+    return this.worker.terminate();
+  }
+}
+globalThis.Worker ??= BrowserWorker;
 
 const artifactPath = process.argv[2];
 const loaderPath = process.argv[3];
@@ -133,33 +158,63 @@ assert.deepEqual(events, [
 
 events.length = 0;
 wasmExport('ffmpeg_kit_initialize')();
-const commandAddress = writeString(
-  '-loglevel info -f lavfi -i testsrc=duration=1:size=16x16:rate=5 -f null -',
-);
-const session = wasmExport('ffmpeg_kit_create_session')(commandAddress);
-wasmExport('free')(commandAddress);
-assert(session, 'FFmpegKit did not create the real async session');
-const expectedSessionId = BigInt(
-  wasmExport('ffmpeg_kit_session_get_session_id')(session),
-);
-wasmExport('ffmpeg_kit_session_execute_async')(session);
+const sessions = [];
+const expectedSessionIds = new Set();
+for (let index = 0; index < 4; index += 1) {
+  const commandAddress = writeString(
+    '-loglevel info -nostdin -f lavfi -i '
+      + 'testsrc=duration=1:size=16x16:rate=10 -f null -',
+  );
+  const session = wasmExport('ffmpeg_kit_create_session')(commandAddress);
+  wasmExport('free')(commandAddress);
+  assert(session, 'FFmpegKit did not create the real async session');
+  sessions.push(session);
+  expectedSessionIds.add(BigInt(
+    wasmExport('ffmpeg_kit_session_get_session_id')(session),
+  ));
+}
+for (const session of sessions) {
+  wasmExport('ffmpeg_kit_session_execute_async')(session);
+}
 
 const deadline = Date.now() + 15000;
-while (!events.some(([kind]) => kind === 'completion') && Date.now() < deadline) {
+while (new Set(
+  events.filter(([kind]) => kind === 'completion').map((event) => event[1]),
+).size < sessions.length && Date.now() < deadline) {
   wasmExport('ffmpeg_kit_test_process_wasm_callback_queue')();
   await new Promise((resolve) => setTimeout(resolve, 1));
 }
 wasmExport('ffmpeg_kit_test_process_wasm_callback_queue')();
-wasmExport('ffmpeg_kit_handle_release')(session);
+for (const session of sessions) {
+  wasmExport('ffmpeg_kit_handle_release')(session);
+}
 
 const realLogs = events.filter(([kind]) => kind === 'log');
 const realStatistics = events.filter(([kind]) => kind === 'statistics');
 const realCompletions = events.filter(([kind]) => kind === 'completion');
-assert.equal(realCompletions.length, 1, 'real session did not complete exactly once');
-assert(realLogs.length > 0, 'real session did not deliver a log callback');
-assert(realStatistics.length > 0, 'real session did not deliver a statistics callback');
+assert.equal(
+  realCompletions.length,
+  sessions.length,
+  'real sessions did not complete exactly once',
+);
+assert(realLogs.length > 0, 'real sessions did not deliver log callbacks');
+assert(realStatistics.length > 0, 'real sessions did not deliver statistics callbacks');
 for (const event of events) {
-  assert.equal(event[1], expectedSessionId, `callback used the wrong session ID: ${event[1]}`);
+  assert(expectedSessionIds.has(event[1]), `callback used the wrong session ID: ${event[1]}`);
+}
+for (const sessionId of expectedSessionIds) {
+  const sessionEvents = events.filter((event) => event[1] === sessionId);
+  assert(sessionEvents.some(([kind]) => kind === 'log'));
+  assert(sessionEvents.some(([kind]) => kind === 'statistics'));
+  assert.equal(
+    sessionEvents.filter(([kind]) => kind === 'completion').length,
+    1,
+  );
+  assert.equal(
+    sessionEvents.at(-1)[0],
+    'completion',
+    `completion was not last for session ${sessionId}`,
+  );
 }
 
 wasmExport('ffmpeg_kit_config_enable_log_callback')(0, 0);
@@ -172,6 +227,7 @@ assert.equal(registry.ownedCount, 0);
 
 console.log(JSON.stringify({
   sessionId: sessionId.toString(),
+  realSessionCount: sessions.length,
   callbacks: events.map(([kind]) => kind),
   realLogCount: realLogs.length,
   realStatisticsCount: realStatistics.length,
@@ -179,3 +235,4 @@ console.log(JSON.stringify({
   userData,
   status: 'PASS',
 }));
+process.exit(0);

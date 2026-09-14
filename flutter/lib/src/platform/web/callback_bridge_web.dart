@@ -162,10 +162,12 @@ final class WebCallbackBridge {
     }
   }
 
-  /// Disables every native callback before releasing its Wasm table slots.
+  /// Disables new native callback registrations.
   ///
-  /// The event-loop turn after the C-side disable is the lifetime barrier for
-  /// callbacks already executing on the browser main runtime thread.
+  /// Callback table slots are intentionally retained for the lifetime of the
+  /// loaded Wasm module. Disabling the C registrations does not drain events
+  /// already accepted by the native callback queue, so removing the slots here
+  /// would permit a queued event to call a recycled function-table entry.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
@@ -195,13 +197,6 @@ final class WebCallbackBridge {
           nullCallback.cast(),
           nullCallback,
         );
-    await Future<void>.delayed(Duration.zero);
-    _ffmpegComplete?.dispose();
-    _ffprobeComplete?.dispose();
-    _log?.dispose();
-    _statistics?.dispose();
-    _ffplayComplete?.dispose();
-    _mediaInformationComplete?.dispose();
   }
 
   // Compatibility values for the legacy Web API. The shared backend above
