@@ -690,11 +690,14 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// On non-Android platforms this is a no-op.
   external void _ffplay_kit_clear_android_surface();
 
-  /// Registers a global frame-ready callback for desktop video output
+  /// Registers a global frame-ready callback for native desktop video output
   /// (Linux/Windows).
   ///
+  /// This function is a no-op on WebAssembly. Use
+  /// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
   /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
-  /// On Android this is a no-op; video output is delivered to the ANativeWindow.
+  /// On Android this is also a no-op; video output is delivered to the
+  /// ANativeWindow.
   ///
   /// Dart FFI usage:
   /// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback),
@@ -708,9 +711,9 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> userdata,
   );
 
-  /// Clears the global frame callback, stopping desktop pixel delivery.
+  /// Clears the global native-desktop frame callback.
   /// Equivalent to ffplay_kit_register_frame_callback(NULL, NULL).
-  /// On Android this is a no-op.
+  /// On WebAssembly and Android this is a no-op.
   external void _ffplay_kit_unregister_frame_callback();
 
   /// Returns the byte size required for the latest composed RGBA frame.
@@ -2930,11 +2933,14 @@ void ffplay_kit_clear_android_surface() {
   return result;
 }
 
-/// Registers a global frame-ready callback for desktop video output
+/// Registers a global frame-ready callback for native desktop video output
 /// (Linux/Windows).
 ///
+/// This function is a no-op on WebAssembly. Use
+/// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
 /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
-/// On Android this is a no-op; video output is delivered to the ANativeWindow.
+/// On Android this is also a no-op; video output is delivered to the
+/// ANativeWindow.
 ///
 /// Dart FFI usage:
 /// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback),
@@ -2954,9 +2960,9 @@ void ffplay_kit_register_frame_callback(
   return result;
 }
 
-/// Clears the global frame callback, stopping desktop pixel delivery.
+/// Clears the global native-desktop frame callback.
 /// Equivalent to ffplay_kit_register_frame_callback(NULL, NULL).
-/// On Android this is a no-op.
+/// On WebAssembly and Android this is a no-op.
 void ffplay_kit_unregister_frame_callback() {
   final result = GeneratedBindings.instance
       ._ffplay_kit_unregister_frame_callback();
@@ -5045,7 +5051,10 @@ typedef FFplayKitCompleteCallbackFunction =
 typedef DartFFplayKitCompleteCallbackFunction =
     void Function(DartFFplaySessionHandle session, Pointer<Void> user_data);
 
-/// Frame-ready callback type for native desktop and WebAssembly video output.
+/// Frame-ready callback type for native desktop video output.
+///
+/// Unsupported on WebAssembly. WebAssembly callers must use the pull frame
+/// API instead.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible

@@ -1309,7 +1309,7 @@ external bool ffplay_kit_is_playing();
 @ffi.Native<ffi.Void Function()>()
 external void ffplay_kit_pause();
 
-/// Registers a global frame-ready callback for desktop video output
+/// Registers a global frame-ready callback for native desktop video output
 /// (Linux/Windows).
 ///
 /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
@@ -2601,7 +2601,7 @@ typedef FFplayKitCompleteCallbackFunction =
 typedef DartFFplayKitCompleteCallbackFunction =
     void Function(FFplaySessionHandle session, ffi.Pointer<ffi.Void> user_data);
 
-/// Frame-ready callback type for native desktop and WebAssembly video output.
+/// Frame-ready callback type for native desktop video output.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible

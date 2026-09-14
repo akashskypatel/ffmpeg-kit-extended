@@ -96,9 +96,8 @@ jobs:
 
       - name: Run pthread callback and C/C++ Wasm tests
         run: |
-          node "$FFMPEG_KIT_BUILD/tests/ffmpegkit_wasm_callback_tests.js"
           ctest --test-dir "$FFMPEG_KIT_BUILD" --output-on-failure \
-            -R '^(ffmpegkit_wasm_callback_tests|ffmpegkit_wasm_table_growth)$'
+            -R '^(ffmpegkit_wasm_(authority|callback_lock|pthread_failure|wrapper_state|session_id|session_completion|log_statistics|dispatcher|ffplay_frame)_tests|ffmpegkit_wasm_table_growth)$'
 
       - name: Inspect Wasm artifact and table support
         env:
