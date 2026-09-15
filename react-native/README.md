@@ -8,19 +8,19 @@
 
 # React Native FFmpegKit Extended bindings
 
-This package provides React Native bindings for ffmpeg-kit-extended: a comprehensive React Native plugin for executing FFmpeg, FFprobe, and FFplay 9.0.1 API commands on Android, iOS, macOS, tvOS, and Windows.
+This package provides React Native bindings for ffmpeg-kit-extended: a comprehensive React Native plugin for executing FFmpeg, FFprobe, and FFplay 9.0.1 API commands on Android, iOS, macOS, tvOS, Windows, and React Native Web.
 
 ## Requirements
 
 - React Native 0.81.6 or later
 - React Native New Architecture must be enabled
+- React Native Web requires `react-native-web`, `react-dom`, and a pthread-capable Wasm runtime.
 
-FFmpegKit Extended is implemented as a Turbo Native Module and does not support
-React Native's legacy Native Module architecture.
+Native targets use a Turbo Native Module and require React Native's New Architecture. The Web target uses the same TypeScript API over the staged Wasm runtime.
 
 ## Features
 
-- **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `tvOS`, and `Windows`.
+- **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `tvOS`, `Windows`, and React Native Web.
   - **Android**: Full video playback support with native surface rendering.
     - **x86**: `x86` architecture is not supported due to its legacy status.
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
@@ -45,6 +45,7 @@ React Native's legacy Native Module architecture.
 | macOS                    | ✅ Supported | arm64, x86_64        | macOS 13+            |
 | Apple tvOS               | ✅ Supported | arm64                | tvOS 13+             |
 | Windows                  | ✅ Supported | x86_64               | Windows 8+           |
+| React Native Web         | ✅ Supported | wasm32               | Cross-origin isolated browser |
 
 ## Feature Matrix
 
@@ -145,6 +146,35 @@ A platform-specific remote URL or local path overrides the pre-built bundle sele
 }
 ```
 
+Web uses the same configuration file with either a `web` or `wasm` override. The override may point to a staged runtime directory containing `ffmpegkit.mjs` and `ffmpegkit.wasm`, or to a Wasm bundle ZIP:
+
+```json
+{
+  "type": "base",
+  "gpl": false,
+  "small": true,
+  "web": "./vendor/ffmpegkit-wasm"
+}
+```
+
+Stage the browser runtime during the application build:
+
+```bash
+npm install ffmpeg-kit-extended react-native-web react-dom
+npx ffmpeg-kit-extended prepare-web --app-root .
+```
+
+The command writes `public/ffmpeg-kit-extended/wasm/` and verifies configured release artifacts before extraction. It never downloads Wasm at browser runtime. Custom builds can be staged from a local directory through the `web`/`wasm` override.
+
+The Wasm bundle is pthread-enabled. The Web server must send these headers for the page and runtime assets:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+For Vite, resolve `react-native` to `react-native-web` and use the package's Web entry in the browser build. The example application contains a complete configuration under `example/web/`.
+
 ## Execution model
 
 React Native command execution is asynchronous. `execute()` and `executeAsync()` both return a `Promise` that resolves when the session finishes.
@@ -158,7 +188,7 @@ import {
   ReturnCode,
 } from 'ffmpeg-kit-extended';
 
-FFmpegKitExtended.initialize();
+await FFmpegKitExtended.initialize();
 
 const session = await FFmpegKit.executeAsync(
   '-i input.mp4 -c:v libx264 output.mp4',
@@ -183,7 +213,7 @@ console.log(media?.format);
 console.log(media?.streams);
 ```
 
-FFplay video and audio playback are supported on Android, iOS, Apple tvOS, macOS, and Windows. Mount `FFplayView` before starting video playback so the platform-native rendering surface is ready. Audio-only playback does not require a video surface.
+FFplay video and audio playback are supported on Android, iOS, Apple tvOS, macOS, Windows, and Web. Mount `FFplayView` before starting video playback so the platform rendering surface is ready. On Web, `FFplayView` is a canvas that receives copied RGBA frames. Audio-only playback does not require a video surface.
 
 ```tsx
 import {FFplayKit, FFplayView} from 'ffmpeg-kit-extended';
@@ -225,6 +255,15 @@ Global native callback registration is also not exposed because per-session call
 The React Native example under `example/` contains Android, iOS, Apple tvOS, macOS, and Windows host projects. It demos the following workflows: FFmpeg generation/custom commands, remote recording and cancellation, FFprobe media information, FFplay controls, transcoding statistics, log-level controls, build introspection, file picking, and an on-screen log console.
 
 The unified React Native example contains Android, iOS, Apple tvOS, macOS, and Windows native hosts under `example/`. Apple tvOS uses an isolated `react-native-tvos` runtime, and macOS uses the React Native macOS toolchain to exercise the same C++ TurboModule and the native `FFplayView` implementation with FFmpeg/FFprobe execution, generated video/audio playback, pause/resume/stop/seek/volume controls, aspect-ratio-preserving video output, and a resizable log pane.
+
+The example also has a React Native Web target. From `react-native/example`, configure a local or released Wasm runtime, stage it, and run the Vite app:
+
+```sh
+npm run prepare-web
+npm run web
+```
+
+The Web example uses COOP/COEP headers, initializes the same public API, executes FFmpeg and FFprobe, and mounts the canvas-backed `FFplayView`.
 
 The repository scripts prepare the matching native binary, native dependencies, and host application. Codegen is not pre-generated or shipped by this package: each consuming React Native app generates the required artifacts with its own platform toolchain during the native build.
 

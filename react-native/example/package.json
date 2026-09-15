@@ -11,6 +11,9 @@
     "macos": "react-native run-macos --mode Debug",
     "appletvos": "../launch.sh appletvos",
     "windows": "bash ../launch.sh windows",
+    "prepare-web": "node ../scripts/prepare-web.js --app-root .",
+    "web": "vite --config web/vite.config.js",
+    "web:build": "vite build --config web/vite.config.js",
     "build:android": "bash ../build.sh android",
     "build:ios": "bash ../build.sh ios",
     "build:appletvos": "bash ../build.sh appletvos",
@@ -24,7 +27,9 @@
     "react-native": "0.81.6",
     "react-native-file-access": "^4.0.3",
     "react-native-macos": "0.81.9",
-    "react-native-windows": "0.81.32"
+    "react-native-windows": "0.81.32",
+    "react-dom": "19.2.3",
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -44,7 +49,9 @@
     "jest": "^29.6.3",
     "prettier": "2.8.8",
     "react-test-renderer": "19.2.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.7"
   },
   "engines": {
     "node": ">= 22.11.0"

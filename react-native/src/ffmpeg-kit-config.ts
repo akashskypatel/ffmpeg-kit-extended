@@ -1,7 +1,9 @@
-import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {getBackend} from './platform/backend';
 import {argumentsToString, parseArguments} from './arguments';
 import {LogLevel, SessionState, Signal} from './types';
 import {SessionQueueManager} from './session-queue-manager';
+
+const NativeFFmpegKitExtended = getBackend();
 
 /**
  * Global FFmpegKit runtime configuration and utility methods.

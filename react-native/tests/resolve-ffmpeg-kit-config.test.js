@@ -112,6 +112,32 @@ test('resolves all primary platform artifact naming schemes', () => {
   );
 });
 
+test('resolves the pinned WebAssembly bundle convention', () => {
+  const {nested} = createApp({type: 'base', gpl: false, small: true});
+  const result = resolveConfig({appRoot: nested, platform: 'web'});
+
+  assert.equal(result.platform, 'web');
+  assert.equal(result.architecture, 'wasm32');
+  assert.equal(result.filename, 'bundle-base-wasm-wasm32-static-small-lgpl.zip');
+  assert.equal(
+    result.url,
+    `https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download/v${BINARY_VERSION}-wasm/${result.filename}`,
+  );
+  assert.equal(result.checksum.assetName, result.filename);
+});
+
+test('supports separate web and wasm local overrides', () => {
+  const {nested} = createApp({wasm: './vendor/runtime.zip'});
+  const result = resolveConfig({appRoot: nested, platform: 'web'});
+
+  assert.deepEqual(result.override, {
+    kind: 'local',
+    value: './vendor/runtime.zip',
+    resolvedPath: path.join(path.dirname(path.dirname(nested)), 'vendor', 'runtime.zip'),
+  });
+  assert.equal(result.filename, 'runtime.zip');
+});
+
 test('maps the legacy streaming type alias to video', () => {
   const {nested} = createApp({type: 'streaming'});
   const result = resolveConfig({appRoot: nested, platform: 'android'});

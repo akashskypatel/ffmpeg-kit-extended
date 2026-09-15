@@ -1,4 +1,4 @@
-import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {getBackend} from './platform/backend';
 import type {
   ExecuteOptions,
   FFmpegExecuteOptions,
@@ -10,6 +10,8 @@ import type {
 import {SessionState} from './types';
 import {MediaInformation, type MediaInformationData} from './media-information';
 import {SessionQueueManager} from './session-queue-manager';
+
+const NativeFFmpegKitExtended = getBackend();
 
 const DEFAULT_POLL_INTERVAL_MS = 50;
 

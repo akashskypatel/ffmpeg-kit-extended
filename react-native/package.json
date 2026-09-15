@@ -5,9 +5,13 @@
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "react-native": "./src/index.ts",
+  "bin": {
+    "ffmpeg-kit-extended": "./scripts/ffmpeg-kit-extended.js"
+  },
   "exports": {
     ".": {
       "react-native": "./src/index.ts",
+      "browser": "./src/index.web.ts",
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
@@ -15,6 +19,7 @@
   },
   "files": [
     "src",
+    "web",
     "lib",
     "android",
     "ios",
@@ -29,6 +34,8 @@
   "scripts": {
     "clean": "del-cli android/build ios/build lib",
     "prepare": "bob build",
+    "prepare-web": "node scripts/prepare-web.js",
+    "test:web": "node scripts/web-smoke.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts tests react-native.config.js .eslintrc.js",
     "test:compile": "del-cli .test-dist && tsc -p tsconfig.test.json",
@@ -72,6 +79,7 @@
     "react": "19.2.3",
     "react-native": "^0.81.6",
     "react-native-builder-bob": "^0.41.0",
+    "playwright": "^1.55.0",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {

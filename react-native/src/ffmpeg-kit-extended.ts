@@ -1,4 +1,7 @@
-import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {
+  getBackend,
+  type FFmpegKitInitializeOptions,
+} from './platform/backend';
 import {
   FFmpegSession,
   FFplaySession,
@@ -11,6 +14,8 @@ import {
 import {SessionQueueManager} from './session-queue-manager';
 import {LogLevel, Signal} from './types';
 
+const NativeFFmpegKitExtended = getBackend();
+
 /**
  * Central lifecycle, session-history, build-introspection, and native utility
  * facade.
@@ -22,15 +27,18 @@ import {LogLevel, Signal} from './types';
  */
 export class FFmpegKitExtended {
   private static initializedValue = false;
+  private static initialization?: Promise<void>;
 
   /**
    * Loads and initializes the configured native FFmpegKit bundle.
    * Repeated calls are ignored after successful JavaScript initialization.
    */
-  static initialize(): void {
-    if (this.initializedValue) return;
-    NativeFFmpegKitExtended.initialize();
-    this.initializedValue = true;
+  static initialize(options?: FFmpegKitInitializeOptions): Promise<void> {
+    if (this.initializedValue) return Promise.resolve();
+    this.initialization ??= NativeFFmpegKitExtended.initialize(options).then(() => {
+      this.initializedValue = true;
+    });
+    return this.initialization;
   }
 
   /** Whether `initialize()` has completed in this JavaScript runtime. */

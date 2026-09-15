@@ -13,6 +13,8 @@
     "src/arguments.ts",
     "src/media-information.ts",
     "src/session-queue-manager.ts",
-    "src/types.ts"
+    "src/types.ts",
+    "src/platform/web/session-registry.ts",
+    "src/platform/backend.web.ts"
   ]
 }

@@ -7,7 +7,7 @@
  * ```ts
  * import {FFmpegKitExtended, FFmpegKit} from 'ffmpeg-kit-extended';
  *
- * FFmpegKitExtended.initialize();
+ * await FFmpegKitExtended.initialize();
  * const session = await FFmpegKit.executeAsync('-version');
  * ```
  *
@@ -27,4 +27,5 @@ export * from './media-information';
 export * from './session';
 export * from './session-queue-manager';
 export * from './types';
+export type {FFmpegKitInitializeOptions} from './platform/backend';
 export * from './ffplay-view';

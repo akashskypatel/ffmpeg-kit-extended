@@ -1,7 +1,9 @@
-import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {getBackend} from './platform/backend';
 import {argumentsToString} from './arguments';
 import {FFplaySession} from './session';
 import type {ExecuteOptions} from './types';
+
+const NativeFFmpegKitExtended = getBackend();
 
 /**
  * High-level FFplay API for native audio and video playback.

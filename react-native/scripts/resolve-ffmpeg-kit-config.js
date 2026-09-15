@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG_FILE_NAME = 'ffmpeg-kit-extended.config.json';
-const BINARY_VERSION = '0.11.1';
+const BINARY_VERSION = '0.11.2';
 const BASE_RELEASE_URL =
   'https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download';
 const RELEASE_API_URL =
@@ -25,6 +25,8 @@ const VALID_PLATFORMS = new Set([
   'macos',
   'windows',
   'linux',
+  'web',
+  'wasm',
 ]);
 const DEFAULT_CONFIG = Object.freeze({
   type: 'base',
@@ -126,7 +128,8 @@ function resolveConfig({ appRoot, platform, architecture }) {
   const gpl = config.gpl === true;
   const small = config.small === true;
   const license = gpl ? 'gpl' : 'lgpl';
-  const overrideValue = config[targetPlatform];
+  const overrideValue = config[targetPlatform] ??
+    (targetPlatform === 'web' ? config.wasm : targetPlatform === 'wasm' ? config.web : undefined);
 
   const result = {
     appRoot: loaded.appRoot,
@@ -218,6 +221,30 @@ function resolveConfig({ appRoot, platform, architecture }) {
     result.checksum = {
       method: 'github-release-digest',
       releaseApiUrl: `${RELEASE_API_URL}/v${BINARY_VERSION}-${targetPlatform}`,
+      assetName: result.filename,
+    };
+    return result;
+  }
+
+  if (targetPlatform === 'web' || targetPlatform === 'wasm') {
+    const webType = type === 'debug' ? 'base' : type;
+    const parts = ['bundle', webType, 'wasm', 'wasm32', 'static'];
+    if (type === 'debug') {
+      parts.push('debug');
+    } else if (small) {
+      parts.push('small');
+    }
+    parts.push(license);
+
+    result.platform = targetPlatform;
+    result.architecture = 'wasm32';
+    result.artifact = parts.join('-');
+    result.filename = `${result.artifact}.zip`;
+    result.url = `${BASE_RELEASE_URL}/v${BINARY_VERSION}-wasm/${result.filename}`;
+    result.cacheKey = createCacheKey(`official:${result.url}`);
+    result.checksum = {
+      method: 'github-release-digest',
+      releaseApiUrl: `${RELEASE_API_URL}/v${BINARY_VERSION}-wasm`,
       assetName: result.filename,
     };
     return result;

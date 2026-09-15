@@ -1,6 +1,8 @@
-import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {getBackend} from './platform/backend';
 import {FFprobeSession, MediaInformationSession} from './session';
 import type {ExecuteOptions} from './types';
+
+const NativeFFmpegKitExtended = getBackend();
 
 const MEDIA_INFO_COMMAND =
   '-v error -hide_banner -print_format json -show_format -show_streams -show_chapters -i';

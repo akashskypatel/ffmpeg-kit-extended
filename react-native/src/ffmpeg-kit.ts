@@ -1,7 +1,9 @@
-import NativeFFmpegKitExtended from './NativeFFmpegKitExtended';
+import {getBackend} from './platform/backend';
 import {argumentsToString} from './arguments';
 import {FFmpegSession} from './session';
 import type {FFmpegExecuteOptions} from './types';
+
+const NativeFFmpegKitExtended = getBackend();
 
 /**
  * High-level FFmpeg command API for transcoding, filtering, muxing, capture,
