@@ -97,6 +97,47 @@ Future<void> _buildWebDataAssets(
     );
   }
 
+  final webAssetDirs = [
+    Directory(
+      p.join(
+        configResult.baseDir,
+        'build',
+        'web',
+        'assets',
+        'packages',
+        packageName,
+        'wasm',
+      ),
+    ),
+    // Stable Flutter does not expose Dart data assets to `flutter run`.
+    // Keep the same files in the app's web tree so the debug web server can
+    // serve the package asset URL as well.
+    Directory(
+      p.join(
+        configResult.baseDir,
+        'web',
+        'assets',
+        'packages',
+        packageName,
+        'wasm',
+      ),
+    ),
+  ];
+  Future<void> stageWebAsset(File source, String name) async {
+    for (final webAssetDir in webAssetDirs) {
+      webAssetDir.createSync(recursive: true);
+      final destination = File(p.join(webAssetDir.path, name));
+      final destinationHash = destination.existsSync()
+          ? await _computeFileSha256(destination)
+          : null;
+      final sourceHash = await _computeFileSha256(source);
+      if (destinationHash != sourceHash) {
+        source.copySync(destination.path);
+      }
+    }
+    output.dependencies.add(source.uri);
+  }
+
   if (input.config.buildDataAssets) {
     for (final name in requiredRuntimeFiles) {
       final file = runtimeFilesByName[name]!;
@@ -109,32 +150,8 @@ Future<void> _buildWebDataAssets(
       );
     }
   } else {
-    // Dart data assets are master-channel-only in current stable Flutter.
-    // Stage directly in the web build output under the same package asset URL
-    // used by data assets. WebReleaseBundle adds its files to this directory
-    // after hooks complete without treating it as a project input.
-    final webAssetDir = Directory(
-      p.join(
-        configResult.baseDir,
-        'build',
-        'web',
-        'assets',
-        'packages',
-        packageName,
-        'wasm',
-      ),
-    )..createSync(recursive: true);
     for (final name in requiredRuntimeFiles) {
-      final source = runtimeFilesByName[name]!;
-      final destination = File(p.join(webAssetDir.path, name));
-      final destinationHash = destination.existsSync()
-          ? await _computeFileSha256(destination)
-          : null;
-      final sourceHash = await _computeFileSha256(source);
-      if (destinationHash != sourceHash) {
-        source.copySync(destination.path);
-      }
-      output.dependencies.add(source.uri);
+      await stageWebAsset(runtimeFilesByName[name]!, name);
     }
   }
   final bridgeSource = File(
@@ -151,11 +168,21 @@ Future<void> _buildWebDataAssets(
       'Missing web callback runtime: ${callbackRuntimeSource.path}',
     );
   }
-  final bridgeName = p.posix.join('wasm', 'ffmpegkit_bridge.mjs');
+  final loaderSource = File(
+    p.fromUri(input.packageRoot.resolve('web/ffmpegkit_loader.mjs')),
+  );
+  if (!loaderSource.existsSync()) {
+    throw _exception('Missing web Wasm loader: ${loaderSource.path}');
+  }
+  const bridgeFileName = 'ffmpegkit_bridge.mjs';
+  const callbackRuntimeFileName = 'ffmpegkit_callback_runtime.mjs';
+  const loaderFileName = 'ffmpegkit_loader.mjs';
+  final bridgeName = p.posix.join('wasm', bridgeFileName);
   final callbackRuntimeName = p.posix.join(
     'wasm',
-    'ffmpegkit_callback_runtime.mjs',
+    callbackRuntimeFileName,
   );
+  final loaderName = p.posix.join('wasm', loaderFileName);
   if (input.config.buildDataAssets) {
     output.assets.data.add(
       DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
@@ -167,55 +194,17 @@ Future<void> _buildWebDataAssets(
         file: callbackRuntimeSource.uri,
       ),
     );
+    output.assets.data.add(
+      DataAsset(package: packageName, name: loaderName, file: loaderSource.uri),
+    );
   } else {
-    final destination = File(
-      p.join(
-        configResult.baseDir,
-        'build',
-        'web',
-        'assets',
-        'packages',
-        packageName,
-        'wasm',
-        'ffmpegkit_bridge.mjs',
-      ),
-    );
-    destination.parent.createSync(recursive: true);
-    final bridgeUnchanged =
-        destination.existsSync() &&
-        destination.lengthSync() == bridgeSource.lengthSync() &&
-        await _computeFileSha256(destination) ==
-            await _computeFileSha256(bridgeSource);
-    if (!bridgeUnchanged) {
-      bridgeSource.copySync(destination.path);
-    }
-    output.dependencies.add(bridgeSource.uri);
-
-    final callbackRuntimeDestination = File(
-      p.join(
-        configResult.baseDir,
-        'build',
-        'web',
-        'assets',
-        'packages',
-        packageName,
-        callbackRuntimeName,
-      ),
-    );
-    callbackRuntimeDestination.parent.createSync(recursive: true);
-    final callbackRuntimeUnchanged =
-        callbackRuntimeDestination.existsSync() &&
-        callbackRuntimeDestination.lengthSync() ==
-            callbackRuntimeSource.lengthSync() &&
-        await _computeFileSha256(callbackRuntimeDestination) ==
-            await _computeFileSha256(callbackRuntimeSource);
-    if (!callbackRuntimeUnchanged) {
-      callbackRuntimeSource.copySync(callbackRuntimeDestination.path);
-    }
-    output.dependencies.add(callbackRuntimeSource.uri);
+    await stageWebAsset(bridgeSource, bridgeFileName);
+    await stageWebAsset(callbackRuntimeSource, callbackRuntimeFileName);
+    await stageWebAsset(loaderSource, loaderFileName);
   }
   _log(
-    'Staged ffmpegkit.mjs, ffmpegkit.wasm, bridge, and callback runtime for '
+    'Staged ffmpegkit.mjs, ffmpegkit.wasm, loader, bridge, and callback runtime '
+    'for '
     '$packageName at assets/packages/$packageName/wasm/',
   );
 }

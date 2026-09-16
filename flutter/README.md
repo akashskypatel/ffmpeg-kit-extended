@@ -118,6 +118,13 @@ Flutter Web uses the same public API and shared session implementation as native
 
 ### Web build and deployment
 
+For local Web Wasm development, use Flutter's cross-origin isolation option so
+pthread-enabled Wasm can transfer shared memory to its workers:
+
+```bash
+flutter run -d web-server --cross-origin-isolation
+```
+
 Build Flutter Web with Wasm:
 
 ```bash
@@ -126,7 +133,7 @@ flutter build web --wasm
 ```
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The build hook downloads and verifies the configured `wasm32` bundle, then stages `ffmpegkit.mjs` and `ffmpegkit.wasm` as Web assets. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
+The build hook downloads and verifies the configured `wasm32` bundle, then stages the Wasm runtime, loader, callback bridge, and support modules as Web assets. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin

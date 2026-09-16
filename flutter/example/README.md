@@ -24,6 +24,13 @@ flutter pub get
 flutter run
 ```
 
+For Web Wasm development, enable cross-origin isolation on Flutter's local
+server:
+
+```bash
+flutter run -d web-server --cross-origin-isolation
+```
+
 ### Web Wasm deployment
 
 Build the example for WebAssembly with:

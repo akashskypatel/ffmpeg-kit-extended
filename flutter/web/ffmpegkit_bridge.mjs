@@ -118,10 +118,18 @@ async function loadFFmpegKitModule() {
     stdin: () => null,
     locateFile: (file) => new URL(file, import.meta.url).href,
     instantiateWasm: (imports, receiveInstance) => {
-      const instance = new WebAssembly.Instance(wasmModule, imports);
-      wasmTable = discoverWasmTable(instance.exports);
-      receiveInstance(instance, wasmModule);
-      return instance.exports;
+      WebAssembly.instantiate(wasmModule, imports).then(
+        (instance) => {
+          wasmTable = discoverWasmTable(instance.exports);
+          receiveInstance(instance, wasmModule);
+        },
+        (error) => {
+          setTimeout(() => {
+            throw error;
+          }, 0);
+        },
+      );
+      return {};
     },
   });
 
