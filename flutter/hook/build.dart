@@ -61,6 +61,13 @@ Future<void> _buildWebDataAssets(
   BuildOutputBuilder output,
 ) async {
   final configResult = _loadConfig(input, output);
+  if (!input.config.buildDataAssets && configResult.stagingBaseDir == null) {
+    throw _exception(
+      'Cannot determine the consuming Flutter app root for Web runtime '
+      'staging in a shared Pub Workspace. Put ffmpeg_kit_extended_config in '
+      'the app package or enable Flutter Web data assets.',
+    );
+  }
   final artifact = await _resolveWebArtifact(configResult, input);
   final extractedDir = artifact.extractedDir;
   if (extractedDir == null || !extractedDir.existsSync()) {
@@ -93,32 +100,35 @@ Future<void> _buildWebDataAssets(
     );
   }
 
-  final webAssetDirs = [
-    Directory(
-      p.join(
-        configResult.stagingBaseDir,
-        'build',
-        'web',
-        'assets',
-        'packages',
-        packageName,
-        'wasm',
-      ),
-    ),
-    // Stable Flutter does not expose Dart data assets to `flutter run`.
-    // Keep the same files in the app's web tree so the debug web server can
-    // serve the package asset URL as well.
-    Directory(
-      p.join(
-        configResult.stagingBaseDir,
-        'web',
-        'assets',
-        'packages',
-        packageName,
-        'wasm',
-      ),
-    ),
-  ];
+  final stagingBaseDir = configResult.stagingBaseDir;
+  final webAssetDirs = stagingBaseDir == null
+      ? const <Directory>[]
+      : [
+          Directory(
+            p.join(
+              stagingBaseDir,
+              'build',
+              'web',
+              'assets',
+              'packages',
+              packageName,
+              'wasm',
+            ),
+          ),
+          // Stable Flutter does not expose Dart data assets to `flutter run`.
+          // Keep the same files in the app's web tree so the debug web server can
+          // serve the package asset URL as well.
+          Directory(
+            p.join(
+              stagingBaseDir,
+              'web',
+              'assets',
+              'packages',
+              packageName,
+              'wasm',
+            ),
+          ),
+        ];
   Future<void> stageWebAsset(File source, String name) async {
     for (final webAssetDir in webAssetDirs) {
       webAssetDir.createSync(recursive: true);

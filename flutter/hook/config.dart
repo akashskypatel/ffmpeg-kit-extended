@@ -13,7 +13,7 @@ class PubspecData {
 class ConfigResult {
   final dynamic config;
   final String configBaseDir;
-  final String stagingBaseDir;
+  final String? stagingBaseDir;
 
   const ConfigResult(this.config, this.configBaseDir, this.stagingBaseDir);
 }
@@ -77,7 +77,7 @@ ConfigResult resolveConfig({
       return ConfigResult(
         rootPubspecData!.config,
         configRoot,
-        normalizedStagingBaseDir,
+        rootPubspecData.isWorkspace ? null : normalizedStagingBaseDir,
       );
     }
 
@@ -118,7 +118,7 @@ ConfigResult resolveConfig({
       return ConfigResult(
         candidate.config,
         p.dirname(candidate.pubspec.path),
-        normalizedStagingBaseDir,
+        p.dirname(candidate.pubspec.path),
       );
     }
     if (candidates.length > 1) {
@@ -183,7 +183,7 @@ ConfigResult resolveConfig({
   return ConfigResult(
     {'type': 'base', 'gpl': false, 'small': true},
     normalizedPackageRoot,
-    normalizedStagingBaseDir,
+    workspaceRootDetected ? null : normalizedStagingBaseDir,
   );
 }
 
