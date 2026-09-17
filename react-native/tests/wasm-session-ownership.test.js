@@ -17,13 +17,25 @@ let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
 let startError;
+let logReads = 0;
+let statisticsReads = 0;
+let finalLogsError;
+let finalStatisticsError;
 setBackend({
   executeSessionAsync: () => {
     if (startError) throw startError;
     executionStarts += 1;
   },
-  getLogsJson: (_sessionId, fromIndex) => JSON.stringify(fromIndex === 0 ? logEntries : []),
-  getStatisticsJson: (_sessionId, fromIndex) => JSON.stringify(fromIndex === 0 ? statisticsEntries : []),
+  getLogsJson: (_sessionId, fromIndex) => {
+    logReads += 1;
+    if (finalLogsError && logReads === 2) throw finalLogsError;
+    return JSON.stringify(fromIndex === 0 ? logEntries : []);
+  },
+  getStatisticsJson: (_sessionId, fromIndex) => {
+    statisticsReads += 1;
+    if (finalStatisticsError && statisticsReads === 2) throw finalStatisticsError;
+    return JSON.stringify(fromIndex === 0 ? statisticsEntries : []);
+  },
   getSessionJson: () => JSON.stringify({state: sessionState}),
   cancelSession: () => {},
   releaseSessionHandle: sessionId => {
@@ -43,6 +55,10 @@ beforeEach(() => {
   executionStarts = 0;
   sessionState = 2;
   startError = undefined;
+  logReads = 0;
+  statisticsReads = 0;
+  finalLogsError = undefined;
+  finalStatisticsError = undefined;
 });
 
 afterEach(async () => {
@@ -208,5 +224,36 @@ test('callback failure on a failed native session still releases once', async ()
   await assert.rejects(execution, reason => reason === error);
   assert.deepEqual(releases, [15]);
   assert.equal(registry.size, 0);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('final log retrieval failure releases the handle exactly once', async () => {
+  const error = new Error('final log read failed');
+  finalLogsError = error;
+  registry.retain(10240, 16);
+
+  const execution = new FFmpegSession(16, '-version').executeAsync({pollIntervalMs: 10});
+
+  await assert.rejects(execution, reason => reason === error);
+  await manager.waitForAll();
+  assert.deepEqual(releases, [16]);
+  assert.equal(registry.has(16), false);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('final statistics retrieval failure releases the handle exactly once', async () => {
+  const error = new Error('final statistics read failed');
+  finalStatisticsError = error;
+  registry.retain(11264, 17);
+
+  const execution = new FFmpegSession(17, '-version').executeAsync({
+    statisticsCallback: () => {},
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === error);
+  await manager.waitForAll();
+  assert.deepEqual(releases, [17]);
+  assert.equal(registry.has(17), false);
   assert.equal(manager.activeSessionCount, 0);
 });

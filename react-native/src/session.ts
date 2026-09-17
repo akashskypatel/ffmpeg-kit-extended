@@ -221,36 +221,37 @@ export abstract class Session {
 
       const state = this.getState();
       if (state === SessionState.Completed || state === SessionState.Failed) {
-        // One final pass closes the race between the last poll and completion.
-        const finalLogs = parseJsonArray<Log>(
-          NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
-        );
-        for (const entry of finalLogs) {
-          invokeCallback(() => options.logCallback?.(entry, self));
-        }
-
-        if (options.statisticsCallback) {
-          const finalStatistics = parseJsonArray<Statistics>(
-            NativeFFmpegKitExtended.getStatisticsJson(
-              this.sessionId,
-              statisticsProcessed,
-            ),
-          );
-          for (const entry of finalStatistics) {
-            invokeCallback(() => options.statisticsCallback?.(entry, self));
-          }
-        }
-
-        invokeCallback(
-          options.completeCallback ? () => options.completeCallback?.(self) : undefined,
-        );
         try {
+          // Once terminal state is observed, all final callback-buffer reads
+          // and completion delivery are covered by ownership cleanup.
+          const finalLogs = parseJsonArray<Log>(
+            NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+          );
+          for (const entry of finalLogs) {
+            invokeCallback(() => options.logCallback?.(entry, self));
+          }
+
+          if (options.statisticsCallback) {
+            const finalStatistics = parseJsonArray<Statistics>(
+              NativeFFmpegKitExtended.getStatisticsJson(
+                this.sessionId,
+                statisticsProcessed,
+              ),
+            );
+            for (const entry of finalStatistics) {
+              invokeCallback(() => options.statisticsCallback?.(entry, self));
+            }
+          }
+
+          invokeCallback(
+            options.completeCallback ? () => options.completeCallback?.(self) : undefined,
+          );
           if (callbackFailed) throw callbackError;
           return self;
         } finally {
           // Native C API session handles are owning. Keep the original handle
-          // alive for the whole execution, then release it only after the
-          // terminal state and final log/statistics pass have been observed.
+          // alive for the whole execution, then release it after every
+          // terminal-state finalization exit.
           this.releaseOwnedHandle();
         }
       }
