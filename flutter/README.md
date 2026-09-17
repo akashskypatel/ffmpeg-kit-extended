@@ -96,7 +96,7 @@ Flutter Web uses the same public API and shared session implementation as native
 
    **Note**: Native libraries and the WebAssembly bundle are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds use the `wasm` or `web` config override when supplied; otherwise the hook selects the bundle matching the pinned library release. No manual configuration script is required.
 
-   **Dart Pub Workspaces and local packages**: The package-config root `pubspec.yaml` takes priority. If it has no `ffmpeg_kit_extended_config`, the build hook considers package roots below that root, excluding `ffmpeg_kit_extended_flutter`, and accepts configuration only from a package-graph root that depends on `ffmpeg_kit_extended_flutter`. Configurations in arbitrary nested local path packages are ignored. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Configuration-relative local overrides resolve from the pubspec that defines them. For Web, runtime files are staged under the selected package root when that package is the consuming app; a shared workspace-root configuration cannot identify the active app for legacy manual staging, so configure the app package or enable Flutter Web data assets.
+   **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. For Web, runtime files are staged under the selected package root when that package is the consuming app; a shared workspace-root configuration cannot identify the consuming app for legacy manual staging, so configure the app package or enable Flutter Web data assets.
 
    For example, in the workspace root:
 
@@ -106,7 +106,7 @@ Flutter Web uses the same public API and shared session implementation as native
      gpl: true
    ```
 
-**Important**: If you change the bundle after you have already created a build with another bundle, you must `flutter clean` and `flutter build` to re-run the build hook and download updated binaries for the new bundle selection.
+**Important**: If you change the selected bundle configuration, rerun the build. Local override files are dependency-tracked, so replacing a local bundle is picked up without `flutter clean`.
 
 3. Import the package in your Dart code:
 

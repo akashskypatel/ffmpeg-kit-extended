@@ -44,7 +44,11 @@ void main(List<String> args) async {
     final configResult = _loadConfig(input, output);
 
     // 2. Resolve Artifact
-    final artifact = await _resolveArtifact(configResult, input);
+    final artifact = await _resolveArtifact(
+      configResult,
+      input,
+      output.dependencies.add,
+    );
     if (artifact == null) {
       throw _exception(
         'Failed to resolve artifact for ${targetOS.name}-${targetArch.name}',
@@ -68,7 +72,11 @@ Future<void> _buildWebDataAssets(
       'the app package or enable Flutter Web data assets.',
     );
   }
-  final artifact = await _resolveWebArtifact(configResult, input);
+  final artifact = await _resolveWebArtifact(
+    configResult,
+    input,
+    output.dependencies.add,
+  );
   final extractedDir = artifact.extractedDir;
   if (extractedDir == null || !extractedDir.existsSync()) {
     throw _exception('Could not find extracted WASM bundle for web build');
@@ -215,6 +223,7 @@ Future<void> _buildWebDataAssets(
 Future<FFmpegArtifact> _resolveWebArtifact(
   ConfigResult configResult,
   BuildInput input,
+  void Function(Uri uri) addDependency,
 ) async {
   final config = configResult.config;
   var type = config['type']?.toString() ?? 'base';
@@ -235,18 +244,12 @@ Future<FFmpegArtifact> _resolveWebArtifact(
   String url;
   if (overrideUrl != null) {
     if (!_isUri(overrideUrl)) {
-      final localFile = p.isAbsolute(overrideUrl)
-          ? File(overrideUrl)
-          : File(p.join(configResult.configBaseDir, overrideUrl));
-      if (!localFile.existsSync()) {
-        throw _exception('Local web override not found: ${localFile.path}');
-      }
-      filename = p.basename(localFile.path);
-      final target = File(p.join(cacheDir.path, filename));
-      if (!target.existsSync() ||
-          target.lengthSync() != localFile.lengthSync()) {
-        localFile.copySync(target.path);
-      }
+      final target = await resolveLocalOverrideToCache(
+        overridePath: overrideUrl,
+        configBaseDir: configResult.configBaseDir,
+        cacheDir: cacheDir,
+        addDependency: addDependency,
+      );
       return _handleDownloadedFile(target, cacheDir, input);
     }
     url = overrideUrl;
@@ -439,6 +442,7 @@ Future<Directory> prepareExtractedArtifact(
 Future<FFmpegArtifact?> _resolveArtifact(
   ConfigResult configResult,
   BuildInput input,
+  void Function(Uri uri) addDependency,
 ) async {
   final config = configResult.config;
   String type = config['type']?.toString() ?? "base";
@@ -485,22 +489,13 @@ Future<FFmpegArtifact?> _resolveArtifact(
       return await _handleDownloadedFile(targetFile, cacheDir, input);
     } else {
       _log('Using local override path: $overrideUrl');
-      final localFile = p.isAbsolute(overrideUrl)
-          ? File(overrideUrl)
-          : File(p.join(configResult.configBaseDir, overrideUrl));
-
-      if (localFile.existsSync()) {
-        filename = p.basename(localFile.path);
-        final cacheFile = File(p.join(cacheDir.path, filename));
-        if (!cacheFile.existsSync() ||
-            cacheFile.lengthSync() != localFile.lengthSync()) {
-          localFile.copySync(cacheFile.path);
-        }
-        return await _handleDownloadedFile(cacheFile, cacheDir, input);
-      }
-      throw _exception(
-        'Local override not found: $overrideUrl (resolved from ${configResult.configBaseDir})',
+      final cacheFile = await resolveLocalOverrideToCache(
+        overridePath: overrideUrl,
+        configBaseDir: configResult.configBaseDir,
+        cacheDir: cacheDir,
+        addDependency: addDependency,
       );
+      return await _handleDownloadedFile(cacheFile, cacheDir, input);
     }
   } else {
     final license = gpl ? 'gpl' : 'lgpl';
@@ -1194,4 +1189,44 @@ Future<String?> _computeFileSha256(File file) async {
   } catch (e) {
     return null;
   }
+}
+
+@visibleForTesting
+Future<bool> syncLocalOverride(File source, File destination) async {
+  final sourceHash = await _computeFileSha256(source);
+  if (sourceHash == null) {
+    throw _exception('Unable to read local override: ${source.path}');
+  }
+
+  final destinationHash = destination.existsSync()
+      ? await _computeFileSha256(destination)
+      : null;
+  if (sourceHash == destinationHash) return false;
+
+  destination.parent.createSync(recursive: true);
+  await source.copy(destination.path);
+  return true;
+}
+
+@visibleForTesting
+Future<File> resolveLocalOverrideToCache({
+  required String overridePath,
+  required String configBaseDir,
+  required Directory cacheDir,
+  required void Function(Uri uri) addDependency,
+}) async {
+  final localFile = p.isAbsolute(overridePath)
+      ? File(overridePath)
+      : File(p.join(configBaseDir, overridePath));
+  if (!localFile.existsSync()) {
+    throw _exception('Local override not found: ${localFile.path}');
+  }
+
+  addDependency(localFile.uri);
+  final cacheFile = File(p.join(cacheDir.path, p.basename(localFile.path)));
+  final changed = await syncLocalOverride(localFile, cacheFile);
+  if (changed) {
+    deleteIfExists(extractRootFor(cacheFile, cacheDir));
+  }
+  return cacheFile;
 }

@@ -160,14 +160,12 @@ ConfigResult resolveConfig({
       throw ConfigResolutionException(message);
     }
 
-    if (packageGraph == null &&
-        workspaceRootDetected &&
-        candidates.isNotEmpty) {
+    if (packageGraph == null && candidates.isNotEmpty) {
       final message =
-          'Unable to determine the active Flutter app configuration for '
-          'ffmpeg_kit_extended_flutter because the Pub package graph is '
-          'unavailable. Place ffmpeg_kit_extended_config in '
-          '${rootPubspec.path} or rebuild package metadata with `flutter pub get`.';
+          'Unable to determine which package may provide '
+          'ffmpeg_kit_extended_config because .dart_tool/package_graph.json '
+          'is unavailable. Run `flutter pub get` to rebuild package metadata, '
+          'or define a shared configuration in ${rootPubspec.path}.';
       log('Error: $message');
       throw ConfigResolutionException(message);
     }
@@ -331,11 +329,9 @@ _PackageGraph? _readPackageGraph(
       final name = package['name'];
       if (name is! String) continue;
       final packageDependencies = <String>[];
-      for (final key in const ['dependencies', 'devDependencies']) {
-        final values = package[key];
-        if (values is List) {
-          packageDependencies.addAll(values.whereType<String>());
-        }
+      final values = package['dependencies'];
+      if (values is List) {
+        packageDependencies.addAll(values.whereType<String>());
       }
       dependencies[name] = packageDependencies;
     }

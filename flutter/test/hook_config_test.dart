@@ -98,8 +98,9 @@ workspace:
     _writePubspec(memberRoot, '''
 name: app
 ffmpeg_kit_extended_config:
-  type: full
+  type: video
   gpl: true
+  small: true
 ''');
     _writePubspec(externalRoot, '''
 name: cached_dependency
@@ -131,8 +132,9 @@ ffmpeg_kit_extended_config:
       addDependency: dependencies.add,
     );
 
-    expect(result.config['type'], equals('full'));
+    expect(result.config['type'], equals('video'));
     expect(result.config['gpl'], isTrue);
+    expect(result.config['small'], isTrue);
     expect(result.configBaseDir, equals(p.normalize(memberRoot.path)));
     expect(result.stagingBaseDir, equals(p.normalize(memberRoot.path)));
     expect(
@@ -148,6 +150,152 @@ ffmpeg_kit_extended_config:
         p.normalize(p.join(memberRoot.path, 'pubspec.yaml')),
       ]),
     );
+  });
+
+  test('ignores a dev-only dependency of a second workspace root', () {
+    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'ffmpeg'),
+    );
+    final appRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'app'),
+    );
+    final toolsRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'tools', 'tools'),
+    );
+    _writePubspec(workspaceRoot, '''
+name: workspace
+workspace:
+  - apps/app
+  - tools/tools
+''');
+    _writePubspec(appRoot, '''
+name: app
+ffmpeg_kit_extended_config:
+  type: video
+''');
+    _writePubspec(toolsRoot, 'name: tools\n');
+    _writePackageConfig(workspaceRoot, packageRoot, [appRoot, toolsRoot]);
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['app', 'tools'],
+      dependencies: {
+        'app': ['ffmpeg_kit_extended_flutter'],
+        'tools': const [],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+      devDependencies: {
+        'tools': ['ffmpeg_kit_extended_flutter'],
+      },
+    );
+
+    final result = resolveConfig(
+      packageName: 'ffmpeg_kit_extended_flutter',
+      packageRoot: packageRoot.path,
+      packageConfig: _packageConfigUri(workspaceRoot),
+      readPubspec: _readPubspec,
+      log: (_) {},
+    );
+
+    expect(result.config['type'], equals('video'));
+  });
+
+  test('does not traverse dev dependencies of an intermediate package', () {
+    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'ffmpeg'),
+    );
+    final appRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'app'),
+    );
+    final helperRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'helper'),
+    );
+    _writePubspec(workspaceRoot, '''
+name: workspace
+workspace:
+  - apps/app
+  - packages/helper
+''');
+    _writePubspec(appRoot, 'name: app\n');
+    _writePubspec(helperRoot, '''
+name: helper
+ffmpeg_kit_extended_config:
+  type: audio
+''');
+    _writePackageConfig(workspaceRoot, packageRoot, [appRoot, helperRoot]);
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['app'],
+      dependencies: {
+        'app': ['helper'],
+        'helper': const [],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+      devDependencies: {
+        'helper': ['ffmpeg_kit_extended_flutter'],
+      },
+    );
+
+    final result = resolveConfig(
+      packageName: 'ffmpeg_kit_extended_flutter',
+      packageRoot: packageRoot.path,
+      packageConfig: _packageConfigUri(workspaceRoot),
+      readPubspec: _readPubspec,
+      log: (_) {},
+    );
+
+    expect(result.config['type'], equals('base'));
+  });
+
+  test('ignores configuration from a root with only a dev dependency', () {
+    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'ffmpeg'),
+    );
+    final toolsRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'tools', 'tools'),
+    );
+    _writePubspec(workspaceRoot, '''
+name: workspace
+workspace:
+  - tools/tools
+''');
+    _writePubspec(toolsRoot, '''
+name: tools
+ffmpeg_kit_extended_config:
+  type: full
+''');
+    _writePackageConfig(workspaceRoot, packageRoot, [toolsRoot]);
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['tools'],
+      dependencies: {
+        'tools': const [],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+      devDependencies: {
+        'tools': ['ffmpeg_kit_extended_flutter'],
+      },
+    );
+
+    final result = resolveConfig(
+      packageName: 'ffmpeg_kit_extended_flutter',
+      packageRoot: packageRoot.path,
+      packageConfig: _packageConfigUri(workspaceRoot),
+      readPubspec: _readPubspec,
+      log: (_) {},
+    );
+
+    expect(result.config['type'], equals('base'));
   });
 
   test('ignores configured packages outside the dependency closure', () {
@@ -204,8 +352,10 @@ ffmpeg_kit_extended_config:
   });
 
   test(
-    'does not guess when multiple dependent workspace roots are possible',
+    'does not guess when the package graph has multiple workspace roots',
     () {
+      // Pub package-graph roots do not identify which workspace package
+      // Flutter is currently building, so the hook must preserve ambiguity.
       final workspaceRoot = _createDirectory(tempRoot, 'workspace');
       final packageRoot = _createDirectory(
         tempRoot,
@@ -293,36 +443,86 @@ workspace:
     );
   });
 
-  test(
-    'selects a local package below the root without workspace membership',
-    () {
-      final projectRoot = _createDirectory(tempRoot, 'project');
-      final packageRoot = _createDirectory(tempRoot, 'package');
-      final localRoot = _createDirectory(
-        tempRoot,
-        p.join('project', 'local', 'app'),
-      );
-      _writePubspec(projectRoot, 'name: project\n');
-      _writePubspec(localRoot, '''
-name: local_app
+  test('ignores nested local packages when package graph is available', () {
+    final projectRoot = _createDirectory(tempRoot, 'project');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('project', 'packages', 'ffmpeg'),
+    );
+    final localRoot = _createDirectory(
+      tempRoot,
+      p.join('project', 'local', 'media'),
+    );
+    _writePubspec(projectRoot, 'name: app\n');
+    _writePubspec(localRoot, '''
+name: local_media
 ffmpeg_kit_extended_config:
   type: video
 ''');
-      _writePackageConfig(projectRoot, packageRoot, [localRoot]);
+    _writePackageConfig(projectRoot, packageRoot, [projectRoot, localRoot]);
+    _writePackageGraph(
+      projectRoot,
+      roots: ['app'],
+      dependencies: {
+        'app': ['local_media'],
+        'local_media': ['ffmpeg_kit_extended_flutter'],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+    );
+    final logs = <String>[];
 
-      final result = resolveConfig(
+    final result = resolveConfig(
+      packageName: 'ffmpeg_kit_extended_flutter',
+      packageRoot: packageRoot.path,
+      packageConfig: _packageConfigUri(projectRoot),
+      readPubspec: _readPubspec,
+      log: logs.add,
+    );
+
+    expect(result.config['type'], equals('base'));
+    expect(logs.join('\n'), contains('not package-graph roots'));
+  });
+
+  test('fails when a configured candidate has no package graph', () {
+    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'ffmpeg'),
+    );
+    final appRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'app'),
+    );
+    _writePubspec(workspaceRoot, '''
+name: workspace
+workspace:
+  - apps/app
+''');
+    _writePubspec(appRoot, '''
+name: app
+ffmpeg_kit_extended_config:
+  type: video
+''');
+    _writePackageConfig(workspaceRoot, packageRoot, [appRoot]);
+    final logs = <String>[];
+
+    expect(
+      () => resolveConfig(
         packageName: 'ffmpeg_kit_extended_flutter',
         packageRoot: packageRoot.path,
-        packageConfig: _packageConfigUri(projectRoot),
+        packageConfig: _packageConfigUri(workspaceRoot),
         readPubspec: _readPubspec,
-        log: (_) {},
-      );
-
-      expect(result.config['type'], equals('video'));
-      expect(result.configBaseDir, equals(p.normalize(localRoot.path)));
-      expect(result.stagingBaseDir, equals(p.normalize(localRoot.path)));
-    },
-  );
+        log: logs.add,
+      ),
+      throwsA(
+        predicate<ConfigResolutionException>(
+          (error) =>
+              error.message.contains('package_graph.json') &&
+              error.message.contains('flutter pub get'),
+        ),
+      ),
+    );
+  });
 
   test('excludes ffmpeg_kit_extended_flutter from workspace candidates', () {
     final workspaceRoot = _createDirectory(tempRoot, 'workspace');
@@ -495,14 +695,22 @@ void _writePackageGraph(
   Directory workspaceRoot, {
   required List<String> roots,
   required Map<String, List<String>> dependencies,
+  Map<String, List<String>> devDependencies = const {},
 }) {
   final packages = [
     for (final entry in dependencies.entries)
       {
         'name': entry.key,
         'dependencies': entry.value,
-        'devDependencies': const <String>[],
+        'devDependencies': devDependencies[entry.key] ?? const <String>[],
       },
+    for (final entry in devDependencies.entries)
+      if (!dependencies.containsKey(entry.key))
+        {
+          'name': entry.key,
+          'dependencies': const <String>[],
+          'devDependencies': entry.value,
+        },
   ];
   File(p.join(workspaceRoot.path, '.dart_tool', 'package_graph.json'))
     ..createSync(recursive: true)
