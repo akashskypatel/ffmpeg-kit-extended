@@ -38,7 +38,7 @@ env:
   EMSCRIPTEN_VERSION: "4.0.14"
   BUILDER_ROOT: ${{ github.workspace }}/libs/libffmpegkit
   FFMPEG_KIT_SOURCE: ${{ github.workspace }}/libs/libffmpegkit/FFmpegKit
-  FFMPEG_KIT_BUNDLE: ${{ github.workspace }}/libs/libffmpegkit/prebuilt/wasm-wasm32/ffmpeg-base-wasm-wasm32-static-small-gpl
+  FFMPEG_KIT_BUNDLE: ${{ github.workspace }}/libs/libffmpegkit/prebuilt/wasm-wasm32/ffmpeg-base-wasm-wasm32-static-small-lgpl
   FFMPEG_KIT_DEPS: ${{ github.workspace }}/libs/libffmpegkit/prebuilt/wasm-wasm32/libraries
   FFMPEG_KIT_BUILD: ${{ github.workspace }}/libs/libffmpegkit/FFmpegKit/build-wasm-callback-ci
   EM_CACHE: ${{ github.workspace }}/libs/libffmpegkit/.emscripten-cache-callback-ci
@@ -76,7 +76,7 @@ jobs:
       - name: Build the Wasm bundle
         working-directory: libs/libffmpegkit
         run: |
-          sudo ./runner.sh --host=wasm --arch=wasm32 -y --base-bundle --kit -fk --gpl --release=local --skip --hide-banner --small
+          sudo ./runner.sh --host=wasm --arch=wasm32 -y --base-bundle --kit -fk --release=local --skip --hide-banner --small
           test -f "$FFMPEG_KIT_BUNDLE/include/config.h"
           test -f "$FFMPEG_KIT_BUNDLE/include/config_components.h"
 
@@ -158,7 +158,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wasm-callback-bundle
-          path: libs/libffmpegkit/prebuilt/wasm-wasm32/releases/bundle-base-wasm-wasm32-static-small-gpl.zip
+          path: libs/libffmpegkit/prebuilt/wasm-wasm32/releases/bundle-base-wasm-wasm32-static-small-lgpl.zip
           if-no-files-found: error
           retention-days: 3
 
@@ -225,7 +225,7 @@ jobs:
 
           path = Path("react-native/example/ffmpeg-kit-extended.config.json")
           config = json.loads(path.read_text(encoding="utf-8"))
-          config["web"] = "ci-artifacts/bundle-base-wasm-wasm32-static-small-gpl.zip"
+          config["web"] = "ci-artifacts/bundle-base-wasm-wasm32-static-small-lgpl.zip"
           path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
       - name: Stage the generated Web runtime
@@ -239,6 +239,59 @@ jobs:
       - name: Run the headless WebAssembly smoke test
         working-directory: react-native
         run: npm run test:web
+
+  react-native-web-windows-staging:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: React Native Web Windows staging
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Create nested Web runtime ZIP fixture
+        shell: python
+        run: |
+          import json
+          import os
+          import tempfile
+          import zipfile
+          from pathlib import Path
+
+          fixture = Path(tempfile.mkdtemp(prefix="ffmpeg-kit-web-staging-", dir=os.environ["RUNNER_TEMP"]))
+          with zipfile.ZipFile(fixture / "runtime.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+              archive.writestr("nested/ffmpegkit.mjs", "export default {};\n")
+              archive.writestr("nested/ffmpegkit.wasm", b"\x00asm\x01\x00\x00\x00")
+          (fixture / "ffmpeg-kit-extended.config.json").write_text(
+              json.dumps({"type": "base", "web": "runtime.zip"}) + "\n",
+              encoding="utf-8",
+          )
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as env:
+              env.write(f"FFMPEG_KIT_WEB_FIXTURE={fixture}\n")
+
+      - name: Stage Web runtime through Windows ZIP extraction
+        shell: pwsh
+        run: |
+          node react-native/scripts/prepare-web.js --app-root "$env:FFMPEG_KIT_WEB_FIXTURE" --quiet true
+          $target = Join-Path $env:FFMPEG_KIT_WEB_FIXTURE "public/ffmpeg-kit-extended/wasm"
+          $required = @(
+            "ffmpegkit.mjs",
+            "ffmpegkit.wasm",
+            "ffmpegkit_bridge.mjs",
+            "ffmpegkit_loader.mjs",
+            "ffmpegkit_callback_runtime.mjs"
+          )
+          foreach ($name in $required) {
+            if (-not (Test-Path -LiteralPath (Join-Path $target $name))) {
+              throw "Missing staged Web runtime file: $name"
+            }
+          }
 
   flutter-web:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -291,7 +344,7 @@ jobs:
           text = path.read_text(encoding="utf-8")
           updated, count = re.subn(
               r"(?m)^(\s*wasm:)\s*.*$",
-              r'\1 "ci-artifacts/bundle-base-wasm-wasm32-static-small-gpl.zip"',
+              r'\1 "ci-artifacts/bundle-base-wasm-wasm32-static-small-lgpl.zip"',
               text,
           )
           if count != 1:
