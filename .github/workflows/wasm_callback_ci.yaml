@@ -1,0 +1,364 @@
+name: Wasm Callback CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".github/workflows/wasm_callback_ci.yaml"
+      - ".github/workflows/react_native_web_ci.yaml"
+      - "flutter/**"
+      - "react-native/**"
+      - "libs/libffmpegkit"
+      - "libs/libffmpegkit/**"
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - ".github/workflows/wasm_callback_ci.yaml"
+      - ".github/workflows/react_native_web_ci.yaml"
+      - "flutter/**"
+      - "react-native/**"
+      - "libs/libffmpegkit"
+      - "libs/libffmpegkit/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-callback-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EMSCRIPTEN_VERSION: "4.0.14"
+  BUILDER_ROOT: ${{ github.workspace }}/libs/libffmpegkit
+  FFMPEG_KIT_SOURCE: ${{ github.workspace }}/libs/libffmpegkit/FFmpegKit
+  FFMPEG_KIT_BUNDLE: ${{ github.workspace }}/libs/libffmpegkit/prebuilt/wasm-wasm32/ffmpeg-base-wasm-wasm32-static-small-lgpl
+  FFMPEG_KIT_DEPS: ${{ github.workspace }}/libs/libffmpegkit/prebuilt/wasm-wasm32/libraries
+  FFMPEG_KIT_BUILD: ${{ github.workspace }}/libs/libffmpegkit/FFmpegKit/build-wasm-callback-ci
+  EM_CACHE: ${{ github.workspace }}/libs/libffmpegkit/.emscripten-cache-callback-ci
+
+jobs:
+  wasm:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: C/C++ and JavaScript Wasm gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout repository and builder sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: react-native/package-lock.json
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ env.EMSCRIPTEN_VERSION }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build pkg-config python3 ripgrep
+
+      - name: Build the Wasm bundle
+        working-directory: libs/libffmpegkit
+        run: |
+          sudo ./runner.sh --host=wasm --arch=wasm32 -y --base-bundle --kit -fk --release=local --skip --hide-banner --small
+          test -f "$FFMPEG_KIT_BUNDLE/include/config.h"
+          test -f "$FFMPEG_KIT_BUNDLE/include/config_components.h"
+
+      - name: Configure the Wasm callback test build
+        run: |
+          mkdir -p "$EM_CACHE"
+          export PKG_CONFIG_PATH="$FFMPEG_KIT_DEPS/lib/pkgconfig:$FFMPEG_KIT_BUNDLE/lib/pkgconfig"
+          emcmake cmake -S "$FFMPEG_KIT_SOURCE" -B "$FFMPEG_KIT_BUILD" \
+            -DBUILD_TESTS=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DFFMPEG_KIT_WASM_ENVIRONMENT=node \
+            -DFFMPEG_KIT_WASM_PTHREAD_POOL_SIZE=4 \
+            -DFFMPEG_BUILD_DIR="$FFMPEG_KIT_BUNDLE" \
+            -DDEPENDENCY_BUILD_DIR="$FFMPEG_KIT_DEPS" \
+            -DFFMPEG_KIT_BUNDLE_TYPE=base
+
+      - name: Build C/C++ callback and artifact targets
+        run: |
+          cmake --build "$FFMPEG_KIT_BUILD" --target ffmpegkit_wasm_callback_tests ffmpegkit_wasm --parallel 2
+
+      - name: Run pthread callback and C/C++ Wasm tests
+        run: |
+          ctest --test-dir "$FFMPEG_KIT_BUILD" --output-on-failure \
+            -R '^(ffmpegkit_wasm_(authority|callback_lock|pthread_failure|wrapper_state|session_id|session_completion|log_statistics|dispatcher|ffplay_frame)_tests|ffmpegkit_wasm_table_growth)$'
+
+      - name: Inspect Wasm artifact and table support
+        env:
+          WASM_ARTIFACT: ${{ env.FFMPEG_KIT_BUILD }}/ffmpegkit.wasm
+        run: |
+          test -f "$WASM_ARTIFACT"
+          node --input-type=module - "$WASM_ARTIFACT" <<'NODE'
+          import { readFile } from 'node:fs/promises';
+
+          const artifact = process.argv[2];
+          if (typeof WebAssembly.Table !== 'function') {
+            throw new Error('WebAssembly.Table unavailable');
+          }
+          const bytes = await readFile(artifact);
+          const module = await WebAssembly.compile(bytes);
+          const tables = WebAssembly.Module.exports(module).filter(
+            ({ kind }) => kind === 'table',
+          );
+          if (tables.length === 0) {
+            throw new Error('table growth unsupported: no Wasm table export');
+          }
+          const table = new WebAssembly.Table({
+            element: 'funcref',
+            initial: 1,
+            maximum: 2,
+          });
+          const oldLength = table.length;
+          if (table.grow(1) !== oldLength || table.length !== oldLength + 1) {
+            throw new Error('table growth unsupported');
+          }
+          console.log(JSON.stringify({
+            artifact,
+            tableExports: tables.map(({ name }) => name),
+            tableLength: table.length,
+            status: 'PASS',
+          }));
+          NODE
+
+      - name: Run raw C-to-JavaScript callback round-trip
+        run: |
+          node flutter/web/ffmpegkit_callback_roundtrip_test.mjs \
+            "$FFMPEG_KIT_BUILD/ffmpegkit.wasm" \
+            "$FFMPEG_KIT_BUILD/ffmpegkit.mjs"
+
+      - name: Enforce absence of removed session polling
+        run: |
+          if rg -n -i 'session.?poll|ownership.?poll|pollSessions|poll_session' \
+            flutter/lib/src/platform/web flutter/web; then
+            echo "Removed session polling identifiers found in production Web source."
+            exit 1
+          fi
+
+      - name: Upload the generated Wasm bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-callback-bundle
+          path: libs/libffmpegkit/prebuilt/wasm-wasm32/releases/bundle-base-wasm-wasm32-static-small-lgpl.zip
+          if-no-files-found: error
+          retention-days: 3
+
+  react-native-web:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: React Native Web/Wasm gates
+    needs: wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository and builder sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: |
+            react-native/package-lock.json
+            react-native/example/package-lock.json
+
+      - name: Download the generated Wasm bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-callback-bundle
+          path: react-native/example/ci-artifacts
+
+      - name: Install package dependencies
+        working-directory: react-native
+        run: npm ci
+
+      - name: Install example dependencies
+        working-directory: react-native/example
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: react-native
+        run: npx playwright install --with-deps chromium
+
+      - name: Run package checks
+        working-directory: react-native
+        run: npm run check
+
+      - name: Build package
+        working-directory: react-native
+        run: npm run prepare
+
+      - name: Validate packed package
+        working-directory: react-native
+        run: npm pack --dry-run
+
+      - name: Build packed Web consumer
+        working-directory: react-native
+        run: npm run test:pack-web
+
+      - name: Configure local Web runtime override
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          path = Path("react-native/example/ffmpeg-kit-extended.config.json")
+          config = json.loads(path.read_text(encoding="utf-8"))
+          config["web"] = "ci-artifacts/bundle-base-wasm-wasm32-static-small-lgpl.zip"
+          path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+      - name: Stage the generated Web runtime
+        working-directory: react-native/example
+        run: npm run prepare-web
+
+      - name: Build the Web example
+        working-directory: react-native/example
+        run: npm run web:build
+
+      - name: Run the headless WebAssembly smoke test
+        working-directory: react-native
+        run: npm run test:web
+
+  react-native-web-windows-staging:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: React Native Web Windows staging
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+
+      - name: Create nested Web runtime ZIP fixture
+        shell: python
+        run: |
+          import json
+          import os
+          import tempfile
+          import zipfile
+          from pathlib import Path
+
+          fixture = Path(tempfile.mkdtemp(prefix="ffmpeg-kit-web-staging-", dir=os.environ["RUNNER_TEMP"]))
+          with zipfile.ZipFile(fixture / "runtime.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+              archive.writestr("nested/ffmpegkit.mjs", "export default {};\n")
+              archive.writestr("nested/ffmpegkit.wasm", b"\x00asm\x01\x00\x00\x00")
+          (fixture / "ffmpeg-kit-extended.config.json").write_text(
+              json.dumps({"type": "base", "web": "runtime.zip"}) + "\n",
+              encoding="utf-8",
+          )
+          with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as env:
+              env.write(f"FFMPEG_KIT_WEB_FIXTURE={fixture}\n")
+
+      - name: Stage Web runtime through Windows ZIP extraction
+        shell: pwsh
+        run: |
+          node react-native/scripts/prepare-web.js --app-root "$env:FFMPEG_KIT_WEB_FIXTURE" --quiet true
+          $target = Join-Path $env:FFMPEG_KIT_WEB_FIXTURE "public/ffmpeg-kit-extended/wasm"
+          $required = @(
+            "ffmpegkit.mjs",
+            "ffmpegkit.wasm",
+            "ffmpegkit_bridge.mjs",
+            "ffmpegkit_loader.mjs",
+            "ffmpegkit_callback_runtime.mjs"
+          )
+          foreach ($name in $required) {
+            if (-not (Test-Path -LiteralPath (Join-Path $target $name))) {
+              throw "Missing staged Web runtime file: $name"
+            }
+          }
+
+  flutter-web:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: Flutter Web/Wasm gates
+    needs: wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository and builder sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
+
+      - name: Download the matching Wasm bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-callback-bundle
+          path: flutter/example/ci-artifacts
+
+      - name: Install plugin dependencies
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Run Dart analyze
+        working-directory: flutter
+        run: dart analyze
+
+      - name: Run Flutter analyze
+        working-directory: flutter
+        run: flutter analyze
+
+      - name: Run Flutter package tests
+        working-directory: flutter
+        run: flutter test
+
+      - name: Point the example at the generated bundle
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path("flutter/example/pubspec.yaml")
+          text = path.read_text(encoding="utf-8")
+          updated, count = re.subn(
+              r"(?m)^(\s*wasm:)\s*.*$",
+              r'\1 "ci-artifacts/bundle-base-wasm-wasm32-static-small-lgpl.zip"',
+              text,
+          )
+          if count != 1:
+              raise SystemExit("Expected exactly one Wasm bundle override")
+          path.write_text(updated, encoding="utf-8")
+
+      - name: Install example dependencies
+        working-directory: flutter/example
+        run: flutter pub get
+
+      - name: Run headless browser callback integration tests
+        working-directory: flutter/example
+        run: flutter test --platform chrome --wasm test/wasm_callback_test.dart
+
+      - name: Build Web Wasm example
+        working-directory: flutter/example
+        run: flutter build web --wasm

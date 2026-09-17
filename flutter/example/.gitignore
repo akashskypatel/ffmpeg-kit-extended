@@ -44,6 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 ffmpeg_kit_bundle/
+web/assets/packages/ffmpeg_kit_extended_flutter/wasm/
 .vscode/
 test_output/**
 test_audio.mp3

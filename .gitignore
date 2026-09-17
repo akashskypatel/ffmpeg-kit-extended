@@ -124,3 +124,6 @@ ffmpegkit_wrapper.h
 **/node_modules/
 **/.tools/*
 **/vendor/*
+.playwright-mcp/
+.playwright-cli/
+.tmp/
