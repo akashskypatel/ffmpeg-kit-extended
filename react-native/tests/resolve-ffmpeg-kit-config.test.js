@@ -171,6 +171,26 @@ test('preserves remote overrides and derives their filename', () => {
   assert.equal(result.cacheKey.length, 16);
 });
 
+test('accepts HTTP and HTTPS remote overrides', () => {
+  for (const scheme of ['http', 'https']) {
+    const remote = `${scheme}://example.com/releases/custom-bundle.aar`;
+    const {nested} = createApp({android: remote});
+    const result = resolveConfig({appRoot: nested, platform: 'android'});
+
+    assert.deepEqual(result.override, {kind: 'remote', value: remote});
+    assert.equal(result.url, remote);
+  }
+});
+
+test('rejects unsupported remote override schemes', () => {
+  const {nested} = createApp({android: 'ftp://example.com/releases/custom-bundle.aar'});
+
+  assert.throws(
+    () => resolveConfig({appRoot: nested, platform: 'android'}),
+    /Unsupported remote URL scheme "ftp:"; only http:\/\/ and https:\/\/ URLs are supported\./,
+  );
+});
+
 test('rejects invalid configuration values', () => {
   const invalidType = createApp({type: 'unknown'});
   assert.throws(

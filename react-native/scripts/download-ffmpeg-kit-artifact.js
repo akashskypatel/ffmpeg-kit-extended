@@ -18,6 +18,21 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function clientFor(url) {
+  let protocol;
+  try {
+    protocol = new URL(url).protocol.toLowerCase();
+  } catch (_) {
+    fail(`Invalid download URL: ${url}`);
+  }
+  if (protocol !== 'http:' && protocol !== 'https:') {
+    fail(
+      `Unsupported download URL scheme "${protocol}"; only http:// and https:// URLs are supported.`,
+    );
+  }
+  return protocol === 'https:' ? https : http;
+}
+
 function requestBuffer(url, {timeoutMs = DEFAULT_TIMEOUT_MS, redirects = 0} = {}) {
   return new Promise((resolve, reject) => {
     if (redirects > MAX_REDIRECTS) {
@@ -25,7 +40,7 @@ function requestBuffer(url, {timeoutMs = DEFAULT_TIMEOUT_MS, redirects = 0} = {}
       return;
     }
 
-    const client = url.startsWith('https:') ? https : http;
+    const client = clientFor(url);
     const request = client.get(
       url,
       {

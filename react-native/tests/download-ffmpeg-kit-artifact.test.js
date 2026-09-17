@@ -93,3 +93,21 @@ test('checksum validation removes corrupt cached artifacts and reuses valid ones
   assert.equal(checksumRequests, 3);
   assert.equal(fs.readFileSync(output).toString(), validArtifact.toString());
 });
+
+test('rejects unsupported download URL schemes', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-download-'));
+  temporaryRoots.push(root);
+  const output = path.join(root, 'build.zip');
+
+  await assert.rejects(
+    ensureArtifact({
+      url: 'ftp://example.com/build.zip',
+      output,
+      retries: 1,
+      timeoutMs: 1000,
+      quiet: true,
+    }),
+    /Unsupported download URL scheme "ftp:"; only http:\/\/ and https:\/\/ URLs are supported\./,
+  );
+  assert.equal(fs.existsSync(output), false);
+});

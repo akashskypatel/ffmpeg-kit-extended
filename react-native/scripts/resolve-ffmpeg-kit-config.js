@@ -59,8 +59,23 @@ function normalizeArchitecture(value) {
   fail(`Unsupported architecture: ${value}`);
 }
 
+function remoteScheme(value) {
+  const match = /^([a-z][a-z\d+.-]*):\/\//i.exec(value);
+  return match ? `${match[1].toLowerCase()}:` : null;
+}
+
 function isRemote(value) {
-  return /^(https?|ftp):\/\//i.test(value);
+  const scheme = remoteScheme(value);
+  return scheme === 'http:' || scheme === 'https:';
+}
+
+function validateRemoteScheme(value) {
+  const scheme = remoteScheme(value);
+  if (scheme && scheme !== 'http:' && scheme !== 'https:') {
+    fail(
+      `Unsupported remote URL scheme "${scheme}"; only http:// and https:// URLs are supported.`,
+    );
+  }
 }
 
 function findConfig(startDir) {
@@ -153,6 +168,7 @@ function resolveConfig({ appRoot, platform, architecture }) {
   if (overrideValue !== undefined && overrideValue !== null) {
     const value = String(overrideValue).trim();
     if (!value) fail(`The ${targetPlatform} override cannot be empty.`);
+    validateRemoteScheme(value);
 
     if (isRemote(value)) {
       let filename;
