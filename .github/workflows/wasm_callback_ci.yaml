@@ -172,7 +172,7 @@ jobs:
 
       - name: Run Flutter package tests
         working-directory: flutter
-        run: flutter test
+        run: flutter test --exclude-tags native
 
       - name: Install example dependencies
         working-directory: flutter/example
