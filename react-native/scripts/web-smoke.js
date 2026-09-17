@@ -7,6 +7,7 @@ const childProcess = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
 const {chromium} = require('playwright');
+const {main: prepareWeb} = require('./prepare-web.js');
 
 const appRoot = path.resolve(__dirname, '..', 'example');
 const url = 'http://127.0.0.1:4173/';
@@ -35,6 +36,8 @@ function waitForPort(port, host, timeoutMs = 30000) {
 }
 
 async function main() {
+  await prepareWeb(['--app-root', appRoot, '--quiet', 'true']);
+
   const command = process.execPath;
   const viteEntry = path.join(appRoot, 'node_modules', 'vite', 'bin', 'vite.js');
   const server = childProcess.spawn(

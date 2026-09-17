@@ -30,11 +30,10 @@ From this directory:
 
 ```sh
 npm install
-npm run prepare-web
 npm run web
 ```
 
-`prepare-web` stages the configured runtime in `public/ffmpeg-kit-extended/wasm/`. The checked-in configuration uses the Web-compatible `base` bundle because the pre-built Web/Wasm debug artifact for FFmpegKit binary `0.11.2` is not browser-compatible. To use a custom build, set `web` (or `wasm`) in `ffmpeg-kit-extended.config.json` to a local runtime directory, local ZIP, or HTTP(S) bundle URL before staging. A custom Wasm ZIP must contain exactly one runtime directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. Remote bundles are downloaded during staging; at runtime the browser loads the staged files from the application origin.
+The `web` and `web:build` scripts invoke the package-owned `prepare-web` build hook. It resolves the configured published runtime, stages it in `public/ffmpeg-kit-extended/wasm/`, and copies the package Web bridge beside it. The checked-in configuration uses the Web-compatible `base` bundle because the pre-built Web/Wasm debug artifact for FFmpegKit binary `0.11.2` is not browser-compatible. To use a custom build, set `web` (or `wasm`) in `ffmpeg-kit-extended.config.json` to a local runtime directory, local ZIP, or HTTP(S) bundle URL before building. A custom Wasm ZIP must contain exactly one runtime directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. Remote bundles are downloaded during the build hook; at runtime the browser loads the staged files from the application origin.
 
 The Web server must send these headers for cross-origin isolation and pthread Wasm:
 

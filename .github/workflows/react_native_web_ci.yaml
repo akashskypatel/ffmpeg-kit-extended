@@ -69,14 +69,10 @@ jobs:
         working-directory: react-native
         run: npx playwright install --with-deps chromium
 
-      - name: Resolve and stage the published Web runtime
-        working-directory: react-native/example
-        run: npm run prepare-web
-
-      - name: Build Web example
+      - name: Build Web example and resolve its runtime
         working-directory: react-native/example
         run: npm run web:build
 
-      - name: Run the headless WebAssembly smoke test
+      - name: Run the headless WebAssembly smoke test with package-owned staging
         working-directory: react-native
         run: npm run test:web

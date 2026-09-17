@@ -77,15 +77,11 @@ jobs:
         working-directory: react-native
         run: npm run test:pack-web
 
-      - name: Resolve and stage the published Web runtime
-        working-directory: react-native/example
-        run: npm run prepare-web
-
-      - name: Build the Web example
+      - name: Build the Web example and resolve its runtime
         working-directory: react-native/example
         run: npm run web:build
 
-      - name: Run the headless WebAssembly smoke test
+      - name: Run the headless WebAssembly smoke test with package-owned staging
         working-directory: react-native
         run: npm run test:web
 

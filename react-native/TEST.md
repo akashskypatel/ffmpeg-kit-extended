@@ -27,10 +27,10 @@ npm run check
 npm run prepare
 npm pack --dry-run
 npm --prefix example install
-npm --prefix example run prepare-web
 npm --prefix example run web:build
+npm run test:web
 ```
 
-For a real Wasm smoke test, run `npm --prefix example run prepare-web`; the resolver downloads and stages the configured published bundle, or uses an explicit local/remote override when provided. Start the example with `npm --prefix example run web` and use a headless Chromium session. The browser must report `crossOriginIsolated === true`; the smoke flow initializes once, repeats initialization, runs FFmpeg and FFprobe, exercises FFplay controls, and verifies that no console errors are emitted.
+The Web start and build scripts invoke the package-owned resolver automatically. `npm run test:web` also prepares the example before launching its headless Chromium smoke test, so no binary path or separately staged artifact is required. The resolver downloads and stages the configured published bundle, or uses an explicit local/remote override when provided. The browser must report `crossOriginIsolated === true`; the smoke flow initializes once, repeats initialization, runs FFmpeg and FFprobe, exercises FFplay controls, and verifies that no console errors are emitted.
 
-The Wasm runtime is intentionally not included in the npm package. `prepare-web` stages it from the configured release artifact or local override, so package checks do not silently bundle a large binary.
+The Wasm runtime is intentionally not included in the npm package. The Web build hook stages it from the configured published release or local override, so package checks do not silently bundle a large binary.
