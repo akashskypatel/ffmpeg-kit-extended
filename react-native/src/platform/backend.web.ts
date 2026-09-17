@@ -2,6 +2,7 @@ import type {MediaInformationData} from '../media-information';
 import type {
   FFmpegKitBackend,
   FFmpegKitInitializeOptions,
+  FFplayFrameCopyResult,
   StatisticsSnapshot,
 } from './backend';
 import {WasmSessionRegistry} from './web/session-registry';
@@ -410,7 +411,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   getFrameBufferSize(): number { return numberResult(this.call('ffplay_kit_get_frame_buffer_size')()); }
 
-  copyFrame(destination: number, destinationSize: number): {width: number; height: number; linesize: number; generation: number} {
+  copyFrame(destination: number, destinationSize: number): FFplayFrameCopyResult {
     const module = this.module();
     const width = module._malloc(4);
     const height = module._malloc(4);
@@ -418,12 +419,12 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     const generation = module._malloc(8);
     try {
       const result = numberResult(this.call('ffplay_kit_copy_frame')(destination, destinationSize, width, height, linesize, generation));
-      if (!result) return {width: 0, height: 0, linesize: 0, generation: 0};
       return {
         width: module.HEAPU32[width / 4],
         height: module.HEAPU32[height / 4],
         linesize: module.HEAPU32[linesize / 4],
         generation: Number(new BigUint64Array(module.HEAPU8.buffer, generation, 1)[0]),
+        copied: result === 1,
       };
     } finally { module._free(width); module._free(height); module._free(linesize); module._free(generation); }
   }

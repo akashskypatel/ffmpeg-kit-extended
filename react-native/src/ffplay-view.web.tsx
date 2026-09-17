@@ -1,13 +1,13 @@
 import React, {useEffect, useRef} from 'react';
 import {View, type ViewProps} from 'react-native';
-import {readLatestFrame} from './platform/web/ffplay-frame-reader';
+import {readLatestFrame, type WasmVideoFrame} from './platform/web/ffplay-frame-reader';
 
 export type FFplayViewProps = ViewProps;
 
 /** Browser FFplay surface backed by copied RGBA frames and a canvas. */
 export function FFplayView(props: FFplayViewProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const frameGeneration = useRef(0);
+  const frameVersion = useRef<WasmVideoFrame | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -15,9 +15,9 @@ export function FFplayView(props: FFplayViewProps): React.JSX.Element {
     const render = () => {
       if (!active) return;
       const canvas = canvasRef.current;
-      const frame = readLatestFrame();
-      if (canvas && frame && frame.generation !== frameGeneration.current) {
-        frameGeneration.current = frame.generation;
+      const frame = readLatestFrame(frameVersion.current);
+      if (canvas && frame) {
+        frameVersion.current = frame;
         canvas.width = frame.width;
         canvas.height = frame.height;
         const context = canvas.getContext('2d');

@@ -30,11 +30,12 @@ test('Web backend copies FFplay frame metadata through mocked Wasm memory', () =
     _free: () => {},
     ffplay_kit_get_frame_buffer_size: () => 32,
     ffplay_kit_copy_frame: (destination, size, width, height, linesize, generation) => {
-      assert.equal(size, 32);
       module.HEAPU32[width / 4] = 2;
       module.HEAPU32[height / 4] = 1;
       module.HEAPU32[linesize / 4] = 8;
       new BigUint64Array(memory, generation, 1)[0] = 4n;
+      if (destination === 0) return -1;
+      assert.equal(size, 32);
       module.HEAPU8.set([1, 2, 3, 4, 5, 6, 7, 8], destination);
       return 1;
     },
@@ -47,6 +48,14 @@ test('Web backend copies FFplay frame metadata through mocked Wasm memory', () =
     height: 1,
     linesize: 8,
     generation: 4,
+    copied: true,
+  });
+  assert.deepEqual(backend.copyFrame(0, 0), {
+    width: 2,
+    height: 1,
+    linesize: 8,
+    generation: 4,
+    copied: false,
   });
 });
 

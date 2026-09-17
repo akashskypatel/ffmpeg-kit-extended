@@ -19,6 +19,17 @@ export interface FFmpegKitInitializeOptions {
   assetBaseUrl?: string;
 }
 
+export interface FFplayFrameMetadata {
+  width: number;
+  height: number;
+  linesize: number;
+  generation: number;
+}
+
+export interface FFplayFrameCopyResult extends FFplayFrameMetadata {
+  copied: boolean;
+}
+
 /** Platform-neutral implementation of the public FFmpegKit bridge. */
 export interface FFmpegKitBackend {
   initialize(options?: FFmpegKitInitializeOptions): Promise<void>;
@@ -55,7 +66,7 @@ export interface FFmpegKitBackend {
   ffplayGetVolume(sessionId: number): number;
   ffplayHasVideoStream(path: string): boolean;
   getFrameBufferSize(): number;
-  copyFrame(destination: number, destinationSize: number): {width: number; height: number; linesize: number; generation: number};
+  copyFrame(destination: number, destinationSize: number): FFplayFrameCopyResult;
   enableRedirection(): void;
   disableRedirection(): void;
   setLogLevel(level: number): void;
