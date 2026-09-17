@@ -36,6 +36,7 @@
     "prepare": "bob build",
     "prepare-web": "node scripts/prepare-web.js",
     "test:web": "node scripts/web-smoke.js",
+    "test:pack-web": "node tests/packed-web-consumer.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts tests react-native.config.js .eslintrc.js",
     "test:compile": "del-cli .test-dist && tsc -p tsconfig.test.json",

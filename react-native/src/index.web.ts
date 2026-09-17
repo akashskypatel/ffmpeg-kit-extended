@@ -1,3 +1,5 @@
+import './platform/backend.web.register';
+
 export * from './arguments';
 export * from './ffmpeg-kit';
 export * from './ffmpeg-kit-config';

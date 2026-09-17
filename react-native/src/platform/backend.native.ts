@@ -1,7 +1,7 @@
 import NativeFFmpegKitExtended from '../NativeFFmpegKitExtended';
 import type {FFmpegKitBackend} from './backend';
 
-const nativeBackend: FFmpegKitBackend = {
+export const nativeBackend: FFmpegKitBackend = {
   ...NativeFFmpegKitExtended,
   initialize: async () => {
     NativeFFmpegKitExtended.initialize();
@@ -13,7 +13,3 @@ const nativeBackend: FFmpegKitBackend = {
     return json ? (JSON.parse(json) as ReturnType<FFmpegKitBackend['getMediaInformationData']>) : undefined;
   },
 };
-
-export function getBackend(): FFmpegKitBackend {
-  return nativeBackend;
-}

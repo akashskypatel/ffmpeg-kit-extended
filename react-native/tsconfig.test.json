@@ -15,6 +15,8 @@
     "src/session-queue-manager.ts",
     "src/types.ts",
     "src/platform/web/session-registry.ts",
-    "src/platform/backend.web.ts"
+    "src/platform/backend.ts",
+    "src/platform/backend.web.ts",
+    "src/platform/backend.web.register.ts"
   ]
 }

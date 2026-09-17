@@ -5,6 +5,14 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {WebFFmpegKitBackend} = require('../.test-dist/platform/backend.web.js');
+const {getBackend} = require('../.test-dist/platform/backend.js');
+const {webBackend} = require('../.test-dist/platform/backend.web.js');
+
+require('../.test-dist/platform/backend.web.register.js');
+
+test('Web backend registration selects the browser backend without native imports', () => {
+  assert.strictEqual(getBackend(), webBackend);
+});
 
 test('Web backend copies FFplay frame metadata through mocked Wasm memory', () => {
   const memory = new ArrayBuffer(4096);

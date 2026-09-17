@@ -16,6 +16,8 @@
  * exported for advanced integration and diagnostics, but its JSON/scalar API
  * is lower level and does not provide the lifecycle safeguards of the wrappers.
  */
+import './platform/backend.native.register';
+
 export {default as NativeFFmpegKitExtended} from './NativeFFmpegKitExtended';
 export * from './arguments';
 export * from './ffmpeg-kit';

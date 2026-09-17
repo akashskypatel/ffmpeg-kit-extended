@@ -469,8 +469,4 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   clearDebugLog(sessionId: number): void { this.withSession(sessionId, p => this.call('session_clear_debug_log')(p)); }
 }
 
-const webBackend = new WebFFmpegKitBackend();
-
-export function getBackend(): FFmpegKitBackend {
-  return webBackend;
-}
+export const webBackend: FFmpegKitBackend = new WebFFmpegKitBackend();

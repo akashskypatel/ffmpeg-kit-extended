@@ -98,4 +98,17 @@ export interface FFmpegKitBackend {
   getMediaInformationData(sessionId: number): MediaInformationData | undefined;
 }
 
-export {getBackend} from './backend.native';
+let backend: FFmpegKitBackend | undefined;
+
+/** Registers the backend selected by the package entrypoint. */
+export function setBackend(value: FFmpegKitBackend): void {
+  backend = value;
+}
+
+/** Returns the backend selected by the native or browser package entrypoint. */
+export function getBackend(): FFmpegKitBackend {
+  if (!backend) {
+    throw new Error('FFmpegKit backend has not been configured by the package entrypoint.');
+  }
+  return backend;
+}
