@@ -24,6 +24,27 @@ Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
 The binding package has native integration for Android, iOS, Apple tvOS, macOS, and Windows.
 
+## Run Web
+
+From this directory:
+
+```sh
+npm install
+npm run prepare-web
+npm run web
+```
+
+`prepare-web` stages the configured runtime in `public/ffmpeg-kit-extended/wasm/`. The default configuration selects the released bundle. To use a custom build, set `web` (or `wasm`) in `ffmpeg-kit-extended.config.json` to a local runtime directory, local ZIP, or HTTP(S) bundle URL before staging. Remote bundles are downloaded during staging; at runtime the browser loads the staged files from the application origin.
+
+The Web server must send these headers for cross-origin isolation and pthread Wasm:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+The included `web/vite.config.js` uses the standard React Native Web alias and these development headers. Configure the same headers on the production host. If the staged runtime is served below a different URL, pass that directory to `FFmpegKitExtended.initialize({assetBaseUrl})`.
+
 ## FFplay rendering
 
 `FFplayView` provides the native playback surface. Android uses a native `TextureView`; iOS, Apple tvOS, and macOS present decoded frames through `AVSampleBufferDisplayLayer`; Windows presents desktop frame callbacks through a WinUI 3 Composition drawing surface. Audio playback continues through FFplay's native audio backend.

@@ -146,7 +146,15 @@ A platform-specific remote URL or local path overrides the pre-built bundle sele
 }
 ```
 
-Web uses the same configuration file with either a `web` or `wasm` override. The override may point to a staged runtime directory containing `ffmpegkit.mjs` and `ffmpegkit.wasm`, or to a Wasm bundle ZIP:
+### React Native Web setup
+
+Install the package with the React Native Web dependencies:
+
+```bash
+npm install ffmpeg-kit-extended react-native-web react-dom
+```
+
+Web uses the same configuration file with either a `web` or `wasm` override. The override may point to a local runtime directory containing `ffmpegkit.mjs` and `ffmpegkit.wasm`, a local Wasm bundle ZIP, or an `http://`/`https://` bundle URL:
 
 ```json
 {
@@ -157,14 +165,13 @@ Web uses the same configuration file with either a `web` or `wasm` override. The
 }
 ```
 
-Stage the browser runtime during the application build:
+Relative paths are resolved from the consuming application directory. Unsupported URL schemes are rejected. Stage a local or remote browser runtime during the application build:
 
 ```bash
-npm install ffmpeg-kit-extended react-native-web react-dom
 npx ffmpeg-kit-extended prepare-web --app-root .
 ```
 
-The command writes `public/ffmpeg-kit-extended/wasm/` and verifies configured release artifacts before extraction. It never downloads Wasm at browser runtime. Custom builds can be staged from a local directory through the `web`/`wasm` override.
+The command writes `public/ffmpeg-kit-extended/wasm/`, verifies release-selected artifacts before extraction, and copies the package Web bridge beside the runtime. Custom builds can be staged from a local directory or ZIP through the `web`/`wasm` override. Remote overrides are downloaded while staging; at runtime the browser loads the staged files from your application origin rather than downloading a release bundle.
 
 The Wasm bundle is pthread-enabled. The Web server must send these headers for the page and runtime assets:
 
@@ -173,11 +180,38 @@ Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
 ```
 
-For Vite, resolve `react-native` to `react-native-web` and use the package's Web entry in the browser build. The example application contains a complete configuration under `example/web/`.
+The headers enable pthread Wasm through `SharedArrayBuffer` and must be sent for the page and runtime assets in development and production. The default runtime URL is `/ffmpeg-kit-extended/wasm/`. If the application serves the staged files below another path, pass that path during initialization:
+
+```ts
+await FFmpegKitExtended.initialize({
+  assetBaseUrl: '/my-app/ffmpeg-kit-extended/wasm/',
+});
+```
+
+Vite consumers need only ordinary React Native Web setup plus the required headers. The package's `browser` export selects the Web implementation; no repository-specific package-source alias or backend rewrite is required:
+
+```js
+const react = require('@vitejs/plugin-react');
+
+module.exports = {
+  plugins: [react()],
+  resolve: {
+    alias: [{find: 'react-native', replacement: require.resolve('react-native-web')}],
+  },
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+};
+```
 
 ## Execution model
 
 React Native command execution is asynchronous. `execute()` and `executeAsync()` both return a `Promise` that resolves when the session finishes.
+
+Call `FFmpegKitExtended.initialize()` and await it before using FFmpeg, FFprobe, or FFplay. Successful initialization is idempotent; a failed attempt can be retried, including with corrected `assetBaseUrl` options. Concurrent calls share the same initialization attempt.
 
 The native session starts asynchronously, while the TypeScript `Session` polls buffered native logs, statistics, and state. This keeps C callbacks and JavaScript callback lifetime management out of the C ABI boundary while preserving per-session completion/log/statistics callbacks.
 
@@ -213,7 +247,9 @@ console.log(media?.format);
 console.log(media?.streams);
 ```
 
-FFplay video and audio playback are supported on Android, iOS, Apple tvOS, macOS, Windows, and Web. Mount `FFplayView` before starting video playback so the platform rendering surface is ready. On Web, `FFplayView` is a canvas that receives copied RGBA frames. Audio-only playback does not require a video surface.
+`FFprobeKit.getMediaInformation(path)` passes `path` as one FFprobe argument. Paths containing spaces or shell characters do not need shell quoting.
+
+FFplay video and audio playback are supported on Android, iOS, Apple tvOS, macOS, Windows, and Web. Mount `FFplayView` before starting video playback so the platform rendering surface is ready. On Web, `FFplayView` is a canvas that receives copied RGBA frames and requires cross-origin isolation. Its layout is controlled with normal React Native `ViewProps` and styles, including `width`, `height`, and `aspectRatio`. Audio-only playback does not require a video surface.
 
 ```tsx
 import {FFplayKit, FFplayView} from 'ffmpeg-kit-extended';
@@ -263,7 +299,7 @@ npm run prepare-web
 npm run web
 ```
 
-The Web example uses COOP/COEP headers, initializes the same public API, executes FFmpeg and FFprobe, and mounts the canvas-backed `FFplayView`.
+The Web example uses COOP/COEP headers, initializes the same public API, executes FFmpeg and FFprobe, and mounts the canvas-backed `FFplayView`. Its Vite configuration demonstrates the standard `react-native` to `react-native-web` alias without package-source or backend rewrites.
 
 The repository scripts prepare the matching native binary, native dependencies, and host application. Codegen is not pre-generated or shipped by this package: each consuming React Native app generates the required artifacts with its own platform toolchain during the native build.
 
