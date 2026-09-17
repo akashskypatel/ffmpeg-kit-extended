@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
@@ -320,7 +320,7 @@ class _HomePageState extends State<HomePage>
 
   void _addLog(String log, {bool printToConsole = false}) {
     if (printToConsole) {
-      print(log);
+      debugPrint(log);
     }
     _pendingOutputLogs += "$log\n";
     _outputLogFlushTimer ??= Timer(
