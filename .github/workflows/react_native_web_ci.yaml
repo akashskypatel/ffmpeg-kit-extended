@@ -65,10 +65,18 @@ jobs:
         working-directory: react-native
         run: npm pack --dry-run
 
+      - name: Install Playwright Chromium
+        working-directory: react-native
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve and stage the published Web runtime
+        working-directory: react-native/example
+        run: npm run prepare-web
+
       - name: Build Web example
         working-directory: react-native/example
         run: npm run web:build
 
-      # The real Wasm smoke command is run with a locally staged builder output
-      # because this repository intentionally does not publish the large runtime
-      # binary as an npm package or browser download.
+      - name: Run the headless WebAssembly smoke test
+        working-directory: react-native
+        run: npm run test:web
