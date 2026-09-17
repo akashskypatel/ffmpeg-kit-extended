@@ -1,5 +1,5 @@
 import React, {useEffect, useRef} from 'react';
-import type {ViewProps} from 'react-native';
+import {View, type ViewProps} from 'react-native';
 import {readLatestFrame} from './platform/web/ffplay-frame-reader';
 
 export type FFplayViewProps = ViewProps;
@@ -10,8 +10,10 @@ export function FFplayView(props: FFplayViewProps): React.JSX.Element {
   const frameGeneration = useRef(0);
 
   useEffect(() => {
+    let active = true;
     let animationFrame = 0;
     const render = () => {
+      if (!active) return;
       const canvas = canvasRef.current;
       const frame = readLatestFrame();
       if (canvas && frame && frame.generation !== frameGeneration.current) {
@@ -33,20 +35,20 @@ export function FFplayView(props: FFplayViewProps): React.JSX.Element {
       animationFrame = requestAnimationFrame(render);
     };
     animationFrame = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animationFrame);
+    return () => {
+      active = false;
+      cancelAnimationFrame(animationFrame);
+    };
   }, []);
 
-  const style = props.style as unknown as React.CSSProperties;
-  const canvasStyle: React.CSSProperties = {
-    ...style,
+  const canvasStyle = {
     display: 'block',
     width: '100%',
     height: '100%',
-  };
+  } as const;
   return (
-    <canvas
-      ref={canvasRef}
-      style={canvasStyle}
-    />
+    <View {...props}>
+      <canvas ref={canvasRef} style={canvasStyle} />
+    </View>
   );
 }
