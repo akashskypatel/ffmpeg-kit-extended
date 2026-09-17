@@ -71,7 +71,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq cmake ninja-build pkg-config python3 ripgrep yasm
+          sudo apt-get install -y -qq cmake ninja-build pkg-config python3 ripgrep yasm libsdl2-dev
 
       - name: Build the Wasm bundle
         working-directory: libs/libffmpegkit
