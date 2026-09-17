@@ -1,5 +1,12 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 1.0.0
+
+- Added WebAssembly wasm32 support
+- Fix Dart Hook configuration resolution in Pub Workspaces with root precedence, normal dependency-graph filtering, deterministic ambiguity handling, and explicit default fallback.
+- Track inspected Pub metadata and local native/Web overrides as hook dependencies; detect same-size content changes and invalidate stale extracted artifacts.
+- Separate configuration and Web staging roots, and add regression coverage and documentation for workspace resolution and local override behavior.
+
 ## Version 0.6.2
 
 - Preserve FFmpeg, FFprobe, and FFplay session arguments as argv all the way into their embedded CLI runtimes to fix argument parsing bug exposed by quotes in commands.

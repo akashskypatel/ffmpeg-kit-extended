@@ -1,5 +1,9 @@
 # FFmpegKit Extended React Native Changelog
 
+## Version 1.0.0
+
+- Added WebAssembly wasm32 support
+
 ## Version 0.6.2
 
 - Preserve FFmpeg, FFprobe, and FFplay session arguments as argv all the way into their embedded CLI runtimes to fix argument parsing bug exposed by quotes in commands.
