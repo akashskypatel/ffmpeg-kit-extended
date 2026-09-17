@@ -87,8 +87,8 @@ ConfigResult resolveConfig({
     }
 
     // 2. If the root has no configuration, inspect package roots contained
-    // in it. Only an active workspace root depending on this package may
-    // supply the configuration.
+    // in it. Only a workspace root depending on this package may supply the
+    // configuration.
     final candidates = <_ConfigCandidate>[];
     for (final package in _readPackageEntries(packageConfigUri, log)) {
       if (package.name == packageName ||
@@ -115,37 +115,38 @@ ConfigResult resolveConfig({
       }
     }
 
-    final activeRootNames = packageGraph?.rootsDependingOn(packageName);
-    final activeCandidates = packageGraph == null
+    final dependentRootNames = packageGraph?.dependentRootNames(packageName);
+    final dependentCandidates = packageGraph == null
         ? candidates
         : candidates
               .where(
-                (candidate) => activeRootNames!.contains(candidate.packageName),
+                (candidate) =>
+                    dependentRootNames!.contains(candidate.packageName),
               )
               .toList();
 
     if (workspaceRootDetected &&
-        activeRootNames != null &&
-        activeRootNames.length > 1 &&
-        activeCandidates.isNotEmpty) {
-      final paths = activeCandidates
+        dependentRootNames != null &&
+        dependentRootNames.length > 1 &&
+        dependentCandidates.isNotEmpty) {
+      final paths = dependentCandidates
           .map(
             (candidate) =>
                 '${candidate.packageName}: ${candidate.pubspec.path}',
           )
           .join('; ');
       final message =
-          'Ambiguous FFmpegKit configuration: multiple active workspace '
-          'roots depend on $packageName, so the hook cannot identify which '
+          'Ambiguous FFmpegKit configuration: multiple workspace roots depend '
+          'on $packageName, so the hook cannot identify which '
           'package-specific configuration applies. Place a shared '
-          'configuration in ${rootPubspec.path} or configure only one active '
-          'workspace root (${activeRootNames.join(', ')}): $paths';
+          'configuration in ${rootPubspec.path} or configure only one '
+          'workspace root (${dependentRootNames.join(', ')}): $paths';
       log('Error: $message');
       throw ConfigResolutionException(message);
     }
 
-    if (activeCandidates.length > 1) {
-      final paths = activeCandidates
+    if (dependentCandidates.length > 1) {
+      final paths = dependentCandidates
           .map(
             (candidate) =>
                 '${candidate.packageName}: ${candidate.pubspec.path}',
@@ -171,10 +172,10 @@ ConfigResult resolveConfig({
       throw ConfigResolutionException(message);
     }
 
-    if (activeCandidates.length == 1) {
-      final candidate = activeCandidates.single;
+    if (dependentCandidates.length == 1) {
+      final candidate = dependentCandidates.single;
       log(
-        'Using active in-workspace package configuration from '
+        'Using dependent in-workspace package configuration from '
         '${candidate.pubspec.path}',
       );
       return ConfigResult(
@@ -186,8 +187,8 @@ ConfigResult resolveConfig({
 
     if (candidates.isNotEmpty && packageGraph != null) {
       log(
-        'Ignoring configured workspace packages that are not active roots '
-        'depending on $packageName. Using the default configuration.',
+        'Ignoring configured workspace packages that are not package-graph '
+        'roots depending on $packageName. Using the default configuration.',
       );
     }
 
@@ -196,8 +197,9 @@ ConfigResult resolveConfig({
         if (candidates.isNotEmpty && packageGraph != null) {
           log(
             'Warning: Dart Pub Workspace detected at $configRoot, but no '
-            'active in-workspace package depends on $packageName and defines '
-            'ffmpeg_kit_extended_config. Falling back to the default "base" '
+            'dependent in-workspace package defines '
+            'ffmpeg_kit_extended_config for $packageName. Falling back to '
+            'the default "base" '
             'LGPL small build.',
           );
         } else {
@@ -287,7 +289,7 @@ class _PackageGraph {
 
   const _PackageGraph({required this.roots, required this.dependencies});
 
-  List<String> rootsDependingOn(String targetName) => [
+  List<String> dependentRootNames(String targetName) => [
     for (final root in roots)
       if (dependsOn(root, targetName)) root,
   ];

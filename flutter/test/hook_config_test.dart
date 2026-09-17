@@ -150,17 +150,17 @@ ffmpeg_kit_extended_config:
     );
   });
 
-  test('ignores configured packages outside the active dependency closure', () {
+  test('ignores configured packages outside the dependency closure', () {
     final workspaceRoot = _createDirectory(tempRoot, 'workspace');
     final packageRoot = _createDirectory(
       tempRoot,
       p.join('workspace', 'packages', 'ffmpeg'),
     );
-    final activeAppRoot = _createDirectory(
+    final dependentAppRoot = _createDirectory(
       tempRoot,
       p.join('workspace', 'apps', 'editor'),
     );
-    final inactiveAppRoot = _createDirectory(
+    final unrelatedConfiguredRoot = _createDirectory(
       tempRoot,
       p.join('workspace', 'apps', 'transcoder'),
     );
@@ -170,15 +170,15 @@ workspace:
   - apps/editor
   - apps/transcoder
 ''');
-    _writePubspec(activeAppRoot, 'name: editor\n');
-    _writePubspec(inactiveAppRoot, '''
+    _writePubspec(dependentAppRoot, 'name: editor\n');
+    _writePubspec(unrelatedConfiguredRoot, '''
 name: transcoder
 ffmpeg_kit_extended_config:
   type: full
 ''');
     _writePackageConfig(workspaceRoot, packageRoot, [
-      activeAppRoot,
-      inactiveAppRoot,
+      dependentAppRoot,
+      unrelatedConfiguredRoot,
     ]);
     _writePackageGraph(
       workspaceRoot,
@@ -200,62 +200,65 @@ ffmpeg_kit_extended_config:
     );
 
     expect(result.config['type'], equals('base'));
-    expect(logs.join('\n'), contains('not active roots'));
+    expect(logs.join('\n'), contains('not package-graph roots'));
   });
 
-  test('does not guess when multiple active workspace roots are possible', () {
-    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
-    final packageRoot = _createDirectory(
-      tempRoot,
-      p.join('workspace', 'packages', 'ffmpeg'),
-    );
-    final editorRoot = _createDirectory(
-      tempRoot,
-      p.join('workspace', 'apps', 'editor'),
-    );
-    final transcoderRoot = _createDirectory(
-      tempRoot,
-      p.join('workspace', 'apps', 'transcoder'),
-    );
-    _writePubspec(workspaceRoot, '''
+  test(
+    'does not guess when multiple dependent workspace roots are possible',
+    () {
+      final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+      final packageRoot = _createDirectory(
+        tempRoot,
+        p.join('workspace', 'packages', 'ffmpeg'),
+      );
+      final editorRoot = _createDirectory(
+        tempRoot,
+        p.join('workspace', 'apps', 'editor'),
+      );
+      final transcoderRoot = _createDirectory(
+        tempRoot,
+        p.join('workspace', 'apps', 'transcoder'),
+      );
+      _writePubspec(workspaceRoot, '''
 name: workspace
 workspace:
   - apps/editor
   - apps/transcoder
 ''');
-    _writePubspec(editorRoot, 'name: editor\n');
-    _writePubspec(transcoderRoot, '''
+      _writePubspec(editorRoot, 'name: editor\n');
+      _writePubspec(transcoderRoot, '''
 name: transcoder
 ffmpeg_kit_extended_config:
   type: full
 ''');
-    _writePackageConfig(workspaceRoot, packageRoot, [
-      editorRoot,
-      transcoderRoot,
-    ]);
-    _writePackageGraph(
-      workspaceRoot,
-      roots: ['editor', 'transcoder'],
-      dependencies: {
-        'editor': ['ffmpeg_kit_extended_flutter'],
-        'transcoder': ['ffmpeg_kit_extended_flutter'],
-        'ffmpeg_kit_extended_flutter': const [],
-      },
-    );
-    final logs = <String>[];
+      _writePackageConfig(workspaceRoot, packageRoot, [
+        editorRoot,
+        transcoderRoot,
+      ]);
+      _writePackageGraph(
+        workspaceRoot,
+        roots: ['editor', 'transcoder'],
+        dependencies: {
+          'editor': ['ffmpeg_kit_extended_flutter'],
+          'transcoder': ['ffmpeg_kit_extended_flutter'],
+          'ffmpeg_kit_extended_flutter': const [],
+        },
+      );
+      final logs = <String>[];
 
-    expect(
-      () => resolveConfig(
-        packageName: 'ffmpeg_kit_extended_flutter',
-        packageRoot: packageRoot.path,
-        packageConfig: _packageConfigUri(workspaceRoot),
-        readPubspec: _readPubspec,
-        log: logs.add,
-      ),
-      throwsA(isA<ConfigResolutionException>()),
-    );
-    expect(logs.join('\n'), contains('multiple active workspace roots'));
-  });
+      expect(
+        () => resolveConfig(
+          packageName: 'ffmpeg_kit_extended_flutter',
+          packageRoot: packageRoot.path,
+          packageConfig: _packageConfigUri(workspaceRoot),
+          readPubspec: _readPubspec,
+          log: logs.add,
+        ),
+        throwsA(isA<ConfigResolutionException>()),
+      );
+      expect(logs.join('\n'), contains('multiple workspace roots'));
+    },
+  );
 
   test('uses defaults when no workspace package is configured', () {
     final workspaceRoot = _createDirectory(tempRoot, 'workspace');
