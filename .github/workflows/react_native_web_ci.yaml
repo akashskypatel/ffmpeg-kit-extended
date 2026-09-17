@@ -53,6 +53,10 @@ jobs:
         working-directory: react-native/example
         run: npm ci
 
+      - name: Install Playwright Chromium
+        working-directory: react-native
+        run: npx playwright install --with-deps chromium
+
       - name: Run package checks
         working-directory: react-native
         run: npm run check
@@ -64,10 +68,6 @@ jobs:
       - name: Validate package contents
         working-directory: react-native
         run: npm pack --dry-run
-
-      - name: Install Playwright Chromium
-        working-directory: react-native
-        run: npx playwright install --with-deps chromium
 
       - name: Build Web example and resolve its runtime
         working-directory: react-native/example
