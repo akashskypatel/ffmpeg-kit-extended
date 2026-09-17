@@ -163,7 +163,8 @@ Future<void> _buildWebDataAssets(
         ),
       );
     }
-  } else {
+  }
+  if (stagingBaseDir != null) {
     for (final name in requiredRuntimeFiles) {
       await stageWebAsset(runtimeFilesByName[name]!, name);
     }
@@ -208,7 +209,8 @@ Future<void> _buildWebDataAssets(
     output.assets.data.add(
       DataAsset(package: packageName, name: loaderName, file: loaderSource.uri),
     );
-  } else {
+  }
+  if (stagingBaseDir != null) {
     await stageWebAsset(bridgeSource, bridgeFileName);
     await stageWebAsset(callbackRuntimeSource, callbackRuntimeFileName);
     await stageWebAsset(loaderSource, loaderFileName);
