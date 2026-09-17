@@ -17,6 +17,9 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+@Tags(['native'])
+library;
+
 import 'dart:async';
 import 'dart:ffi';
 import 'dart:io';
@@ -28,7 +31,6 @@ import 'package:ffmpeg_kit_extended_flutter/src/generated/ffmpeg_kit_bindings_na
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as path;
-import 'package:test/test.dart' show Tags;
 
 // Callback Signatures
 typedef NativeLogCallback =
@@ -124,7 +126,6 @@ class _GlobalCapturer {
   List<String> callbacks = [];
 }
 
-@Tags(['native'])
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
