@@ -51,6 +51,10 @@ function extractZip(zipFile, destination) {
   }
 }
 
+function artifactCachePath(cacheDir, resolution) {
+  return path.join(cacheDir, `${resolution.cacheKey}-${resolution.filename}`);
+}
+
 async function main(argv = process.argv.slice(2)) {
   const args = parseArgs(argv);
   const appRoot = path.resolve(args['app-root'] || process.cwd());
@@ -78,8 +82,9 @@ async function main(argv = process.argv.slice(2)) {
     } else {
       const artifact = await ensureArtifact({
         url: resolution.url,
-        output: path.join(cacheDir, resolution.filename),
+        output: artifactCachePath(cacheDir, resolution),
         checksum: resolution.checksum,
+        reuseCached: resolution.override?.kind !== 'remote' || Boolean(resolution.checksum),
         quiet: args.quiet === 'true',
       });
       temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-'));
@@ -114,4 +119,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = {findRuntimeFiles, main};
+module.exports = {artifactCachePath, findRuntimeFiles, main};

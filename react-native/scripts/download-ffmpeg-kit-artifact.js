@@ -161,12 +161,13 @@ async function ensureArtifact({
   retries = DEFAULT_RETRIES,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   quiet = false,
+  reuseCached = true,
 }) {
   const options = {retries, timeoutMs, quiet};
   const tempTarget = `${output}.downloading`;
   fs.rmSync(tempTarget, {force: true});
 
-  if (fs.existsSync(output) && fs.statSync(output).size > 0) {
+  if (reuseCached && fs.existsSync(output) && fs.statSync(output).size > 0) {
     if (checksum) {
       try {
         const result = await verifyFile(output, checksum, options);
