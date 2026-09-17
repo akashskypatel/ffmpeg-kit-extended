@@ -108,16 +108,19 @@ export class SessionQueueManager {
 
   /**
    * Removes all waiting sessions and rejects their promises with
-   * `SessionCancelledException`. Active sessions continue running.
+   * `SessionCancelledException`, or with a discard cleanup error when cleanup
+   * fails. Active sessions continue running.
    */
   clearQueue(): void {
     const pending = this.queue.splice(0);
     for (const item of pending) {
+      let rejection: unknown = new SessionCancelledException();
       try {
         item.onDiscard?.();
-      } finally {
-        item.reject(new SessionCancelledException());
+      } catch (error) {
+        rejection = error;
       }
+      item.reject(rejection);
     }
   }
 

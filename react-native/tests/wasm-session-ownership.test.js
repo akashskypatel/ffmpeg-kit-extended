@@ -16,8 +16,10 @@ let logEntries = [];
 let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
+let startError;
 setBackend({
   executeSessionAsync: () => {
+    if (startError) throw startError;
     executionStarts += 1;
   },
   getLogsJson: (_sessionId, fromIndex) => JSON.stringify(fromIndex === 0 ? logEntries : []),
@@ -40,6 +42,7 @@ beforeEach(() => {
   statisticsEntries = [];
   executionStarts = 0;
   sessionState = 2;
+  startError = undefined;
 });
 
 afterEach(async () => {
@@ -76,6 +79,22 @@ test('normally completed session releases its Wasm handle exactly once', async (
   assert.equal(executionStarts, 1);
   assert.deepEqual(releases, [7]);
   assert.equal(registry.has(7), false);
+});
+
+test('native start failure releases its Wasm handle exactly once', async () => {
+  const error = new Error('native start failed');
+  startError = error;
+  registry.retain(3072, 8);
+
+  const execution = new FFmpegSession(8, '-version').executeAsync();
+
+  await assert.rejects(execution, reason => reason === error);
+  await manager.waitForAll();
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(releases, [8]);
+  assert.equal(registry.has(8), false);
+  assert.equal(manager.activeSessionCount, 0);
+  assert.equal(manager.queueLength, 0);
 });
 
 test('active cancelled session keeps its handle until terminal state', async () => {

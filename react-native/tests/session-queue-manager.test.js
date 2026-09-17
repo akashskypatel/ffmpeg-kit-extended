@@ -103,6 +103,40 @@ test('clearQueue rejects pending work without cancelling the active session', as
   assert.equal(await active, 'active');
 });
 
+test('clearQueue settles every pending item after discard cleanup failure', async () => {
+  manager.maxConcurrentSessions = 1;
+  const activeGate = deferred();
+  const active = manager.executeSession(createSession(), async () => {
+    await activeGate.promise;
+  });
+  const cleanupError = new Error('discard cleanup failed');
+  let pendingBCleanupCount = 0;
+  const pendingA = manager.executeSession(
+    createSession(),
+    async () => 'pending A',
+    () => {
+      throw cleanupError;
+    },
+  );
+  const pendingB = manager.executeSession(
+    createSession(),
+    async () => 'pending B',
+    () => {
+      pendingBCleanupCount += 1;
+    },
+  );
+
+  assert.doesNotThrow(() => manager.clearQueue());
+
+  await assert.rejects(pendingA, reason => reason === cleanupError);
+  await assert.rejects(pendingB, SessionCancelledException);
+  assert.equal(pendingBCleanupCount, 1);
+  assert.equal(manager.queueLength, 0);
+
+  activeGate.resolve();
+  await active;
+});
+
 test('cancelCurrent cancels every active session', async () => {
   manager.maxConcurrentSessions = 2;
   const firstSession = createSession();

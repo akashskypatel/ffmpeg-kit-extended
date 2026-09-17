@@ -163,6 +163,16 @@ export abstract class Session {
     );
   }
 
+  /** Starts native execution and releases the owning handle if start fails. */
+  protected startNativeExecution(timeoutMs: number): void {
+    try {
+      NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, timeoutMs);
+    } catch (error) {
+      this.releaseOwnedHandle();
+      throw error;
+    }
+  }
+
   protected async monitor<T extends Session>(
     self: T,
     options: ExecuteOptions<T> & {
@@ -315,7 +325,7 @@ export class FFmpegSession extends Session {
    */
   executeAsync(options: FFmpegExecuteOptions<FFmpegSession> = {}): Promise<this> {
     return SessionQueueManager.shared.executeSession(this, async () => {
-      NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, 0);
+      this.startNativeExecution(0);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
@@ -359,7 +369,7 @@ export class FFprobeSession extends Session {
   /** Enqueues and executes this FFprobe session. */
   executeAsync(options: ExecuteOptions<FFprobeSession> = {}): Promise<this> {
     return SessionQueueManager.shared.executeSession(this, async () => {
-      NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, 0);
+      this.startNativeExecution(0);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
@@ -417,7 +427,7 @@ export class MediaInformationSession extends Session {
     options: ExecuteOptions<MediaInformationSession> = {},
   ): Promise<this> {
     return SessionQueueManager.shared.executeSession(this, async () => {
-      NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, this.timeoutMs);
+      this.startNativeExecution(this.timeoutMs);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
@@ -482,7 +492,7 @@ export class FFplaySession extends Session {
   /** Enqueues playback and resolves after playback ends, stops, or fails. */
   executeAsync(options: ExecuteOptions<FFplaySession> = {}): Promise<this> {
     return SessionQueueManager.shared.executeSession(this, async () => {
-      NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, this.timeoutMs);
+      this.startNativeExecution(this.timeoutMs);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
