@@ -178,10 +178,10 @@ jobs:
         working-directory: flutter/example
         run: flutter pub get
 
-      - name: Run headless browser callback integration tests
-        working-directory: flutter/example
-        run: flutter test --platform chrome --wasm test/wasm_callback_test.dart
-
       - name: Build Web Wasm example
         working-directory: flutter/example
         run: flutter build web --wasm
+
+      - name: Run headless browser callback integration tests
+        working-directory: flutter/example
+        run: flutter test --platform chrome --wasm test/wasm_callback_test.dart
