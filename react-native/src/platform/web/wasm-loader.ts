@@ -14,7 +14,7 @@ export interface WasmInitializeOptions {
 }
 
 let moduleValue: WasmModule | undefined;
-let initialization: Promise<WasmModule> | undefined;
+let initialization: Promise<void> | undefined;
 
 function normalizedBaseUrl(value?: string): string {
   const base = value ?? '/ffmpeg-kit-extended/wasm/';
@@ -46,20 +46,26 @@ export function isWasmModuleReady(): boolean {
 
 export function initializeWasm(options?: WasmInitializeOptions): Promise<void> {
   if (moduleValue) return Promise.resolve();
-  initialization ??= loadWasm(normalizedBaseUrl(options?.assetBaseUrl));
-  return initialization.then(() => undefined);
+  initialization ??= loadWasm(normalizedBaseUrl(options?.assetBaseUrl))
+    .then(() => undefined)
+    .catch(error => {
+      initialization = undefined;
+      throw error;
+    });
+  return initialization;
 }
 
 async function loadWasm(baseUrl: string): Promise<WasmModule> {
   requireIsolation();
   const pageUrl = (globalThis as typeof globalThis & {location?: Location}).location?.href;
   const bridgeUrl = new URL('ffmpegkit_bridge.mjs', new URL(baseUrl, pageUrl ?? 'http://localhost/'));
-  await import(/* @vite-ignore */ bridgeUrl.href);
-  const promise = (globalThis as typeof globalThis & {
-    ffmpegKitExtendedModulePromise?: Promise<WasmModule>;
-  }).ffmpegKitExtendedModulePromise;
-  if (!promise) throw new Error(`Wasm bridge did not publish a module promise: ${bridgeUrl.href}`);
-  const loaded = await promise;
+  const bridge = await import(/* @vite-ignore */ bridgeUrl.href) as {
+    createFFmpegKitModule?: () => Promise<WasmModule>;
+  };
+  if (typeof bridge.createFFmpegKitModule !== 'function') {
+    throw new Error(`Wasm bridge does not export a module factory: ${bridgeUrl.href}`);
+  }
+  const loaded = await bridge.createFFmpegKitModule();
   moduleValue = loaded;
   return loaded;
 }

@@ -1,7 +1,7 @@
 import createFFmpegKit from './ffmpegkit.mjs';
 import {fetchAndCompileWasm} from './ffmpegkit_loader.mjs';
 
-async function loadFFmpegKitModule() {
+export async function createFFmpegKitModule() {
   const wasmMemory = new WebAssembly.Memory({initial: 1024, maximum: 32768, shared: true});
   const wasmModule = await fetchAndCompileWasm(new URL('ffmpegkit.wasm', import.meta.url));
   return createFFmpegKit({
@@ -16,5 +16,3 @@ async function loadFFmpegKitModule() {
     },
   });
 }
-
-globalThis.ffmpegKitExtendedModulePromise ??= loadFFmpegKitModule();

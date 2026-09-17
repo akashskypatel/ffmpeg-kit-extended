@@ -18,6 +18,7 @@
     "src/platform/backend.ts",
     "src/platform/backend.web.ts",
     "src/platform/backend.web.register.ts",
+    "src/ffmpeg-kit-extended.ts",
     "src/session.ts"
   ]
 }

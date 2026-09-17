@@ -20,10 +20,11 @@ const NativeFFmpegKitExtended = getBackend();
  * Central lifecycle, session-history, build-introspection, and native utility
  * facade.
  *
- * Call `initialize()` exactly once near application startup before invoking
- * FFmpegKit APIs. Initialization is idempotent in JavaScript. Most command
- * execution should go through `FFmpegKit`, `FFprobeKit`, or `FFplayKit`; the
- * session factory methods here are useful for framework-style integrations.
+ * Call `initialize()` near application startup before invoking FFmpegKit APIs.
+ * Successful initialization is idempotent, and failed attempts can be retried.
+ * Most command execution should go through `FFmpegKit`, `FFprobeKit`, or
+ * `FFplayKit`; the session factory methods here are useful for framework-style
+ * integrations.
  */
 export class FFmpegKitExtended {
   private static initializedValue = false;
@@ -35,9 +36,14 @@ export class FFmpegKitExtended {
    */
   static initialize(options?: FFmpegKitInitializeOptions): Promise<void> {
     if (this.initializedValue) return Promise.resolve();
-    this.initialization ??= NativeFFmpegKitExtended.initialize(options).then(() => {
-      this.initializedValue = true;
-    });
+    this.initialization ??= NativeFFmpegKitExtended.initialize(options)
+      .then(() => {
+        this.initializedValue = true;
+      })
+      .catch(error => {
+        this.initialization = undefined;
+        throw error;
+      });
     return this.initialization;
   }
 
