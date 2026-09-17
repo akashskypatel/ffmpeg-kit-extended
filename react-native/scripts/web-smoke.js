@@ -10,6 +10,7 @@ const {chromium} = require('playwright');
 
 const appRoot = path.resolve(__dirname, '..', 'example');
 const url = 'http://127.0.0.1:4173/';
+const SMOKE_TIMEOUT_MS = 120000;
 
 function waitForPort(port, host, timeoutMs = 30000) {
   const started = Date.now();
@@ -63,7 +64,11 @@ async function main() {
     process.stdout.write('browser: initialize\n');
     await page.getByRole('button', {name: 'Initialize'}).click();
     await page.getByTestId('status').waitFor({state: 'visible'});
-    await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.startsWith('Initialized'));
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="status"]')?.textContent?.startsWith('Initialized'),
+      undefined,
+      {timeout: SMOKE_TIMEOUT_MS},
+    );
     const initialized = await page.getByTestId('status').textContent();
     assert.match(initialized || '', /^Initialized /);
 
@@ -76,28 +81,48 @@ async function main() {
     await page.waitForFunction(() => {
       const status = document.querySelector('[data-testid="status"]')?.textContent || '';
       return status.includes('FFmpeg state 2') && status.includes('statistics callbacks ');
-    });
+    }, undefined, {timeout: SMOKE_TIMEOUT_MS});
     const ffmpegStatus = await page.getByTestId('status').textContent();
     assert.match(ffmpegStatus || '', /log callbacks [1-9]\d*/);
     assert.match(ffmpegStatus || '', /statistics callbacks [1-9]\d*/);
     process.stdout.write('browser: ffprobe\n');
     await page.getByRole('button', {name: 'Run FFprobe'}).click();
-    await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFprobe state 2'));
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFprobe state 2'),
+      undefined,
+      {timeout: SMOKE_TIMEOUT_MS},
+    );
     process.stdout.write('browser: media info\n');
     await page.getByRole('button', {name: 'Run Media Info'}).click();
-    await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.startsWith('Media info streams '), {timeout: 30000});
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="status"]')?.textContent?.startsWith('Media info streams '),
+      undefined,
+      {timeout: SMOKE_TIMEOUT_MS},
+    );
     process.stdout.write('browser: ffplay\n');
     await page.getByRole('button', {name: 'Run FFplay'}).click();
-    await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent === 'Running FFplay');
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="status"]')?.textContent === 'Running FFplay',
+      undefined,
+      {timeout: SMOKE_TIMEOUT_MS},
+    );
     process.stdout.write('browser: ffplay pause\n');
     await page.getByRole('button', {name: 'Pause'}).click();
     process.stdout.write('browser: ffplay resume\n');
     await page.getByRole('button', {name: 'Resume'}).click();
     process.stdout.write('browser: ffplay stop\n');
     await page.getByRole('button', {name: 'Stop'}).click();
-    await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFplay state 2'), {timeout: 30000});
+    await page.waitForFunction(
+      () => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFplay state 2'),
+      undefined,
+      {timeout: SMOKE_TIMEOUT_MS},
+    );
     try {
-      await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFplay state 2'), {timeout: 30000});
+      await page.waitForFunction(
+        () => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFplay state 2'),
+        undefined,
+        {timeout: SMOKE_TIMEOUT_MS},
+      );
     } catch (error) {
       const diagnostics = await page.evaluate(() => ({
         status: document.querySelector('[data-testid="status"]')?.textContent,

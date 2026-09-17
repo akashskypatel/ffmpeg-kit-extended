@@ -12,6 +12,10 @@ function fail(message) {
   throw new Error(`FFmpegKit [Web]: ${message}`);
 }
 
+function powershellLiteral(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
 function parseArgs(argv) {
   const result = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -41,10 +45,17 @@ function findRuntimeFiles(root) {
 function extractZip(zipFile, destination) {
   fs.mkdirSync(destination, {recursive: true});
   if (process.platform === 'win32') {
+    const command = [
+      '& {',
+      'param($archive, $destination)',
+      'Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force',
+      '}',
+      powershellLiteral(zipFile),
+      powershellLiteral(destination),
+    ].join(' ');
     childProcess.execFileSync('powershell.exe', [
       '-NoProfile', '-NonInteractive', '-Command',
-      'Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force',
-      zipFile, destination,
+      command,
     ], {stdio: 'inherit'});
   } else {
     childProcess.execFileSync('unzip', ['-q', '-o', zipFile, '-d', destination], {stdio: 'inherit'});
