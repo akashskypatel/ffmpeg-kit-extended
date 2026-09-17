@@ -70,6 +70,11 @@ ConfigResult resolveConfig({
         ? _readTrackedPubspec(rootPubspec, readPubspec, addDependency)
         : null;
     workspaceRootDetected = rootPubspecData?.isWorkspace ?? false;
+    final packageGraph = _readPackageGraph(
+      packageConfigUri.resolve('package_graph.json'),
+      log,
+      addDependency,
+    );
 
     // 1. Prefer configuration from the package-config/workspace root.
     if (rootPubspecData?.config != null) {
@@ -82,7 +87,8 @@ ConfigResult resolveConfig({
     }
 
     // 2. If the root has no configuration, inspect package roots contained
-    // in it. A unique candidate is required before selecting its configuration.
+    // in it. Only an active workspace root depending on this package may
+    // supply the configuration.
     final candidates = <_ConfigCandidate>[];
     for (final package in _readPackageEntries(packageConfigUri, log)) {
       if (package.name == packageName ||
@@ -109,20 +115,37 @@ ConfigResult resolveConfig({
       }
     }
 
-    if (candidates.length == 1) {
-      final candidate = candidates.single;
-      log(
-        'Using in-workspace package configuration from '
-        '${candidate.pubspec.path}',
-      );
-      return ConfigResult(
-        candidate.config,
-        p.dirname(candidate.pubspec.path),
-        p.dirname(candidate.pubspec.path),
-      );
+    final activeRootNames = packageGraph?.rootsDependingOn(packageName);
+    final activeCandidates = packageGraph == null
+        ? candidates
+        : candidates
+              .where(
+                (candidate) => activeRootNames!.contains(candidate.packageName),
+              )
+              .toList();
+
+    if (workspaceRootDetected &&
+        activeRootNames != null &&
+        activeRootNames.length > 1 &&
+        activeCandidates.isNotEmpty) {
+      final paths = activeCandidates
+          .map(
+            (candidate) =>
+                '${candidate.packageName}: ${candidate.pubspec.path}',
+          )
+          .join('; ');
+      final message =
+          'Ambiguous FFmpegKit configuration: multiple active workspace '
+          'roots depend on $packageName, so the hook cannot identify which '
+          'package-specific configuration applies. Place a shared '
+          'configuration in ${rootPubspec.path} or configure only one active '
+          'workspace root (${activeRootNames.join(', ')}): $paths';
+      log('Error: $message');
+      throw ConfigResolutionException(message);
     }
-    if (candidates.length > 1) {
-      final paths = candidates
+
+    if (activeCandidates.length > 1) {
+      final paths = activeCandidates
           .map(
             (candidate) =>
                 '${candidate.packageName}: ${candidate.pubspec.path}',
@@ -136,15 +159,56 @@ ConfigResult resolveConfig({
       throw ConfigResolutionException(message);
     }
 
+    if (packageGraph == null &&
+        workspaceRootDetected &&
+        candidates.isNotEmpty) {
+      final message =
+          'Unable to determine the active Flutter app configuration for '
+          'ffmpeg_kit_extended_flutter because the Pub package graph is '
+          'unavailable. Place ffmpeg_kit_extended_config in '
+          '${rootPubspec.path} or rebuild package metadata with `flutter pub get`.';
+      log('Error: $message');
+      throw ConfigResolutionException(message);
+    }
+
+    if (activeCandidates.length == 1) {
+      final candidate = activeCandidates.single;
+      log(
+        'Using active in-workspace package configuration from '
+        '${candidate.pubspec.path}',
+      );
+      return ConfigResult(
+        candidate.config,
+        p.dirname(candidate.pubspec.path),
+        p.dirname(candidate.pubspec.path),
+      );
+    }
+
+    if (candidates.isNotEmpty && packageGraph != null) {
+      log(
+        'Ignoring configured workspace packages that are not active roots '
+        'depending on $packageName. Using the default configuration.',
+      );
+    }
+
     if (rootPubspecData != null) {
       if (workspaceRootDetected) {
-        log(
-          'Warning: Dart Pub Workspace detected at $configRoot, but no '
-          'unique in-workspace package defines ffmpeg_kit_extended_config. '
-          'Place one configuration in an in-workspace package or in '
-          '${rootPubspec.path}. Falling back to the default "base" LGPL '
-          'small build.',
-        );
+        if (candidates.isNotEmpty && packageGraph != null) {
+          log(
+            'Warning: Dart Pub Workspace detected at $configRoot, but no '
+            'active in-workspace package depends on $packageName and defines '
+            'ffmpeg_kit_extended_config. Falling back to the default "base" '
+            'LGPL small build.',
+          );
+        } else {
+          log(
+            'Warning: Dart Pub Workspace detected at $configRoot, but no '
+            'unique in-workspace package defines ffmpeg_kit_extended_config. '
+            'Place one configuration in an in-workspace package or in '
+            '${rootPubspec.path}. Falling back to the default "base" LGPL '
+            'small build.',
+          );
+        }
       } else {
         log(
           'Found configuration-root pubspec at ${rootPubspec.path} but no '
@@ -215,6 +279,72 @@ class _PackageEntry {
   final String root;
 
   const _PackageEntry(this.name, this.root);
+}
+
+class _PackageGraph {
+  final Set<String> roots;
+  final Map<String, List<String>> dependencies;
+
+  const _PackageGraph({required this.roots, required this.dependencies});
+
+  List<String> rootsDependingOn(String targetName) => [
+    for (final root in roots)
+      if (dependsOn(root, targetName)) root,
+  ];
+
+  bool dependsOn(String rootName, String targetName) {
+    final pending = <String>[rootName];
+    final visited = <String>{};
+    while (pending.isNotEmpty) {
+      final current = pending.removeLast();
+      if (!visited.add(current)) continue;
+      if (current == targetName) return true;
+      pending.addAll(dependencies[current] ?? const <String>[]);
+    }
+    return false;
+  }
+}
+
+_PackageGraph? _readPackageGraph(
+  Uri packageGraphUri,
+  void Function(String message) log,
+  void Function(Uri uri) addDependency,
+) {
+  final file = File.fromUri(packageGraphUri);
+  if (!file.existsSync()) return null;
+
+  addDependency(packageGraphUri);
+  try {
+    final document = jsonDecode(file.readAsStringSync());
+    if (document is! Map<String, dynamic> || document['configVersion'] != 1) {
+      return null;
+    }
+    final roots = document['roots'];
+    final packages = document['packages'];
+    if (roots is! List || packages is! List) return null;
+
+    final dependencies = <String, List<String>>{};
+    for (final package in packages) {
+      if (package is! Map) continue;
+      final name = package['name'];
+      if (name is! String) continue;
+      final packageDependencies = <String>[];
+      for (final key in const ['dependencies', 'devDependencies']) {
+        final values = package[key];
+        if (values is List) {
+          packageDependencies.addAll(values.whereType<String>());
+        }
+      }
+      dependencies[name] = packageDependencies;
+    }
+    return _PackageGraph(
+      roots: roots.whereType<String>().toSet(),
+      dependencies: dependencies,
+    );
+  } catch (error) {
+    log('Could not read package graph at ${file.path}: $error');
+    return null;
+  }
 }
 
 Iterable<_PackageEntry> _readPackageEntries(

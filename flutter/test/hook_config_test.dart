@@ -112,6 +112,14 @@ ffmpeg_kit_extended_config:
       [memberRoot],
       externalPackages: [externalRoot],
     );
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['app'],
+      dependencies: {
+        'app': ['ffmpeg_kit_extended_flutter'],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+    );
     final dependencies = <Uri>[];
 
     final result = resolveConfig(
@@ -134,9 +142,119 @@ ffmpeg_kit_extended_config:
           p.join(workspaceRoot.path, '.dart_tool', 'package_config.json'),
         ),
         p.normalize(p.join(workspaceRoot.path, 'pubspec.yaml')),
+        p.normalize(
+          p.join(workspaceRoot.path, '.dart_tool', 'package_graph.json'),
+        ),
         p.normalize(p.join(memberRoot.path, 'pubspec.yaml')),
       ]),
     );
+  });
+
+  test('ignores configured packages outside the active dependency closure', () {
+    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'ffmpeg'),
+    );
+    final activeAppRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'editor'),
+    );
+    final inactiveAppRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'transcoder'),
+    );
+    _writePubspec(workspaceRoot, '''
+name: workspace
+workspace:
+  - apps/editor
+  - apps/transcoder
+''');
+    _writePubspec(activeAppRoot, 'name: editor\n');
+    _writePubspec(inactiveAppRoot, '''
+name: transcoder
+ffmpeg_kit_extended_config:
+  type: full
+''');
+    _writePackageConfig(workspaceRoot, packageRoot, [
+      activeAppRoot,
+      inactiveAppRoot,
+    ]);
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['editor', 'transcoder'],
+      dependencies: {
+        'editor': ['ffmpeg_kit_extended_flutter'],
+        'transcoder': const [],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+    );
+    final logs = <String>[];
+
+    final result = resolveConfig(
+      packageName: 'ffmpeg_kit_extended_flutter',
+      packageRoot: packageRoot.path,
+      packageConfig: _packageConfigUri(workspaceRoot),
+      readPubspec: _readPubspec,
+      log: logs.add,
+    );
+
+    expect(result.config['type'], equals('base'));
+    expect(logs.join('\n'), contains('not active roots'));
+  });
+
+  test('does not guess when multiple active workspace roots are possible', () {
+    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
+    final packageRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'packages', 'ffmpeg'),
+    );
+    final editorRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'editor'),
+    );
+    final transcoderRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'transcoder'),
+    );
+    _writePubspec(workspaceRoot, '''
+name: workspace
+workspace:
+  - apps/editor
+  - apps/transcoder
+''');
+    _writePubspec(editorRoot, 'name: editor\n');
+    _writePubspec(transcoderRoot, '''
+name: transcoder
+ffmpeg_kit_extended_config:
+  type: full
+''');
+    _writePackageConfig(workspaceRoot, packageRoot, [
+      editorRoot,
+      transcoderRoot,
+    ]);
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['editor', 'transcoder'],
+      dependencies: {
+        'editor': ['ffmpeg_kit_extended_flutter'],
+        'transcoder': ['ffmpeg_kit_extended_flutter'],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+    );
+    final logs = <String>[];
+
+    expect(
+      () => resolveConfig(
+        packageName: 'ffmpeg_kit_extended_flutter',
+        packageRoot: packageRoot.path,
+        packageConfig: _packageConfigUri(workspaceRoot),
+        readPubspec: _readPubspec,
+        log: logs.add,
+      ),
+      throwsA(isA<ConfigResolutionException>()),
+    );
+    expect(logs.join('\n'), contains('multiple active workspace roots'));
   });
 
   test('uses defaults when no workspace package is configured', () {
@@ -321,6 +439,14 @@ ffmpeg_kit_extended_config:
   windows: bundles/windows
 ''');
     _writePackageConfig(workspaceRoot, packageRoot, [memberRoot]);
+    _writePackageGraph(
+      workspaceRoot,
+      roots: ['app'],
+      dependencies: {
+        'app': ['ffmpeg_kit_extended_flutter'],
+        'ffmpeg_kit_extended_flutter': const [],
+      },
+    );
 
     final result = resolveConfig(
       packageName: 'ffmpeg_kit_extended_flutter',
@@ -360,6 +486,26 @@ void _writePackageConfig(
   File(p.join(workspaceRoot.path, '.dart_tool', 'package_config.json'))
     ..createSync(recursive: true)
     ..writeAsStringSync(jsonEncode({'configVersion': 2, 'packages': entries}));
+}
+
+void _writePackageGraph(
+  Directory workspaceRoot, {
+  required List<String> roots,
+  required Map<String, List<String>> dependencies,
+}) {
+  final packages = [
+    for (final entry in dependencies.entries)
+      {
+        'name': entry.key,
+        'dependencies': entry.value,
+        'devDependencies': const <String>[],
+      },
+  ];
+  File(p.join(workspaceRoot.path, '.dart_tool', 'package_graph.json'))
+    ..createSync(recursive: true)
+    ..writeAsStringSync(
+      jsonEncode({'roots': roots, 'packages': packages, 'configVersion': 1}),
+    );
 }
 
 Map<String, String> _packageEntry(
