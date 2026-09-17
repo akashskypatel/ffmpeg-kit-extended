@@ -188,7 +188,7 @@ await FFmpegKitExtended.initialize({
 });
 ```
 
-Vite consumers need only ordinary React Native Web setup plus the required headers. The package's `browser` export selects the Web implementation; no repository-specific package-source alias or backend rewrite is required:
+The package's conditional exports select the Web entry for browser/Metro Web builds. Vite requires the standard `react-native` to `react-native-web` alias shown below; no FFmpegKit backend rewrite is required:
 
 ```js
 const react = require('@vitejs/plugin-react');

@@ -10,8 +10,8 @@
   },
   "exports": {
     ".": {
-      "react-native": "./src/index.ts",
       "browser": "./src/index.web.ts",
+      "react-native": "./src/index.ts",
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
