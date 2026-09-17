@@ -29,17 +29,44 @@ function parseArgs(argv) {
   return result;
 }
 
-function findRuntimeFiles(root) {
-  const files = {};
+function findRuntimeCandidates(root) {
+  const candidates = [];
   const visit = directory => {
-    for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+    const entries = fs.readdirSync(directory, {withFileTypes: true});
+    const files = {};
+    const directories = [];
+    for (const entry of entries) {
       const fullPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) visit(fullPath);
-      else if (entry.name === 'ffmpegkit.mjs' || entry.name === 'ffmpegkit.wasm') files[entry.name] = fullPath;
+      if (entry.isDirectory()) {
+        directories.push(fullPath);
+      } else if (entry.name === 'ffmpegkit.mjs' || entry.name === 'ffmpegkit.wasm') {
+        files[entry.name] = fullPath;
+      }
     }
+    if (files['ffmpegkit.mjs'] && files['ffmpegkit.wasm']) {
+      candidates.push({directory, files});
+    }
+    for (const child of directories) visit(child);
   };
   visit(root);
-  return files;
+  return candidates;
+}
+
+function findRuntimeFiles(root, artifactName = 'the configured Web artifact') {
+  const candidates = findRuntimeCandidates(root);
+  if (candidates.length === 0) {
+    fail(
+      `Wasm artifact ${artifactName} must contain exactly one runtime directory containing `
+      + 'ffmpegkit.mjs and ffmpegkit.wasm',
+    );
+  }
+  if (candidates.length > 1) {
+    fail(
+      `Wasm artifact ${artifactName} must contain exactly one runtime directory containing `
+      + `ffmpegkit.mjs and ffmpegkit.wasm; found ${candidates.length} runtime directories`,
+    );
+  }
+  return candidates[0].files;
 }
 
 function extractZip(zipFile, destination) {
@@ -103,10 +130,7 @@ async function main(argv = process.argv.slice(2)) {
       sourceRoot = temporaryRoot;
     }
 
-    const runtime = findRuntimeFiles(sourceRoot);
-    if (!runtime['ffmpegkit.mjs'] || !runtime['ffmpegkit.wasm']) {
-      fail(`Wasm artifact ${resolution.filename} must contain ffmpegkit.mjs and ffmpegkit.wasm`);
-    }
+    const runtime = findRuntimeFiles(sourceRoot, resolution.filename);
 
     fs.rmSync(target, {recursive: true, force: true});
     fs.mkdirSync(target, {recursive: true});

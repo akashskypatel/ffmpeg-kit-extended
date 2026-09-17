@@ -154,7 +154,7 @@ Install the package with the React Native Web dependencies:
 npm install ffmpeg-kit-extended react-native-web react-dom
 ```
 
-Web uses the same configuration file with either a `web` or `wasm` override. The override may point to a local runtime directory containing `ffmpegkit.mjs` and `ffmpegkit.wasm`, a local Wasm bundle ZIP, or an `http://`/`https://` bundle URL:
+Web uses the same configuration file with either a `web` or `wasm` override. The override may point to a local runtime directory containing `ffmpegkit.mjs` and `ffmpegkit.wasm`, a local Wasm bundle ZIP, or an `http://`/`https://` bundle URL. A custom Wasm ZIP must contain exactly one runtime directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`:
 
 ```json
 {

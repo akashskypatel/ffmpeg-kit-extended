@@ -8,9 +8,9 @@ const test = require('node:test');
 const {CONFIG_FILE_NAME, resolveConfig} = require('../scripts/resolve-ffmpeg-kit-config.js');
 const {artifactCachePath, main} = require('../scripts/prepare-web.js');
 
-test('prepare-web stages the runtime and bridge assets from a local directory', async () => {
+test('prepare-web stages a single nested runtime pair from a local directory', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-prepare-'));
-  const runtime = path.join(root, 'runtime');
+  const runtime = path.join(root, 'runtime', 'nested');
   try {
     fs.mkdirSync(runtime, {recursive: true});
     fs.writeFileSync(path.join(runtime, 'ffmpegkit.mjs'), 'export default {};');
@@ -31,6 +31,46 @@ test('prepare-web stages the runtime and bridge assets from a local directory', 
     ]) {
       assert.equal(fs.existsSync(path.join(target, name)), true, name);
     }
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
+
+test('prepare-web rejects a runtime split across directories', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-prepare-'));
+  const runtime = path.join(root, 'runtime');
+  try {
+    fs.mkdirSync(path.join(runtime, 'js'), {recursive: true});
+    fs.mkdirSync(path.join(runtime, 'wasm'), {recursive: true});
+    fs.writeFileSync(path.join(runtime, 'js', 'ffmpegkit.mjs'), 'export default {};');
+    fs.writeFileSync(path.join(runtime, 'wasm', 'ffmpegkit.wasm'), 'wasm');
+    fs.writeFileSync(path.join(root, CONFIG_FILE_NAME), JSON.stringify({web: './runtime'}));
+
+    await assert.rejects(
+      () => main(['--app-root', root, '--quiet', 'true']),
+      /must contain exactly one runtime directory containing ffmpegkit\.mjs and ffmpegkit\.wasm/,
+    );
+  } finally {
+    fs.rmSync(root, {recursive: true, force: true});
+  }
+});
+
+test('prepare-web rejects multiple complete runtime directories as ambiguous', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-prepare-'));
+  const runtime = path.join(root, 'runtime');
+  try {
+    for (const name of ['first', 'second']) {
+      const directory = path.join(runtime, name);
+      fs.mkdirSync(directory, {recursive: true});
+      fs.writeFileSync(path.join(directory, 'ffmpegkit.mjs'), 'export default {};');
+      fs.writeFileSync(path.join(directory, 'ffmpegkit.wasm'), 'wasm');
+    }
+    fs.writeFileSync(path.join(root, CONFIG_FILE_NAME), JSON.stringify({web: './runtime'}));
+
+    await assert.rejects(
+      () => main(['--app-root', root, '--quiet', 'true']),
+      /found 2 runtime directories/,
+    );
   } finally {
     fs.rmSync(root, {recursive: true, force: true});
   }
