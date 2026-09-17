@@ -41,7 +41,7 @@ void main(List<String> args) async {
     _log('Build Hook for $packageName on ${targetOS.name}-${targetArch.name}');
 
     // 1. Load Configuration
-    final configResult = _loadConfig(input);
+    final configResult = _loadConfig(input, output);
 
     // 2. Resolve Artifact
     final artifact = await _resolveArtifact(configResult, input);
@@ -60,7 +60,7 @@ Future<void> _buildWebDataAssets(
   BuildInput input,
   BuildOutputBuilder output,
 ) async {
-  final configResult = _loadConfig(input);
+  final configResult = _loadConfig(input, output);
   final artifact = await _resolveWebArtifact(configResult, input);
   final extractedDir = artifact.extractedDir;
   if (extractedDir == null || !extractedDir.existsSync()) {
@@ -96,7 +96,7 @@ Future<void> _buildWebDataAssets(
   final webAssetDirs = [
     Directory(
       p.join(
-        configResult.baseDir,
+        configResult.stagingBaseDir,
         'build',
         'web',
         'assets',
@@ -110,7 +110,7 @@ Future<void> _buildWebDataAssets(
     // serve the package asset URL as well.
     Directory(
       p.join(
-        configResult.baseDir,
+        configResult.stagingBaseDir,
         'web',
         'assets',
         'packages',
@@ -227,7 +227,7 @@ Future<FFmpegArtifact> _resolveWebArtifact(
     if (!_isUri(overrideUrl)) {
       final localFile = p.isAbsolute(overrideUrl)
           ? File(overrideUrl)
-          : File(p.join(configResult.baseDir, overrideUrl));
+          : File(p.join(configResult.configBaseDir, overrideUrl));
       if (!localFile.existsSync()) {
         throw _exception('Local web override not found: ${localFile.path}');
       }
@@ -292,10 +292,15 @@ Future<FFmpegArtifact> _resolveWebArtifact(
   return _handleDownloadedFile(targetFile, cacheDir, input);
 }
 
-ConfigResult _loadConfig(BuildInput input) {
+ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
   final packageRoot = p.normalize(input.packageRoot.toFilePath());
+  final stagingBaseDir = resolveStagingBaseDir(
+    outputFile: input.outputFile.toFilePath(),
+    fallbackBaseDir: packageRoot,
+  );
   _log('input.packageRoot: $packageRoot');
   _log('Platform.packageConfig: ${Platform.packageConfig}');
+  _log('stagingBaseDir: $stagingBaseDir');
 
   return resolveConfig(
     packageName: input.packageName,
@@ -303,6 +308,8 @@ ConfigResult _loadConfig(BuildInput input) {
     packageConfig: Platform.packageConfig,
     readPubspec: _readPubspec,
     log: _log,
+    addDependency: output.dependencies.add,
+    stagingBaseDir: stagingBaseDir,
   );
 }
 
@@ -470,7 +477,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
       _log('Using local override path: $overrideUrl');
       final localFile = p.isAbsolute(overrideUrl)
           ? File(overrideUrl)
-          : File(p.join(configResult.baseDir, overrideUrl));
+          : File(p.join(configResult.configBaseDir, overrideUrl));
 
       if (localFile.existsSync()) {
         filename = p.basename(localFile.path);
@@ -482,7 +489,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
         return await _handleDownloadedFile(cacheFile, cacheDir, input);
       }
       throw _exception(
-        'Local override not found: $overrideUrl (resolved from ${configResult.baseDir})',
+        'Local override not found: $overrideUrl (resolved from ${configResult.configBaseDir})',
       );
     }
   } else {

@@ -26,7 +26,7 @@ This guide describes how to install and configure FFmpeg Kit Extended Flutter in
 
     **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration script is required.
 
-    **Dart Pub Workspaces**: The workspace-root `pubspec.yaml` takes priority. If it has no `ffmpeg_kit_extended_config`, the build hook uses the configuration from the only workspace package that defines it. Multiple configured workspace packages are ambiguous and fail the build; remove the ambiguity or configure the workspace root.
+    **Dart Pub Workspaces and local packages**: The package-config root `pubspec.yaml` takes priority. If it has no `ffmpeg_kit_extended_config`, the build hook scans package roots physically located below that root, excluding `ffmpeg_kit_extended_flutter`; this includes local path packages whether or not they are listed under `workspace:`. One configured package is selected; multiple configured packages are ambiguous and fail the build; no configured package uses the default base LGPL small bundle. Configuration-relative local overrides resolve from the pubspec that defines them, while Web runtime files are staged under the consuming app root.
 
     For example, in the workspace root:
 

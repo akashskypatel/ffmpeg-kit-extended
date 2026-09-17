@@ -20,6 +20,29 @@ void main() {
     }
   });
 
+  test('derives the staging root from the consuming app output path', () {
+    final appRoot = _createDirectory(
+      tempRoot,
+      p.join('workspace', 'apps', 'app'),
+    );
+    final outputFile = p.join(
+      appRoot.path,
+      '.dart_tool',
+      'hooks_runner',
+      'ffmpeg_kit_extended_flutter',
+      'checksum',
+      'output.json',
+    );
+
+    expect(
+      resolveStagingBaseDir(
+        outputFile: outputFile,
+        fallbackBaseDir: tempRoot.path,
+      ),
+      equals(p.normalize(appRoot.path)),
+    );
+  });
+
   test('root configuration takes precedence over workspace packages', () {
     final workspaceRoot = _createDirectory(tempRoot, 'workspace');
     final packageRoot = _createDirectory(tempRoot, 'package');
@@ -47,10 +70,12 @@ ffmpeg_kit_extended_config:
       packageConfig: _packageConfigUri(workspaceRoot),
       readPubspec: _readPubspec,
       log: (_) {},
+      stagingBaseDir: memberRoot.path,
     );
 
     expect(result.config['type'], equals('video'));
-    expect(result.baseDir, equals(workspaceRoot.path));
+    expect(result.configBaseDir, equals(workspaceRoot.path));
+    expect(result.stagingBaseDir, equals(p.normalize(memberRoot.path)));
   });
 
   test('selects the only configured workspace package', () {
@@ -63,6 +88,10 @@ ffmpeg_kit_extended_config:
       tempRoot,
       p.join('workspace', 'apps', 'app'),
     );
+    final externalRoot = _createDirectory(
+      tempRoot,
+      p.join('pub-cache', 'ffmpeg-dependency'),
+    );
     _writePubspec(workspaceRoot, '''
 name: workspace
 workspace:
@@ -74,7 +103,18 @@ ffmpeg_kit_extended_config:
   type: full
   gpl: true
 ''');
-    _writePackageConfig(workspaceRoot, packageRoot, [memberRoot]);
+    _writePubspec(externalRoot, '''
+name: cached_dependency
+ffmpeg_kit_extended_config:
+  type: audio
+''');
+    _writePackageConfig(
+      workspaceRoot,
+      packageRoot,
+      [memberRoot],
+      externalPackages: [externalRoot],
+    );
+    final dependencies = <Uri>[];
 
     final result = resolveConfig(
       packageName: 'ffmpeg_kit_extended_flutter',
@@ -82,11 +122,22 @@ ffmpeg_kit_extended_config:
       packageConfig: _packageConfigUri(workspaceRoot),
       readPubspec: _readPubspec,
       log: (_) {},
+      addDependency: dependencies.add,
     );
 
     expect(result.config['type'], equals('full'));
     expect(result.config['gpl'], isTrue);
-    expect(result.baseDir, equals(p.normalize(memberRoot.path)));
+    expect(result.configBaseDir, equals(p.normalize(memberRoot.path)));
+    expect(
+      dependencies.map((uri) => p.normalize(uri.toFilePath())),
+      containsAll(<String>[
+        p.normalize(
+          p.join(workspaceRoot.path, '.dart_tool', 'package_config.json'),
+        ),
+        p.normalize(p.join(workspaceRoot.path, 'pubspec.yaml')),
+        p.normalize(p.join(memberRoot.path, 'pubspec.yaml')),
+      ]),
+    );
   });
 
   test('uses defaults when no workspace package is configured', () {
@@ -115,7 +166,41 @@ workspace:
     expect(result.config['gpl'], isFalse);
     expect(result.config['small'], isTrue);
     expect(logs.join('\n'), contains('Dart Pub Workspace detected'));
+    expect(
+      logs.join('\n'),
+      contains('Falling back to the default "base" LGPL small build.'),
+    );
   });
+
+  test(
+    'selects a local package below the root without workspace membership',
+    () {
+      final projectRoot = _createDirectory(tempRoot, 'project');
+      final packageRoot = _createDirectory(tempRoot, 'package');
+      final localRoot = _createDirectory(
+        tempRoot,
+        p.join('project', 'local', 'app'),
+      );
+      _writePubspec(projectRoot, 'name: project\n');
+      _writePubspec(localRoot, '''
+name: local_app
+ffmpeg_kit_extended_config:
+  type: video
+''');
+      _writePackageConfig(projectRoot, packageRoot, [localRoot]);
+
+      final result = resolveConfig(
+        packageName: 'ffmpeg_kit_extended_flutter',
+        packageRoot: packageRoot.path,
+        packageConfig: _packageConfigUri(projectRoot),
+        readPubspec: _readPubspec,
+        log: (_) {},
+      );
+
+      expect(result.config['type'], equals('video'));
+      expect(result.configBaseDir, equals(p.normalize(localRoot.path)));
+    },
+  );
 
   test('excludes ffmpeg_kit_extended_flutter from workspace candidates', () {
     final workspaceRoot = _createDirectory(tempRoot, 'workspace');
@@ -189,7 +274,7 @@ ffmpeg_kit_extended_config:
       ),
       throwsA(isA<ConfigResolutionException>()),
     );
-    expect(logs.join('\n'), contains('multiple workspace packages'));
+    expect(logs.join('\n'), contains('multiple in-workspace packages'));
     expect(logs.join('\n'), contains(p.normalize(firstRoot.path)));
     expect(logs.join('\n'), contains(p.normalize(secondRoot.path)));
   });
@@ -211,7 +296,7 @@ ffmpeg_kit_extended_config:
     );
 
     expect(result.config['type'], equals('audio'));
-    expect(result.baseDir, equals(packageRoot.path));
+    expect(result.configBaseDir, equals(packageRoot.path));
   });
 
   test('keeps relative override baseDir at the selected pubspec root', () {
@@ -244,9 +329,9 @@ ffmpeg_kit_extended_config:
       log: (_) {},
     );
 
-    expect(result.baseDir, equals(p.normalize(memberRoot.path)));
+    expect(result.configBaseDir, equals(p.normalize(memberRoot.path)));
     expect(
-      p.normalize(p.join(result.baseDir, 'bundles/windows')),
+      p.normalize(p.join(result.configBaseDir, 'bundles/windows')),
       equals(p.join(memberRoot.path, 'bundles', 'windows')),
     );
   });
@@ -261,24 +346,41 @@ String _packageConfigUri(Directory root) =>
 void _writePackageConfig(
   Directory workspaceRoot,
   Directory packageRoot,
-  List<Directory> members,
-) {
+  List<Directory> members, {
+  List<Directory> externalPackages = const [],
+}) {
   final entries = <Map<String, String>>[
-    _packageEntry('ffmpeg_kit_extended_flutter', packageRoot),
+    _packageEntry('ffmpeg_kit_extended_flutter', packageRoot, workspaceRoot),
     for (final member in members)
-      _packageEntry(p.basename(member.path), member),
+      _packageEntry(p.basename(member.path), member, workspaceRoot),
+    for (final package in externalPackages)
+      _packageEntry(p.basename(package.path), package, workspaceRoot),
   ];
   File(p.join(workspaceRoot.path, '.dart_tool', 'package_config.json'))
     ..createSync(recursive: true)
     ..writeAsStringSync(jsonEncode({'configVersion': 2, 'packages': entries}));
 }
 
-Map<String, String> _packageEntry(String name, Directory root) => {
-  'name': name,
-  'rootUri': Uri.file(root.path).toString(),
-  'packageUri': 'lib/',
-  'languageVersion': '3.12',
-};
+Map<String, String> _packageEntry(
+  String name,
+  Directory root,
+  Directory workspaceRoot,
+) {
+  final normalizedRoot = p.normalize(root.path);
+  final normalizedWorkspaceRoot = p.normalize(workspaceRoot.path);
+  final packageConfigDirectory = p.join(normalizedWorkspaceRoot, '.dart_tool');
+  final rootUri =
+      p.equals(normalizedRoot, normalizedWorkspaceRoot) ||
+          p.isWithin(normalizedWorkspaceRoot, normalizedRoot)
+      ? '${p.relative(normalizedRoot, from: packageConfigDirectory).replaceAll('\\', '/')}/'
+      : Uri.file(normalizedRoot).toString();
+  return {
+    'name': name,
+    'rootUri': rootUri,
+    'packageUri': 'lib/',
+    'languageVersion': '3.12',
+  };
+}
 
 void _writePubspec(Directory root, String content) {
   File(p.join(root.path, 'pubspec.yaml'))
