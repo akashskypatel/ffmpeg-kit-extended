@@ -24,9 +24,26 @@ function App() {
 
   const run = async () => {
     setStatus('Running FFmpeg');
-    const session = await FFmpegKit.executeAsync('-version');
-    setOutput(session.getOutput());
-    setStatus(`FFmpeg state ${session.getState()} / return code ${session.getReturnCode()}`);
+    let logCallbacks = 0;
+    let statisticsCallbacks = 0;
+    const session = await FFmpegKit.executeAsync(
+      '-hide_banner -loglevel info -f lavfi -i testsrc=duration=1:size=160x90:rate=4 -f null -',
+      {
+        logCallback: () => {
+          logCallbacks += 1;
+        },
+        statisticsCallback: () => {
+          statisticsCallbacks += 1;
+        },
+      },
+    );
+    setOutput(
+      `${session.getOutput()}\nCallback counts: log=${logCallbacks}, statistics=${statisticsCallbacks}`,
+    );
+    setStatus(
+      `FFmpeg state ${session.getState()} / return code ${session.getReturnCode()} / ` +
+      `log callbacks ${logCallbacks} / statistics callbacks ${statisticsCallbacks}`,
+    );
   };
 
   const probe = async () => {

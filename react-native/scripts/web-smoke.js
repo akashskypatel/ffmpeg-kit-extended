@@ -73,7 +73,13 @@ async function main() {
 
     process.stdout.write('browser: ffmpeg\n');
     await page.getByRole('button', {name: 'Run FFmpeg'}).click();
-    await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFmpeg state 2'));
+    await page.waitForFunction(() => {
+      const status = document.querySelector('[data-testid="status"]')?.textContent || '';
+      return status.includes('FFmpeg state 2') && status.includes('statistics callbacks ');
+    });
+    const ffmpegStatus = await page.getByTestId('status').textContent();
+    assert.match(ffmpegStatus || '', /log callbacks [1-9]\d*/);
+    assert.match(ffmpegStatus || '', /statistics callbacks [1-9]\d*/);
     process.stdout.write('browser: ffprobe\n');
     await page.getByRole('button', {name: 'Run FFprobe'}).click();
     await page.waitForFunction(() => document.querySelector('[data-testid="status"]')?.textContent?.includes('FFprobe state 2'));

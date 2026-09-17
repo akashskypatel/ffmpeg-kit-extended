@@ -8,7 +8,9 @@ on:
       - master
     paths:
       - ".github/workflows/wasm_callback_ci.yaml"
+      - ".github/workflows/react_native_web_ci.yaml"
       - "flutter/**"
+      - "react-native/**"
       - "libs/libffmpegkit"
       - "libs/libffmpegkit/**"
   pull_request:
@@ -19,7 +21,9 @@ on:
       - ready_for_review
     paths:
       - ".github/workflows/wasm_callback_ci.yaml"
+      - ".github/workflows/react_native_web_ci.yaml"
       - "flutter/**"
+      - "react-native/**"
       - "libs/libffmpegkit"
       - "libs/libffmpegkit/**"
 
@@ -157,6 +161,84 @@ jobs:
           path: libs/libffmpegkit/prebuilt/wasm-wasm32/releases/bundle-base-wasm-wasm32-static-small-gpl.zip
           if-no-files-found: error
           retention-days: 3
+
+  react-native-web:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    name: React Native Web/Wasm gates
+    needs: wasm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository and builder sources
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: |
+            react-native/package-lock.json
+            react-native/example/package-lock.json
+
+      - name: Download the generated Wasm bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-callback-bundle
+          path: react-native/example/ci-artifacts
+
+      - name: Install package dependencies
+        working-directory: react-native
+        run: npm ci
+
+      - name: Install example dependencies
+        working-directory: react-native/example
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: react-native
+        run: npx playwright install --with-deps chromium
+
+      - name: Run package checks
+        working-directory: react-native
+        run: npm run check
+
+      - name: Build package
+        working-directory: react-native
+        run: npm run prepare
+
+      - name: Validate packed package
+        working-directory: react-native
+        run: npm pack --dry-run
+
+      - name: Build packed Web consumer
+        working-directory: react-native
+        run: npm run test:pack-web
+
+      - name: Configure local Web runtime override
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          path = Path("react-native/example/ffmpeg-kit-extended.config.json")
+          config = json.loads(path.read_text(encoding="utf-8"))
+          config["web"] = "ci-artifacts/bundle-base-wasm-wasm32-static-small-gpl.zip"
+          path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+      - name: Stage the generated Web runtime
+        working-directory: react-native/example
+        run: npm run prepare-web
+
+      - name: Build the Web example
+        working-directory: react-native/example
+        run: npm run web:build
+
+      - name: Run the headless WebAssembly smoke test
+        working-directory: react-native
+        run: npm run test:web
 
   flutter-web:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
