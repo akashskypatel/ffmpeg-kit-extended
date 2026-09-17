@@ -41,3 +41,66 @@ test('Web backend copies FFplay frame metadata through mocked Wasm memory', () =
     generation: 4,
   });
 });
+
+test('Web backend creates media-information sessions from pre-tokenized arguments', () => {
+  const memory = new ArrayBuffer(4096);
+  const allocations = [];
+  const freed = [];
+  const observed = [];
+  let pointer = 64;
+  const module = {
+    HEAPU8: new Uint8Array(memory),
+    HEAPU32: new Uint32Array(memory),
+    _malloc: size => {
+      const result = Math.ceil(pointer / 8) * 8;
+      pointer = result + size;
+      allocations.push(result);
+      return result;
+    },
+    _free: value => freed.push(value),
+    lengthBytesUTF8: value => Buffer.byteLength(value, 'utf8'),
+    stringToUTF8: (value, destination, size) => {
+      const bytes = Buffer.from(value, 'utf8');
+      module.HEAPU8.set(bytes.subarray(0, size - 1), destination);
+      module.HEAPU8[destination + Math.min(bytes.length, size - 1)] = 0;
+    },
+    UTF8ToString: source => {
+      const end = module.HEAPU8.indexOf(0, source);
+      return Buffer.from(module.HEAPU8.subarray(source, end)).toString('utf8');
+    },
+    media_information_create_session_from_argv: (argc, argv) => {
+      for (let index = 0; index < argc; index += 1) {
+        observed.push(module.UTF8ToString(module.HEAPU32[argv / 4 + index]));
+      }
+      return 1024;
+    },
+    ffmpeg_kit_session_get_session_id: handle => {
+      assert.equal(handle, 1024);
+      return 77;
+    },
+    ffmpeg_kit_handle_release: handle => assert.equal(handle, 1024),
+  };
+
+  const backend = new WebFFmpegKitBackend(undefined, module);
+  const path = '/tmp/my video "quoted" C:\\media\\clip.mkv';
+
+  assert.equal(backend.createMediaInformationSessionFromPath(path), 77);
+  assert.deepEqual(observed, [
+    '-v',
+    'error',
+    '-hide_banner',
+    '-print_format',
+    'json',
+    '-show_format',
+    '-show_streams',
+    '-show_chapters',
+    '-i',
+    path,
+  ]);
+  assert.deepEqual(
+    [...freed].sort((left, right) => left - right),
+    [...allocations].sort((left, right) => left - right),
+  );
+
+  backend.releaseSessionHandle(77);
+});

@@ -209,7 +209,19 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   createMediaInformationSessionFromPath(path: string): number {
-    return this.createMediaInformationSession(path);
+    const arguments_ = [
+      '-v',
+      'error',
+      '-hide_banner',
+      '-print_format',
+      'json',
+      '-show_format',
+      '-show_streams',
+      '-show_chapters',
+      '-i',
+      path,
+    ];
+    return this.withArguments(arguments_, argv => this.retain(this.call('media_information_create_session_from_argv')(arguments_.length, argv)));
   }
 
   executeSessionAsync(sessionId: number, timeoutMs: number): void {
