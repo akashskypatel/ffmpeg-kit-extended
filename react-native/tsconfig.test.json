@@ -17,6 +17,7 @@
     "src/platform/web/session-registry.ts",
     "src/platform/backend.ts",
     "src/platform/backend.web.ts",
-    "src/platform/backend.web.register.ts"
+    "src/platform/backend.web.register.ts",
+    "src/session.ts"
   ]
 }

@@ -16,6 +16,7 @@ type QueueItem<T> = {
   executor: () => Promise<T>;
   resolve: (value: T) => void;
   reject: (reason?: unknown) => void;
+  onDiscard?: () => void;
 };
 
 /**
@@ -86,6 +87,7 @@ export class SessionQueueManager {
   executeSession<T>(
     session: CancellableSession,
     executor: () => Promise<T>,
+    onDiscard?: () => void,
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       this.queue.push({
@@ -93,6 +95,7 @@ export class SessionQueueManager {
         executor,
         resolve,
         reject,
+        onDiscard,
       } as QueueItem<unknown>);
       this.processQueue();
     });
@@ -110,7 +113,11 @@ export class SessionQueueManager {
   clearQueue(): void {
     const pending = this.queue.splice(0);
     for (const item of pending) {
-      item.reject(new SessionCancelledException());
+      try {
+        item.onDiscard?.();
+      } finally {
+        item.reject(new SessionCancelledException());
+      }
     }
   }
 

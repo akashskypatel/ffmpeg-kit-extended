@@ -225,13 +225,22 @@ export abstract class Session {
           // Native C API session handles are owning. Keep the original handle
           // alive for the whole execution, then release it only after the
           // terminal state and final log/statistics pass have been observed.
-          NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
+          this.releaseOwnedHandle();
         }
       }
 
       await sleep(pollIntervalMs);
     }
   }
+
+  /** Releases this session's owning native handle at most once. */
+  protected releaseOwnedHandle(): void {
+    if (this.handleReleased) return;
+    this.handleReleased = true;
+    NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
+  }
+
+  private handleReleased = false;
 }
 
 /**
@@ -298,7 +307,7 @@ export class FFmpegSession extends Session {
           options.statisticsCallback ?? this.statisticsCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    });
+    }, () => this.releaseOwnedHandle());
   }
 }
 
@@ -340,7 +349,7 @@ export class FFprobeSession extends Session {
         logCallback: options.logCallback ?? this.logCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    });
+    }, () => this.releaseOwnedHandle());
   }
 }
 
@@ -398,7 +407,7 @@ export class MediaInformationSession extends Session {
         logCallback: options.logCallback ?? this.logCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    });
+    }, () => this.releaseOwnedHandle());
   }
 
   /**
@@ -463,7 +472,7 @@ export class FFplaySession extends Session {
         logCallback: options.logCallback ?? this.logCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    });
+    }, () => this.releaseOwnedHandle());
   }
 
   /** Starts native playback for this session. */
