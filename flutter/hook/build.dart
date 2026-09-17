@@ -9,6 +9,8 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'config.dart';
+
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
@@ -23,12 +25,6 @@ Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
 
 late final OS targetOS;
 late final Architecture targetArch;
-
-class ConfigResult {
-  final dynamic config;
-  final String baseDir;
-  ConfigResult(this.config, this.baseDir);
-}
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
@@ -178,10 +174,7 @@ Future<void> _buildWebDataAssets(
   const callbackRuntimeFileName = 'ffmpegkit_callback_runtime.mjs';
   const loaderFileName = 'ffmpegkit_loader.mjs';
   final bridgeName = p.posix.join('wasm', bridgeFileName);
-  final callbackRuntimeName = p.posix.join(
-    'wasm',
-    callbackRuntimeFileName,
-  );
+  final callbackRuntimeName = p.posix.join('wasm', callbackRuntimeFileName);
   final loaderName = p.posix.join('wasm', loaderFileName);
   if (input.config.buildDataAssets) {
     output.assets.data.add(
@@ -301,58 +294,27 @@ Future<FFmpegArtifact> _resolveWebArtifact(
 
 ConfigResult _loadConfig(BuildInput input) {
   final packageRoot = p.normalize(input.packageRoot.toFilePath());
-  final packageConfig = Platform.packageConfig;
-
   _log('input.packageRoot: $packageRoot');
-  _log('Platform.packageConfig: $packageConfig');
+  _log('Platform.packageConfig: ${Platform.packageConfig}');
 
-  // 1. Prefer consuming app config via Platform.packageConfig anchor
-  if (packageConfig != null) {
-    // packageConfig is a file:/// URI pointing to .dart_tool/package_config.json
-    final packageConfigPath = p.normalize(
-      File.fromUri(Uri.parse(packageConfig)).path,
-    );
-    // appRoot is two levels up from .dart_tool/package_config.json
-    final appRoot = p.dirname(p.dirname(packageConfigPath));
-    final appPubspec = File(p.join(appRoot, 'pubspec.yaml'));
-
-    if (appPubspec.existsSync()) {
-      final config = _parsePubspec(appPubspec);
-      if (config != null) {
-        _log('Using app configuration from ${appPubspec.path}');
-        return ConfigResult(config, appRoot);
-      }
-      _log('Found app pubspec at $appRoot but no ffmpeg_kit_extended_config');
-    }
-  }
-
-  // 2. Fallback to package root only if we are building the package itself
-  // (e.g. during local tests or examples within the same repo)
-  final pkgPubspec = File(p.join(packageRoot, 'pubspec.yaml'));
-  if (pkgPubspec.existsSync()) {
-    final config = _parsePubspec(pkgPubspec);
-    if (config != null) {
-      _log('Using package-local configuration from ${pkgPubspec.path}');
-      return ConfigResult(config, packageRoot);
-    }
-  }
-
-  // 3. Last Resort: Default Configuration
-  stderr.writeln(
-    'FFmpegKit [Build Hook]: No configuration found. Using default "base" lgpl small build.',
+  return resolveConfig(
+    packageName: input.packageName,
+    packageRoot: packageRoot,
+    packageConfig: Platform.packageConfig,
+    readPubspec: _readPubspec,
+    log: _log,
   );
-  return ConfigResult({
-    'type': 'base',
-    'gpl': false,
-    'small': true,
-  }, packageRoot);
 }
 
-dynamic _parsePubspec(File file) {
+PubspecData? _readPubspec(File file) {
   try {
     final content = file.readAsStringSync();
     final doc = loadYaml(content);
-    return doc['ffmpeg_kit_extended_config'];
+    if (doc is! YamlMap) return null;
+    return PubspecData(
+      config: doc['ffmpeg_kit_extended_config'],
+      isWorkspace: doc.containsKey('workspace'),
+    );
   } catch (e) {
     return null;
   }
