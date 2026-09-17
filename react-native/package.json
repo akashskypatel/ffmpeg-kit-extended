@@ -10,9 +10,9 @@
   },
   "exports": {
     ".": {
+      "types": "./lib/typescript/src/index.d.ts",
       "browser": "./src/index.web.ts",
       "react-native": "./src/index.ts",
-      "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
     "./package.json": "./package.json"
@@ -37,6 +37,7 @@
     "prepare-web": "node scripts/prepare-web.js",
     "test:web": "node scripts/web-smoke.js",
     "test:pack-web": "node tests/packed-web-consumer.js",
+    "test:pack-types": "node tests/packed-types-consumer.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src scripts tests react-native.config.js .eslintrc.js",
     "test:compile": "del-cli .test-dist && tsc -p tsconfig.test.json",
