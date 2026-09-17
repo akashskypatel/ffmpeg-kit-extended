@@ -128,7 +128,7 @@ Create `ffmpeg-kit-extended.config.json` beside the consuming application's `pac
 }
 ```
 
-Supported pre-built bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`. When the configuration file is absent, the build defaults to the `base` LGPL small bundle. `debug` maps to the base bundle and ignores `small`.
+Supported pre-built bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`. The pre-built `debug` bundle is supported on native platforms; the pre-built Web/Wasm debug artifact for FFmpegKit binary `0.11.2` is not browser-compatible. Use `base` for Web/Wasm or provide an explicit `web`/`wasm` custom override. When the configuration file is absent, the build defaults to the `base` LGPL small bundle. Native `debug` selects a debug variant and ignores `small`.
 
 A platform-specific remote URL or local path overrides the pre-built bundle selection for that platform. Relative local paths are resolved from the consuming application directory:
 

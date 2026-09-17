@@ -243,11 +243,14 @@ function resolveConfig({ appRoot, platform, architecture }) {
   }
 
   if (targetPlatform === 'web' || targetPlatform === 'wasm') {
-    const webType = type === 'debug' ? 'base' : type;
-    const parts = ['bundle', webType, 'wasm', 'wasm32', 'static'];
     if (type === 'debug') {
-      parts.push('debug');
-    } else if (small) {
+      fail(
+        `The prebuilt Web debug bundle for FFmpegKit binary ${BINARY_VERSION} is not browser-compatible. Use type "base" for Web or provide an explicit web/wasm custom override.`,
+      );
+    }
+
+    const parts = ['bundle', type, 'wasm', 'wasm32', 'static'];
+    if (small) {
       parts.push('small');
     }
     parts.push(license);

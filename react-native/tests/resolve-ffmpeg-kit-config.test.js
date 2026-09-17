@@ -126,6 +126,46 @@ test('resolves the pinned WebAssembly bundle convention', () => {
   assert.equal(result.checksum.assetName, result.filename);
 });
 
+test('rejects the pre-built Web debug bundle', () => {
+  for (const platform of ['web', 'wasm']) {
+    const {nested} = createApp({type: 'debug'});
+
+    assert.throws(
+      () => resolveConfig({appRoot: nested, platform}),
+      /The prebuilt Web debug bundle for FFmpegKit binary 0\.11\.2 is not browser-compatible\./,
+    );
+  }
+});
+
+test('preserves native debug bundle resolution', () => {
+  const {nested} = createApp({type: 'debug', gpl: false, small: true});
+  const result = resolveConfig({appRoot: nested, platform: 'android'});
+
+  assert.equal(result.artifact, 'bundle-base-shared-debug-lgpl');
+  assert.equal(result.filename, 'bundle-base-shared-debug-lgpl-release.aar');
+});
+
+test('allows an explicit local Web override with debug configuration', () => {
+  const {nested} = createApp({type: 'debug', web: './vendor/runtime'});
+  const result = resolveConfig({appRoot: nested, platform: 'web'});
+
+  assert.deepEqual(result.override, {
+    kind: 'local',
+    value: './vendor/runtime',
+    resolvedPath: path.join(path.dirname(path.dirname(nested)), 'vendor', 'runtime'),
+  });
+});
+
+test('allows an explicit remote Web override with debug configuration', () => {
+  const remote = 'https://example.com/releases/debug-runtime.zip';
+  const {nested} = createApp({type: 'debug', web: remote});
+  const result = resolveConfig({appRoot: nested, platform: 'web'});
+
+  assert.deepEqual(result.override, {kind: 'remote', value: remote});
+  assert.equal(result.filename, 'debug-runtime.zip');
+  assert.equal(result.url, remote);
+});
+
 test('supports separate web and wasm local overrides', () => {
   const {nested} = createApp({wasm: './vendor/runtime.zip'});
   const result = resolveConfig({appRoot: nested, platform: 'web'});

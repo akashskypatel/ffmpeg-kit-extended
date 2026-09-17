@@ -3,6 +3,7 @@
 ## Version 1.0.0
 
 - Added WebAssembly wasm32 support
+- Reject the incompatible pre-built Web debug artifact and use the compatible base bundle in the Web example.
 
 ## Version 0.6.2
 
