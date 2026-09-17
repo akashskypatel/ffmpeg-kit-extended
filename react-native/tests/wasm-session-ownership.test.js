@@ -12,13 +12,16 @@ const {
 
 const registry = new WasmSessionRegistry();
 const releases = [];
+let logEntries = [];
+let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
 setBackend({
   executeSessionAsync: () => {
     executionStarts += 1;
   },
-  getLogsJson: () => '[]',
+  getLogsJson: (_sessionId, fromIndex) => JSON.stringify(fromIndex === 0 ? logEntries : []),
+  getStatisticsJson: (_sessionId, fromIndex) => JSON.stringify(fromIndex === 0 ? statisticsEntries : []),
   getSessionJson: () => JSON.stringify({state: sessionState}),
   cancelSession: () => {},
   releaseSessionHandle: sessionId => {
@@ -33,6 +36,8 @@ const manager = SessionQueueManager.shared;
 beforeEach(() => {
   registry.clear();
   releases.length = 0;
+  logEntries = [];
+  statisticsEntries = [];
   executionStarts = 0;
   sessionState = 2;
 });
@@ -87,4 +92,102 @@ test('active cancelled session keeps its handle until terminal state', async () 
   await execution;
   assert.deepEqual(releases, [10]);
   assert.equal(registry.size, 0);
+});
+
+test('throwing log callback still releases the handle after terminal state', async () => {
+  sessionState = 1;
+  logEntries = [{sessionId: 11, level: 32, message: 'log'}];
+  registry.retain(5120, 11);
+  const error = new Error('log callback failed');
+
+  const execution = new FFmpegSession(11, '-version').executeAsync({
+    logCallback: () => {
+      sessionState = 2;
+      throw error;
+    },
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [11]);
+  assert.equal(registry.size, 0);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('throwing statistics callback still releases the handle after terminal state', async () => {
+  sessionState = 1;
+  statisticsEntries = [{sessionId: 12, timeElapsed: 1}];
+  registry.retain(6144, 12);
+  const error = new Error('statistics callback failed');
+
+  const execution = new FFmpegSession(12, '-version').executeAsync({
+    statisticsCallback: () => {
+      sessionState = 2;
+      throw error;
+    },
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [12]);
+  assert.equal(registry.size, 0);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('throwing completion callback releases the handle before rejecting', async () => {
+  registry.retain(7168, 13);
+  const error = new Error('completion callback failed');
+
+  const execution = new FFmpegSession(13, '-version').executeAsync({
+    completeCallback: () => {
+      throw error;
+    },
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [13]);
+  assert.equal(registry.size, 0);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('callback failure combined with cancellation still releases once', async () => {
+  sessionState = 1;
+  logEntries = [{sessionId: 14, level: 32, message: 'cancel'}];
+  registry.retain(8192, 14);
+  const error = new Error('cancelled callback failed');
+
+  const session = new FFmpegSession(14, '-version');
+  const execution = session.executeAsync({
+    logCallback: () => {
+      session.cancel();
+      sessionState = 2;
+      throw error;
+    },
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === error);
+  assert.equal(session.isCancelled, true);
+  assert.deepEqual(releases, [14]);
+  assert.equal(registry.size, 0);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('callback failure on a failed native session still releases once', async () => {
+  sessionState = 3;
+  registry.retain(9216, 15);
+  const error = new Error('failed-session callback failed');
+
+  const execution = new FFmpegSession(15, '-version').executeAsync({
+    completeCallback: () => {
+      throw error;
+    },
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [15]);
+  assert.equal(registry.size, 0);
+  assert.equal(manager.activeSessionCount, 0);
 });

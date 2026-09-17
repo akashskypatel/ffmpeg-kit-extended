@@ -175,13 +175,24 @@ export abstract class Session {
     );
     let logsProcessed = 0;
     let statisticsProcessed = 0;
+    let callbackFailed = false;
+    let callbackError: unknown;
+    const invokeCallback = (callback: (() => void) | undefined): void => {
+      if (callbackFailed || !callback) return;
+      try {
+        callback();
+      } catch (error) {
+        callbackFailed = true;
+        callbackError = error;
+      }
+    };
 
     for (;;) {
       const logs = parseJsonArray<Log>(
         NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
       );
       for (const entry of logs) {
-        options.logCallback?.(entry, self);
+        invokeCallback(() => options.logCallback?.(entry, self));
       }
       logsProcessed += logs.length;
 
@@ -193,7 +204,7 @@ export abstract class Session {
           ),
         );
         for (const entry of statistics) {
-          options.statisticsCallback(entry, self);
+          invokeCallback(() => options.statisticsCallback?.(entry, self));
         }
         statisticsProcessed += statistics.length;
       }
@@ -204,7 +215,9 @@ export abstract class Session {
         const finalLogs = parseJsonArray<Log>(
           NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
         );
-        for (const entry of finalLogs) options.logCallback?.(entry, self);
+        for (const entry of finalLogs) {
+          invokeCallback(() => options.logCallback?.(entry, self));
+        }
 
         if (options.statisticsCallback) {
           const finalStatistics = parseJsonArray<Statistics>(
@@ -214,12 +227,15 @@ export abstract class Session {
             ),
           );
           for (const entry of finalStatistics) {
-            options.statisticsCallback(entry, self);
+            invokeCallback(() => options.statisticsCallback?.(entry, self));
           }
         }
 
+        invokeCallback(
+          options.completeCallback ? () => options.completeCallback?.(self) : undefined,
+        );
         try {
-          options.completeCallback?.(self);
+          if (callbackFailed) throw callbackError;
           return self;
         } finally {
           // Native C API session handles are owning. Keep the original handle
