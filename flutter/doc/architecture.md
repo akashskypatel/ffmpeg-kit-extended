@@ -90,8 +90,8 @@ flutter build web --wasm --no-pub
 
 Flutter's test runner evaluates the native-assets build hook for the host
 `TargetPlatform.tester`. Consequently, `flutter test` cannot select this
-package's assets for a non-host target. This applies to every platform, not
-all target platforms. Use the platform-specific build or run command—for
+package's assets for a non-host target. This applies to all target platforms.
+Use the platform-specific build or run command—for
 example, `flutter build web --wasm` and a served Web application for Web asset
 validation—and do not treat `flutter test` as coverage of non-host hook
 selection.
