@@ -67,6 +67,7 @@ test('frame reader skips unchanged generations and preserves stride across chang
     });
 
     const first = readLatestFrame();
+    assert.ok(first.bytes instanceof Uint8ClampedArray);
     assert.deepEqual(first, {
       width: 2,
       height: 2,
@@ -74,6 +75,8 @@ test('frame reader skips unchanged generations and preserves stride across chang
       generation: 1,
       bytes: new Uint8ClampedArray(frame.bytes),
     });
+    loadedModule.HEAPU8.fill(255, 64, 88);
+    assert.deepEqual(first.bytes, new Uint8ClampedArray(frame.bytes));
     assert.equal(readLatestFrame(first), undefined);
     assert.equal(preflightCalls, 2);
     assert.equal(fullCopyCalls, 1);
@@ -89,6 +92,7 @@ test('frame reader skips unchanged generations and preserves stride across chang
       ]),
     };
     const changed = readLatestFrame(first);
+    assert.ok(changed.bytes instanceof Uint8ClampedArray);
     assert.deepEqual(changed, {
       width: 1,
       height: 2,

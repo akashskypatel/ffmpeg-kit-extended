@@ -35,16 +35,18 @@ export function readLatestFrame(
     }
     const copiedSize = copied.linesize * copied.height;
     if (copiedSize > size) return undefined;
-    const bytes = module.HEAPU8.slice(
-      destination,
-      destination + copiedSize,
+    const bytes = Uint8ClampedArray.from(
+      module.HEAPU8.subarray(
+        destination,
+        destination + copiedSize,
+      ),
     );
     return {
       width: copied.width,
       height: copied.height,
       linesize: copied.linesize,
       generation: copied.generation,
-      bytes: new Uint8ClampedArray(bytes),
+      bytes,
     };
   } finally {
     module._free(destination);
