@@ -84,8 +84,8 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       for (let index = 0; index < arguments_.length; index += 1) {
         const value = arguments_[index];
         const pointer = module._malloc(module.lengthBytesUTF8(value) + 1);
-        module.stringToUTF8(value, pointer, module.lengthBytesUTF8(value) + 1);
         values.push(pointer);
+        module.stringToUTF8(value, pointer, module.lengthBytesUTF8(value) + 1);
         module.HEAPU32[argv / 4 + index] = pointer;
       }
       return action(argv);
@@ -97,9 +97,19 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   private retain(pointer: unknown): number {
     const address = numberResult(pointer);
-    const sessionId = numberResult(this.call('ffmpeg_kit_session_get_session_id')(address));
-    this.sessions.retain(address, sessionId);
-    return sessionId;
+    if (!address) throw new Error('Wasm returned an invalid session handle');
+    try {
+      const sessionId = numberResult(this.call('ffmpeg_kit_session_get_session_id')(address));
+      this.sessions.retain(address, sessionId);
+      return sessionId;
+    } catch (error) {
+      try {
+        this.call('ffmpeg_kit_handle_release')(address);
+      } catch {
+        // Preserve the creation or registration failure as the primary error.
+      }
+      throw error;
+    }
   }
 
   private pointerFor(sessionId: number): number {
@@ -164,7 +174,16 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       for (let index = 0; ; index += 1) {
         const pointer = this.module().HEAPU32[arrayPointer / 4 + index];
         if (!pointer) break;
-        result.push(this.snapshot(pointer));
+        try {
+          result.push(this.snapshot(pointer));
+        } catch (error) {
+          try {
+            this.call('ffmpeg_kit_handle_release')(pointer);
+          } catch {
+            // Preserve the snapshot failure as the primary error.
+          }
+          throw error;
+        }
         this.call('ffmpeg_kit_handle_release')(pointer);
       }
       return result;

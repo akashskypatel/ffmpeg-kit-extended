@@ -220,3 +220,124 @@ test('Web backend clears tracked sessions transactionally', () => {
   assert.deepEqual(releaseCalls, [1024, 2048, 2048, 3072]);
   assert.equal(clearCalls, 1);
 });
+
+test('Web backend frees every argument allocation when encoding fails', () => {
+  const allocations = [];
+  const freed = [];
+  const encodingError = new Error('argument encoding failed');
+  const memory = new ArrayBuffer(4096);
+  let nextPointer = 64;
+  const module = {
+    HEAPU8: new Uint8Array(memory),
+    HEAPU32: new Uint32Array(memory),
+    _malloc: size => {
+      const result = nextPointer;
+      nextPointer += Math.max(8, size);
+      allocations.push(result);
+      return result;
+    },
+    _free: pointer => freed.push(pointer),
+    lengthBytesUTF8: value => Buffer.byteLength(value, 'utf8'),
+    stringToUTF8: value => {
+      if (value === 'bad') throw encodingError;
+    },
+    ffmpeg_kit_create_session_from_argv: () => {
+      throw new Error('session creation must not run');
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(
+    () => backend.createFFmpegSessionFromArguments(['good', 'bad']),
+    error => error === encodingError,
+  );
+  assert.deepEqual(
+    [...freed].sort((left, right) => left - right),
+    [...allocations].sort((left, right) => left - right),
+  );
+});
+
+test('Web backend rolls back a handle when session ID extraction fails', () => {
+  const releaseCalls = [];
+  const sessionIdError = new Error('session ID extraction failed');
+  const module = {
+    _malloc: () => 64,
+    _free: () => {},
+    lengthBytesUTF8: () => 0,
+    stringToUTF8: () => {},
+    ffmpeg_kit_create_session: () => 1024,
+    ffmpeg_kit_session_get_session_id: () => {
+      throw sessionIdError;
+    },
+    ffmpeg_kit_handle_release: pointer => releaseCalls.push(pointer),
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(
+    () => backend.createFFmpegSession('-version'),
+    error => error === sessionIdError,
+  );
+  assert.deepEqual(releaseCalls, [1024]);
+});
+
+test('Web backend rolls back a handle when registry validation fails', () => {
+  const releaseCalls = [];
+  const module = {
+    _malloc: () => 64,
+    _free: () => {},
+    lengthBytesUTF8: () => 0,
+    stringToUTF8: () => {},
+    ffmpeg_kit_create_session: () => 1024,
+    ffmpeg_kit_session_get_session_id: () => 0,
+    ffmpeg_kit_handle_release: pointer => releaseCalls.push(pointer),
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(
+    () => backend.createFFmpegSession('-version'),
+    /invalid session handle/,
+  );
+  assert.deepEqual(releaseCalls, [1024]);
+});
+
+test('Web backend retains successfully registered handles until explicit release', () => {
+  const releaseCalls = [];
+  const module = {
+    _malloc: () => 64,
+    _free: () => {},
+    lengthBytesUTF8: () => 0,
+    stringToUTF8: () => {},
+    ffmpeg_kit_create_session: () => 1024,
+    ffmpeg_kit_session_get_session_id: () => 77,
+    ffmpeg_kit_handle_release: pointer => releaseCalls.push(pointer),
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.equal(backend.createFFmpegSession('-version'), 77);
+  assert.deepEqual(releaseCalls, []);
+  backend.releaseSessionHandle(77);
+  assert.deepEqual(releaseCalls, [1024]);
+});
+
+test('Web backend releases a temporary session handle when snapshot construction fails', () => {
+  const memory = new ArrayBuffer(4096);
+  const releaseCalls = [];
+  const freeCalls = [];
+  const snapshotError = new Error('snapshot getter failed');
+  const module = {
+    HEAPU32: new Uint32Array(memory),
+    ffmpeg_kit_get_sessions: () => 64,
+    ffmpeg_kit_session_get_session_id: () => {
+      throw snapshotError;
+    },
+    ffmpeg_kit_handle_release: pointer => releaseCalls.push(pointer),
+    ffmpeg_kit_free: pointer => freeCalls.push(pointer),
+  };
+  module.HEAPU32[16] = 1024;
+  module.HEAPU32[17] = 0;
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(() => backend.getSessionsJson('all'), error => error === snapshotError);
+  assert.deepEqual(releaseCalls, [1024]);
+  assert.deepEqual(freeCalls, [64]);
+});
