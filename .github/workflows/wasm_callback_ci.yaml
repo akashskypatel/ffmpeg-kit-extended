@@ -143,6 +143,8 @@ jobs:
     name: Flutter Web/Wasm gates
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      FFMPEG_KIT_EXTENDED_WEB_TEST: "true"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -180,4 +182,7 @@ jobs:
 
       - name: Run headless browser callback integration tests
         working-directory: flutter/example
-        run: flutter test --platform chrome --wasm test/wasm_callback_test.dart
+        run: >-
+          flutter test --platform chrome --wasm
+          --dart-define=FFMPEG_KIT_EXTENDED_WEB_ASSET_ROOT=packages/ffmpeg_kit_extended_flutter/web/wasm
+          test/wasm_callback_test.dart

@@ -11,7 +11,10 @@ final class WasmLoader {
   WasmLoader._();
 
   static final instance = WasmLoader._();
-  static const assetRoot = 'assets/packages/ffmpeg_kit_extended_flutter/wasm';
+  static const assetRoot = String.fromEnvironment(
+    'FFMPEG_KIT_EXTENDED_WEB_ASSET_ROOT',
+    defaultValue: 'assets/packages/ffmpeg_kit_extended_flutter/wasm',
+  );
 
   JSObject? _module;
   Future<void>? _initializing;
