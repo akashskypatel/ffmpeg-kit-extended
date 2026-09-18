@@ -20,8 +20,9 @@ const DEFAULT_POLL_INTERVAL_MS = 50;
  *
  * Session getters read the latest native snapshot on each call. Keep history
  * entries available until you finish inspecting a completed session. Calling
- * `FFmpegKitConfig.clearSessions()` can make later getters throw because the
- * native session no longer exists.
+ * `FFmpegKitConfig.clearSessions()` while sessions are running can
+ * cancel/invalidate active handles. Clearing sessions can also make later
+ * getters throw because the native session no longer exists.
  */
 export abstract class Session {
   readonly sessionId: number;

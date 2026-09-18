@@ -105,8 +105,11 @@ export class FFmpegKitConfig {
   }
 
   /**
-   * Clears retained native session history. Do not clear history while code
-   * still expects to inspect those session IDs.
+   * Clears the native session registry and retained session history.
+   *
+   * Do not call this while sessions are running. Clearing sessions can
+   * cancel/invalidate active session handles, and Session getters for cleared
+   * IDs may subsequently fail.
    */
   static clearSessions(): void {
     NativeFFmpegKitExtended.clearSessions();

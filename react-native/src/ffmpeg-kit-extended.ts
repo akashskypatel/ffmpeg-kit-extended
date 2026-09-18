@@ -357,7 +357,13 @@ export class FFmpegKitExtended {
     return NativeFFmpegKitExtended.getSessionHistorySize();
   }
 
-  /** Clears retained native session history. */
+  /**
+   * Clears the native session registry and retained session history.
+   *
+   * Do not call this while sessions are running. Clearing sessions can
+   * cancel/invalidate active session handles, and Session getters for cleared
+   * IDs may subsequently fail.
+   */
   static clearSessions(): void {
     NativeFFmpegKitExtended.clearSessions();
   }
