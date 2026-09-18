@@ -178,22 +178,6 @@ jobs:
         working-directory: flutter/example
         run: flutter build web --wasm
 
-      - name: Stage Web runtime for browser test server
-        working-directory: flutter/example
-        run: |
-          runtime_dir="web/assets/packages/ffmpeg_kit_extended_flutter/wasm"
-          package_test_dir="../web/wasm"
-          mkdir -p "$package_test_dir"
-          cp "$runtime_dir"/ffmpegkit.mjs \
-            "$runtime_dir"/ffmpegkit.wasm \
-            "$runtime_dir"/ffmpegkit_bridge.mjs \
-            "$runtime_dir"/ffmpegkit_callback_runtime.mjs \
-            "$runtime_dir"/ffmpegkit_loader.mjs \
-            "$package_test_dir"/
-
       - name: Run headless browser callback integration tests
         working-directory: flutter/example
-        run: >-
-          flutter test --platform chrome --wasm
-          --dart-define=FFMPEG_KIT_EXTENDED_WEB_ASSET_ROOT=packages/ffmpeg_kit_extended_flutter/web/wasm
-          test/wasm_callback_test.dart
+        run: flutter test --platform chrome --wasm test/wasm_callback_test.dart
