@@ -171,7 +171,11 @@ export abstract class Session {
     try {
       NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, timeoutMs);
     } catch (error) {
-      this.releaseOwnedHandle();
+      try {
+        this.releaseOwnedHandle();
+      } catch {
+        // Preserve the native start failure as the primary error.
+      }
       throw error;
     }
   }
@@ -247,10 +251,18 @@ export abstract class Session {
         // observable. A state failure removes that authority, so intentionally
         // release the owning handle to abandon/cancel the unmonitorable run.
         recordError(error);
-        this.releaseOwnedHandle();
+        try {
+          this.releaseOwnedHandle();
+        } catch {
+          // Preserve the state-read failure as the primary error.
+        }
         throw firstError;
       }
       if (state === SessionState.Completed || state === SessionState.Failed) {
+        let terminalErrorSet = false;
+        let terminalError: unknown;
+        let releaseErrorSet = false;
+        let releaseError: unknown;
         try {
           if (!monitorFailed) {
             try {
@@ -292,14 +304,27 @@ export abstract class Session {
           }
           // The first observed callback/monitoring failure is authoritative;
           // later failures affect draining but do not replace its error.
-          if (firstErrorSet) throw firstError;
-          return self;
+          if (firstErrorSet) {
+            terminalErrorSet = true;
+            terminalError = firstError;
+          }
+        } catch (error) {
+          terminalErrorSet = true;
+          terminalError = error;
         } finally {
           // Native C API session handles are owning. Keep the original handle
           // alive for the whole execution, then release it after every
           // terminal-state finalization exit.
-          this.releaseOwnedHandle();
+          try {
+            this.releaseOwnedHandle();
+          } catch (error) {
+            releaseErrorSet = true;
+            releaseError = error;
+          }
         }
+        if (terminalErrorSet) throw terminalError;
+        if (releaseErrorSet) throw releaseError;
+        return self;
       }
 
       await sleep(pollIntervalMs);
@@ -309,8 +334,8 @@ export abstract class Session {
   /** Releases this session's owning native handle at most once. */
   protected releaseOwnedHandle(): void {
     if (this.handleReleased) return;
-    this.handleReleased = true;
     NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
+    this.handleReleased = true;
   }
 
   private handleReleased = false;

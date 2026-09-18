@@ -249,8 +249,10 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   releaseSessionHandle(sessionId: number): void {
-    const pointer = this.sessions.take(sessionId);
-    if (pointer) this.call('ffmpeg_kit_handle_release')(pointer);
+    const pointer = this.sessions.get(sessionId);
+    if (!pointer) return;
+    this.call('ffmpeg_kit_handle_release')(pointer);
+    this.sessions.take(sessionId);
   }
 
   getSessionsJson(kind: string): string { return jsonArray(this.snapshots(kind)); }
@@ -466,7 +468,13 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   getBuildDate(): string { return this.readString(this.call('ffmpeg_kit_config_get_build_date')()); }
   setSessionHistorySize(size: number): void { this.call('ffmpeg_kit_set_session_history_size')(int64(size)); }
   getSessionHistorySize(): number { return numberResult(this.call('ffmpeg_kit_get_session_history_size')()); }
-  clearSessions(): void { this.sessions.clear().forEach(p => this.call('ffmpeg_kit_handle_release')(p)); this.call('ffmpeg_kit_clear_sessions')(); }
+  clearSessions(): void {
+    for (const [sessionId, pointer] of this.sessions.entries()) {
+      this.call('ffmpeg_kit_handle_release')(pointer);
+      this.sessions.take(sessionId);
+    }
+    this.call('ffmpeg_kit_clear_sessions')();
+  }
   registerNewFFmpegPipe(): string { return this.readString(this.call('ffmpeg_kit_config_register_new_ffmpeg_pipe')()); }
   closeFFmpegPipe(path: string): void { this.withString(path, p => this.call('ffmpeg_kit_config_close_ffmpeg_pipe')(p)); }
   messagesInTransmit(sessionId: number): number { return numberResult(this.call('ffmpeg_kit_config_messages_in_transmit')(int64(sessionId))); }

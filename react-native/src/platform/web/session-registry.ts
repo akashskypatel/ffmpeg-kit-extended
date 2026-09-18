@@ -17,6 +17,10 @@ export class WasmSessionRegistry {
     return pointer;
   }
 
+  entries(): Array<[number, number]> {
+    return [...this.retained.entries()];
+  }
+
   has(sessionId: number): boolean {
     return this.retained.has(sessionId);
   }

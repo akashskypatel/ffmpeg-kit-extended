@@ -25,6 +25,7 @@ let preTerminalLogsError;
 let preTerminalStatisticsError;
 let finalLogsError;
 let finalStatisticsError;
+let releaseError;
 setBackend({
   executeSessionAsync: () => {
     if (startError) throw startError;
@@ -54,6 +55,7 @@ setBackend({
   cancelSession: () => {},
   releaseSessionHandle: sessionId => {
     releases.push(sessionId);
+    if (releaseError) throw releaseError;
     registry.take(sessionId);
   },
 });
@@ -77,6 +79,7 @@ beforeEach(() => {
   preTerminalStatisticsError = undefined;
   finalLogsError = undefined;
   finalStatisticsError = undefined;
+  releaseError = undefined;
 });
 
 afterEach(async () => {
@@ -258,6 +261,71 @@ test('state retrieval failure releases the owning handle and rejects', async () 
   assert.equal(registry.has(20), false);
   assert.equal(manager.activeSessionCount, 0);
   assert.equal(manager.queueLength, 0);
+});
+
+test('state failure remains primary when handle release fails and can be retried', async () => {
+  sessionState = 1;
+  const stateFailure = new Error('state read failed first');
+  const releaseFailure = new Error('release failed second');
+  stateError = stateFailure;
+  releaseError = releaseFailure;
+  registry.retain(14336, 23);
+  const session = new FFmpegSession(23, '-version');
+
+  await assert.rejects(
+    session.executeAsync({pollIntervalMs: 10}),
+    error => error === stateFailure,
+  );
+  assert.deepEqual(releases, [23]);
+  assert.equal(registry.has(23), true);
+
+  stateError = undefined;
+  releaseError = undefined;
+  sessionState = 2;
+  await session.executeAsync({pollIntervalMs: 10});
+  assert.deepEqual(releases, [23, 23]);
+  assert.equal(registry.has(23), false);
+});
+
+test('release failure after terminal state remains observable and retryable', async () => {
+  const releaseFailure = new Error('terminal release failed');
+  releaseError = releaseFailure;
+  registry.retain(15360, 24);
+  const session = new FFmpegSession(24, '-version');
+
+  await assert.rejects(
+    session.executeAsync({pollIntervalMs: 10}),
+    error => error === releaseFailure,
+  );
+  assert.deepEqual(releases, [24]);
+  assert.equal(registry.has(24), true);
+
+  releaseError = undefined;
+  await session.executeAsync({pollIntervalMs: 10});
+  assert.deepEqual(releases, [24, 24]);
+  assert.equal(registry.has(24), false);
+});
+
+test('callback failure remains primary when terminal release fails', async () => {
+  sessionState = 1;
+  logEntries = [{sessionId: 25, level: 32, message: 'callback-first'}];
+  const callbackFailure = new Error('callback failed first');
+  releaseError = new Error('release failed second');
+  registry.retain(16384, 25);
+  const session = new FFmpegSession(25, '-version');
+
+  await assert.rejects(
+    session.executeAsync({
+      logCallback: () => {
+        sessionState = 2;
+        throw callbackFailure;
+      },
+      pollIntervalMs: 10,
+    }),
+    error => error === callbackFailure,
+  );
+  assert.deepEqual(releases, [25]);
+  assert.equal(registry.has(25), true);
 });
 
 test('first callback failure wins over a later pre-terminal monitor failure', async () => {

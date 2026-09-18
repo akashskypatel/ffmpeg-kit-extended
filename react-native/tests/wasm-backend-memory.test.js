@@ -148,3 +148,75 @@ test('Web backend creates media-information sessions from pre-tokenized argument
 
   backend.releaseSessionHandle(77);
 });
+
+test('Web backend retains a session handle when native release fails', () => {
+  const releaseCalls = [];
+  const releaseError = new Error('release failed');
+  let shouldFail = true;
+  const module = {
+    _malloc: () => 64,
+    _free: () => {},
+    lengthBytesUTF8: () => 0,
+    stringToUTF8: () => {},
+    ffmpeg_kit_create_session: () => 1024,
+    ffmpeg_kit_session_get_session_id: handle => {
+      assert.equal(handle, 1024);
+      return 77;
+    },
+    ffmpeg_kit_handle_release: handle => {
+      releaseCalls.push(handle);
+      if (shouldFail) throw releaseError;
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.equal(backend.createFFmpegSession('-version'), 77);
+  assert.throws(() => backend.releaseSessionHandle(77), error => error === releaseError);
+  assert.deepEqual(releaseCalls, [1024]);
+
+  shouldFail = false;
+  backend.releaseSessionHandle(77);
+  backend.releaseSessionHandle(77);
+  assert.deepEqual(releaseCalls, [1024, 1024]);
+});
+
+test('Web backend clears tracked sessions transactionally', () => {
+  const releaseCalls = [];
+  const pointers = [1024, 2048, 3072];
+  const sessionIds = new Map([
+    [1024, 1],
+    [2048, 2],
+    [3072, 3],
+  ]);
+  let shouldFail = true;
+  let clearCalls = 0;
+  const module = {
+    _malloc: () => 64,
+    _free: () => {},
+    lengthBytesUTF8: () => 0,
+    stringToUTF8: () => {},
+    ffmpeg_kit_create_session: () => pointers.shift(),
+    ffmpeg_kit_session_get_session_id: handle => sessionIds.get(handle),
+    ffmpeg_kit_handle_release: handle => {
+      releaseCalls.push(handle);
+      if (shouldFail && handle === 2048) throw new Error('second release failed');
+    },
+    ffmpeg_kit_clear_sessions: () => {
+      clearCalls += 1;
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  backend.createFFmpegSession('-one');
+  backend.createFFmpegSession('-two');
+  backend.createFFmpegSession('-three');
+
+  assert.throws(() => backend.clearSessions(), /second release failed/);
+  assert.deepEqual(releaseCalls, [1024, 2048]);
+  assert.equal(clearCalls, 0);
+
+  shouldFail = false;
+  backend.clearSessions();
+  assert.deepEqual(releaseCalls, [1024, 2048, 2048, 3072]);
+  assert.equal(clearCalls, 1);
+});

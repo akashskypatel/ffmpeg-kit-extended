@@ -24,3 +24,12 @@ test('WasmSessionRegistry rejects invalid ownership entries', () => {
   assert.throws(() => registry.retain(0, 1), /invalid session handle/);
   assert.throws(() => registry.retain(1, 0), /invalid session handle/);
 });
+
+test('WasmSessionRegistry exposes non-destructive ownership entries', () => {
+  const registry = new WasmSessionRegistry();
+  registry.retain(101, 7);
+  registry.retain(202, 8);
+
+  assert.deepEqual(registry.entries(), [[7, 101], [8, 202]]);
+  assert.equal(registry.size, 2);
+});
