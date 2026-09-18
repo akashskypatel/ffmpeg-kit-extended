@@ -88,6 +88,14 @@ flutter build web --wasm --no-pub
 
 `dart test` can be blocked in restricted environments when its build hook cannot update the Dart telemetry session file; that is an environment limitation, not a substitute for the analyzer or Web build. Use `git diff --check` before handoff.
 
+Flutter's test runner evaluates the native-assets build hook for the host
+`TargetPlatform.tester`. Consequently, `flutter test` cannot select this
+package's assets for a non-host target. This applies to every platform, not
+all target platforms. Use the platform-specific build or run command—for
+example, `flutter build web --wasm` and a served Web application for Web asset
+validation—and do not treat `flutter test` as coverage of non-host hook
+selection.
+
 ## Known limitations and maintenance rules
 
 - Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.

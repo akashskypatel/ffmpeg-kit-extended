@@ -145,6 +145,15 @@ Note that the WebAssembly bundle has pthread support by default. For a `non-pthr
 
 The build hook downloads and verifies the configured `wasm32` bundle, then stages the Wasm runtime, loader, callback bridge, and support modules as Web assets. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
 
+#### Flutter test-target limitation
+
+Flutter evaluates the native-assets build hook for the host
+`TargetPlatform.tester` when running tests. Therefore `flutter test` cannot
+make this package's hook select assets for a non-host target. This applies to
+all target platforms. Use the platform-specific build or run command—for
+example, `flutter build web --wasm` and a served Web application for Web asset
+validation.
+
 ```http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
