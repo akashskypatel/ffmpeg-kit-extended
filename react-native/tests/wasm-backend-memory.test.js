@@ -14,6 +14,33 @@ test('Web backend registration selects the browser backend without native import
   assert.strictEqual(getBackend(), webBackend);
 });
 
+test('Web backend reads session state without full snapshot getters', () => {
+  const calls = [];
+  const module = {
+    ffmpeg_kit_get_session: sessionId => {
+      calls.push(['get_session', sessionId]);
+      return 1024;
+    },
+    ffmpeg_kit_session_get_state: handle => {
+      calls.push(['get_state', handle]);
+      return 1;
+    },
+    ffmpeg_kit_handle_release: handle => calls.push(['release', handle]),
+    ffmpeg_kit_session_get_session_id: () => {
+      throw new Error('full snapshot getter must not be called');
+    },
+  };
+
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.equal(backend.getSessionState(77), 1);
+  assert.deepEqual(calls, [
+    ['get_session', 77n],
+    ['get_state', 1024],
+    ['release', 1024],
+  ]);
+});
+
 test('Web backend copies FFplay frame metadata through mocked Wasm memory', () => {
   const memory = new ArrayBuffer(4096);
   const module = {

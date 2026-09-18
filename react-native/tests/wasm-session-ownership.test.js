@@ -16,6 +16,7 @@ let logEntries = [];
 let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
+let stateError;
 let startError;
 let logReads = 0;
 let statisticsReads = 0;
@@ -42,7 +43,13 @@ setBackend({
     if (finalStatisticsError && statisticsReads === 2) throw finalStatisticsError;
     return JSON.stringify(fromIndex === 0 ? statisticsEntries : []);
   },
-  getSessionJson: () => JSON.stringify({state: sessionState}),
+  getSessionState: () => {
+    if (stateError) throw stateError;
+    return sessionState;
+  },
+  getSessionJson: () => {
+    throw new Error('full session snapshot must not be used by monitor state reads');
+  },
   cancelSession: () => {},
   releaseSessionHandle: sessionId => {
     releases.push(sessionId);
@@ -60,6 +67,7 @@ beforeEach(() => {
   statisticsEntries = [];
   executionStarts = 0;
   sessionState = 2;
+  stateError = undefined;
   startError = undefined;
   logReads = 0;
   statisticsReads = 0;
@@ -233,6 +241,21 @@ test('callback failure on a failed native session still releases once', async ()
   assert.deepEqual(releases, [15]);
   assert.equal(registry.size, 0);
   assert.equal(manager.activeSessionCount, 0);
+});
+
+test('state retrieval failure releases the owning handle and rejects', async () => {
+  sessionState = 1;
+  const error = new Error('state read failed');
+  stateError = error;
+  registry.retain(10240, 20);
+
+  const execution = new FFmpegSession(20, '-version').executeAsync({pollIntervalMs: 10});
+
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [20]);
+  assert.equal(registry.has(20), false);
+  assert.equal(manager.activeSessionCount, 0);
+  assert.equal(manager.queueLength, 0);
 });
 
 test('pre-terminal log retrieval failure drains to terminal before releasing', async () => {

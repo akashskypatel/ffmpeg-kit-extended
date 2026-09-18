@@ -237,6 +237,13 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   cancelSession(sessionId: number): void { this.withSession(sessionId, pointer => this.call('ffmpeg_kit_session_cancel')(pointer)); }
 
+  getSessionState(sessionId: number): number {
+    return this.withSession(
+      sessionId,
+      pointer => numberResult(this.call('ffmpeg_kit_session_get_state')(pointer)),
+    );
+  }
+
   getSessionJson(sessionId: number): string {
     return this.withSession(sessionId, pointer => JSON.stringify(this.snapshot(pointer)));
   }

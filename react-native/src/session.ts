@@ -42,6 +42,8 @@ export abstract class Session {
 
   /** Returns the current native lifecycle state. */
   getState(): SessionState {
+    const state = NativeFFmpegKitExtended.getSessionState?.(this.sessionId);
+    if (state !== undefined) return state as SessionState;
     return this.snapshot().state;
   }
 
@@ -231,7 +233,16 @@ export abstract class Session {
         }
       }
 
-      const state = this.getState();
+      let state: SessionState;
+      try {
+        state = this.getState();
+      } catch (error) {
+        // Callback-buffer failures can drain because terminal state remains
+        // observable. A state failure removes that authority, so intentionally
+        // release the owning handle to abandon/cancel the unmonitorable run.
+        this.releaseOwnedHandle();
+        throw error;
+      }
       if (state === SessionState.Completed || state === SessionState.Failed) {
         try {
           if (monitorFailed) throw monitorError;
