@@ -188,16 +188,21 @@ export abstract class Session {
     let logsProcessed = 0;
     let statisticsProcessed = 0;
     let callbackFailed = false;
-    let callbackError: unknown;
     let monitorFailed = false;
-    let monitorError: unknown;
+    let firstErrorSet = false;
+    let firstError: unknown;
+    const recordError = (error: unknown): void => {
+      if (firstErrorSet) return;
+      firstErrorSet = true;
+      firstError = error;
+    };
     const invokeCallback = (callback: (() => void) | undefined): void => {
       if (callbackFailed || !callback) return;
       try {
         callback();
       } catch (error) {
         callbackFailed = true;
-        callbackError = error;
+        recordError(error);
       }
     };
 
@@ -229,7 +234,7 @@ export abstract class Session {
           }
         } catch (error) {
           monitorFailed = true;
-          monitorError = error;
+          recordError(error);
         }
       }
 
@@ -240,38 +245,53 @@ export abstract class Session {
         // Callback-buffer failures can drain because terminal state remains
         // observable. A state failure removes that authority, so intentionally
         // release the owning handle to abandon/cancel the unmonitorable run.
+        recordError(error);
         this.releaseOwnedHandle();
-        throw error;
+        throw firstError;
       }
       if (state === SessionState.Completed || state === SessionState.Failed) {
         try {
-          if (monitorFailed) throw monitorError;
-
-          // Once terminal state is observed, all final callback-buffer reads
-          // and completion delivery are covered by ownership cleanup.
-          const finalLogs = parseJsonArray<Log>(
-            NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
-          );
-          for (const entry of finalLogs) {
-            invokeCallback(() => options.logCallback?.(entry, self));
-          }
-
-          if (options.statisticsCallback) {
-            const finalStatistics = parseJsonArray<Statistics>(
-              NativeFFmpegKitExtended.getStatisticsJson(
-                this.sessionId,
-                statisticsProcessed,
-              ),
-            );
-            for (const entry of finalStatistics) {
-              invokeCallback(() => options.statisticsCallback?.(entry, self));
+          if (!monitorFailed) {
+            try {
+              // Once terminal state is observed, all final callback-buffer
+              // reads and completion delivery are covered by ownership cleanup.
+              const finalLogs = parseJsonArray<Log>(
+                NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+              );
+              for (const entry of finalLogs) {
+                invokeCallback(() => options.logCallback?.(entry, self));
+              }
+            } catch (error) {
+              monitorFailed = true;
+              recordError(error);
             }
           }
 
-          invokeCallback(
-            options.completeCallback ? () => options.completeCallback?.(self) : undefined,
-          );
-          if (callbackFailed) throw callbackError;
+          if (!monitorFailed && options.statisticsCallback) {
+            try {
+              const finalStatistics = parseJsonArray<Statistics>(
+                NativeFFmpegKitExtended.getStatisticsJson(
+                  this.sessionId,
+                  statisticsProcessed,
+                ),
+              );
+              for (const entry of finalStatistics) {
+                invokeCallback(() => options.statisticsCallback?.(entry, self));
+              }
+            } catch (error) {
+              monitorFailed = true;
+              recordError(error);
+            }
+          }
+
+          if (!monitorFailed) {
+            invokeCallback(
+              options.completeCallback ? () => options.completeCallback?.(self) : undefined,
+            );
+          }
+          // The first observed callback/monitoring failure is authoritative;
+          // later failures affect draining but do not replace its error.
+          if (firstErrorSet) throw firstError;
           return self;
         } finally {
           // Native C API session handles are owning. Keep the original handle

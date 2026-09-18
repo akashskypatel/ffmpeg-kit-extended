@@ -13,6 +13,7 @@ const {
 const registry = new WasmSessionRegistry();
 const releases = [];
 let logEntries = [];
+let finalLogEntries = [];
 let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
@@ -33,7 +34,7 @@ setBackend({
     logReads += 1;
     if (preTerminalLogsError && logReads === 1) throw preTerminalLogsError;
     if (finalLogsError && logReads === 2) throw finalLogsError;
-    return JSON.stringify(fromIndex === 0 ? logEntries : []);
+    return JSON.stringify(logReads === 1 && fromIndex === 0 ? logEntries : finalLogEntries);
   },
   getStatisticsJson: (_sessionId, fromIndex) => {
     statisticsReads += 1;
@@ -64,6 +65,7 @@ beforeEach(() => {
   registry.clear();
   releases.length = 0;
   logEntries = [];
+  finalLogEntries = [];
   statisticsEntries = [];
   executionStarts = 0;
   sessionState = 2;
@@ -256,6 +258,74 @@ test('state retrieval failure releases the owning handle and rejects', async () 
   assert.equal(registry.has(20), false);
   assert.equal(manager.activeSessionCount, 0);
   assert.equal(manager.queueLength, 0);
+});
+
+test('first callback failure wins over a later pre-terminal monitor failure', async () => {
+  sessionState = 1;
+  logEntries = [{sessionId: 21, level: 32, message: 'callback-first'}];
+  const callbackError = new Error('callback failure first');
+  const monitorError = new Error('statistics failure later');
+  preTerminalStatisticsError = monitorError;
+  registry.retain(11264, 21);
+  let statisticsCallbacks = 0;
+  let completionCallbacks = 0;
+
+  const execution = new FFmpegSession(21, '-version').executeAsync({
+    logCallback: () => {
+      throw callbackError;
+    },
+    statisticsCallback: () => statisticsCallbacks++,
+    completeCallback: () => completionCallbacks++,
+    pollIntervalMs: 10,
+  });
+
+  let settled = false;
+  execution.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(settled, false);
+  assert.deepEqual(releases, []);
+  assert.equal(registry.has(21), true);
+
+  sessionState = 2;
+  await assert.rejects(execution, reason => reason === callbackError);
+  assert.deepEqual(releases, [21]);
+  assert.equal(registry.has(21), false);
+  assert.equal(manager.activeSessionCount, 0);
+  assert.equal(statisticsCallbacks, 0);
+  assert.equal(completionCallbacks, 0);
+});
+
+test('first final callback failure wins over a later final monitor failure', async () => {
+  finalLogEntries = [{sessionId: 22, level: 32, message: 'final-callback-first'}];
+  const callbackError = new Error('final callback failure first');
+  const monitorError = new Error('final statistics failure later');
+  finalStatisticsError = monitorError;
+  registry.retain(12288, 22);
+  let statisticsCallbacks = 0;
+  let completionCallbacks = 0;
+
+  const execution = new FFmpegSession(22, '-version').executeAsync({
+    logCallback: () => {
+      throw callbackError;
+    },
+    statisticsCallback: () => statisticsCallbacks++,
+    completeCallback: () => completionCallbacks++,
+    pollIntervalMs: 10,
+  });
+
+  await assert.rejects(execution, reason => reason === callbackError);
+  assert.deepEqual(releases, [22]);
+  assert.equal(registry.has(22), false);
+  assert.equal(manager.activeSessionCount, 0);
+  assert.equal(statisticsCallbacks, 0);
+  assert.equal(completionCallbacks, 0);
 });
 
 test('pre-terminal log retrieval failure drains to terminal before releasing', async () => {
