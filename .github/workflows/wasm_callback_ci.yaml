@@ -69,6 +69,10 @@ jobs:
         working-directory: react-native
         run: npm run prepare
 
+      - name: Validate packed TypeScript consumer
+        working-directory: react-native
+        run: npm run test:pack-types
+
       - name: Validate packed package
         working-directory: react-native
         run: npm pack --dry-run
