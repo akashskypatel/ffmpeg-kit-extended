@@ -187,6 +187,8 @@ export abstract class Session {
     let statisticsProcessed = 0;
     let callbackFailed = false;
     let callbackError: unknown;
+    let monitorFailed = false;
+    let monitorError: unknown;
     const invokeCallback = (callback: (() => void) | undefined): void => {
       if (callbackFailed || !callback) return;
       try {
@@ -197,31 +199,43 @@ export abstract class Session {
       }
     };
 
+    // Before terminal state is known, retain ownership and drain through state
+    // reads if callback-buffer access fails. Terminal finalization remains the
+    // only safe point for releasing the native handle.
     for (;;) {
-      const logs = parseJsonArray<Log>(
-        NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
-      );
-      for (const entry of logs) {
-        invokeCallback(() => options.logCallback?.(entry, self));
-      }
-      logsProcessed += logs.length;
+      if (!monitorFailed) {
+        try {
+          const logs = parseJsonArray<Log>(
+            NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+          );
+          for (const entry of logs) {
+            invokeCallback(() => options.logCallback?.(entry, self));
+          }
+          logsProcessed += logs.length;
 
-      if (options.statisticsCallback) {
-        const statistics = parseJsonArray<Statistics>(
-          NativeFFmpegKitExtended.getStatisticsJson(
-            this.sessionId,
-            statisticsProcessed,
-          ),
-        );
-        for (const entry of statistics) {
-          invokeCallback(() => options.statisticsCallback?.(entry, self));
+          if (options.statisticsCallback) {
+            const statistics = parseJsonArray<Statistics>(
+              NativeFFmpegKitExtended.getStatisticsJson(
+                this.sessionId,
+                statisticsProcessed,
+              ),
+            );
+            for (const entry of statistics) {
+              invokeCallback(() => options.statisticsCallback?.(entry, self));
+            }
+            statisticsProcessed += statistics.length;
+          }
+        } catch (error) {
+          monitorFailed = true;
+          monitorError = error;
         }
-        statisticsProcessed += statistics.length;
       }
 
       const state = this.getState();
       if (state === SessionState.Completed || state === SessionState.Failed) {
         try {
+          if (monitorFailed) throw monitorError;
+
           // Once terminal state is observed, all final callback-buffer reads
           // and completion delivery are covered by ownership cleanup.
           const finalLogs = parseJsonArray<Log>(

@@ -19,6 +19,8 @@ let sessionState = 2;
 let startError;
 let logReads = 0;
 let statisticsReads = 0;
+let preTerminalLogsError;
+let preTerminalStatisticsError;
 let finalLogsError;
 let finalStatisticsError;
 setBackend({
@@ -28,11 +30,15 @@ setBackend({
   },
   getLogsJson: (_sessionId, fromIndex) => {
     logReads += 1;
+    if (preTerminalLogsError && logReads === 1) throw preTerminalLogsError;
     if (finalLogsError && logReads === 2) throw finalLogsError;
     return JSON.stringify(fromIndex === 0 ? logEntries : []);
   },
   getStatisticsJson: (_sessionId, fromIndex) => {
     statisticsReads += 1;
+    if (preTerminalStatisticsError && statisticsReads === 1) {
+      throw preTerminalStatisticsError;
+    }
     if (finalStatisticsError && statisticsReads === 2) throw finalStatisticsError;
     return JSON.stringify(fromIndex === 0 ? statisticsEntries : []);
   },
@@ -57,6 +63,8 @@ beforeEach(() => {
   startError = undefined;
   logReads = 0;
   statisticsReads = 0;
+  preTerminalLogsError = undefined;
+  preTerminalStatisticsError = undefined;
   finalLogsError = undefined;
   finalStatisticsError = undefined;
 });
@@ -225,6 +233,91 @@ test('callback failure on a failed native session still releases once', async ()
   assert.deepEqual(releases, [15]);
   assert.equal(registry.size, 0);
   assert.equal(manager.activeSessionCount, 0);
+});
+
+test('pre-terminal log retrieval failure drains to terminal before releasing', async () => {
+  sessionState = 1;
+  const error = new Error('pre-terminal log read failed');
+  preTerminalLogsError = error;
+  logEntries = [{sessionId: 18, level: 32, message: 'suppressed'}];
+  statisticsEntries = [{sessionId: 18, timeElapsed: 1}];
+  registry.retain(12288, 18);
+  let logCallbacks = 0;
+  let statisticsCallbacks = 0;
+  let completionCallbacks = 0;
+
+  const execution = new FFmpegSession(18, '-version').executeAsync({
+    logCallback: () => logCallbacks++,
+    statisticsCallback: () => statisticsCallbacks++,
+    completeCallback: () => completionCallbacks++,
+    pollIntervalMs: 10,
+  });
+  let settled = false;
+  execution.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(settled, false);
+  assert.deepEqual(releases, []);
+  assert.equal(registry.has(18), true);
+  assert.equal(manager.activeSessionCount, 1);
+
+  sessionState = 2;
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [18]);
+  assert.equal(registry.has(18), false);
+  assert.equal(manager.activeSessionCount, 0);
+  assert.equal(logCallbacks, 0);
+  assert.equal(statisticsCallbacks, 0);
+  assert.equal(completionCallbacks, 0);
+});
+
+test('pre-terminal statistics retrieval failure drains to terminal before releasing', async () => {
+  sessionState = 1;
+  const error = new Error('pre-terminal statistics read failed');
+  preTerminalStatisticsError = error;
+  statisticsEntries = [{sessionId: 19, timeElapsed: 1}];
+  registry.retain(13312, 19);
+  let logCallbacks = 0;
+  let statisticsCallbacks = 0;
+  let completionCallbacks = 0;
+
+  const execution = new FFmpegSession(19, '-version').executeAsync({
+    logCallback: () => logCallbacks++,
+    statisticsCallback: () => statisticsCallbacks++,
+    completeCallback: () => completionCallbacks++,
+    pollIntervalMs: 10,
+  });
+  let settled = false;
+  execution.then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(settled, false);
+  assert.deepEqual(releases, []);
+  assert.equal(registry.has(19), true);
+  assert.equal(manager.activeSessionCount, 1);
+
+  sessionState = 2;
+  await assert.rejects(execution, reason => reason === error);
+  assert.deepEqual(releases, [19]);
+  assert.equal(registry.has(19), false);
+  assert.equal(manager.activeSessionCount, 0);
+  assert.equal(logCallbacks, 0);
+  assert.equal(statisticsCallbacks, 0);
+  assert.equal(completionCallbacks, 0);
 });
 
 test('final log retrieval failure releases the handle exactly once', async () => {
