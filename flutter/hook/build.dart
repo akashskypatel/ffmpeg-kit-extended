@@ -19,9 +19,6 @@ const String version = "0.11.2";
 const String _extractMarkerFileName = '.extract_complete';
 const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
-const _webTestEnvironment = 'FFMPEG_KIT_EXTENDED_WEB_TEST';
-
-bool get _isWebTest => Platform.environment[_webTestEnvironment] == 'true';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
@@ -32,10 +29,8 @@ late final Architecture targetArch;
 void main(List<String> args) async {
   await build(args, (input, output) async {
     // Flutter web builds do not expose a CodeAsset target. Stage the wasm
-    // runtime as package data instead. `flutter test --platform chrome` still
-    // invokes hooks for the host tester target, so CI opts into this same Web
-    // path explicitly for WebAssembly browser tests.
-    if (!input.config.buildCodeAssets || _isWebTest) {
+    // runtime as package data instead.
+    if (!input.config.buildCodeAssets) {
       await _buildWebDataAssets(input, output);
       return;
     }
@@ -114,39 +109,34 @@ Future<void> _buildWebDataAssets(
   }
 
   final stagingBaseDir = configResult.stagingBaseDir;
-  final webAssetDirs = [
-    if (stagingBaseDir != null) ...[
-      Directory(
-        p.join(
-          stagingBaseDir,
-          'build',
-          'web',
-          'assets',
-          'packages',
-          packageName,
-          'wasm',
-        ),
-      ),
-      // Stable Flutter does not expose Dart data assets to `flutter run`.
-      // Keep the same files in the app's web tree so the debug web server can
-      // serve the package asset URL as well.
-      Directory(
-        p.join(
-          stagingBaseDir,
-          'web',
-          'assets',
-          'packages',
-          packageName,
-          'wasm',
-        ),
-      ),
-    ],
-    // Flutter's Web test server serves package files through /packages/<name>
-    // and does not mount the consuming app's /assets/packages tree. Stage a
-    // test-only copy under the package's web directory for that route.
-    if (_isWebTest)
-      Directory(p.fromUri(input.packageRoot.resolve('web/wasm/'))),
-  ];
+  final webAssetDirs = stagingBaseDir == null
+      ? const <Directory>[]
+      : [
+          Directory(
+            p.join(
+              stagingBaseDir,
+              'build',
+              'web',
+              'assets',
+              'packages',
+              packageName,
+              'wasm',
+            ),
+          ),
+          // Stable Flutter does not expose Dart data assets to `flutter run`.
+          // Keep the same files in the app's web tree so the debug web server can
+          // serve the package asset URL as well.
+          Directory(
+            p.join(
+              stagingBaseDir,
+              'web',
+              'assets',
+              'packages',
+              packageName,
+              'wasm',
+            ),
+          ),
+        ];
   Future<void> stageWebAsset(File source, String name) async {
     for (final webAssetDir in webAssetDirs) {
       webAssetDir.createSync(recursive: true);

@@ -143,8 +143,6 @@ jobs:
     name: Flutter Web/Wasm gates
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    env:
-      FFMPEG_KIT_EXTENDED_WEB_TEST: "true"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -179,6 +177,19 @@ jobs:
       - name: Build Web Wasm example
         working-directory: flutter/example
         run: flutter build web --wasm
+
+      - name: Stage Web runtime for browser test server
+        working-directory: flutter/example
+        run: |
+          runtime_dir="web/assets/packages/ffmpeg_kit_extended_flutter/wasm"
+          package_test_dir="../web/wasm"
+          mkdir -p "$package_test_dir"
+          cp "$runtime_dir"/ffmpegkit.mjs \
+            "$runtime_dir"/ffmpegkit.wasm \
+            "$runtime_dir"/ffmpegkit_bridge.mjs \
+            "$runtime_dir"/ffmpegkit_callback_runtime.mjs \
+            "$runtime_dir"/ffmpegkit_loader.mjs \
+            "$package_test_dir"/
 
       - name: Run headless browser callback integration tests
         working-directory: flutter/example
