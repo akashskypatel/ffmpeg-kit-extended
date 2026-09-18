@@ -242,21 +242,21 @@ validation.
 
 ### Bundle Sizes
 
-**Note**: Bundle sizes are approximate *compressed* sizes and may vary depending on the platform, license type (GPL/LGPL), and build configuration.
+**Note**: Values are uncompressed `libffmpegkit` binary sizes in decimal MB. Each range shows the measured LGPL minimum and GPL maximum for the v0.11.2 release assets.
 
-Please see bundle distribution page for exact sizes: https://github.com/akashskypatel/ffmpeg-kit-builders/releases
+See the bundle distribution page for the source release assets: https://github.com/akashskypatel/ffmpeg-kit-builders/releases
 
-Apple libraries (iOS/macOS) are universal fatlibs and include both ARM64 and x86_64 (macOS) architectures as well as simulator binaries for iOS. Apple libraries also include debug symbols addresses for crash analytics which may marginally increase the bundle size.
+Apple table entries measure the uncompressed framework binaries and exclude debug-symbol files.
 
 | Bundle Type | Android (MB) | iOS (MB)    | macOS (MB) | Linux (MB) | Windows (MB) |
 |-------------|--------------|-------------|------------|------------|--------------|
 |             | (Universal)  | (Universal) | (Universal)|            |              |
-| debug       | ~33          | ~55         | ~56        | ~44        | ~140         |
-| base        | ~30-38       | ~50-55      | ~30-56     | ~12-17     | ~11-17       |
-| audio       | ~42-86       | ~65-95      | ~45-78     | ~18-40     | ~21-40       |
-| video       | ~94-150      | ~100-135    | ~97-136    | ~56-83     | ~60-83       |
-| video_hw    | ~102-158     | ~105-140    | ~103-142   | ~67-95     | ~65-88       |
-| full        | ~113-170     | ~112-147    | ~520-560   | ~475-501   | ~320-343     |
+| debug       | 81.2-82.0    | 37.8-38.2   | 41.6-42.0  | 133.5-139.6 | 480.4-490.8  |
+| base        | 73.4-93.0    | 36.0-48.6   | 39.8-54.3  | 31.6-44.2   | 41.3-55.2    |
+| audio       | 102.6-179.1  | 74.6-126.0  | 79.8-134.2 | 49.3-86.7   | 82.9-124.1   |
+| video       | 233.0-353.0  | 160.7-227.4 | 183.5-255.5| 164.6-232.1 | 215.0-281.1  |
+| video_hw    | 239.4-359.9  | 163.8-230.7 | 186.8-259.0| 171.3-239.2 | 219.0-285.4  |
+| full        | 267.1-387.5  | 182.0-248.8 | 223.3-295.4| 209.0-276.2 | 248.4-314.8  |
 
 ## 3. Usage
 

@@ -10,21 +10,23 @@
 
 ## 翻訳
 
-[English](../README.md) | [Español](README.es.md) | [简体中文](README.zh-CN.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | **日本語**
+[英語](../README.md) | [Español](README.es.md) | [简体中文](README.zh-CN.md) | [हिन्दी](README.hi.md) | [العربية](README.ar.md) | [Français](README.fr.md) | [Português (Brasil)](README.pt-BR.md) | **日本語**
 
 `ffmpeg-kit-extended` は、`Android`、`iOS`、`macOS`、`Linux`、`Windows` 上で `FFmpeg`、`FFprobe`、`FFplay` の `9.0.1 API` コマンドを実行するための包括的な Flutter プラグインです。Dart の `FFI` を使用してネイティブ FFmpeg ライブラリと直接連携し、高い性能、柔軟性、完全な動画再生機能を提供します。
+Web ビルドでは Flutter WebAssembly を使用し、同じ公開 API を提供します。ネイティブプラットフォームでは Dart FFI を使用します。
 
 このプロジェクトが役に立ち、アプリで使用している場合は、[ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) と [ffmpeg-kit-extended](https://github.com/akashskypatel/ffmpeg-kit-extended) に ⭐ を、[pub.dev](https://pub.dev/packages/ffmpeg_kit_extended_flutter) に 👍 をお願いします。大きな励みになります 🙏! コーディングを楽しんでください 🚀!
 
 ## 1. 機能
 
-- **マルチプラットフォーム対応**：`Android`、`iOS`、`macOS`、`Linux`、`Windows` で動作します。
+- **マルチプラットフォーム対応**：`Android`、`iOS`、`macOS`、`Linux`、`Windows`、WebAssembly 対応の Web ビルドで動作します。
   - **Android**：ネイティブのサーフェス描画による完全な動画再生をサポートします。
     - **x86**：`x86` アーキテクチャは旧式のためサポートされていません。
   - **iOS と macOS**：`CVPixelBuffer` と Metal 連携による高性能な動画再生を提供します。
-    - **iOS**：実機の `devices` と `simulators` の両方をサポートします。`x86_64` アーキテクチャは旧式のためサポートされていません。
+    - **iOS**：実機の `デバイス` と `シミュレーター` の両方をサポートします。`x86_64` アーキテクチャは旧式のためサポートされていません。
   - **Linux**：`OpenGL` 連携による完全な動画再生をサポートします。
     - **arm64**：`arm64` アーキテクチャは現在未対応です。近日対応予定です。
+- **Web (Wasm)**：ビルドフック中に対応する wasm32 バンドルをダウンロードし、統合 Flutter surface API で FFplay の RGBA フレームを描画します。`flutter build web --wasm` を使用します。
 - **`FFmpeg`、`FFprobe`、`FFplay`**：メディア処理、情報取得、音声/動画再生のための [最新 `9.0.1 API`](https://www.ffmpeg.org/download.html) をサポートします。
 - **動画再生**：統一されたサーフェス API による完全なマルチプラットフォーム動画再生。
 - **リアルタイムストリーミング**：ライブ再生の監視に使える再生位置ストリームと動画サイズストリーム。
@@ -46,6 +48,7 @@
 | macOS | ✅ 対応 | ✅ テクスチャ | arm64, x86_64 | macOS 13+ |
 | Linux | ✅ 対応 | ✅ テクスチャ | x86_64 | glibc 2.28+ |
 | Windows | ✅ 対応 | ✅ テクスチャ | x86_64 | Windows 8+ |
+| Web (Wasm) | ✅ 対応 | ✅ RGBA フレーム | wasm32 | Flutter Wasm ビルド |
 
 上記の要件に合わせて、アプリ側の最小要件を自分で更新する必要があります。
 
@@ -86,9 +89,8 @@ ffmpeg_kit_extended_config:
   # ios: "https://path/to/bundle.xcframework.zip"
 ```
 
-**注記**：ネイティブライブラリは、[Dart Hooks](https://dart.dev/tools/hooks) を使用してビルド処理中に自動でダウンロードされ、バンドルされるようになりました。手動の設定スクリプトは不要です。
-
-**重要**：別のバンドルでビルドを作成した後にバンドルを変更した場合は、ビルドフックを再実行して新しいバンドル選択用の更新済みバイナリをダウンロードするために、`flutter clean` と `flutter build` を実行する必要があります。
+**現在の動作：** ネイティブライブラリと WebAssembly バンドルは、Dart Hooks によって自動的にダウンロードおよびバンドルされます。Web ビルドでは `wasm` または `web` のオーバーライドが指定されている場合にそれを使用し、指定されていない場合は固定されたリリースに対応するバンドルをフックが選択します。ローカルのオーバーライドファイルは追跡されるため、内容を変更しても `flutter clean` は必要ありません。
+**重要：** 選択したバンドル設定を変更した後は、ビルドを再実行してください。ローカルオーバーライドの内容の変更は依存関係として追跡されるため、`flutter clean` は必要ありません。
 
 3. Dart コードでパッケージをインポートします:
 
@@ -110,9 +112,49 @@ void main() async {
 
 > **重要**：`initialize()` が完了する前に FFmpeg、FFprobe、FFplay API を呼び出すと、`StateError` がスローされます。
 
+**Dart Pub ワークスペース：** package-config のルート `pubspec` が優先されます。それ以外の場合、このパッケージへの通常の依存パスを持つ、ルート内のパッケージグラフのルートだけが設定を提供できます。候補があいまいな場合は推測せずに失敗します。適用可能な候補がない場合は、LGPL の小さい `base` バンドルが使用されます。相対ローカルオーバーライドは、それを定義する `pubspec` を基準に解決され、ビルドフックによって追跡されます。Web では、従来の手動ステージングを使用する場合、利用側のアプリパッケージを設定してください。
+
+たとえば、ワークスペースのルートでは次のようになります。
+
+~~~yaml
+ffmpeg_kit_extended_config:
+  type: "video"
+  gpl: true
+~~~
+
+### Web のビルドとデプロイ
+
+ローカルで Web Wasm を開発する場合は、Flutter のクロスオリジン分離を使用して、pthread 対応 Wasm が共有メモリをワーカーに転送できるようにします。
+
+~~~bash
+flutter run -d web-server --cross-origin-isolation
+~~~
+
+Wasm を使用して Flutter Web をビルドします。
+
+~~~bash
+flutter clean
+flutter build web --wasm
+~~~
+
+WebAssembly バンドルはデフォルトで pthread をサポートします。pthread を使用しないビルドには、カスタム WebAssembly 依存関係と ffmpeg-kit-builders からのバンドルビルドが必要です。
+
+ビルドフックは wasm32 バンドルをダウンロードして検証し、Wasm ランタイム、ローダー、コールバックブリッジ、サポートモジュールを Web アセットとして配置します。スレッド対応 Wasm バンドルには、次の HTTP 応答ヘッダーが必要です。
+
+~~~http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+~~~
+
+WebAssembly バンドルを使用する前に、window.crossOriginIsolated が true であることを確認してください。取得した Wasm、JavaScript、ワーカーなどのアセットは、選択した COEP ポリシーを満たす必要があります。
+
+#### Flutter のテスト対象に関する制限
+
+Flutter はテスト実行時に、ホストの TargetPlatform.tester に対するネイティブアセットのビルドフックを評価します。そのため、`flutter test` では、このパッケージのフックにホスト以外の対象向けアセットを選択させることはできません。これはすべての対象プラットフォームに適用されます。対象を検証するには、プラットフォーム固有のビルドまたは実行コマンドを使用してください。
+
 ### 2.1 プラットフォーム固有の設定
 
-1. **iOS と iOS シミュレータ**: 未対応のアーキテクチャ向けにビルドしないようにするため、アプリの Podfile に post-install hooks を追加する必要があります。Podfile に次を追加してください:
+1. **iOS と iOS シミュレータ**：未対応のアーキテクチャ向けにビルドしないようにするため、アプリの Podfile にインストール後のフック（`post-install`）を追加する必要があります。Podfile に次を追加してください。
 
 ```ruby
 post_install do |installer|
@@ -147,18 +189,26 @@ end
 
 ### 2.2 機能マトリックス
 
+#### GPL ライセンス
+
+GPL ライブラリを有効にすると、生成される FFmpeg バイナリは GPL ライセンスになり、アプリケーションを GPL の下で配布する必要が生じる場合があります。ライセンス上の影響を理解していない場合は、LGPL バンドルを使用してください。
+
+#### 人工知能
+
+libopenvino や libtensorflow などの人工知能ライブラリは、公開済みバンドルではデスクトップ専用です。libtorch は Linux 専用で、libonnxruntime は x86_64 macOS では利用できません。また、GPU 向け人工知能ライブラリにはカスタムデプロイが必要です。現在のマトリックスでは、Full ビルドで人工知能をサポートしています。
+
 | 機能 | Base | Audio | Video | Video+Hardware | Full |
 | --- | --- | --- | --- | --- | --- |
 | 動画 | | | x | x | x |
 | 音声 | | x | x | x | x |
 | ストリーミング | | x | x | x | x |
 | ハードウェア | | | | x | x |
-| AI* | | | | | |
+| 人工知能* | | | | | x* |
 | HTTPS | * | x | x | x | x |
 | プラットフォーム* | x | x | x | x | x |
 | その他* | | | | | x |
 
-1. AI 機能はすべてのプラットフォームでサポートされているわけではありません。特定の AI 機能を有効にするには、ffmpeg-kit-extended の独自カスタムビルドを配布する必要があります。
+1. 人工知能機能はすべてのプラットフォームでサポートされているわけではありません。特定の人工知能機能を有効にするには、ffmpeg-kit-extended の独自カスタムビルドを配布する必要があります。
    - 詳細については、[対応している外部ライブラリ](https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries)を参照してください。
 
 2. プラットフォーム機能とは、Apple プラットフォームの AVFoundation、VideoToolbox など、または Windows の DirectX、MediaFoundation など、FFmpeg がサポートする組み込みプラットフォームライブラリのことです。
@@ -341,6 +391,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 - **Android**：ネイティブ描画のために、`SurfaceTexture` に裏付けられた `ANativeWindow` を使用します。
 - **iOS/macOS**：Metal 最適化を利用した `CVPixelBuffer` テクスチャを使用します。
 - **Linux/Windows**：フレームコールバック付きのピクセルバッファテクスチャを使用します。
+- **Web**：Wasm メモリから世代管理された RGBA8888 フレームを取得し、Flutter 画像として描画します。
 - **音声のみ**：クラッシュを防ぐため、サーフェスは作成されますが表示されません。
 
 #### 高度な機能
@@ -366,7 +417,24 @@ print('再生中: ${session.isPlaying()}');
 print('一時停止中: ${session.isPaused()}');
 ```
 
-## 4. ライセンス
+### バンドルサイズ
+
+表は `libffmpegkit` バイナリの非圧縮サイズを10進MBで示します。各範囲は v0.11.2 リリースアセットにおける LGPL の測定最小値と GPL の測定最大値を示します。
+
+| バンドル種別 | Android (MB) | iOS (MB) | macOS (MB) | Linux (MB) | Windows (MB) |
+|-------------|--------------|----------|------------|------------|--------------|
+| debug       | 81.2-82.0    | 37.8-38.2 | 41.6-42.0  | 133.5-139.6 | 480.4-490.8  |
+| base        | 73.4-93.0    | 36.0-48.6 | 39.8-54.3  | 31.6-44.2   | 41.3-55.2    |
+| audio       | 102.6-179.1  | 74.6-126.0| 79.8-134.2 | 49.3-86.7   | 82.9-124.1   |
+| video       | 233.0-353.0  | 160.7-227.4| 183.5-255.5| 164.6-232.1 | 215.0-281.1  |
+| video_hw    | 239.4-359.9  | 163.8-230.7| 186.8-259.0| 171.3-239.2 | 219.0-285.4  |
+| full        | 267.1-387.5  | 182.0-248.8| 223.3-295.4| 209.0-276.2 | 248.4-314.8  |
+
+## 4. サポートされている外部ライブラリ<a id="libraries"></a>
+
+現在のプラットフォームとバンドルの完全なマトリックスは、[英語版の公式 README](../README.md#libraries) で管理されています。
+
+## 5. ライセンス
 
 このプロジェクトは、既定では LGPL v3.0 の下でライセンスされています。ただし、基盤となる FFmpeg のビルド設定や使用される外部ライブラリによっては、実効的なライセンスが GPL v3.0 になる場合があります。含まれているライブラリのライセンスを確認してください。
 
