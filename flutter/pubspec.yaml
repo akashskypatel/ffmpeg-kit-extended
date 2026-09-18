@@ -42,10 +42,10 @@ dependencies:
   crypto: ^3.0.7
   data_assets: ^0.20.0
   ffi: ^2.2.0
-  ffigen_js:
-    git:
-      url: https://github.com/akashskypatel/ffigen_js.git
-      ref: bc03f738207eb88bcd8e9cece93756bbae80cdd5
+  ffigen_js: ^0.0.16-pre
+    # git:
+    #   url: https://github.com/akashskypatel/ffigen_js.git
+    #   ref: bc03f738207eb88bcd8e9cece93756bbae80cdd5
     # path: ../../ffigen_js
   flutter:
     sdk: flutter
@@ -69,4 +69,3 @@ dev_dependencies:
   leak_tracker_flutter_testing: ^3.0.10
   lints: ^6.1.0
   test: ^1.31.1
-  
