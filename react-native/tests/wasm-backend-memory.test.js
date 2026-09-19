@@ -238,6 +238,7 @@ test('Web backend clears tracked sessions transactionally', () => {
     lengthBytesUTF8: () => 0,
     stringToUTF8: () => {},
     ffmpeg_kit_get_session: sessionId => pointers.get(Number(sessionId)),
+    ffmpeg_kit_session_get_state: () => 0,
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: () => {},
     ffmpeg_kit_handle_release: handle => {
@@ -564,6 +565,10 @@ test('Web backend reacquires and retains ownership for async execution', () => {
       calls.push(['get_session', sessionId]);
       return 1024;
     },
+    ffmpeg_kit_session_get_state: pointer => {
+      calls.push(['get_state', pointer]);
+      return 0;
+    },
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: pointer => calls.push(['execute', pointer]),
     ffmpeg_kit_handle_release: pointer => calls.push(['release', pointer]),
@@ -573,6 +578,7 @@ test('Web backend reacquires and retains ownership for async execution', () => {
   backend.executeSessionAsync(77, 0);
   assert.deepEqual(calls, [
     ['get_session', 77n],
+    ['get_state', 1024],
     ['execute', 1024],
   ]);
 });
@@ -588,7 +594,7 @@ test('Web backend keeps the promoted execution handle through polling', () => {
     ffmpeg_kit_session_execute_async: pointer => calls.push(['execute', pointer]),
     ffmpeg_kit_session_get_state: pointer => {
       calls.push(['get_state', pointer]);
-      return 1;
+      return calls.filter(([name]) => name === 'get_state').length === 1 ? 0 : 1;
     },
     ffmpeg_kit_handle_release: pointer => calls.push(['release', pointer]),
   };
@@ -598,6 +604,7 @@ test('Web backend keeps the promoted execution handle through polling', () => {
   assert.equal(backend.getSessionState(77), 1);
   assert.deepEqual(calls, [
     ['get_session', 77n],
+    ['get_state', 1024],
     ['execute', 1024],
     ['get_state', 1024],
   ]);
@@ -607,6 +614,7 @@ test('Web backend releases a promoted execution handle exactly once at terminal 
   const releaseCalls = [];
   const module = {
     ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => 0,
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: () => {},
     ffmpeg_kit_handle_release: pointer => releaseCalls.push(pointer),
@@ -628,7 +636,7 @@ test('Web backend promotes a history handle when executing an unretained session
     },
     ffmpeg_kit_session_get_state: pointer => {
       calls.push(['get_state', pointer]);
-      return 1;
+      return 0;
     },
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: pointer => calls.push(['execute', pointer]),
@@ -636,13 +644,14 @@ test('Web backend promotes a history handle when executing an unretained session
   };
   const backend = new WebFFmpegKitBackend(undefined, module);
 
-  assert.equal(backend.getSessionState(77), 1);
+  assert.equal(backend.getSessionState(77), 0);
   backend.executeSessionAsync(77, 0);
   assert.deepEqual(calls, [
     ['get_session', 77n],
     ['get_state', 1024],
     ['release', 1024],
     ['get_session', 77n],
+    ['get_state', 1024],
     ['execute', 1024],
   ]);
 });
@@ -652,6 +661,7 @@ test('Web backend preserves async-start failure and rolls back execution ownersh
   const calls = [];
   const module = {
     ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => 0,
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: () => {
       calls.push('execute');
@@ -672,6 +682,7 @@ test('Web backend keeps failed async-start cleanup retryable', () => {
   let shouldFailRelease = true;
   const module = {
     ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => 0,
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: () => { throw startError; },
     ffmpeg_kit_handle_release: pointer => {
@@ -685,4 +696,73 @@ test('Web backend keeps failed async-start cleanup retryable', () => {
   shouldFailRelease = false;
   backend.releaseSessionHandle(77);
   assert.deepEqual(releaseCalls, [1024, 1024]);
+});
+
+test('Web backend rejects a second wrapper for the same native session', () => {
+  let executions = 0;
+  const module = {
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => 0,
+    session_is_ffmpeg_session: () => true,
+    ffmpeg_kit_session_execute_async: () => { executions += 1; },
+    ffmpeg_kit_handle_release: () => {},
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  backend.executeSessionAsync(77, 0);
+  assert.throws(
+    () => backend.executeSessionAsync(77, 0),
+    /already submitted for execution/,
+  );
+  assert.equal(executions, 1);
+  backend.releaseSessionHandle(77);
+});
+
+test('Web backend rejects history sessions that are not Created', () => {
+  for (const state of [1, 2, 3]) {
+    let executions = 0;
+    const releases = [];
+    const module = {
+      ffmpeg_kit_get_session: () => 1024,
+      ffmpeg_kit_session_get_state: () => state,
+      session_is_ffmpeg_session: () => true,
+      ffmpeg_kit_session_execute_async: () => { executions += 1; },
+      ffmpeg_kit_handle_release: pointer => releases.push(pointer),
+    };
+    const backend = new WebFFmpegKitBackend(undefined, module);
+
+    assert.throws(
+      () => backend.executeSessionAsync(77, 0),
+      new RegExp(`cannot be executed from state ${state}`),
+    );
+    assert.equal(executions, 0);
+    assert.deepEqual(releases, [1024]);
+  }
+});
+
+test('Web backend retains an execution claim until release succeeds', () => {
+  let failRelease = true;
+  const releases = [];
+  const module = {
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => 0,
+    session_is_ffmpeg_session: () => true,
+    ffmpeg_kit_session_execute_async: () => {},
+    ffmpeg_kit_handle_release: pointer => {
+      releases.push(pointer);
+      if (failRelease) throw new Error('release failed');
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  backend.executeSessionAsync(77, 0);
+  assert.throws(() => backend.releaseSessionHandle(77), /release failed/);
+  assert.throws(
+    () => backend.executeSessionAsync(77, 0),
+    /already submitted for execution/,
+  );
+  failRelease = false;
+  backend.releaseSessionHandle(77);
+  backend.executeSessionAsync(77, 0);
+  assert.deepEqual(releases, [1024, 1024]);
 });

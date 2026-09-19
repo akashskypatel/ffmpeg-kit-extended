@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const {afterEach, beforeEach, test} = require('node:test');
 
-const {setBackend} = require('../.test-dist/platform/backend.js');
+const {getBackend, setBackend} = require('../.test-dist/platform/backend.js');
 const {WasmSessionRegistry} = require('../.test-dist/platform/web/session-registry.js');
 const {
   SessionCancelledException,
@@ -106,6 +106,71 @@ test('discarded queued session releases its Wasm handle exactly once', async () 
 
   manager.clearQueue();
   assert.deepEqual(releases, [42]);
+  await active;
+});
+
+test('the same session cannot be submitted twice while active', async () => {
+  sessionState = 1;
+  registry.retain(2048, 30);
+  const session = new FFmpegSession(30, '-version');
+  const execution = session.executeAsync({pollIntervalMs: 10});
+  await new Promise(resolve => setTimeout(resolve, 0));
+
+  await assert.rejects(
+    session.executeAsync(),
+    /already submitted for execution/,
+  );
+  assert.equal(executionStarts, 1);
+  sessionState = 2;
+  await execution;
+});
+
+test('the same session cannot be submitted twice while queued', async () => {
+  manager.maxConcurrentSessions = 1;
+  let releaseActive;
+  const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
+    releaseActive = resolve;
+  }));
+  registry.retain(3072, 31);
+  const session = new FFmpegSession(31, '-version');
+  const pending = session.executeAsync();
+
+  assert.equal(manager.queueLength, 1);
+  await assert.rejects(session.executeAsync(), /already submitted for execution/);
+  releaseActive();
+  await active;
+  await pending;
+  assert.equal(executionStarts, 1);
+});
+
+test('the same session cannot be submitted again after successful completion', async () => {
+  registry.retain(4096, 32);
+  const session = new FFmpegSession(32, '-version');
+  await session.executeAsync({pollIntervalMs: 10});
+
+  await assert.rejects(
+    session.executeAsync(),
+    /already submitted for execution/,
+  );
+  assert.equal(executionStarts, 1);
+});
+
+test('clearing a queued session consumes its one-shot submission', async () => {
+  manager.maxConcurrentSessions = 1;
+  let releaseActive;
+  const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
+    releaseActive = resolve;
+  }));
+  registry.retain(5120, 33);
+  const session = new FFmpegSession(33, '-version');
+  const pending = session.executeAsync();
+
+  manager.clearQueue();
+  await assert.rejects(pending, SessionCancelledException);
+  await assert.rejects(session.executeAsync(), /already submitted for execution/);
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(releases, [33]);
+  releaseActive();
   await active;
 });
 
@@ -282,7 +347,7 @@ test('state failure remains primary when handle release fails and can be retried
   stateError = undefined;
   releaseError = undefined;
   sessionState = 2;
-  await session.executeAsync({pollIntervalMs: 10});
+  getBackend().releaseSessionHandle(23);
   assert.deepEqual(releases, [23, 23]);
   assert.equal(registry.has(23), false);
 });
@@ -301,7 +366,7 @@ test('release failure after terminal state remains observable and retryable', as
   assert.equal(registry.has(24), true);
 
   releaseError = undefined;
-  await session.executeAsync({pollIntervalMs: 10});
+  getBackend().releaseSessionHandle(24);
   assert.deepEqual(releases, [24, 24]);
   assert.equal(registry.has(24), false);
 });

@@ -23,12 +23,16 @@ const DEFAULT_POLL_INTERVAL_MS = 50;
  * `FFmpegKitConfig.clearSessions()` while sessions are running can
  * cancel/invalidate active handles. Clearing sessions can also make later
  * getters throw because the native session no longer exists.
+ *
+ * A Session object may be submitted for execution once. Create a new session
+ * for another execution.
  */
 export abstract class Session {
   readonly sessionId: number;
   readonly command: string;
   readonly type: SessionType;
   private cancelled = false;
+  private submitted = false;
 
   protected constructor(sessionId: number, command: string, type: SessionType) {
     this.sessionId = sessionId;
@@ -338,6 +342,15 @@ export abstract class Session {
     this.handleReleased = true;
   }
 
+  /** Submits this session once and rejects every later submission attempt. */
+  protected submitOnce<T>(submit: () => Promise<T>): Promise<T> {
+    if (this.submitted) {
+      return Promise.reject(new Error(`Session ${this.sessionId} was already submitted for execution`));
+    }
+    this.submitted = true;
+    return submit();
+  }
+
   private handleReleased = false;
 }
 
@@ -393,10 +406,13 @@ export class FFmpegSession extends Session {
 
   /**
    * Enqueues and starts this session, resolving after terminal state and final
-   * callback delivery. A session object is intended for one execution.
+   * callback delivery.
+   *
+   * A Session object may be submitted for execution once. Create a new session
+   * for another execution.
    */
   executeAsync(options: FFmpegExecuteOptions<FFmpegSession> = {}): Promise<this> {
-    return SessionQueueManager.shared.executeSession(this, async () => {
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
       this.startNativeExecution(0);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
@@ -405,7 +421,7 @@ export class FFmpegSession extends Session {
           options.statisticsCallback ?? this.statisticsCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    }, () => this.releaseOwnedHandle());
+    }, () => this.releaseOwnedHandle()));
   }
 }
 
@@ -438,16 +454,21 @@ export class FFprobeSession extends Session {
     this.logCallback = undefined;
   }
 
-  /** Enqueues and executes this FFprobe session. */
+  /**
+   * Enqueues and executes this FFprobe session.
+   *
+   * A Session object may be submitted for execution once. Create a new session
+   * for another execution.
+   */
   executeAsync(options: ExecuteOptions<FFprobeSession> = {}): Promise<this> {
-    return SessionQueueManager.shared.executeSession(this, async () => {
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
       this.startNativeExecution(0);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    }, () => this.releaseOwnedHandle());
+    }, () => this.releaseOwnedHandle()));
   }
 }
 
@@ -494,18 +515,23 @@ export class MediaInformationSession extends Session {
     this.timeoutMs = timeoutMs;
   }
 
-  /** Enqueues and executes this structured probe. */
+  /**
+   * Enqueues and executes this structured probe.
+   *
+   * A Session object may be submitted for execution once. Create a new session
+   * for another execution.
+   */
   executeAsync(
     options: ExecuteOptions<MediaInformationSession> = {},
   ): Promise<this> {
-    return SessionQueueManager.shared.executeSession(this, async () => {
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
       this.startNativeExecution(this.timeoutMs);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    }, () => this.releaseOwnedHandle());
+    }, () => this.releaseOwnedHandle()));
   }
 
   /**
@@ -561,16 +587,21 @@ export class FFplaySession extends Session {
     this.timeoutMs = timeoutMs;
   }
 
-  /** Enqueues playback and resolves after playback ends, stops, or fails. */
+  /**
+   * Enqueues playback and resolves after playback ends, stops, or fails.
+   *
+   * A Session object may be submitted for execution once. Create a new session
+   * for another execution.
+   */
   executeAsync(options: ExecuteOptions<FFplaySession> = {}): Promise<this> {
-    return SessionQueueManager.shared.executeSession(this, async () => {
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
       this.startNativeExecution(this.timeoutMs);
       return this.monitor(this, {
         completeCallback: options.completeCallback ?? this.completeCallback,
         logCallback: options.logCallback ?? this.logCallback,
         pollIntervalMs: options.pollIntervalMs,
       }) as Promise<this>;
-    }, () => this.releaseOwnedHandle());
+    }, () => this.releaseOwnedHandle()));
   }
 
   /** Starts native playback for this session. */

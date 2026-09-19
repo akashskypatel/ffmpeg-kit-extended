@@ -11,6 +11,7 @@ import {
   requireWasmModule,
   type WasmModule,
 } from './web/wasm-loader';
+import {SessionState} from '../types';
 
 type WasmFunction = (...args: unknown[]) => unknown;
 
@@ -38,6 +39,7 @@ function jsonArray(value: unknown): string {
 
 export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private readonly sessions = new WasmSessionRegistry();
+  private readonly executingSessions = new Set<number>();
   private readonly moduleOverride?: WasmModule;
   private initializeOptions?: FFmpegKitInitializeOptions;
 
@@ -162,25 +164,44 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     return result;
   }
 
-  /** Retains the history handle for execution when creation did not retain one. */
+  /** Retains a Created-state history handle for one async execution. */
   private retainForExecution(sessionId: number): number {
-    const retained = this.sessions.get(sessionId);
-    if (retained) return retained;
+    if (this.executingSessions.has(sessionId)) {
+      throw new Error(`Session ${sessionId} was already submitted for execution`);
+    }
 
-    const pointer = numberResult(this.call('ffmpeg_kit_get_session')(int64(sessionId)));
+    const retained = this.sessions.get(sessionId);
+    const pointer = retained ?? numberResult(this.call('ffmpeg_kit_get_session')(int64(sessionId)));
     if (!pointer) throw new Error(`Session ${sessionId} no longer exists`);
 
+    let state: number;
     try {
-      this.sessions.retain(pointer, sessionId);
-      return pointer;
+      state = numberResult(this.call('ffmpeg_kit_session_get_state')(pointer));
     } catch (error) {
-      try {
-        this.call('ffmpeg_kit_handle_release')(pointer);
-      } catch {
-        // Preserve the lookup or registration failure as the primary error.
-      }
+      if (!retained) this.withTemporaryHandle(pointer, () => { throw error; });
       throw error;
     }
+
+    if (state !== SessionState.Created) {
+      const error = new Error(`Session ${sessionId} cannot be executed from state ${state}`);
+      if (!retained) this.withTemporaryHandle(pointer, () => { throw error; });
+      throw error;
+    }
+
+    if (!retained) {
+      try {
+        this.sessions.retain(pointer, sessionId);
+      } catch (error) {
+        try {
+          this.call('ffmpeg_kit_handle_release')(pointer);
+        } catch {
+          // Preserve the lookup or registration failure as the primary error.
+        }
+        throw error;
+      }
+    }
+    this.executingSessions.add(sessionId);
+    return pointer;
   }
 
   private sessionType(pointer: number): string {
@@ -360,6 +381,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     if (!pointer) return;
     this.call('ffmpeg_kit_handle_release')(pointer);
     this.sessions.take(sessionId);
+    this.executingSessions.delete(sessionId);
   }
 
   getSessionsJson(kind: string): string { return jsonArray(this.snapshots(kind)); }
@@ -569,6 +591,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     for (const [sessionId, pointer] of this.sessions.entries()) {
       this.call('ffmpeg_kit_handle_release')(pointer);
       this.sessions.take(sessionId);
+      this.executingSessions.delete(sessionId);
     }
     this.call('ffmpeg_kit_clear_sessions')();
   }
