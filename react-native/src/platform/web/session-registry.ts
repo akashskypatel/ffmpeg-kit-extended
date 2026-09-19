@@ -1,4 +1,8 @@
-/** Owns Wasm session pointers without exposing pointers as public IDs. */
+/**
+ * Owns exported Wasm session handles whose native release is still
+ * outstanding. Created-state handles are normally released immediately;
+ * active execution handles remain retained through terminal monitoring.
+ */
 export class WasmSessionRegistry {
   private readonly retained = new Map<number, number>();
 

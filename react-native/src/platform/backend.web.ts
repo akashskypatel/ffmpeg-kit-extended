@@ -95,19 +95,30 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     }
   }
 
-  private retain(pointer: unknown): number {
+  private consumeCreatedSessionHandle(pointer: unknown): number {
     const address = numberResult(pointer);
     if (!address) throw new Error('Wasm returned an invalid session handle');
+
+    let sessionId: number;
     try {
-      const sessionId = numberResult(this.call('ffmpeg_kit_session_get_session_id')(address));
-      this.sessions.retain(address, sessionId);
-      return sessionId;
+      sessionId = numberResult(this.call('ffmpeg_kit_session_get_session_id')(address));
+      if (!sessionId) throw new Error('Wasm returned an invalid session handle');
     } catch (error) {
       try {
         this.call('ffmpeg_kit_handle_release')(address);
       } catch {
-        // Preserve the creation or registration failure as the primary error.
+        // Preserve the creation failure as the primary error.
       }
+      throw error;
+    }
+
+    // Keep ownership retryable until the native release commits.
+    this.sessions.retain(address, sessionId);
+    try {
+      this.call('ffmpeg_kit_handle_release')(address);
+      this.sessions.take(sessionId);
+      return sessionId;
+    } catch (error) {
       throw error;
     }
   }
@@ -149,6 +160,27 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
     if (primaryErrorSet) throw primaryError;
     return result;
+  }
+
+  /** Retains the history handle for execution when creation did not retain one. */
+  private retainForExecution(sessionId: number): number {
+    const retained = this.sessions.get(sessionId);
+    if (retained) return retained;
+
+    const pointer = numberResult(this.call('ffmpeg_kit_get_session')(int64(sessionId)));
+    if (!pointer) throw new Error(`Session ${sessionId} no longer exists`);
+
+    try {
+      this.sessions.retain(pointer, sessionId);
+      return pointer;
+    } catch (error) {
+      try {
+        this.call('ffmpeg_kit_handle_release')(pointer);
+      } catch {
+        // Preserve the lookup or registration failure as the primary error.
+      }
+      throw error;
+    }
   }
 
   private sessionType(pointer: number): string {
@@ -249,31 +281,31 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   getBuildStamp(): string { return this.readString(this.call('ffmpeg_kit_get_build_stamp')()); }
 
   createFFmpegSession(command: string): number {
-    return this.withString(command, pointer => this.retain(this.call('ffmpeg_kit_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffmpeg_kit_create_session')(pointer)));
   }
 
   createFFmpegSessionFromArguments(arguments_: readonly string[]): number {
-    return this.withArguments(arguments_, argv => this.retain(this.call('ffmpeg_kit_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffmpeg_kit_create_session_from_argv')(arguments_.length, argv)));
   }
 
   createFFprobeSession(command: string): number {
-    return this.withString(command, pointer => this.retain(this.call('ffprobe_kit_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffprobe_kit_create_session')(pointer)));
   }
 
   createFFprobeSessionFromArguments(arguments_: readonly string[]): number {
-    return this.withArguments(arguments_, argv => this.retain(this.call('ffprobe_kit_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffprobe_kit_create_session_from_argv')(arguments_.length, argv)));
   }
 
   createFFplaySession(command: string): number {
-    return this.withString(command, pointer => this.retain(this.call('ffplay_kit_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffplay_kit_create_session')(pointer)));
   }
 
   createFFplaySessionFromArguments(arguments_: readonly string[]): number {
-    return this.withArguments(arguments_, argv => this.retain(this.call('ffplay_kit_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffplay_kit_create_session_from_argv')(arguments_.length, argv)));
   }
 
   createMediaInformationSession(command: string): number {
-    return this.withString(command, pointer => this.retain(this.call('media_information_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('media_information_create_session')(pointer)));
   }
 
   createMediaInformationSessionFromPath(path: string): number {
@@ -289,17 +321,25 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       '-i',
       path,
     ];
-    return this.withArguments(arguments_, argv => this.retain(this.call('media_information_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('media_information_create_session_from_argv')(arguments_.length, argv)));
   }
 
   executeSessionAsync(sessionId: number, timeoutMs: number): void {
-    this.withSession(sessionId, pointer => {
+    const pointer = this.retainForExecution(sessionId);
+    try {
       const type = this.sessionType(pointer);
       if (type === 'ffplay') this.call('ffplay_kit_session_execute_async')(pointer, int64(timeoutMs));
       else if (type === 'ffprobe') this.call('ffprobe_kit_session_execute_async')(pointer);
       else if (type === 'media-information') this.call('media_information_session_execute_async')(pointer, int64(timeoutMs));
       else this.call('ffmpeg_kit_session_execute_async')(pointer);
-    });
+    } catch (error) {
+      try {
+        this.releaseSessionHandle(sessionId);
+      } catch {
+        // Preserve the native start failure; the registry keeps retryable ownership.
+      }
+      throw error;
+    }
   }
 
   cancelSession(sessionId: number): void { this.withSession(sessionId, pointer => this.call('ffmpeg_kit_session_cancel')(pointer)); }
