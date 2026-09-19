@@ -215,7 +215,9 @@ Call `FFmpegKitExtended.initialize()` and await it before using FFmpeg, FFprobe,
 
 The native session starts asynchronously, while the TypeScript `Session` polls buffered native logs, statistics, and state. This keeps C callbacks and JavaScript callback lifetime management out of the C ABI boundary while preserving per-session completion/log/statistics callbacks.
 
-Session objects are single-use execution objects. Only sessions still in `Created` state can be submitted. Session-history objects for running or terminal executions are intended for inspection/control rather than re-execution.
+Session objects are single-use execution objects. Create a new `Session` object for another execution.
+
+On React Native Web, a session reconstructed from history can be submitted only while its native state is `Created`. Running or terminal Web history sessions are intended for inspection and control rather than re-execution.
 
 ```ts
 import {
