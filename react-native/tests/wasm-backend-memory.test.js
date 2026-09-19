@@ -476,6 +476,56 @@ test('Web backend preserves a last-session snapshot error over release failure',
   assert.deepEqual(releaseCalls, [1024]);
 });
 
+test('Web backend preserves statistics errors over child-handle release errors', () => {
+  const statisticsError = new Error('statistics getter failed');
+  const releaseError = new Error('statistics release failed');
+  const releaseCalls = [];
+  const module = {
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_statistics_count: () => 1,
+    ffmpeg_kit_session_get_statistics_at: () => 2048,
+    ffmpeg_kit_statistics_get_time_elapsed: () => { throw statisticsError; },
+    ffmpeg_kit_handle_release: pointer => {
+      releaseCalls.push(pointer);
+      if (pointer === 2048) throw releaseError;
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(
+    () => backend.getStatisticsJson(77, 0),
+    error => error === statisticsError,
+  );
+  assert.deepEqual(releaseCalls, [2048, 1024]);
+});
+
+test('Web backend preserves media stream errors over child and info release errors', () => {
+  const streamError = new Error('stream serialization failed');
+  const streamReleaseError = new Error('stream release failed');
+  const infoReleaseError = new Error('media info release failed');
+  const releaseCalls = [];
+  const module = {
+    ffmpeg_kit_get_session: () => 1024,
+    media_information_session_get_media_information: () => 2048,
+    media_information_get_streams_count: () => 1,
+    media_information_get_stream_at: () => 3072,
+    stream_information_get_index: () => { throw streamError; },
+    media_information_get_chapters_count: () => 0,
+    ffmpeg_kit_handle_release: pointer => {
+      releaseCalls.push(pointer);
+      if (pointer === 3072) throw streamReleaseError;
+      if (pointer === 2048) throw infoReleaseError;
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(
+    () => backend.getMediaInformationData(77),
+    error => error === streamError,
+  );
+  assert.deepEqual(releaseCalls, [3072, 2048, 1024]);
+});
+
 test('Web backend reacquires and retains ownership for async execution', () => {
   const calls = [];
   const module = {

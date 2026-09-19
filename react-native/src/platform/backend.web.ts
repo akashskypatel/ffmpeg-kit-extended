@@ -401,21 +401,19 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       for (let index = fromIndex; index < count; index += 1) {
         const statistics = numberResult(this.call('ffmpeg_kit_session_get_statistics_at')(pointer, int64(index)));
         if (!statistics) continue;
-        try {
-          values.push({
+        values.push(this.withTemporaryHandle(statistics, handle => ({
             sessionId,
-            timeElapsed: numberResult(this.call('ffmpeg_kit_statistics_get_time_elapsed')(statistics)),
-            time: numberResult(this.call('ffmpeg_kit_statistics_get_time')(statistics)),
-            size: numberResult(this.call('ffmpeg_kit_statistics_get_size')(statistics)),
-            bitrate: numberResult(this.call('ffmpeg_kit_statistics_get_bitrate')(statistics)),
-            speed: numberResult(this.call('ffmpeg_kit_statistics_get_speed')(statistics)),
-            videoFrameNumber: numberResult(this.call('ffmpeg_kit_statistics_get_video_frame_number')(statistics)),
-            videoFps: numberResult(this.call('ffmpeg_kit_statistics_get_video_fps')(statistics)),
-            videoQuality: numberResult(this.call('ffmpeg_kit_statistics_get_video_quality')(statistics)),
-            dupFrames: numberResult(this.call('ffmpeg_kit_statistics_get_dup_frames')(statistics)),
-            dropFrames: numberResult(this.call('ffmpeg_kit_statistics_get_drop_frames')(statistics)),
-          });
-        } finally { this.call('ffmpeg_kit_handle_release')(statistics); }
+            timeElapsed: numberResult(this.call('ffmpeg_kit_statistics_get_time_elapsed')(handle)),
+            time: numberResult(this.call('ffmpeg_kit_statistics_get_time')(handle)),
+            size: numberResult(this.call('ffmpeg_kit_statistics_get_size')(handle)),
+            bitrate: numberResult(this.call('ffmpeg_kit_statistics_get_bitrate')(handle)),
+            speed: numberResult(this.call('ffmpeg_kit_statistics_get_speed')(handle)),
+            videoFrameNumber: numberResult(this.call('ffmpeg_kit_statistics_get_video_frame_number')(handle)),
+            videoFps: numberResult(this.call('ffmpeg_kit_statistics_get_video_fps')(handle)),
+            videoQuality: numberResult(this.call('ffmpeg_kit_statistics_get_video_quality')(handle)),
+            dupFrames: numberResult(this.call('ffmpeg_kit_statistics_get_dup_frames')(handle)),
+            dropFrames: numberResult(this.call('ffmpeg_kit_statistics_get_drop_frames')(handle)),
+          })));
       }
       return JSON.stringify(values);
     });
@@ -467,29 +465,21 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     return this.withSession(sessionId, session => {
       const info = numberResult(this.call('media_information_session_get_media_information')(session));
       if (!info) return undefined;
-      try {
+      return this.withTemporaryHandle(info, infoHandle => {
         const streams: Record<string, unknown>[] = [];
-        const streamCount = numberResult(this.call('media_information_get_streams_count')(info));
+        const streamCount = numberResult(this.call('media_information_get_streams_count')(infoHandle));
         for (let index = 0; index < streamCount; index += 1) {
-          const stream = numberResult(this.call('media_information_get_stream_at')(info, int64(index)));
+          const stream = numberResult(this.call('media_information_get_stream_at')(infoHandle, int64(index)));
           if (!stream) continue;
-          try {
-            streams.push(this.streamInformationData(stream));
-          } finally {
-            this.call('ffmpeg_kit_handle_release')(stream);
-          }
+          streams.push(this.withTemporaryHandle(stream, handle => this.streamInformationData(handle)));
         }
 
         const chapters: Record<string, unknown>[] = [];
-        const chapterCount = numberResult(this.call('media_information_get_chapters_count')(info));
+        const chapterCount = numberResult(this.call('media_information_get_chapters_count')(infoHandle));
         for (let index = 0; index < chapterCount; index += 1) {
-          const chapter = numberResult(this.call('media_information_get_chapter_at')(info, int64(index)));
+          const chapter = numberResult(this.call('media_information_get_chapter_at')(infoHandle, int64(index)));
           if (!chapter) continue;
-          try {
-            chapters.push(this.chapterInformationData(chapter));
-          } finally {
-            this.call('ffmpeg_kit_handle_release')(chapter);
-          }
+          chapters.push(this.withTemporaryHandle(chapter, handle => this.chapterInformationData(handle)));
         }
 
         return {
@@ -505,7 +495,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
           streams,
           chapters,
         };
-      } finally { this.call('ffmpeg_kit_handle_release')(info); }
+      });
     });
   }
 
