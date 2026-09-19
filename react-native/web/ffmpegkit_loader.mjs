@@ -5,3 +5,35 @@ export async function fetchAndCompileWasm(url, fetchImpl = globalThis.fetch) {
   if (!response.ok) throw new Error(`Unable to load Wasm (${response.status}): ${response.url ?? url}`);
   return WebAssembly.compile(await response.arrayBuffer());
 }
+
+/** Connects asynchronous Wasm instantiation failures to the module promise. */
+export function createModuleWithCompiledWasm({
+  createModule,
+  wasmModule,
+  options = {},
+  instantiate = WebAssembly.instantiate,
+}) {
+  let rejectInstantiation;
+  const instantiationFailure = new Promise((_, reject) => {
+    rejectInstantiation = reject;
+  });
+
+  const modulePromise = Promise.resolve().then(() => createModule({
+    ...options,
+    instantiateWasm: (imports, receiveInstance) => {
+      Promise.resolve(instantiate(wasmModule, imports)).then(
+        instance => {
+          try {
+            receiveInstance(instance, wasmModule);
+          } catch (error) {
+            rejectInstantiation(error);
+          }
+        },
+        error => rejectInstantiation(error),
+      );
+      return {};
+    },
+  }));
+
+  return Promise.race([modulePromise, instantiationFailure]);
+}
