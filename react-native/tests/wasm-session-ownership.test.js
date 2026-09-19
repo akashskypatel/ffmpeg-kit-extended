@@ -12,6 +12,7 @@ const {
 
 const registry = new WasmSessionRegistry();
 const releases = [];
+const cancelCalls = [];
 let logEntries = [];
 let finalLogEntries = [];
 let statisticsEntries = [];
@@ -52,7 +53,7 @@ setBackend({
   getSessionJson: () => {
     throw new Error('full session snapshot must not be used by monitor state reads');
   },
-  cancelSession: () => {},
+  cancelSession: sessionId => cancelCalls.push(sessionId),
   releaseSessionHandle: sessionId => {
     releases.push(sessionId);
     if (releaseError) throw releaseError;
@@ -65,6 +66,7 @@ const manager = SessionQueueManager.shared;
 
 beforeEach(() => {
   registry.clear();
+  cancelCalls.length = 0;
   releases.length = 0;
   logEntries = [];
   finalLogEntries = [];
@@ -182,6 +184,52 @@ test('normally completed session releases its Wasm handle exactly once', async (
   assert.deepEqual(releases, [7]);
   assert.equal(registry.has(7), false);
 });
+test('Created cancellation prevents later submission', async () => {
+  sessionState = 0;
+  registry.retain(1024, 6);
+  const session = new FFmpegSession(6, '-version');
+
+  session.cancel();
+
+  assert.equal(session.isCancelled, true);
+  await assert.rejects(session.executeAsync(), SessionCancelledException);
+  assert.equal(executionStarts, 0);
+  assert.equal(manager.queueLength, 0);
+  assert.deepEqual(cancelCalls, []);
+});
+
+test('queued cancellation removes work without native cancellation and releases ownership', async () => {
+  manager.maxConcurrentSessions = 1;
+  let releaseActive;
+  const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
+    releaseActive = resolve;
+  }));
+  registry.retain(2048, 7);
+  const session = new FFmpegSession(7, '-version');
+  const pending = session.executeAsync();
+
+  assert.equal(manager.queueLength, 1);
+  session.cancel();
+
+  await assert.rejects(pending, SessionCancelledException);
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(cancelCalls, []);
+  assert.deepEqual(releases, [7]);
+  assert.equal(registry.has(7), false);
+
+  releaseActive();
+  await active;
+});
+
+test('a running history wrapper forwards cancellation despite not being submitted', () => {
+  sessionState = 1;
+  const session = new FFmpegSession(16, '-version');
+
+  session.cancel();
+
+  assert.equal(session.isCancelled, true);
+  assert.deepEqual(cancelCalls, [16]);
+});
 
 test('native start failure releases its Wasm handle exactly once', async () => {
   const error = new Error('native start failed');
@@ -206,6 +254,7 @@ test('active cancelled session keeps its handle until terminal state', async () 
   const execution = session.executeAsync({pollIntervalMs: 10});
   await new Promise(resolve => setTimeout(resolve, 0));
   session.cancel();
+  assert.deepEqual(cancelCalls, [10]);
 
   assert.deepEqual(releases, []);
   assert.equal(registry.has(10), true);

@@ -46,7 +46,7 @@ export class FFprobeKit {
     return session.executeAsync(options);
   }
 
-  /** Requests cancellation of an FFprobe session. */
+  /** Requests cancellation of a created, queued, or running FFprobe session. */
   static cancel(session: FFprobeSession): void {
     session.cancel();
   }

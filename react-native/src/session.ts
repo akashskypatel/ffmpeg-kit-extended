@@ -9,7 +9,10 @@ import type {
 } from './types';
 import {SessionState} from './types';
 import {MediaInformation, type MediaInformationData} from './media-information';
-import {SessionQueueManager} from './session-queue-manager';
+import {
+  SessionCancelledException,
+  SessionQueueManager,
+} from './session-queue-manager';
 
 const NativeFFmpegKitExtended = getBackend();
 
@@ -112,8 +115,17 @@ export abstract class Session {
     return this.snapshot().statisticsCount;
   }
 
-  /** Requests native cancellation. The terminal state is observed asynchronously. */
+  /** Cancels pre-start work locally or requests native cancellation once running. */
   cancel(): void {
+    if (this.cancelled) return;
+    if (SessionQueueManager.shared.cancelQueued(this)) {
+      this.cancelled = true;
+      return;
+    }
+    if (!this.submitted && this.getState() === SessionState.Created) {
+      this.cancelled = true;
+      return;
+    }
     NativeFFmpegKitExtended.cancelSession(this.sessionId);
     this.cancelled = true;
   }
@@ -346,6 +358,14 @@ export abstract class Session {
   protected submitOnce<T>(submit: () => Promise<T>): Promise<T> {
     if (this.submitted) {
       return Promise.reject(new Error(`Session ${this.sessionId} was already submitted for execution`));
+    }
+    if (this.cancelled) {
+      this.submitted = true;
+      return Promise.reject(
+        new SessionCancelledException(
+          `Session ${this.sessionId} was cancelled before execution`,
+        ),
+      );
     }
     this.submitted = true;
     return submit();

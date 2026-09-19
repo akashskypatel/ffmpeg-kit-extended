@@ -113,15 +113,7 @@ export class SessionQueueManager {
    */
   clearQueue(): void {
     const pending = this.queue.splice(0);
-    for (const item of pending) {
-      let rejection: unknown = new SessionCancelledException();
-      try {
-        item.onDiscard?.();
-      } catch (error) {
-        rejection = error;
-      }
-      item.reject(rejection);
-    }
+    for (const item of pending) this.discard(item);
   }
 
   /** Clears waiting sessions and requests cancellation of active sessions. */
@@ -131,12 +123,30 @@ export class SessionQueueManager {
   }
 
   /** Resolves after both the active set and pending queue become empty. */
+  /** Removes one waiting session and rejects its execution promise. */
+  cancelQueued(session: CancellableSession): boolean {
+    const index = this.queue.findIndex(item => item.session === session);
+    if (index < 0) return false;
+    const [item] = this.queue.splice(index, 1);
+    if (!item) return false;
+    this.discard(item);
+    return true;
+  }
   async waitForAll(): Promise<void> {
     while (this.isBusy || this.queue.length > 0) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
 
+  private discard(item: QueueItem<unknown>): void {
+    let rejection: unknown = new SessionCancelledException();
+    try {
+      item.onDiscard?.();
+    } catch (error) {
+      rejection = error;
+    }
+    item.reject(rejection);
+  }
   private processQueue(): void {
     while (this.queue.length > 0 && this.active.size < this.maxConcurrent) {
       const item = this.queue.shift();

@@ -137,6 +137,68 @@ test('clearQueue settles every pending item after discard cleanup failure', asyn
   await active;
 });
 
+test('cancelQueued removes only the targeted session and preserves later work', async () => {
+  manager.maxConcurrentSessions = 1;
+  const activeGate = deferred();
+  const starts = [];
+  const active = manager.executeSession(createSession(), async () => {
+    starts.push('A');
+    await activeGate.promise;
+  });
+  const sessionB = createSession();
+  const sessionC = createSession();
+  const pendingB = manager.executeSession(sessionB, async () => {
+    starts.push('B');
+  });
+  const pendingC = manager.executeSession(sessionC, async () => {
+    starts.push('C');
+    return 'C';
+  });
+
+  assert.equal(manager.cancelQueued(sessionB), true);
+  await assert.rejects(pendingB, SessionCancelledException);
+  assert.equal(manager.queueLength, 1);
+
+  activeGate.resolve();
+  await active;
+  assert.equal(await pendingC, 'C');
+  assert.deepEqual(starts, ['A', 'C']);
+});
+
+test('cancelQueued preserves later work when targeted discard cleanup fails', async () => {
+  manager.maxConcurrentSessions = 1;
+  const activeGate = deferred();
+  const starts = [];
+  const active = manager.executeSession(createSession(), async () => {
+    starts.push('A');
+    await activeGate.promise;
+  });
+  const cleanupError = new Error('targeted discard cleanup failed');
+  const sessionB = createSession();
+  const sessionC = createSession();
+  const pendingB = manager.executeSession(
+    sessionB,
+    async () => {
+      starts.push('B');
+    },
+    () => {
+      throw cleanupError;
+    },
+  );
+  const pendingC = manager.executeSession(sessionC, async () => {
+    starts.push('C');
+    return 'C';
+  });
+
+  assert.equal(manager.cancelQueued(sessionB), true);
+  await assert.rejects(pendingB, reason => reason === cleanupError);
+  assert.equal(manager.queueLength, 1);
+
+  activeGate.resolve();
+  await active;
+  assert.equal(await pendingC, 'C');
+  assert.deepEqual(starts, ['A', 'C']);
+});
 test('cancelCurrent cancels every active session', async () => {
   manager.maxConcurrentSessions = 2;
   const firstSession = createSession();
