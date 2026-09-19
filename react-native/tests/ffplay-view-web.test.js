@@ -43,6 +43,7 @@ function writeFixture(root, configPath) {
     `import React, {useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {FFplayView} from '../../src/ffplay-view.web';
+import {beginFFplayPlayback} from '../../src/platform/web/ffplay-frame-state';
 
 window.__ffmpegKitAnimationFrameStats = {requested: 0, cancelled: 0};
 const requestAnimationFrameImpl = window.requestAnimationFrame.bind(window);
@@ -55,6 +56,7 @@ window.cancelAnimationFrame = handle => {
   window.__ffmpegKitAnimationFrameStats.cancelled += 1;
   return cancelAnimationFrameImpl(handle);
 };
+window.__ffmpegKitAdvancePlaybackEpoch = beginFFplayPlayback;
 
 function App() {
   const [mounted, setMounted] = useState(true);
@@ -153,6 +155,23 @@ test('FFplayView preserves View props, styles, and unmount cleanup on Web', asyn
       childWidth: '320px',
       childHeight: '180px',
     });
+
+    const drawnPixel = await surface.locator('canvas').evaluate(canvas => {
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('2D canvas context is unavailable');
+      context.fillStyle = '#ff0000';
+      context.fillRect(0, 0, 1, 1);
+      return Array.from(context.getImageData(0, 0, 1, 1).data);
+    });
+    assert.deepEqual(drawnPixel, [255, 0, 0, 255]);
+    await page.evaluate(() => window.__ffmpegKitAdvancePlaybackEpoch());
+    await page.waitForFunction(() => {
+      const canvas = document.querySelector('[data-testid="ffplay-surface"] canvas');
+      if (!canvas || typeof canvas.getContext !== 'function') return false;
+      const context = canvas.getContext('2d');
+      return context ? context.getImageData(0, 0, 1, 1).data[3] === 0 : false;
+    });
+    assert.equal(await surface.isVisible(), true);
 
     await surface.click();
     assert.equal(await page.getByTestId('clicked').textContent(), 'true');
