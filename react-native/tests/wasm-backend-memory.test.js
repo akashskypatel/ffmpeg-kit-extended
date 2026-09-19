@@ -91,18 +91,20 @@ test('Web backend reads session state without full snapshot getters', () => {
 
 test('Web backend copies FFplay frame metadata through mocked Wasm memory', () => {
   const memory = new ArrayBuffer(4096);
+  let allocations = 0;
+  let releases = 0;
+  let nextPointer = 64;
   const module = {
     HEAPU8: new Uint8Array(memory),
     HEAPU32: new Uint32Array(memory),
-    _malloc: (() => {
-      let pointer = 64;
-      return size => {
-        const result = Math.ceil(pointer / 8) * 8;
-        pointer = result + size;
-        return result;
-      };
-    })(),
-    _free: () => {},
+    _malloc: size => {
+      allocations += 1;
+      assert.equal(size, 24);
+      const pointer = nextPointer;
+      nextPointer += size;
+      return pointer;
+    },
+    _free: () => { releases += 1; },
     ffplay_kit_get_frame_buffer_size: () => 32,
     ffplay_kit_copy_frame: (destination, size, width, height, linesize, generation) => {
       module.HEAPU32[width / 4] = 2;
@@ -132,6 +134,22 @@ test('Web backend copies FFplay frame metadata through mocked Wasm memory', () =
     generation: 4,
     copied: false,
   });
+  assert.deepEqual(backend.copyFrame(0, 0), {
+    width: 2,
+    height: 1,
+    linesize: 8,
+    generation: 4,
+    copied: false,
+  });
+  assert.deepEqual(backend.copyFrame(128, 32), {
+    width: 2,
+    height: 1,
+    linesize: 8,
+    generation: 4,
+    copied: true,
+  });
+  assert.equal(allocations, 1);
+  assert.equal(releases, 0);
 });
 
 test('Web backend creates media-information sessions from pre-tokenized arguments', () => {

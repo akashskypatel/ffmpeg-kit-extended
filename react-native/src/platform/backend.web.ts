@@ -43,6 +43,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private readonly executingSessions = new Set<number>();
   private readonly moduleOverride?: WasmModule;
   private initializeOptions?: FFmpegKitInitializeOptions;
+  private frameMetadataScratch?: {module: WasmModule; pointer: number};
 
   constructor(options?: FFmpegKitInitializeOptions, moduleOverride?: WasmModule) {
     this.initializeOptions = options;
@@ -543,22 +544,32 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   getFrameBufferSize(): number { return numberResult(this.call('ffplay_kit_get_frame_buffer_size')()); }
 
+  /** Reuses backend-owned metadata storage across high-frequency frame polls. */
+  private frameMetadataPointer(module: WasmModule): number {
+    const current = this.frameMetadataScratch;
+    if (current?.module === module) return current.pointer;
+
+    const pointer = module._malloc(24);
+    if (!pointer) throw new Error('Unable to allocate FFplay frame metadata scratch memory');
+    this.frameMetadataScratch = {module, pointer};
+    return pointer;
+  }
+
   copyFrame(destination: number, destinationSize: number): FFplayFrameCopyResult {
     const module = this.module();
-    const width = module._malloc(4);
-    const height = module._malloc(4);
-    const linesize = module._malloc(4);
-    const generation = module._malloc(8);
-    try {
-      const result = numberResult(this.call('ffplay_kit_copy_frame')(destination, destinationSize, width, height, linesize, generation));
-      return {
-        width: module.HEAPU32[width / 4],
-        height: module.HEAPU32[height / 4],
-        linesize: module.HEAPU32[linesize / 4],
-        generation: Number(new BigUint64Array(module.HEAPU8.buffer, generation, 1)[0]),
-        copied: result === 1,
-      };
-    } finally { module._free(width); module._free(height); module._free(linesize); module._free(generation); }
+    const metadata = this.frameMetadataPointer(module);
+    const width = metadata;
+    const height = metadata + 4;
+    const linesize = metadata + 8;
+    const generation = metadata + 16;
+    const result = numberResult(this.call('ffplay_kit_copy_frame')(destination, destinationSize, width, height, linesize, generation));
+    return {
+      width: module.HEAPU32[width / 4],
+      height: module.HEAPU32[height / 4],
+      linesize: module.HEAPU32[linesize / 4],
+      generation: Number(new BigUint64Array(module.HEAPU8.buffer, generation, 1)[0]),
+      copied: result === 1,
+    };
   }
 
   enableRedirection(): void { this.call('ffmpeg_kit_config_enable_redirection')(); }
