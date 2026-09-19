@@ -58,7 +58,8 @@ export class FFplayKit {
    *
    * The promise normally remains pending for the playback lifetime. Keep the
    * session from `createSession()` when controls are needed before completion,
-   * or read `currentSession` after calling this method.
+   * or read `currentSession` after calling this method. The active session
+   * remains current until this method's Promise settles.
    */
   static async executeAsync(
     command: string,
@@ -67,15 +68,13 @@ export class FFplayKit {
   ): Promise<FFplaySession> {
     const session = this.createSession(command, timeoutMs);
     this.activeSession = session;
-    return session.executeAsync({
-      ...options,
-      completeCallback: completed => {
-        if (this.activeSession?.sessionId === completed.sessionId) {
-          this.activeSession = undefined;
-        }
-        options.completeCallback?.(completed);
-      },
-    });
+    try {
+      return await session.executeAsync(options);
+    } finally {
+      if (this.activeSession?.sessionId === session.sessionId) {
+        this.activeSession = undefined;
+      }
+    }
   }
 
   /** Requests cancellation of a playback session. */
@@ -83,7 +82,10 @@ export class FFplayKit {
     session.cancel();
   }
 
-  /** Returns the session most recently started through `executeAsync()`. */
+  /**
+   * Returns the most recently submitted high-level FFplay session whose
+   * `executeAsync()` Promise has not yet settled.
+   */
   static getCurrentSession(): FFplaySession | undefined {
     return this.activeSession;
   }
@@ -93,12 +95,12 @@ export class FFplayKit {
     return this.activeSession;
   }
 
-  /** Whether the current session reports active playback. */
+  /** Whether the current high-level session reports active playback. */
   static get playing(): boolean {
     return this.activeSession?.isPlaying() ?? false;
   }
 
-  /** Whether the current session reports a paused state. */
+  /** Whether the current high-level session reports a paused state. */
   static get paused(): boolean {
     return this.activeSession?.isPaused() ?? false;
   }
