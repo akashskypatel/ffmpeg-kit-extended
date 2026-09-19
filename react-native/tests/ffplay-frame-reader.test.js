@@ -14,12 +14,17 @@ const {
   resetWasmLoaderForTests,
 } = require('../.test-dist/platform/web/wasm-loader.js');
 const {readLatestFrame} = require('../.test-dist/platform/web/ffplay-frame-reader.js');
+const {
+  beginFFplayPlayback,
+  resetFFplayPlaybackEpochForTests,
+} = require('../.test-dist/platform/web/ffplay-frame-state.js');
 
 function assetBaseUrl(directory) {
   return pathToFileURL(`${directory}${path.sep}`).href;
 }
 
 test('frame reader skips unchanged generations and preserves stride across changes', async () => {
+  resetFFplayPlaybackEpochForTests();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-frame-reader-'));
   let frame = {
     width: 2,
@@ -69,6 +74,7 @@ test('frame reader skips unchanged generations and preserves stride across chang
     const first = readLatestFrame();
     assert.ok(first.bytes instanceof Uint8ClampedArray);
     assert.deepEqual(first, {
+      epoch: 0,
       width: 2,
       height: 2,
       linesize: 12,
@@ -82,6 +88,30 @@ test('frame reader skips unchanged generations and preserves stride across chang
     assert.equal(fullCopyCalls, 1);
 
     frame = {
+      width: 2,
+      height: 2,
+      linesize: 12,
+      generation: 1,
+      bytes: Uint8Array.from([
+        41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52,
+        53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
+      ]),
+    };
+    beginFFplayPlayback();
+    const restarted = readLatestFrame(first);
+    assert.ok(restarted.bytes instanceof Uint8ClampedArray);
+    assert.deepEqual(restarted, {
+      epoch: 1,
+      width: 2,
+      height: 2,
+      linesize: 12,
+      generation: 1,
+      bytes: new Uint8ClampedArray(frame.bytes),
+    });
+    assert.equal(preflightCalls, 3);
+    assert.equal(fullCopyCalls, 2);
+
+    frame = {
       width: 1,
       height: 2,
       linesize: 8,
@@ -91,25 +121,28 @@ test('frame reader skips unchanged generations and preserves stride across chang
         33, 34, 35, 36, 37, 38, 39, 40,
       ]),
     };
-    const changed = readLatestFrame(first);
+    const changed = readLatestFrame(restarted);
     assert.ok(changed.bytes instanceof Uint8ClampedArray);
     assert.deepEqual(changed, {
+      epoch: 1,
       width: 1,
       height: 2,
       linesize: 8,
       generation: 2,
       bytes: new Uint8ClampedArray(frame.bytes),
     });
-    assert.equal(fullCopyCalls, 2);
+    assert.equal(preflightCalls, 4);
+    assert.equal(fullCopyCalls, 3);
     allocations = global.__frameReaderAllocations;
     releases = global.__frameReaderReleases;
-    assert.equal(allocations, 2);
+    assert.equal(allocations, 3);
     assert.equal(releases, allocations);
   } finally {
     resetWasmLoaderForTests();
     delete global.__frameReaderAllocations;
     delete global.__frameReaderReleases;
     delete global.crossOriginIsolated;
+    resetFFplayPlaybackEpochForTests();
     fs.rmSync(root, {recursive: true, force: true});
   }
 });

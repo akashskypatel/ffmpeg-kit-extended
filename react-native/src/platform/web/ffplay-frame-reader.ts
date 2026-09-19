@@ -1,8 +1,10 @@
 import {getBackend} from '../backend';
 import type {FFplayFrameMetadata} from '../backend';
 import {isWasmModuleReady, requireWasmModule} from './wasm-loader';
+import {currentFFplayPlaybackEpoch} from './ffplay-frame-state';
 
 export interface WasmVideoFrame extends FFplayFrameMetadata {
+  epoch: number;
   bytes: Uint8ClampedArray;
 }
 
@@ -15,7 +17,7 @@ function sameFrame(left: FFplayFrameMetadata, right: FFplayFrameMetadata): boole
 
 /** Copies a newly decoded RGBA frame out of Wasm-owned memory. */
 export function readLatestFrame(
-  previousFrame?: FFplayFrameMetadata,
+  previousFrame?: WasmVideoFrame,
 ): WasmVideoFrame | undefined {
   if (!isWasmModuleReady()) return undefined;
   const backend = getBackend();
@@ -23,7 +25,10 @@ export function readLatestFrame(
   if (metadata.width <= 0 || metadata.height <= 0 || metadata.linesize <= 0) {
     return undefined;
   }
-  if (previousFrame && sameFrame(metadata, previousFrame)) return undefined;
+  const epoch = currentFFplayPlaybackEpoch();
+  if (previousFrame && previousFrame.epoch === epoch && sameFrame(metadata, previousFrame)) {
+    return undefined;
+  }
 
   const size = metadata.linesize * metadata.height;
   const module = requireWasmModule();
@@ -42,6 +47,7 @@ export function readLatestFrame(
       ),
     );
     return {
+      epoch,
       width: copied.width,
       height: copied.height,
       linesize: copied.linesize,

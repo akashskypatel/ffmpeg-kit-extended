@@ -7,6 +7,10 @@ const test = require('node:test');
 const {WebFFmpegKitBackend} = require('../.test-dist/platform/backend.web.js');
 const {getBackend} = require('../.test-dist/platform/backend.js');
 const {webBackend} = require('../.test-dist/platform/backend.web.js');
+const {
+  currentFFplayPlaybackEpoch,
+  resetFFplayPlaybackEpochForTests,
+} = require('../.test-dist/platform/web/ffplay-frame-state.js');
 
 require('../.test-dist/platform/backend.web.register.js');
 
@@ -716,6 +720,43 @@ test('Web backend rejects a second wrapper for the same native session', () => {
   );
   assert.equal(executions, 1);
   backend.releaseSessionHandle(77);
+});
+
+test('Web backend advances the FFplay playback epoch only after successful start', () => {
+  const createModule = ({type, startError} = {}) => ({
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => 0,
+    session_is_ffmpeg_session: () => type === 'ffmpeg',
+    session_is_ffprobe_session: () => false,
+    session_is_ffplay_session: () => type === 'ffplay',
+    ffplay_kit_session_execute_async: () => {
+      if (startError) throw startError;
+    },
+    ffmpeg_kit_session_execute_async: () => {},
+    ffmpeg_kit_handle_release: () => {},
+  });
+
+  resetFFplayPlaybackEpochForTests();
+  const ffplayBackend = new WebFFmpegKitBackend(undefined, createModule({type: 'ffplay'}));
+  ffplayBackend.executeSessionAsync(77, 0);
+  assert.equal(currentFFplayPlaybackEpoch(), 1);
+  ffplayBackend.releaseSessionHandle(77);
+
+  resetFFplayPlaybackEpochForTests();
+  const startError = new Error('ffplay start failed');
+  const failedBackend = new WebFFmpegKitBackend(
+    undefined,
+    createModule({type: 'ffplay', startError}),
+  );
+  assert.throws(() => failedBackend.executeSessionAsync(77, 0), error => error === startError);
+  assert.equal(currentFFplayPlaybackEpoch(), 0);
+
+  resetFFplayPlaybackEpochForTests();
+  const ffmpegBackend = new WebFFmpegKitBackend(undefined, createModule({type: 'ffmpeg'}));
+  ffmpegBackend.executeSessionAsync(77, 0);
+  assert.equal(currentFFplayPlaybackEpoch(), 0);
+  ffmpegBackend.releaseSessionHandle(77);
+  resetFFplayPlaybackEpochForTests();
 });
 
 test('Web backend rejects history sessions that are not Created', () => {

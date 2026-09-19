@@ -11,6 +11,7 @@ import {
   requireWasmModule,
   type WasmModule,
 } from './web/wasm-loader';
+import {beginFFplayPlayback} from './web/ffplay-frame-state';
 import {SessionState} from '../types';
 
 type WasmFunction = (...args: unknown[]) => unknown;
@@ -349,7 +350,10 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     const pointer = this.retainForExecution(sessionId);
     try {
       const type = this.sessionType(pointer);
-      if (type === 'ffplay') this.call('ffplay_kit_session_execute_async')(pointer, int64(timeoutMs));
+      if (type === 'ffplay') {
+        this.call('ffplay_kit_session_execute_async')(pointer, int64(timeoutMs));
+        beginFFplayPlayback();
+      }
       else if (type === 'ffprobe') this.call('ffprobe_kit_session_execute_async')(pointer);
       else if (type === 'media-information') this.call('media_information_session_execute_async')(pointer, int64(timeoutMs));
       else this.call('ffmpeg_kit_session_execute_async')(pointer);
