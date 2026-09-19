@@ -150,6 +150,59 @@ test('an older FFplay settlement cannot clear a newer active session', async () 
   assert.equal(FFplayKit.currentSession, undefined);
 });
 
+test('newer FFplay settlement falls back to the older unsettled session', async () => {
+  const firstExecution = FFplayKit.executeAsync('first', {pollIntervalMs: 10});
+  const firstSession = FFplayKit.currentSession;
+  const secondExecution = FFplayKit.executeAsync('second', {pollIntervalMs: 10});
+  const secondSession = FFplayKit.currentSession;
+
+  assert.ok(firstSession);
+  assert.ok(secondSession);
+  sessionStates.set(secondSession.sessionId, SessionState.Completed);
+  assert.equal(await secondExecution, secondSession);
+  assert.equal(FFplayKit.currentSession, firstSession);
+
+  sessionStates.set(firstSession.sessionId, SessionState.Completed);
+  assert.equal(await firstExecution, firstSession);
+  assert.equal(FFplayKit.currentSession, undefined);
+});
+
+test('newer FFplay start failure preserves the older unsettled session', async () => {
+  const firstExecution = FFplayKit.executeAsync('first', {pollIntervalMs: 10});
+  const firstSession = FFplayKit.currentSession;
+  assert.ok(firstSession);
+
+  const error = new Error('newer native start failed');
+  nextStartError = error;
+  const secondExecution = FFplayKit.executeAsync('second');
+  await assert.rejects(secondExecution, reason => reason === error);
+  assert.equal(FFplayKit.currentSession, firstSession);
+  assert.equal(FFplayKit.playing, true);
+
+  sessionStates.set(firstSession.sessionId, SessionState.Completed);
+  await firstExecution;
+  assert.equal(FFplayKit.currentSession, undefined);
+});
+
+test('discarding newer queued FFplay work falls back to the active session', async () => {
+  manager.maxConcurrentSessions = 1;
+  const firstExecution = FFplayKit.executeAsync('first', {pollIntervalMs: 10});
+  const firstSession = FFplayKit.currentSession;
+  assert.ok(firstSession);
+
+  const secondExecution = FFplayKit.executeAsync('second');
+  const secondSession = FFplayKit.currentSession;
+  assert.ok(secondSession);
+  assert.equal(manager.queueLength, 1);
+
+  manager.clearQueue();
+  await assert.rejects(secondExecution, SessionCancelledException);
+  assert.equal(FFplayKit.currentSession, firstSession);
+
+  sessionStates.set(firstSession.sessionId, SessionState.Completed);
+  await firstExecution;
+  assert.equal(FFplayKit.currentSession, undefined);
+});
 test('discarding a queued high-level FFplay execution clears its active session', async () => {
   manager.maxConcurrentSessions = 1;
   let releaseBlocker;

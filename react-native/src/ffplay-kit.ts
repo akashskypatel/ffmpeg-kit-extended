@@ -14,7 +14,12 @@ const NativeFFmpegKitExtended = getBackend();
  * volume operations.
  */
 export class FFplayKit {
-  private static activeSession?: FFplaySession;
+  private static readonly unsettledSessions = new Map<number, FFplaySession>();
+  private static getNewestUnsettledSession(): FFplaySession | undefined {
+    let newest: FFplaySession | undefined;
+    for (const session of this.unsettledSessions.values()) newest = session;
+    return newest;
+  }
 
   /**
    * Creates a playback session without starting it.
@@ -67,17 +72,15 @@ export class FFplayKit {
     timeoutMs = 500,
   ): Promise<FFplaySession> {
     const session = this.createSession(command, timeoutMs);
-    this.activeSession = session;
+    this.unsettledSessions.set(session.sessionId, session);
     try {
       return await session.executeAsync(options);
     } finally {
-      if (this.activeSession?.sessionId === session.sessionId) {
-        this.activeSession = undefined;
-      }
+      this.unsettledSessions.delete(session.sessionId);
     }
   }
 
-  /** Requests cancellation of a playback session. */
+  /** Requests cancellation of a created, queued, or running playback session. */
   static cancel(session: FFplaySession): void {
     session.cancel();
   }
@@ -87,22 +90,22 @@ export class FFplayKit {
    * `executeAsync()` Promise has not yet settled.
    */
   static getCurrentSession(): FFplaySession | undefined {
-    return this.activeSession;
+    return this.getNewestUnsettledSession();
   }
 
   /** Property form of `getCurrentSession()`. */
   static get currentSession(): FFplaySession | undefined {
-    return this.activeSession;
+    return this.getNewestUnsettledSession();
   }
 
   /** Whether the current high-level session reports active playback. */
   static get playing(): boolean {
-    return this.activeSession?.isPlaying() ?? false;
+    return this.getNewestUnsettledSession()?.isPlaying() ?? false;
   }
 
   /** Whether the current high-level session reports a paused state. */
   static get paused(): boolean {
-    return this.activeSession?.isPaused() ?? false;
+    return this.getNewestUnsettledSession()?.isPaused() ?? false;
   }
 
   /**
