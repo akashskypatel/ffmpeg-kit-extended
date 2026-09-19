@@ -122,12 +122,33 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   private withSession<T>(sessionId: number, action: (pointer: number) => T): T {
     const retained = this.sessions.get(sessionId);
-    const pointer = retained ?? this.pointerFor(sessionId);
+    if (retained) return action(retained);
+    return this.withTemporaryHandle(this.pointerFor(sessionId), action);
+  }
+
+  private withTemporaryHandle<T>(pointer: number, action: (pointer: number) => T): T {
+    let result!: T;
+    let primaryErrorSet = false;
+    let primaryError: unknown;
+
     try {
-      return action(pointer);
-    } finally {
-      if (!retained) this.call('ffmpeg_kit_handle_release')(pointer);
+      result = action(pointer);
+    } catch (error) {
+      primaryErrorSet = true;
+      primaryError = error;
     }
+
+    try {
+      this.call('ffmpeg_kit_handle_release')(pointer);
+    } catch (error) {
+      if (!primaryErrorSet) {
+        primaryErrorSet = true;
+        primaryError = error;
+      }
+    }
+
+    if (primaryErrorSet) throw primaryError;
+    return result;
   }
 
   private sessionType(pointer: number): string {
@@ -170,26 +191,53 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     const arrayPointer = numberResult(this.call(exportName)());
     if (!arrayPointer) return [];
     const result: Record<string, unknown>[] = [];
+    const pointers: number[] = [];
+    let firstErrorSet = false;
+    let firstError: unknown;
+    const recordError = (error: unknown): void => {
+      if (firstErrorSet) return;
+      firstErrorSet = true;
+      firstError = error;
+    };
+
     try {
       for (let index = 0; ; index += 1) {
-        const pointer = this.module().HEAPU32[arrayPointer / 4 + index];
+        let pointer: number;
+        try {
+          pointer = this.module().HEAPU32[arrayPointer / 4 + index];
+        } catch (error) {
+          recordError(error);
+          break;
+        }
         if (!pointer) break;
+        pointers.push(pointer);
+      }
+
+      for (const pointer of pointers) {
         try {
           result.push(this.snapshot(pointer));
         } catch (error) {
-          try {
-            this.call('ffmpeg_kit_handle_release')(pointer);
-          } catch {
-            // Preserve the snapshot failure as the primary error.
-          }
-          throw error;
+          recordError(error);
+          break;
         }
-        this.call('ffmpeg_kit_handle_release')(pointer);
       }
-      return result;
     } finally {
-      this.call('ffmpeg_kit_free')(arrayPointer);
+      for (const pointer of pointers) {
+        try {
+          this.call('ffmpeg_kit_handle_release')(pointer);
+        } catch (error) {
+          recordError(error);
+        }
+      }
+      try {
+        this.call('ffmpeg_kit_free')(arrayPointer);
+      } catch (error) {
+        recordError(error);
+      }
     }
+
+    if (firstErrorSet) throw firstError;
+    return result;
   }
 
   async initialize(options?: FFmpegKitInitializeOptions): Promise<void> {
@@ -288,7 +336,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
             : 'ffmpeg_kit_get_last_session';
     const pointer = numberResult(this.call(exportName)());
     if (!pointer) return '';
-    try { return JSON.stringify(this.snapshot(pointer)); } finally { this.call('ffmpeg_kit_handle_release')(pointer); }
+    return this.withTemporaryHandle(pointer, value => JSON.stringify(this.snapshot(value)));
   }
 
   getLogsJson(sessionId: number, fromIndex: number): string {
