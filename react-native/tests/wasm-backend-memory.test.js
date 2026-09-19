@@ -499,6 +499,37 @@ test('Web backend preserves statistics errors over child-handle release errors',
   assert.deepEqual(releaseCalls, [2048, 1024]);
 });
 
+test('Web backend reports a statistics release error after successful serialization', () => {
+  const releaseError = new Error('statistics release failed');
+  const releaseCalls = [];
+  const module = {
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_statistics_count: () => 1,
+    ffmpeg_kit_session_get_statistics_at: () => 2048,
+    ffmpeg_kit_statistics_get_time_elapsed: () => 1,
+    ffmpeg_kit_statistics_get_time: () => 2,
+    ffmpeg_kit_statistics_get_size: () => 3,
+    ffmpeg_kit_statistics_get_bitrate: () => 4,
+    ffmpeg_kit_statistics_get_speed: () => 5,
+    ffmpeg_kit_statistics_get_video_frame_number: () => 6,
+    ffmpeg_kit_statistics_get_video_fps: () => 7,
+    ffmpeg_kit_statistics_get_video_quality: () => 8,
+    ffmpeg_kit_statistics_get_dup_frames: () => 9,
+    ffmpeg_kit_statistics_get_drop_frames: () => 10,
+    ffmpeg_kit_handle_release: pointer => {
+      releaseCalls.push(pointer);
+      if (pointer === 2048) throw releaseError;
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  assert.throws(
+    () => backend.getStatisticsJson(77, 0),
+    error => error === releaseError,
+  );
+  assert.deepEqual(releaseCalls, [2048, 1024]);
+});
+
 test('Web backend preserves media stream errors over child and info release errors', () => {
   const streamError = new Error('stream serialization failed');
   const streamReleaseError = new Error('stream release failed');
