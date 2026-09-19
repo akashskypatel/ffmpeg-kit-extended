@@ -1,7 +1,7 @@
 import {getBackend} from '../backend';
 import type {FFplayFrameMetadata} from '../backend';
 import {isWasmModuleReady, requireWasmModule} from './wasm-loader';
-import {currentFFplayPlaybackEpoch} from './ffplay-frame-state';
+import {currentFFplayPlaybackEpoch, currentFFplayPlaybackSessionId} from './ffplay-frame-state';
 
 export interface WasmVideoFrame extends FFplayFrameMetadata {
   epoch: number;
@@ -21,6 +21,16 @@ export function readLatestFrame(
 ): WasmVideoFrame | undefined {
   if (!isWasmModuleReady()) return undefined;
   const backend = getBackend();
+  const playbackSessionId = currentFFplayPlaybackSessionId();
+  if (playbackSessionId !== undefined) {
+    let readiness: number;
+    try {
+      readiness = backend.ffplayGetVolume(playbackSessionId);
+    } catch {
+      return undefined;
+    }
+    if (readiness < 0) return undefined;
+  }
   const metadata = backend.copyFrame(0, 0);
   if (metadata.width <= 0 || metadata.height <= 0 || metadata.linesize <= 0) {
     return undefined;

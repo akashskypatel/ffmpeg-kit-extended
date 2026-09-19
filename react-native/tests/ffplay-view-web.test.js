@@ -56,7 +56,7 @@ window.cancelAnimationFrame = handle => {
   window.__ffmpegKitAnimationFrameStats.cancelled += 1;
   return cancelAnimationFrameImpl(handle);
 };
-window.__ffmpegKitAdvancePlaybackEpoch = beginFFplayPlayback;
+window.__ffmpegKitAdvancePlaybackEpoch = () => beginFFplayPlayback(1);
 
 function App() {
   const [mounted, setMounted] = useState(true);

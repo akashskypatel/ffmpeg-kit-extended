@@ -9,6 +9,7 @@ const {getBackend} = require('../.test-dist/platform/backend.js');
 const {webBackend} = require('../.test-dist/platform/backend.web.js');
 const {
   currentFFplayPlaybackEpoch,
+  currentFFplayPlaybackSessionId,
   resetFFplayPlaybackEpochForTests,
 } = require('../.test-dist/platform/web/ffplay-frame-state.js');
 
@@ -757,6 +758,7 @@ test('Web backend advances the FFplay playback epoch only after successful start
   resetFFplayPlaybackEpochForTests();
   const ffplayBackend = new WebFFmpegKitBackend(undefined, createModule({type: 'ffplay'}));
   ffplayBackend.executeSessionAsync(77, 0);
+  assert.equal(currentFFplayPlaybackSessionId(), 77);
   assert.equal(currentFFplayPlaybackEpoch(), 1);
   ffplayBackend.releaseSessionHandle(77);
 
@@ -766,10 +768,12 @@ test('Web backend advances the FFplay playback epoch only after successful start
     undefined,
     createModule({type: 'ffplay', startError}),
   );
+  assert.equal(currentFFplayPlaybackSessionId(), undefined);
   assert.throws(() => failedBackend.executeSessionAsync(77, 0), error => error === startError);
   assert.equal(currentFFplayPlaybackEpoch(), 0);
 
   resetFFplayPlaybackEpochForTests();
+  assert.equal(currentFFplayPlaybackSessionId(), undefined);
   const ffmpegBackend = new WebFFmpegKitBackend(undefined, createModule({type: 'ffmpeg'}));
   ffmpegBackend.executeSessionAsync(77, 0);
   assert.equal(currentFFplayPlaybackEpoch(), 0);

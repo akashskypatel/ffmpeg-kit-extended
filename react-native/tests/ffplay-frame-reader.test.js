@@ -40,6 +40,8 @@ test('frame reader skips unchanged generations and preserves stride across chang
   let fullCopyCalls = 0;
   let allocations = 0;
   let releases = 0;
+  let playbackSessionId;
+  let playbackReady = 0;
   try {
     fs.writeFileSync(
       path.join(root, 'ffmpegkit_bridge.mjs'),
@@ -69,6 +71,10 @@ test('frame reader skips unchanged generations and preserves stride across chang
         loadedModule.HEAPU8.set(frame.bytes, destination);
         return {...frame, copied: true};
       },
+      ffplayGetVolume: sessionId => {
+        assert.equal(sessionId, playbackSessionId);
+        return playbackReady;
+      },
     });
 
     const first = readLatestFrame();
@@ -86,6 +92,12 @@ test('frame reader skips unchanged generations and preserves stride across chang
     assert.equal(readLatestFrame(first), undefined);
     assert.equal(preflightCalls, 2);
     assert.equal(fullCopyCalls, 1);
+    playbackSessionId = 2;
+    playbackReady = -1;
+    beginFFplayPlayback(playbackSessionId);
+    assert.equal(readLatestFrame(first), undefined);
+    assert.equal(preflightCalls, 2);
+    assert.equal(fullCopyCalls, 1);
 
     frame = {
       width: 2,
@@ -97,7 +109,7 @@ test('frame reader skips unchanged generations and preserves stride across chang
         53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64,
       ]),
     };
-    beginFFplayPlayback();
+    playbackReady = 0;
     const restarted = readLatestFrame(first);
     assert.ok(restarted.bytes instanceof Uint8ClampedArray);
     assert.deepEqual(restarted, {
@@ -142,6 +154,7 @@ test('frame reader skips unchanged generations and preserves stride across chang
     delete global.__frameReaderAllocations;
     delete global.__frameReaderReleases;
     delete global.crossOriginIsolated;
+    playbackSessionId = undefined;
     resetFFplayPlaybackEpochForTests();
     fs.rmSync(root, {recursive: true, force: true});
   }

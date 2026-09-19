@@ -353,7 +353,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       const type = this.sessionType(pointer);
       if (type === 'ffplay') {
         this.call('ffplay_kit_session_execute_async')(pointer, int64(timeoutMs));
-        beginFFplayPlayback();
+        beginFFplayPlayback(sessionId);
       }
       else if (type === 'ffprobe') this.call('ffprobe_kit_session_execute_async')(pointer);
       else if (type === 'media-information') this.call('media_information_session_execute_async')(pointer, int64(timeoutMs));
