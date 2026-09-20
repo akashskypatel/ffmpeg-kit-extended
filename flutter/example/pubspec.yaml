@@ -39,14 +39,16 @@ flutter:
     enable-swift-package-manager: true
   uses-material-design: true
 
-ffmpeg_kit_extended_config:
-  type: "base"
-  gpl: false
-  small: true
-  # wasm: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\bundle-base-wasm-wasm32-static-small-gpl.zip"
-  # windows: "D:\\Projects\\ffmpeg_kit_extended\\flutter\\.dart_tool\\hooks_runner\\shared\\ffmpeg_kit_extended_flutter\\build\\ffmpeg_kit_cache\\windows\\bundle-base-windows-x86_64-shared-small-lgpl.zip"
-  # macos: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-macos-universal-gpl.xcframework.zip"
-  # ios: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-ios-universal-gpl.xcframework.zip"
-  # windows: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-video-windows-x86_64-shared-gpl.zip"
-  # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-video-linux-x86_64-shared-gpl.zip"
-  # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-video-shared-gpl-release.aar"
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base"
+      gpl: false
+      small: true
+      # Preserve platform overrides under this same map.
+      # wasm: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\bundle-base-wasm-wasm32-static-small-gpl.zip"
+      # windows: "D:\\Projects\\ffmpeg_kit_extended\\flutter\\.dart_tool\\hooks_runner\\shared\\ffmpeg_kit_extended_flutter\\build\\ffmpeg_kit_cache\\windows\\bundle-base-windows-x86_64-shared-small-lgpl.zip"
+      # macos: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-macos-universal-gpl.xcframework.zip"
+      # ios: "/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-video-ios-universal-gpl.xcframework.zip"
+      # linux: "/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle-video-linux-x86_64-shared-gpl.zip"
+      # android: "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\tools\\android\\build\\outputs\\aar\\bundle-video-shared-gpl-release.aar"

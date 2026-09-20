@@ -77,13 +77,33 @@ Flutter Web uses the same public API and shared session implementation as native
    flutter pub add ffmpeg_kit_extended_flutter
    ```
 
-2. Add the `ffmpeg_kit_extended_config` section to your `pubspec.yaml`:
+2. Add the official Hooks `user_defines` section to the workspace-root (or
+   standalone app-root) `pubspec.yaml`:
+
+   ```yaml
+   hooks:
+     user_defines:
+       ffmpeg_kit_extended_flutter:
+         type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
+         gpl: true # enable to include GPL libraries. WARNING: Make sure you understand what GPL license means before enabling. Check https://www.ffmpeg.org/legal.html for more information.
+         small: true # enable to use smaller builds
+         # Preserve platform override keys under this same map.
+         # windows: "path/to/ffmpeg-kit/libraries"
+         # ios: "https://path/to/bundle.xcframework.zip"
+   ```
+
+   `hooks.user_defines` is the primary configuration path. Values from the
+   workspace-root pubspec participate in Hooks cache invalidation. Relative
+   local override paths are resolved from that pubspec and registered as hook
+   dependencies.
+
+   For older applications, the legacy `ffmpeg_kit_extended_config` section is
+   still accepted as a bounded fallback:
 
    ```yaml
    ffmpeg_kit_extended_config:
-     type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
-     gpl: true # enable to include GPL libraries. WARNING: Make sure you understand what GPL license means before enabling. Check https://www.ffmpeg.org/legal.html for more information.
-     small: true # enable to use smaller builds
+     type: "video"
+     gpl: true
      # == OR ==
      # -------------------------------------------------------------
      # You can specify remote or local path to libffmpegkit libraries for each platform
@@ -96,14 +116,16 @@ Flutter Web uses the same public API and shared session implementation as native
 
    **Note**: Native libraries and the WebAssembly bundle are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds use the `wasm` or `web` config override when supplied; otherwise the hook selects the bundle matching the pinned library release. No manual configuration script is required.
 
-   **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. For Web, runtime files are staged under the selected package root when that package is the consuming app; a shared workspace-root configuration cannot identify the consuming app for legacy manual staging, so configure the app package or enable Flutter Web data assets.
+   **Dart Pub Workspaces**: Put the official `hooks.user_defines.ffmpeg_kit_extended_flutter` map in the workspace-root `pubspec.yaml`; do not rely on an app-member `hooks.user_defines` map unless the Flutter integration proves that placement is forwarded to dependency hooks. When no official userDefines are supplied, the legacy resolver considers the package-config root and in-root package entries, accepting configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root pubspec. If multiple dependent workspace roots could supply package-specific legacy configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Legacy relative local override paths resolve from the pubspec that defines them and are dependency-tracked. For Web, runtime files are staged under the selected package root when that package is the consuming app; a shared workspace-root configuration cannot identify the consuming app for legacy manual staging, so configure the app package or enable Flutter Web data assets.
 
    For example, in the workspace root:
 
    ```yaml
-   ffmpeg_kit_extended_config:
-     type: "video"
-     gpl: true
+   hooks:
+     user_defines:
+       ffmpeg_kit_extended_flutter:
+         type: "video"
+         gpl: true
    ```
 
    **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`. If Flutter requests simulator `x86_64` and the artifact has no such slice, the hook fails early with the available-slice diagnostic; Podfile `EXCLUDED_ARCHS` settings do not create native hook assets.

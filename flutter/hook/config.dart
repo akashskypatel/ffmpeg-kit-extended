@@ -14,9 +14,118 @@ class ConfigResult {
   final dynamic config;
   final String configBaseDir;
   final String? stagingBaseDir;
+  final String source;
 
-  const ConfigResult(this.config, this.configBaseDir, this.stagingBaseDir);
+  const ConfigResult(
+    this.config,
+    this.configBaseDir,
+    this.stagingBaseDir, {
+    this.source = 'legacy ffmpeg_kit_extended_config',
+  });
 }
+
+typedef UserDefineReader = Object? Function(String key);
+typedef UserDefinePathReader = Uri? Function(String key);
+typedef UserDefineBaseReader = Uri? Function(String key);
+
+const _userDefineKeys = <String>[
+  'type',
+  'gpl',
+  'small',
+  'android',
+  'ios',
+  'macos',
+  'linux',
+  'windows',
+  'web',
+  'wasm',
+];
+
+ConfigResult? resolveUserDefines({
+  required UserDefineReader read,
+  required UserDefinePathReader readPath,
+  required UserDefineBaseReader readBase,
+  required String packageRoot,
+  required String? stagingBaseDir,
+  required void Function(Uri uri) addDependency,
+  required void Function(String message) log,
+}) {
+  final nested = read('config');
+  final config = <String, Object?>{};
+  Uri? configBaseUri;
+
+  for (final key in _userDefineKeys) {
+    final directValue = read(key);
+    final hasDirectValue = directValue != null;
+    final hasNestedValue = nested is Map && nested.containsKey(key);
+    if (!hasDirectValue && !hasNestedValue) continue;
+
+    final value = hasDirectValue ? directValue : (nested as Map)[key];
+    if (value == null) continue;
+    _validateUserDefine(key, value);
+    config[key] = value;
+    configBaseUri ??= readBase(key);
+
+    if (_isPlatformOverrideKey(key) &&
+        value is String &&
+        !_looksLikeRemoteUri(value)) {
+      final resolvedPath = readPath(key);
+      if (resolvedPath != null) {
+        config[key] = File.fromUri(resolvedPath).path;
+        addDependency(resolvedPath);
+      }
+    }
+  }
+
+  if (config.isEmpty) return null;
+  final configBaseDir = configBaseUri == null
+      ? p.normalize(packageRoot)
+      : p.normalize(Directory.fromUri(configBaseUri).path);
+  log('Using configuration from hooks.user_defines');
+  return ConfigResult(
+    config,
+    configBaseDir,
+    stagingBaseDir,
+    source: 'hooks.user_defines',
+  );
+}
+
+ConfigResult selectConfigSource({
+  required ConfigResult? userDefines,
+  required ConfigResult Function() legacy,
+}) => userDefines ?? legacy();
+
+void _validateUserDefine(String key, Object value) {
+  if (key == 'type' && value is! String) {
+    throw ConfigResolutionException(
+      'hooks.user_defines.$key must be a string, got ${value.runtimeType}',
+    );
+  }
+  if ((key == 'gpl' || key == 'small') && value is! bool) {
+    throw ConfigResolutionException(
+      'hooks.user_defines.$key must be a boolean, got ${value.runtimeType}',
+    );
+  }
+  if (_isPlatformOverrideKey(key) && value is! String) {
+    throw ConfigResolutionException(
+      'hooks.user_defines.$key must be a string path or URL, '
+      'got ${value.runtimeType}',
+    );
+  }
+}
+
+bool _isPlatformOverrideKey(String key) => const {
+  'android',
+  'ios',
+  'macos',
+  'linux',
+  'windows',
+  'web',
+  'wasm',
+}.contains(key);
+
+bool _looksLikeRemoteUri(String value) =>
+    RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://').hasMatch(value);
 
 String resolveStagingBaseDir({
   required String outputFile,
@@ -83,6 +192,7 @@ ConfigResult resolveConfig({
         rootPubspecData!.config,
         configRoot,
         rootPubspecData.isWorkspace ? null : normalizedStagingBaseDir,
+        source: 'legacy ffmpeg_kit_extended_config',
       );
     }
 
@@ -180,6 +290,7 @@ ConfigResult resolveConfig({
         candidate.config,
         p.dirname(candidate.pubspec.path),
         p.dirname(candidate.pubspec.path),
+        source: 'legacy ffmpeg_kit_extended_config',
       );
     }
 
@@ -235,6 +346,7 @@ ConfigResult resolveConfig({
           pubspec!.config,
           normalizedPackageRoot,
           normalizedStagingBaseDir,
+          source: 'legacy ffmpeg_kit_extended_config',
         );
       }
     }
@@ -248,6 +360,7 @@ ConfigResult resolveConfig({
     {'type': 'base', 'gpl': false, 'small': true},
     normalizedPackageRoot,
     workspaceRootDetected ? null : normalizedStagingBaseDir,
+    source: 'defaults',
   );
 }
 

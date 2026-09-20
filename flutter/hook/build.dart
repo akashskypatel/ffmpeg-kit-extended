@@ -318,15 +318,29 @@ ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
   _log('Platform.packageConfig: ${Platform.packageConfig}');
   _log('stagingBaseDir: $stagingBaseDir');
 
-  return resolveConfig(
-    packageName: input.packageName,
+  final userDefinesResult = resolveUserDefines(
+    read: (key) => input.userDefines[key],
+    readPath: (key) => input.userDefines.path(key),
+    readBase: (key) => input.userDefines.baseUri([key]),
     packageRoot: packageRoot,
-    packageConfig: Platform.packageConfig,
-    readPubspec: _readPubspec,
-    log: _log,
-    addDependency: output.dependencies.add,
     stagingBaseDir: stagingBaseDir,
+    addDependency: output.dependencies.add,
+    log: _log,
   );
+  final result = selectConfigSource(
+    userDefines: userDefinesResult,
+    legacy: () => resolveConfig(
+      packageName: input.packageName,
+      packageRoot: packageRoot,
+      packageConfig: Platform.packageConfig,
+      readPubspec: _readPubspec,
+      log: _log,
+      addDependency: output.dependencies.add,
+      stagingBaseDir: stagingBaseDir,
+    ),
+  );
+  _log('Configuration source: ${result.source}');
+  return result;
 }
 
 PubspecData? _readPubspec(File file) {

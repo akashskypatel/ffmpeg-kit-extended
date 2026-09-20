@@ -18,6 +18,22 @@ From the example directory, fetch the Flutter packages:
 flutter pub get
 ```
 
+The example keeps its FFmpegKit selection in the official Hooks configuration
+under `pubspec.yaml`:
+
+```yaml
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: base
+      gpl: false
+      small: true
+```
+
+For a Pub Workspace, place this map in the workspace-root `pubspec.yaml`.
+Legacy `ffmpeg_kit_extended_config` remains a migration fallback, but explicit
+`hooks.user_defines` values take precedence.
+
 ### 2. Run the App
 
 ```bash
