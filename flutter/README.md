@@ -151,6 +151,21 @@ Flutter Web uses the same public API and shared session implementation as native
      native slice; the hook must receive a bundle that contains the requested
      architecture.
 
+   ### Hooks runner lock recovery
+
+   Dart Hooks acquires the runner lock before `hook/build.dart` executes. A
+   `.dart_tool/hooks_runner/.../.lock` failure is therefore a runner or
+   filesystem problem, not a package-level lock that this hook can repair. The
+   package deliberately does not delete or acquire that lock, shorten its
+   timeout, or retry runner locking.
+
+   If no Flutter or Hooks process is still running, recover with `flutter clean`
+   and, when necessary, targeted cleanup of the affected
+   `.dart_tool/hooks_runner` entry. Do not remove an active runner directory.
+   If locking remains unreliable on a network or virtualized filesystem, move
+   the checkout and build cache to a local filesystem or report the limitation
+   to the Hooks/Flutter upstream rather than changing package hook code.
+
    **Important**: If you change the selected bundle configuration, rerun the build. Local override files are dependency-tracked, so replacing a local bundle is picked up without `flutter clean`.
 
 3. Import the package in your Dart code:
