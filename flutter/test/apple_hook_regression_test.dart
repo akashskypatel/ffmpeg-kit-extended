@@ -1,8 +1,20 @@
+import 'dart:io';
+
 import 'package:test/test.dart';
 
 import '../hook/apple.dart';
 
 void main() {
+  late Directory tempRoot;
+
+  setUp(() async {
+    tempRoot = await Directory.systemTemp.createTemp('ffmpeg_apple_hook_');
+  });
+
+  tearDown(() async {
+    if (tempRoot.existsSync()) await tempRoot.delete(recursive: true);
+  });
+
   final fixtures = <AppleSliceCandidate>[
     AppleSliceCandidate(
       identifier: 'ios-arm64',
@@ -136,6 +148,50 @@ void main() {
         ),
       ),
       isNull,
+    );
+  });
+
+  test('reads AvailableLibraries from an XCFramework Info.plist', () {
+    final infoPlist = File('${tempRoot.path}/Info.plist')
+      ..writeAsStringSync('''
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com">
+<plist version="1.0">
+<dict>
+  <key>AvailableLibraries</key>
+  <array>
+    <dict>
+      <key>LibraryIdentifier</key><string>ios-arm64-simulator</string>
+      <key>LibraryPath</key><string>ffmpegkit.framework</string>
+      <key>SupportedPlatform</key><string>ios</string>
+      <key>SupportedPlatformVariant</key><string>simulator</string>
+      <key>SupportedArchitectures</key><array><string>arm64</string></array>
+    </dict>
+    <dict>
+      <key>LibraryIdentifier</key><string>ios-x86_64-simulator</string>
+      <key>LibraryPath</key><string>ffmpegkit.framework</string>
+      <key>SupportedPlatform</key><string>ios</string>
+      <key>SupportedPlatformVariant</key><string>simulator</string>
+      <key>SupportedArchitectures</key><array><string>x86_64</string></array>
+    </dict>
+  </array>
+</dict>
+</plist>
+''');
+
+    final candidates = readAppleSliceCandidates(infoPlist);
+
+    expect(candidates, hasLength(2));
+    expect(
+      selectAppleSlice(
+        candidates,
+        const AppleSliceRequest(
+          platform: 'ios',
+          variant: 'simulator',
+          architecture: 'x86_64',
+        ),
+      )?.identifier,
+      'ios-x86_64-simulator',
     );
   });
 }

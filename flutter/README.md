@@ -106,7 +106,9 @@ Flutter Web uses the same public API and shared session implementation as native
      gpl: true
    ```
 
-**Important**: If you change the selected bundle configuration, rerun the build. Local override files are dependency-tracked, so replacing a local bundle is picked up without `flutter clean`.
+   **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`.
+
+   **Important**: If you change the selected bundle configuration, rerun the build. Local override files are dependency-tracked, so replacing a local bundle is picked up without `flutter clean`.
 
 3. Import the package in your Dart code:
 

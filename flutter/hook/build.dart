@@ -9,6 +9,7 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'apple.dart';
 import 'config.dart';
 
 const String _baseUrlTemplate =
@@ -813,7 +814,6 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
 }) async {
   final libDir = artifact.extractedDir!;
   final archStr = _getAppleArch();
-  final slicePrefix = targetOS == OS.iOS ? 'ios-' : 'macos-';
 
   // Determine if we need a simulator or device slice.
   // For iOS, check the target SDK to disambiguate between
@@ -822,37 +822,38 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
       targetOS == OS.iOS &&
       input.config.code.iOS.targetSdk == IOSSdk.iPhoneSimulator;
 
-  final sliceDirs = libDir
-      .listSync(followLinks: false)
-      .whereType<Directory>()
-      .map((d) => d.path)
-      .where((path) => p.basename(path).startsWith(slicePrefix))
-      .toList();
+  final request = AppleSliceRequest(
+    platform: targetOS == OS.iOS ? 'ios' : 'macos',
+    variant: wantsSimulator ? 'simulator' : null,
+    architecture: archStr,
+  );
+  final xcframeworkInfoPlist = File(p.join(libDir.path, 'Info.plist'));
+  final candidates = xcframeworkInfoPlist.existsSync()
+      ? readAppleSliceCandidates(xcframeworkInfoPlist)
+      : filenameAppleSliceCandidates(
+          libDir,
+          platform: request.platform,
+          variant: request.variant,
+        );
+  final selectedSlice = selectAppleSlice(candidates, request);
 
-  String? selectedSliceDir;
-  if (targetOS == OS.iOS) {
-    // iOS: disambiguate by -simulator suffix
-    selectedSliceDir = sliceDirs.cast<String?>().firstWhere((path) {
-      final basename = p.basename(path!);
-      return wantsSimulator
-          ? basename.endsWith('-simulator')
-          : !basename.endsWith('-simulator');
-    }, orElse: () => null);
-  } else {
-    // macOS: only one slice expected
-    selectedSliceDir = sliceDirs.isNotEmpty ? sliceDirs.first : null;
-  }
-
-  if (selectedSliceDir == null) {
+  if (selectedSlice == null) {
     throw _exception(
-      'Could not find Apple slice${targetOS == OS.iOS ? ' (${wantsSimulator ? 'simulator' : 'device'})' : ''} starting with $slicePrefix in ${libDir.path}',
+      'Could not find Apple slice for $request in ${libDir.path}. '
+      'Available slices: ${describeAppleSlices(candidates)}',
     );
   }
 
-  final sliceDir = Directory(selectedSliceDir);
-  final sourceFrameworkBinary = File(
-    p.join(sliceDir.path, 'ffmpegkit.framework', 'ffmpegkit'),
+  final sliceDir = Directory(p.join(libDir.path, selectedSlice.identifier));
+  _log(
+    'XCFramework slice: ${selectedSlice.identifier} '
+    '(${selectedSlice.architectures.toList()..sort()})',
   );
+  final libraryEntry = File(p.join(sliceDir.path, selectedSlice.libraryPath));
+  final libraryRoot = Directory(libraryEntry.path);
+  final sourceFrameworkBinary = libraryRoot.existsSync()
+      ? File(p.join(libraryRoot.path, 'ffmpegkit'))
+      : libraryEntry;
 
   final sourceDylibs =
       sliceDir
@@ -920,7 +921,7 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   }
 
   final sourceHeadersDir = sourceFrameworkBinary.existsSync()
-      ? Directory(p.join(sliceDir.path, 'ffmpegkit.framework', 'Headers'))
+      ? Directory(p.join(libraryRoot.path, 'Headers'))
       : Directory(p.join(sliceDir.path, 'Headers'));
   if (sourceHeadersDir.existsSync()) {
     await _copyDirectory(sourceHeadersDir, headersDir);
