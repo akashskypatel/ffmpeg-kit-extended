@@ -66,19 +66,23 @@ Web बिल्ड Flutter WebAssembly का उपयोग करते ह�
 
 ## 2. स्थापना
 
+वर्तमान न्यूनतम आवश्यकताएँ: Flutter **3.47.0** और Dart **3.12.0**।
+
 1. पैकेज स्थापित करें:
 
 ```bash
 flutter pub add ffmpeg_kit_extended_flutter
 ```
 
-2. अपने `pubspec.yaml` में `ffmpeg_kit_extended_config` अनुभाग जोड़ें:
+2. workspace-root (या standalone app-root) `pubspec.yaml` में आधिकारिक Hooks `user_defines` अनुभाग जोड़ें। `ffmpeg_kit_extended_config` केवल सीमित migration fallback के रूप में रखा गया है:
 
 ```yaml
-ffmpeg_kit_extended_config:
-  type: "base" # पहले से बंडल किए गए बिल्ड: debug, base, full, audio, video, video_hw
-  gpl: true # GPL पुस्तकालय शामिल करने के लिए सक्षम करें
-  small: true # छोटे बिल्ड इस्तेमाल करने के लिए सक्षम करें
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base" # पहले से बंडल किए गए बिल्ड: debug, base, full, audio, video, video_hw
+      gpl: true # GPL पुस्तकालय शामिल करने के लिए सक्षम करें
+      small: true # छोटे बिल्ड इस्तेमाल करने के लिए सक्षम करें
   # == या ==
   # -------------------------------------------------------------
   # आप हर प्लेटफ़ॉर्म के लिए libffmpegkit पुस्तकालयों का दूरस्थ या स्थानीय पथ दे सकते हैं
@@ -90,6 +94,7 @@ ffmpeg_kit_extended_config:
 ```
 
 **वर्तमान व्यवहार:** मूल पुस्तकालय और WebAssembly बंडल Dart Hooks के माध्यम से अपने-आप डाउनलोड और बंडल किए जाते हैं। Web बिल्ड दिए जाने पर `wasm` या `web` ओवरराइड का उपयोग करते हैं; अन्यथा हुक पिन किए गए रिलीज़ से मेल खाने वाला बंडल चुनता है। स्थानीय ओवरराइड फ़ाइलों को ट्रैक किया जाता है, इसलिए उनकी सामग्री बदलने पर `flutter clean` आवश्यक नहीं है।
+प्लेटफ़ॉर्म ओवरराइड केवल स्थानीय पथ या HTTP(S) URL स्वीकार करते हैं। दूरस्थ URL पूरी URL को cache identity के रूप में उपयोग करते हैं और हर hook run में refresh होते हैं; बदली हुई bytes संबंधित extraction को invalid कर देती हैं। reproducible builds के लिए versioned या content-addressed URL पसंद करें।
 **महत्वपूर्ण:** चुने गए बंडल का कॉन्फ़िगरेशन बदलने के बाद बिल्ड फिर से चलाएँ। स्थानीय ओवरराइड की सामग्री में बदलाव को निर्भरता के रूप में ट्रैक किया जाता है और इनके लिए `flutter clean` आवश्यक नहीं है।
 
 3. अपने Dart कोड में पैकेज आयात करें:
@@ -117,9 +122,11 @@ void main() async {
 उदाहरण के लिए, कार्यक्षेत्र की रूट में:
 
 ~~~yaml
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "video"
+      gpl: true
 ~~~
 
 ### Web बिल्ड और परिनियोजन
@@ -141,6 +148,8 @@ WebAssembly बंडल में डिफ़ॉल्ट रूप से pth
 
 बिल्ड हुक wasm32 बंडल डाउनलोड और सत्यापित करता है, फिर Wasm रनटाइम, लोडर, कॉलबैक ब्रिज और समर्थन मॉड्यूल को Web एसेट के रूप में स्टेज करता है। थ्रेड वाले Wasm बंडल के लिए ये HTTP प्रतिक्रिया हेडर आवश्यक हैं:
 
+Custom Web/Wasm ZIP या directory में `ffmpegkit.mjs` और `ffmpegkit.wasm` दोनों वाला ठीक एक coherent runtime directory होना चाहिए। Split या ambiguous pairs अस्वीकार किए जाते हैं।
+
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -154,7 +163,7 @@ WebAssembly बंडल का उपयोग करने से पहले
 
 ### 2.1 प्लेटफ़ॉर्म-विशिष्ट कॉन्फ़िगरेशन
 
-1. **iOS और iOS सिम्युलेटर**: असमर्थित आर्किटेक्चर के लिए बिल्ड बनने से रोकने हेतु आपके ऐप के Podfile में पोस्ट-इंस्टॉलेशन हुक (`post-install`) जोड़ने होंगे। अपने Podfile में यह जोड़ें:
+1. **iOS और iOS सिम्युलेटर**: build hook XCFramework architecture चुनता है। Prebuilt iOS package `arm64` को support करता है; simulator `x86_64` तभी support होगा जब custom XCFramework वास्तव में वह slice दे। Podfile `EXCLUDED_ARCHS` केवल downstream Xcode/CocoaPods targets को प्रभावित करता है; यह hook architecture नहीं चुनता और missing slice नहीं बनाता। Downstream targets को exclude करना हो तभी यह `post-install` जोड़ें:
 
 ```ruby
 post_install do |installer|

@@ -67,19 +67,23 @@
 
 ## 2. التثبيت
 
+الحد الأدنى الحالي: Flutter **3.47.0** وDart **3.12.0**.
+
 1. ثبّت الحزمة:
 
 ```bash
 flutter pub add ffmpeg_kit_extended_flutter
 ```
 
-2. أضف قسم `ffmpeg_kit_extended_config` إلى `pubspec.yaml`:
+2. أضف قسم Hooks الرسمي `user_defines` إلى `pubspec.yaml` في جذر مساحة العمل. يبقى `ffmpeg_kit_extended_config` كتراجع محدود للتوافق مع الترحيل فقط:
 
 ```yaml
-ffmpeg_kit_extended_config:
-  type: "base" # البُنى المرفقة مسبقًا: debug, base, full, audio, video, video_hw
-  gpl: true # فعّل هذا الخيار لتضمين مكتبات GPL
-  small: true # فعّل هذا الخيار لاستخدام بُنى أصغر حجمًا
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base" # البُنى المرفقة مسبقًا: debug, base, full, audio, video, video_hw
+      gpl: true # فعّل هذا الخيار لتضمين مكتبات GPL
+      small: true # فعّل هذا الخيار لاستخدام بُنى أصغر حجمًا
   # == أو ==
   # -------------------------------------------------------------
   # يمكنك تحديد مسار بعيد أو محلي إلى مكتبات libffmpegkit لكل منصة
@@ -91,6 +95,7 @@ ffmpeg_kit_extended_config:
 ```
 
 **السلوك الحالي:** يتم تنزيل المكتبات الأصلية وحزمة WebAssembly وتجميعهما تلقائيًا عبر Dart Hooks. تستخدم إصدارات Web إعداد `wasm` أو `web` البديل عند توفيره؛ وإلا يحدد الخطاف الحزمة المطابقة للإصدار المثبت. تتم متابعة ملفات الإعدادات البديلة المحلية، لذلك لا يلزم تشغيل `flutter clean` عند تغيير محتوياتها.
+تقبل بدائل المنصة المسارات المحلية أو عناوين HTTP(S) فقط. تستخدم العناوين البعيدة عنوان URL الكامل كهوية لذاكرة التخزين المؤقت ويتم تحديثها عند كل تشغيل للخطاف؛ وتؤدي البايتات المتغيرة إلى إبطال الاستخراج المطابق. يُفضّل استخدام عناوين ذات إصدار أو معنونة بالمحتوى.
 **مهم:** أعد تشغيل البناء بعد تغيير إعداد الحزمة المحددة. تُتتبّع تغييرات محتوى الإعدادات البديلة المحلية باعتبارها تبعيات، ولا تتطلب `flutter clean`.
 
 3. استورد الحزمة في كود Dart:
@@ -118,9 +123,11 @@ void main() async {
 على سبيل المثال، في جذر مساحة العمل:
 
 ~~~yaml
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "video"
+      gpl: true
 ~~~
 
 ### بناء Web ونشره
@@ -142,6 +149,8 @@ flutter build web --wasm
 
 ينزّل خطاف البناء حزمة wasm32 ويتحقق منها، ثم يجهّز وقت تشغيل Wasm والمحمّل وجسر الاستدعاءات الراجعة ووحدات الدعم كأصول Web. تتطلب حزم Wasm متعددة الخيوط رؤوس استجابة HTTP التالية:
 
+يجب أن تحتوي ملفات ZIP أو الأدلة المخصصة لـ Web/Wasm على دليل تشغيل واحد متماسك يحتوي على `ffmpegkit.mjs` و`ffmpegkit.wasm` معًا. تُرفض الأزواج المنقسمة أو الغامضة.
+
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -155,7 +164,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ### 2.1 إعداد خاص بالمنصة
 
-1. **iOS ومحاكي iOS**: يجب تحديث Podfile في تطبيقك لإضافة خطافات ما بعد التثبيت (`post-install`) تستثني المعماريات غير المدعومة. أضف التالي إلى Podfile:
+1. **iOS ومحاكي iOS**: يختار خطاف البناء معماريات XCFramework. تدعم حزمة iOS المسبقة `arm64`؛ ولا يُدعم `x86_64` للمحاكي إلا إذا وفّرت XCFramework مخصصة هذه الشريحة فعليًا. يؤثر `EXCLUDED_ARCHS` في Podfile على أهداف Xcode/CocoaPods اللاحقة فقط؛ ولا يختار معمارية الخطاف ولا ينشئ شرائح مفقودة. أضف `post-install` التالي فقط إذا احتاج التطبيق إلى استثناء هذه الأهداف اللاحقة:
 
 ```ruby
 post_install do |installer|

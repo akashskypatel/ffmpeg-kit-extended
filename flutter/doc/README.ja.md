@@ -66,19 +66,23 @@ Web ビルドでは Flutter WebAssembly を使用し、同じ公開 API を提�
 
 ## 2. インストール
 
+現在の最小要件は Flutter **3.47.0**、Dart **3.12.0** です。
+
 1. パッケージをインストールします:
 
 ```bash
 flutter pub add ffmpeg_kit_extended_flutter
 ```
 
-2. `pubspec.yaml` に `ffmpeg_kit_extended_config` セクションを追加します:
+2. ワークスペースルート（または単独アプリのルート）の `pubspec.yaml` に公式 Hooks の `user_defines` セクションを追加します。`ffmpeg_kit_extended_config` は限定された移行用フォールバックとしてのみ残されています:
 
 ```yaml
-ffmpeg_kit_extended_config:
-  type: "base" # 事前バンドル済みビルド: debug, base, full, audio, video, video_hw
-  gpl: true # GPL ライブラリを含める場合に有効化します
-  small: true # 小さいビルドを使用する場合に有効化します
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base" # 事前バンドル済みビルド: debug, base, full, audio, video, video_hw
+      gpl: true # GPL ライブラリを含める場合に有効化します
+      small: true # 小さいビルドを使用する場合に有効化します
   # == または ==
   # -------------------------------------------------------------
   # 各プラットフォーム向けに libffmpegkit ライブラリのリモートパスまたはローカルパスを指定できます
@@ -90,6 +94,7 @@ ffmpeg_kit_extended_config:
 ```
 
 **現在の動作：** ネイティブライブラリと WebAssembly バンドルは、Dart Hooks によって自動的にダウンロードおよびバンドルされます。Web ビルドでは `wasm` または `web` のオーバーライドが指定されている場合にそれを使用し、指定されていない場合は固定されたリリースに対応するバンドルをフックが選択します。ローカルのオーバーライドファイルは追跡されるため、内容を変更しても `flutter clean` は必要ありません。
+プラットフォームのオーバーライドはローカルパスまたは HTTP(S) URL のみ受け付けます。リモート URL は完全な URL をキャッシュ識別子として各 hook 実行時に更新され、内容が変わると対応する展開先が無効化されます。再現可能なビルドにはバージョン付きまたはコンテンツアドレス付き URL を推奨します。
 **重要：** 選択したバンドル設定を変更した後は、ビルドを再実行してください。ローカルオーバーライドの内容の変更は依存関係として追跡されるため、`flutter clean` は必要ありません。
 
 3. Dart コードでパッケージをインポートします:
@@ -117,9 +122,11 @@ void main() async {
 たとえば、ワークスペースのルートでは次のようになります。
 
 ~~~yaml
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "video"
+      gpl: true
 ~~~
 
 ### Web のビルドとデプロイ
@@ -141,6 +148,8 @@ WebAssembly バンドルはデフォルトで pthread をサポートします�
 
 ビルドフックは wasm32 バンドルをダウンロードして検証し、Wasm ランタイム、ローダー、コールバックブリッジ、サポートモジュールを Web アセットとして配置します。スレッド対応 Wasm バンドルには、次の HTTP 応答ヘッダーが必要です。
 
+カスタム Web/Wasm の ZIP またはディレクトリには、`ffmpegkit.mjs` と `ffmpegkit.wasm` の両方を含む、整合したランタイムディレクトリが 1 つだけ必要です。分割されたペアや曖昧なレイアウトは拒否されます。
+
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -154,7 +163,7 @@ Flutter はテスト実行時に、ホストの TargetPlatform.tester に対す�
 
 ### 2.1 プラットフォーム固有の設定
 
-1. **iOS と iOS シミュレータ**：未対応のアーキテクチャ向けにビルドしないようにするため、アプリの Podfile にインストール後のフック（`post-install`）を追加する必要があります。Podfile に次を追加してください。
+1. **iOS と iOS シミュレータ**：ビルドフックが XCFramework のアーキテクチャを選択します。事前構築済み iOS パッケージは `arm64` をサポートし、シミュレータの `x86_64` はカスタム XCFramework が実際にその slice を提供する場合のみサポートします。Podfile の `EXCLUDED_ARCHS` は後段の Xcode/CocoaPods ターゲットだけに影響し、フックのアーキテクチャを選択したり不足する slice を作成したりしません。後段ターゲットを除外する必要がある場合だけ、次の `post-install` を追加してください。
 
 ```ruby
 post_install do |installer|

@@ -18,6 +18,8 @@
 
 `ffmpeg-kit-extended` is a comprehensive Flutter plugin for executing `FFmpeg`, `FFprobe`, and `FFplay` `9.0.1 API` commands on `Android`, `iOS`, `macOS`, `Linux`, `Windows`, and WebAssembly web builds. Native platforms use Dart `FFI` to interact directly with FFmpeg libraries.
 
+The current minimum requirements are Flutter **3.47.0** and Dart **3.12.0**.
+
 If you like the project and are using it in your app give it a ⭐ on [ffmpeg-kit-builders](https://github.com/akashskypatel/ffmpeg-kit-builders) and [ffmpeg-kit-extended](https://github.com/akashskypatel/ffmpeg-kit-extended), and a 👍 on [pub.dev](https://pub.dev/packages/ffmpeg_kit_extended_flutter). It helps a lot 🙏! Happy coding 🚀!
 
 ## 1. Features
@@ -136,7 +138,7 @@ Flutter Web uses the same public API and shared session implementation as native
          gpl: true
    ```
 
-   **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`. If Flutter requests simulator `x86_64` and the artifact has no such slice, the hook fails early with the available-slice diagnostic; Podfile `EXCLUDED_ARCHS` settings do not create native hook assets.
+   **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. The prebuilt iOS bundle supports `arm64`; simulator `x86_64` is supported only when a custom XCFramework actually provides that slice. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`. If Flutter requests simulator `x86_64` and the artifact has no such slice, the hook fails early with the available-slice diagnostic. Podfile `EXCLUDED_ARCHS` settings affect downstream Xcode/CocoaPods targets; they do not choose the architecture requested from the Dart build hook or create native hook assets.
 
    ### Build Hook Troubleshooting
 
@@ -158,6 +160,11 @@ Flutter Web uses the same public API and shared session implementation as native
      Xcode or Podfile `EXCLUDED_ARCHS` settings cannot manufacture a missing
      native slice; the hook must receive a bundle that contains the requested
      architecture.
+
+   Custom Web/Wasm ZIPs or directories must contain exactly one coherent runtime
+   directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects
+   split files from different directories and ambiguous layouts with multiple
+   complete pairs.
 
    ### Hooks runner lock recovery
 

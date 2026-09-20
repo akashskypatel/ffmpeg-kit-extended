@@ -67,19 +67,23 @@ Web 构建使用 Flutter WebAssembly，并提供相同的公共 API；原生平�
 
 ## 2. 安装
 
+当前最低要求：Flutter **3.47.0** 和 Dart **3.12.0**。
+
 1. 安装软件包：
 
 ```bash
 flutter pub add ffmpeg_kit_extended_flutter
 ```
 
-2. 将 `ffmpeg_kit_extended_config` 配置添加到 `pubspec.yaml`：
+2. 将官方 Hooks `user_defines` 配置添加到工作区根目录（或独立应用根目录）的 `pubspec.yaml`。`ffmpeg_kit_extended_config` 仅作为有界迁移回退保留：
 
 ```yaml
-ffmpeg_kit_extended_config:
-  type: "base" # 预打包构建：debug, base, full, audio, video, video_hw
-  gpl: true # 启用以包含 GPL 库
-  small: true # 启用以使用更小的构建
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base" # 预打包构建：debug, base, full, audio, video, video_hw
+      gpl: true # 启用以包含 GPL 库
+      small: true # 启用以使用更小的构建
   # == 或 ==
   # -------------------------------------------------------------
   # 你可以为每个平台指定 libffmpegkit 库的远程或本地路径
@@ -91,6 +95,7 @@ ffmpeg_kit_extended_config:
 ```
 
 **当前行为：**原生库和 WebAssembly 软件包会通过 Dart Hooks 自动下载并打包。提供 `wasm` 或 `web` 覆盖配置时，Web 构建会使用该配置；否则，钩子会选择与固定版本匹配的软件包。系统会跟踪本地覆盖文件，因此更改其内容时不需要执行 `flutter clean`。
+平台覆盖仅接受本地路径或 HTTP(S) URL。远程 URL 使用完整 URL 作为缓存身份，并在每次 hook 运行时刷新；字节发生变化时会使对应解压目录失效。建议使用版本化或内容寻址 URL。
 **重要：**更改所选软件包配置后，请重新运行构建。本地覆盖内容的更改会作为依赖项进行跟踪，因此不需要执行 `flutter clean`。
 
 3. 在 Dart 代码中导入软件包：
@@ -118,9 +123,11 @@ void main() async {
 例如，在工作区根目录中：
 
 ~~~yaml
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "video"
+      gpl: true
 ~~~
 
 ### Web 构建与部署
@@ -142,6 +149,8 @@ WebAssembly 软件包默认支持 pthread。不使用 pthread 的构建需要自
 
 构建钩子会下载并验证 wasm32 软件包，然后将 Wasm 运行时、加载器、回调桥接和支持模块作为 Web 资源暂存。多线程 Wasm 软件包需要以下 HTTP 响应标头：
 
+自定义 Web/Wasm ZIP 或目录必须包含一个且仅一个同时包含 `ffmpegkit.mjs` 和 `ffmpegkit.wasm` 的一致运行时目录。拆分或多个候选运行时会被拒绝。
+
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -155,7 +164,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ### 2.1 平台特定配置
 
-1. **iOS 和 iOS 模拟器**：你的应用 Podfile 需要添加安装后钩子（`post-install`），以排除不支持的架构。将以下内容添加到 Podfile：
+1. **iOS 和 iOS 模拟器**：构建钩子负责选择 XCFramework 架构。预构建 iOS 软件包支持 `arm64`；模拟器 `x86_64` 仅在自定义 XCFramework 实际提供该 slice 时支持。Podfile 的 `EXCLUDED_ARCHS` 只影响后续 Xcode/CocoaPods 目标，不会选择 hook 架构或创建缺失的 slice。只有在应用需要排除后续目标时才添加以下 `post-install`：
 
 ```ruby
 post_install do |installer|

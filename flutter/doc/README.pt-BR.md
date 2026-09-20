@@ -67,19 +67,23 @@ Você precisará atualizar os requisitos mínimos do seu app para corresponder a
 
 ## 2. Instalação
 
+Requisitos mínimos atuais: Flutter **3.47.0** e Dart **3.12.0**.
+
 1. Instale o pacote:
 
 ```bash
 flutter pub add ffmpeg_kit_extended_flutter
 ```
 
-2. Adicione a seção `ffmpeg_kit_extended_config` ao seu `pubspec.yaml`:
+2. Adicione a seção oficial de Hooks `user_defines` ao `pubspec.yaml` raiz. `ffmpeg_kit_extended_config` permanece apenas como fallback de migração limitado:
 
 ```yaml
-ffmpeg_kit_extended_config:
-  type: "base" # compilações pré-empacotadas: debug, base, full, audio, video, video_hw
-  gpl: true # habilite para incluir bibliotecas GPL
-  small: true # habilite para usar compilações menores
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base" # compilações pré-empacotadas: debug, base, full, audio, video, video_hw
+      gpl: true # habilite para incluir bibliotecas GPL
+      small: true # habilite para usar compilações menores
   # == OU ==
   # -------------------------------------------------------------
   # Você pode especificar um caminho remoto ou local para as bibliotecas libffmpegkit em cada plataforma
@@ -91,6 +95,7 @@ ffmpeg_kit_extended_config:
 ```
 
 **Comportamento atual:** as bibliotecas nativas e o pacote WebAssembly são baixados e agrupados automaticamente por meio do Dart Hooks. As compilações Web usam a substituição `wasm` ou `web` quando fornecida; caso contrário, o gancho seleciona o pacote correspondente à versão fixada. Os arquivos de substituição locais são rastreados, portanto não é necessário executar `flutter clean` quando o conteúdo deles muda.
+As substituições de plataforma aceitam apenas caminhos locais ou URLs HTTP(S). URLs remotas usam a URL completa como identidade do cache e são atualizadas a cada execução do hook; bytes alterados invalidam a extração correspondente. Prefira URLs versionadas ou endereçadas por conteúdo.
 **Importante:** execute a compilação novamente após alterar a configuração do pacote selecionado. As alterações no conteúdo das substituições locais são rastreadas como dependências e não exigem `flutter clean`.
 
 3. Importe o pacote no seu código Dart:
@@ -118,9 +123,11 @@ void main() async {
 Por exemplo, na raiz do espaço de trabalho:
 
 ~~~yaml
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "video"
+      gpl: true
 ~~~
 
 ### Compilação e implantação Web
@@ -142,6 +149,8 @@ O pacote WebAssembly oferece suporte a pthread por padrão. Uma compilação sem
 
 O gancho de compilação baixa e verifica o pacote wasm32 e, em seguida, prepara o ambiente de execução Wasm, o carregador, a ponte de retornos de chamada e os módulos de suporte como recursos Web. Pacotes Wasm com threads exigem estes cabeçalhos de resposta HTTP:
 
+ZIPs ou diretórios Web/Wasm personalizados devem conter exatamente um diretório de runtime coerente com `ffmpegkit.mjs` e `ffmpegkit.wasm`. Pares divididos ou ambíguos são rejeitados.
+
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -155,7 +164,7 @@ O Flutter avalia o gancho de compilação de recursos nativos para a plataforma 
 
 ### 2.1 Configuração específica de plataforma
 
-1. **iOS e simulador iOS**: o Podfile do seu aplicativo precisa ser atualizado para adicionar ganchos pós-instalação (`post-install`) que excluam arquiteturas não suportadas. Adicione isto ao Podfile:
+1. **iOS e simulador iOS**: o hook seleciona as arquiteturas da XCFramework. O pacote iOS pré-compilado suporta `arm64`; `x86_64` de simulador só é suportado quando uma XCFramework personalizada realmente fornece essa slice. `EXCLUDED_ARCHS` do Podfile afeta apenas destinos posteriores do Xcode/CocoaPods; não escolhe a arquitetura do hook nem cria slices ausentes. Adicione o `post-install` abaixo apenas se o aplicativo precisar excluir esses destinos posteriores:
 
 ```ruby
 post_install do |installer|

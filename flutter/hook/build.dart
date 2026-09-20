@@ -73,8 +73,10 @@ Future<void> _buildWebDataAssets(
   if (!input.config.buildDataAssets && configResult.stagingBaseDir == null) {
     throw _exception(
       'Cannot determine the consuming Flutter app root for Web runtime '
-      'staging in a shared Pub Workspace. Put ffmpeg_kit_extended_config in '
-      'the app package or enable Flutter Web data assets.',
+      'staging in a shared Pub Workspace. Configure '
+      'hooks.user_defines.ffmpeg_kit_extended_flutter in the consuming app '
+      'package or enable Flutter Web data assets. The legacy '
+      'ffmpeg_kit_extended_config key is only a compatibility fallback.',
     );
   }
   final artifact = await _resolveWebArtifact(

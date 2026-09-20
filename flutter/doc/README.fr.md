@@ -67,19 +67,23 @@ Vous devrez mettre à jour vous-même les exigences minimales de votre applicati
 
 ## 2. Installation
 
+Versions minimales actuelles : Flutter **3.47.0** et Dart **3.12.0**.
+
 1. Installez le paquet :
 
 ```bash
 flutter pub add ffmpeg_kit_extended_flutter
 ```
 
-2. Ajoutez la section `ffmpeg_kit_extended_config` à votre `pubspec.yaml`:
+2. Ajoutez la section Hooks officielle `user_defines` dans la `pubspec.yaml` racine. `ffmpeg_kit_extended_config` reste uniquement un repli de migration limité :
 
 ```yaml
-ffmpeg_kit_extended_config:
-  type: "base" # versions préempaquetées : debug, base, full, audio, video, video_hw
-  gpl: true # activez pour inclure les bibliothèques GPL
-  small: true # activez pour utiliser des versions plus petites
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "base" # versions préempaquetées : debug, base, full, audio, video, video_hw
+      gpl: true # activez pour inclure les bibliothèques GPL
+      small: true # activez pour utiliser des versions plus petites
   # == OU ==
   # -------------------------------------------------------------
   # Vous pouvez indiquer un chemin distant ou local vers les bibliothèques libffmpegkit pour chaque plateforme
@@ -91,6 +95,7 @@ ffmpeg_kit_extended_config:
 ```
 
 **Comportement actuel :** les bibliothèques natives et le paquet WebAssembly sont téléchargés et regroupés automatiquement via Dart Hooks. Les compilations Web utilisent la substitution `wasm` ou `web` lorsqu’elle est fournie; sinon, le mécanisme sélectionne le paquet correspondant à la version figée. Les fichiers de substitution locaux sont suivis; il n’est donc pas nécessaire d’exécuter `flutter clean` lorsque leur contenu change.
+Les substitutions de plateforme acceptent uniquement des chemins locaux ou des URL HTTP(S). Les URL distantes utilisent l’URL complète comme identité de cache et sont actualisées à chaque exécution du hook; des octets modifiés invalident l’extraction correspondante. Préférez des URL versionnées ou adressées par contenu.
 **Important :** relancez la compilation après avoir modifié la configuration du paquet sélectionné. Les modifications du contenu des substitutions locales sont suivies comme des dépendances et ne nécessitent pas `flutter clean`.
 
 3. Importez le paquet dans votre code Dart :
@@ -118,9 +123,11 @@ void main() async {
 Par exemple, à la racine de l’espace de travail :
 
 ~~~yaml
-ffmpeg_kit_extended_config:
-  type: "video"
-  gpl: true
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: "video"
+      gpl: true
 ~~~
 
 ### Compilation et déploiement Web
@@ -142,6 +149,8 @@ Le paquet WebAssembly prend en charge pthread par défaut. Une compilation sans 
 
 Le mécanisme de compilation télécharge et vérifie le paquet wasm32, puis prépare l’environnement d’exécution Wasm, le chargeur, le pont d’appels de retour et les modules de prise en charge comme ressources Web. Les paquets Wasm multithread nécessitent les en-têtes de réponse HTTP suivants :
 
+Les ZIP ou répertoires Web/Wasm personnalisés doivent contenir un seul répertoire d’exécution cohérent contenant `ffmpegkit.mjs` et `ffmpegkit.wasm`. Les paires séparées ou ambiguës sont refusées.
+
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Embedder-Policy: require-corp
@@ -155,7 +164,7 @@ Lors de l’exécution des tests, Flutter évalue le mécanisme de compilation d
 
 ### 2.1 Configuration propre aux plateformes
 
-1. **iOS et simulateur iOS** : le Podfile de votre application doit être mis à jour pour ajouter des crochets post-installation (`post-install`) qui excluent les architectures non prises en charge. Ajoutez ceci au Podfile :
+1. **iOS et simulateur iOS** : le hook sélectionne les architectures de la XCFramework. Le paquet iOS précompilé prend en charge `arm64`; `x86_64` du simulateur n’est pris en charge que si une XCFramework personnalisée fournit cette slice. `EXCLUDED_ARCHS` du Podfile ne concerne que les cibles Xcode/CocoaPods en aval; il ne sélectionne pas l’architecture du hook et ne crée pas de slice manquante. Ajoutez le `post-install` suivant uniquement si l’application doit exclure ces cibles en aval :
 
 ```ruby
 post_install do |installer|

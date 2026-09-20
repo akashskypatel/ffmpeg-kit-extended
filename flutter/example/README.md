@@ -10,6 +10,8 @@ This example application demonstrates the core features of the `ffmpeg_kit_exten
 - **C++ Compiler** (GCC/Clang) for native library linking
 - **Platform**: Android, iOS, macOS, Windows or Linux
 
+The package requires Flutter **3.47.0** or newer and Dart **3.12.0** or newer.
+
 ### 1. Install Dependencies
 
 From the example directory, fetch the Flutter packages:
@@ -31,8 +33,10 @@ hooks:
 ```
 
 For a Pub Workspace, place this map in the workspace-root `pubspec.yaml`.
-Legacy `ffmpeg_kit_extended_config` remains a migration fallback, but explicit
-`hooks.user_defines` values take precedence.
+Legacy `ffmpeg_kit_extended_config` remains a bounded migration fallback, but
+explicit `hooks.user_defines` values take precedence. Platform overrides accept
+local paths or HTTP(S) URLs only; remote URLs are refreshed using full-URL cache
+identity. Prefer versioned or content-addressed URLs.
 
 ### 2. Run the App
 
@@ -57,6 +61,10 @@ flutter build web --wasm
 ```
 
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
+
+Custom Web/Wasm ZIPs or directories must contain exactly one runtime directory
+with both `ffmpegkit.mjs` and `ffmpegkit.wasm`; split or ambiguous pairs are
+rejected by the build hook.
 
 When using a pthread-enabled Wasm bundle, the deployment server must return:
 
