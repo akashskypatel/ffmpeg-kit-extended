@@ -130,6 +130,27 @@ Flutter Web uses the same public API and shared session implementation as native
 
    **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`. If Flutter requests simulator `x86_64` and the artifact has no such slice, the hook fails early with the available-slice diagnostic; Podfile `EXCLUDED_ARCHS` settings do not create native hook assets.
 
+   ### Build Hook Troubleshooting
+
+   Build-hook output is prefixed with `FFmpegKit [Build Hook]` and includes the
+   target/SDK, configuration source, selected bundle, artifact/cache path,
+   XCFramework slice, source architectures, and verified output architecture.
+   Use those lines to distinguish a wrong bundle or slice from an Xcode
+   architecture setting.
+
+   - If the selected bundle or platform override is wrong, check the reported
+     `Configuration source` (`hooks.user_defines`, the legacy
+     `ffmpeg_kit_extended_config`, or `defaults`) and the `Bundle`/`Artifact`
+     lines. Explicit `hooks.user_defines` values take precedence.
+   - The `Artifact cache` line identifies the runner-owned shared cache. Change
+     the configuration and rebuild; use `flutter clean` when a remote artifact
+     or release version must be downloaded again.
+   - For Apple failures, compare the requested target/SDK and architecture with
+     `XCFramework slice`, `Source architectures`, and `Output architecture`.
+     Xcode or Podfile `EXCLUDED_ARCHS` settings cannot manufacture a missing
+     native slice; the hook must receive a bundle that contains the requested
+     architecture.
+
    **Important**: If you change the selected bundle configuration, rerun the build. Local override files are dependency-tracked, so replacing a local bundle is picked up without `flutter clean`.
 
 3. Import the package in your Dart code:

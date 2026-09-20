@@ -24,6 +24,13 @@ class ConfigResult {
   });
 }
 
+String configDiagnosticSummary(dynamic config) {
+  final type = config['type']?.toString() ?? 'base';
+  final license = config['gpl'] == true ? 'GPL' : 'LGPL';
+  final small = config['small'] == true;
+  return '$type / $license / small=$small';
+}
+
 typedef UserDefineReader = Object? Function(String key);
 typedef UserDefinePathReader = Uri? Function(String key);
 typedef UserDefineBaseReader = Uri? Function(String key);

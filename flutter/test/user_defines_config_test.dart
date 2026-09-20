@@ -57,9 +57,9 @@ void main() {
                 as Map<String, Object?>,
           );
           final output = BuildOutputBuilder();
-          File.fromUri(input.outputFile).writeAsStringSync(
-                jsonEncode(output.json),
-              );
+          File.fromUri(
+            input.outputFile,
+          ).writeAsStringSync(jsonEncode(output.json));
         },
         extensions: const [],
         userDefines: PackageUserDefines(
@@ -177,4 +177,14 @@ void main() {
       ),
     );
   });
+
+  test(
+    'formats stable bundle diagnostics without exposing environment data',
+    () {
+      expect(
+        configDiagnosticSummary({'type': 'video', 'gpl': true, 'small': false}),
+        equals('video / GPL / small=false'),
+      );
+    },
+  );
 }

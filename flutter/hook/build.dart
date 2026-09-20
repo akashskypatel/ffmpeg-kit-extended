@@ -40,6 +40,10 @@ void main(List<String> args) async {
     targetArch = input.config.code.targetArchitecture;
 
     _log('Build Hook for $packageName on ${targetOS.name}-${targetArch.name}');
+    _log(
+      'Target: ${targetOS.name}-${targetArch.name}; '
+      'SDK: ${_buildHookSdk(input)}',
+    );
 
     // 1. Load Configuration
     final configResult = _loadConfig(input, output);
@@ -481,6 +485,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
 
   final bool gpl = config['gpl'] == true;
   final bool small = config['small'] == true;
+  _log('Bundle: ${configDiagnosticSummary(config)}');
   final platformName = targetOS.name; // Use .name for stable keys
   final overrideUrl = config[platformName]?.toString();
 
@@ -490,13 +495,14 @@ Future<FFmpegArtifact?> _resolveArtifact(
     ),
   );
   if (!cacheDir.existsSync()) cacheDir.createSync(recursive: true);
+  _log('Artifact cache: ${cacheDir.path}');
 
   String filename = '';
   String url = '';
 
   if (overrideUrl != null) {
     if (_isUri(overrideUrl)) {
-      _log('Using remote override URL: $overrideUrl');
+      _log('Artifact: remote override $overrideUrl');
       url = overrideUrl;
       filename = p.basename(Uri.parse(url).path);
       final targetFile = File(p.join(cacheDir.path, filename));
@@ -505,7 +511,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
       }
       return await _handleDownloadedFile(targetFile, cacheDir, input);
     } else {
-      _log('Using local override path: $overrideUrl');
+      _log('Artifact: local override $overrideUrl');
       final cacheFile = await resolveLocalOverrideToCache(
         overridePath: overrideUrl,
         configBaseDir: configResult.configBaseDir,
@@ -559,6 +565,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
     }
   }
 
+  _log('Artifact: $url');
   final targetFile = File(p.join(cacheDir.path, filename));
   if (!targetFile.existsSync()) {
     _log('Downloading $url...');
@@ -1083,6 +1090,9 @@ String _appleDiagnosticContext(BuildInput input) {
       : 'macOS';
   return 'Target: ${targetOS.name}-${targetArch.name}; SDK: $sdk';
 }
+
+String _buildHookSdk(BuildInput input) =>
+    targetOS == OS.iOS ? input.config.code.iOS.targetSdk.type : targetOS.name;
 
 Future<bool> _downloadFile(String url, File target) async {
   final client = HttpClient();
