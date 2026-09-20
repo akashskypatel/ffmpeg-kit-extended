@@ -87,31 +87,20 @@ Future<void> _buildWebDataAssets(
     throw _exception('Could not find extracted WASM bundle for web build');
   }
 
-  final packageName = input.packageName;
-  final runtimeFiles =
-      extractedDir
-          .listSync(recursive: true, followLinks: false)
-          .whereType<File>()
-          .where((file) {
-            final name = p.basename(file.path);
-            return name == 'ffmpegkit.mjs' || name == 'ffmpegkit.wasm';
-          })
-          .toList()
-        ..sort((a, b) => a.path.compareTo(b.path));
-
-  final runtimeFilesByName = {
-    for (final file in runtimeFiles) p.basename(file.path): file,
-  };
-  const requiredRuntimeFiles = {'ffmpegkit.mjs', 'ffmpegkit.wasm'};
-  final missingRuntimeFiles = requiredRuntimeFiles.difference(
-    runtimeFilesByName.keys.toSet(),
-  );
-  if (missingRuntimeFiles.isNotEmpty) {
+  final runtimeDir = selectWebRuntimeDirectory(extractedDir);
+  if (runtimeDir == null) {
     throw _exception(
-      'WASM bundle is missing ${missingRuntimeFiles.join(', ')} in '
-      '${extractedDir.path}',
+      'WASM bundle must contain exactly one directory with both '
+      'ffmpegkit.mjs and ffmpegkit.wasm under ${extractedDir.path}',
     );
   }
+
+  final packageName = input.packageName;
+  const requiredRuntimeFiles = {'ffmpegkit.mjs', 'ffmpegkit.wasm'};
+  final runtimeFilesByName = {
+    for (final name in requiredRuntimeFiles)
+      name: File(p.join(runtimeDir.path, name)),
+  };
 
   final stagingBaseDir = configResult.stagingBaseDir;
   final webAssetDirs = stagingBaseDir == null
@@ -227,6 +216,33 @@ Future<void> _buildWebDataAssets(
   );
 }
 
+@visibleForTesting
+Directory? selectWebRuntimeDirectory(Directory extractedDir) {
+  if (!extractedDir.existsSync()) return null;
+
+  final candidateDirectories = <String, Directory>{};
+  for (final entity in extractedDir.listSync(
+    recursive: true,
+    followLinks: false,
+  )) {
+    if (entity is! File) continue;
+    final name = p.basename(entity.path);
+    if (name == 'ffmpegkit.mjs' || name == 'ffmpegkit.wasm') {
+      final parent = entity.parent;
+      candidateDirectories[p.normalize(parent.path)] = parent;
+    }
+  }
+
+  final completeDirectories = candidateDirectories.values
+      .where(
+        (directory) =>
+            File(p.join(directory.path, 'ffmpegkit.mjs')).existsSync() &&
+            File(p.join(directory.path, 'ffmpegkit.wasm')).existsSync(),
+      )
+      .toList();
+  return completeDirectories.length == 1 ? completeDirectories.single : null;
+}
+
 Future<FFmpegArtifact> _resolveWebArtifact(
   ConfigResult configResult,
   BuildInput input,
@@ -258,14 +274,24 @@ Future<FFmpegArtifact> _resolveWebArtifact(
         cacheDir: cacheDir,
         addDependency: addDependency,
       );
-      return _handleDownloadedFile(target, cacheDir, input);
+      return _handleDownloadedFile(
+        target,
+        cacheDir,
+        input,
+        useExtractionRoot: true,
+      );
     }
     final target = await resolveRemoteOverrideToCache(
       overrideUrl: overrideUri.toString(),
       cacheDir: cacheDir,
       addDependency: addDependency,
     );
-    return _handleDownloadedFile(target, cacheDir, input);
+    return _handleDownloadedFile(
+      target,
+      cacheDir,
+      input,
+      useExtractionRoot: true,
+    );
   } else {
     final currentType = type == 'debug' ? 'base' : type;
     final parts = [
@@ -314,7 +340,12 @@ Future<FFmpegArtifact> _resolveWebArtifact(
     }
     _log('SHA256 verification passed');
   }
-  return _handleDownloadedFile(targetFile, cacheDir, input);
+  return _handleDownloadedFile(
+    targetFile,
+    cacheDir,
+    input,
+    useExtractionRoot: true,
+  );
 }
 
 ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
@@ -607,8 +638,9 @@ Future<FFmpegArtifact?> _resolveArtifact(
 Future<FFmpegArtifact> _handleDownloadedFile(
   File file,
   Directory cacheDir,
-  BuildInput input,
-) async {
+  BuildInput input, {
+  bool useExtractionRoot = false,
+}) async {
   if (file.path.endsWith('.aar')) {
     return FFmpegArtifact(file: file, isAar: true);
   }
@@ -628,7 +660,10 @@ Future<FFmpegArtifact> _handleDownloadedFile(
           p.join(extractRoot.path, p.basename(extractRoot.path)),
         ), // flat zip fallback
       );
-  return FFmpegArtifact(file: file, extractedDir: finalExtractedDir);
+  return FFmpegArtifact(
+    file: file,
+    extractedDir: useExtractionRoot ? extractRoot : finalExtractedDir,
+  );
 }
 
 Future<void> _emitAssets(
