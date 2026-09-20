@@ -250,7 +250,8 @@ Future<FFmpegArtifact> _resolveWebArtifact(
   String filename;
   String url;
   if (overrideUrl != null) {
-    if (!_isUri(overrideUrl)) {
+    final overrideUri = parseRemoteOverride(overrideUrl);
+    if (overrideUri == null) {
       final target = await resolveLocalOverrideToCache(
         overridePath: overrideUrl,
         configBaseDir: configResult.configBaseDir,
@@ -259,8 +260,12 @@ Future<FFmpegArtifact> _resolveWebArtifact(
       );
       return _handleDownloadedFile(target, cacheDir, input);
     }
-    url = overrideUrl;
-    filename = p.basename(Uri.parse(url).path);
+    final target = await resolveRemoteOverrideToCache(
+      overrideUrl: overrideUri.toString(),
+      cacheDir: cacheDir,
+      addDependency: addDependency,
+    );
+    return _handleDownloadedFile(target, cacheDir, input);
   } else {
     final currentType = type == 'debug' ? 'base' : type;
     final parts = [
@@ -501,14 +506,14 @@ Future<FFmpegArtifact?> _resolveArtifact(
   String url = '';
 
   if (overrideUrl != null) {
-    if (_isUri(overrideUrl)) {
+    final overrideUri = parseRemoteOverride(overrideUrl);
+    if (overrideUri != null) {
       _log('Artifact: remote override $overrideUrl');
-      url = overrideUrl;
-      filename = p.basename(Uri.parse(url).path);
-      final targetFile = File(p.join(cacheDir.path, filename));
-      if (!await _downloadFile(url, targetFile)) {
-        throw _exception('Failed to download from $url.');
-      }
+      final targetFile = await resolveRemoteOverrideToCache(
+        overrideUrl: overrideUri.toString(),
+        cacheDir: cacheDir,
+        addDependency: addDependency,
+      );
       return await _handleDownloadedFile(targetFile, cacheDir, input);
     } else {
       _log('Artifact: local override $overrideUrl');
@@ -1171,15 +1176,105 @@ Future<bool> _extractFile(File zipFile, String destPath) async {
   }
 }
 
-bool _isUri(String path) {
-  try {
-    if (path.contains("\\\\wsl.")) return false;
-    final uri = Uri.parse(path);
-    return uri.hasScheme &&
-        (uri.scheme == 'http' || uri.scheme == 'https' || uri.scheme == 'ftp');
-  } catch (e) {
-    return false;
+@visibleForTesting
+Uri? parseRemoteOverride(String value) {
+  if (!isUriLikeOverride(value)) return null;
+
+  final uri = Uri.tryParse(value);
+  if (uri == null || !uri.hasScheme) {
+    throw _exception('Invalid remote override URI: $value');
   }
+  final scheme = uri.scheme.toLowerCase();
+  if (scheme != 'http' && scheme != 'https') {
+    throw _exception(
+      'Unsupported remote override scheme "$scheme"; '
+      'only http:// and https:// are supported',
+    );
+  }
+  if (uri.host.isEmpty) {
+    throw _exception('Remote override URI must include a host: $value');
+  }
+  return uri;
+}
+
+String _remoteCacheIdentity(Uri uri) =>
+    sha256.convert(utf8.encode(uri.toString())).toString().substring(0, 16);
+
+@visibleForTesting
+File remoteCacheFileFor(Uri uri, Directory cacheDir) {
+  var basename = p.posix.basename(uri.path);
+  if (basename.isEmpty || basename == '.' || basename == '..') {
+    basename = 'artifact';
+  }
+  basename = basename.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+  return File(p.join(cacheDir.path, '${_remoteCacheIdentity(uri)}-$basename'));
+}
+
+typedef RemoteOverrideDownloader = Future<bool> Function(Uri uri, File target);
+
+@visibleForTesting
+Future<bool> syncRemoteOverrideToCache({
+  required Uri uri,
+  required File cacheFile,
+  required Directory cacheDir,
+  RemoteOverrideDownloader? download,
+}) async {
+  cacheDir.createSync(recursive: true);
+  final tempFile = File('${cacheFile.path}.refreshing');
+  deleteIfExists(tempFile);
+  cleanupStaleDownload(tempFile);
+  try {
+    final downloaded = await (download ?? _downloadRemoteOverride)(
+      uri,
+      tempFile,
+    );
+    if (!downloaded) {
+      throw _exception('Failed to download remote override from $uri');
+    }
+
+    final downloadedHash = await _computeFileSha256(tempFile);
+    if (downloadedHash == null) {
+      throw _exception('Unable to hash downloaded remote override from $uri');
+    }
+    final cachedHash = cacheFile.existsSync()
+        ? await _computeFileSha256(cacheFile)
+        : null;
+    if (downloadedHash == cachedHash) return false;
+
+    cacheFile.parent.createSync(recursive: true);
+    if (cacheFile.existsSync()) cacheFile.deleteSync();
+    tempFile.renameSync(cacheFile.path);
+    deleteIfExists(extractRootFor(cacheFile, cacheDir));
+    return true;
+  } finally {
+    deleteIfExists(tempFile);
+    cleanupStaleDownload(tempFile);
+  }
+}
+
+Future<bool> _downloadRemoteOverride(Uri uri, File target) =>
+    _downloadFile(uri.toString(), target);
+
+@visibleForTesting
+Future<File> resolveRemoteOverrideToCache({
+  required String overrideUrl,
+  required Directory cacheDir,
+  required void Function(Uri uri) addDependency,
+  RemoteOverrideDownloader? download,
+}) async {
+  final uri = parseRemoteOverride(overrideUrl);
+  if (uri == null) {
+    throw _exception('Expected an HTTP(S) remote override: $overrideUrl');
+  }
+  addDependency(uri);
+  final cacheFile = remoteCacheFileFor(uri, cacheDir);
+  await syncRemoteOverrideToCache(
+    uri: uri,
+    cacheFile: cacheFile,
+    cacheDir: cacheDir,
+    download: download,
+  );
+  return cacheFile;
 }
 
 Future<String?> _fetchSha256Hash(String url, {String? platformName}) async {

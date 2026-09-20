@@ -75,7 +75,7 @@ ConfigResult? resolveUserDefines({
 
     if (_isPlatformOverrideKey(key) &&
         value is String &&
-        !_looksLikeRemoteUri(value)) {
+        !isUriLikeOverride(value)) {
       final resolvedPath = readPath(key);
       if (resolvedPath != null) {
         config[key] = File.fromUri(resolvedPath).path;
@@ -131,8 +131,13 @@ bool _isPlatformOverrideKey(String key) => const {
   'wasm',
 }.contains(key);
 
-bool _looksLikeRemoteUri(String value) =>
-    RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*://').hasMatch(value);
+/// Returns whether [value] explicitly uses a URI scheme rather than a local
+/// path. Windows drive paths and WSL/UNC paths are intentionally local.
+bool isUriLikeOverride(String value) {
+  if (RegExp(r'^[A-Za-z]:[\\/]').hasMatch(value)) return false;
+  if (value.startsWith(r'\\') || value.startsWith('//')) return false;
+  return RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(value);
+}
 
 String resolveStagingBaseDir({
   required String outputFile,

@@ -112,6 +112,25 @@ void main() {
     expect(dependencies, contains(bundle.uri));
   });
 
+  test('keeps unsupported URI-like overrides for hook validation', () {
+    var pathReaderInvoked = false;
+    final result = resolveUserDefines(
+      read: (key) => key == 'linux' ? 'ftp://example.test/bundle.zip' : null,
+      readPath: (_) {
+        pathReaderInvoked = true;
+        return null;
+      },
+      readBase: (_) => tempRoot.uri,
+      packageRoot: tempRoot.path,
+      stagingBaseDir: tempRoot.path,
+      addDependency: (_) {},
+      log: (_) {},
+    );
+
+    expect(result!.config['linux'], 'ftp://example.test/bundle.zip');
+    expect(pathReaderInvoked, isFalse);
+  });
+
   test('explicit userDefines take precedence over the legacy resolver', () {
     final user = ConfigResult(
       {'type': 'video'},
