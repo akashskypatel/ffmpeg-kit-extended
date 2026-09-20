@@ -116,22 +116,27 @@ export abstract class Session {
     return this.snapshot().statisticsCount;
   }
 
-  /** Cancels pre-start work locally or requests native cancellation once running. */
+  /**
+   * Records cancellation immediately, then cancels queued work or requests
+   * native cancellation once running. A state-read or native-dispatch failure
+   * does not erase the recorded request, so an executing session can still
+   * deliver it when Running is observed again.
+   */
   cancel(): void {
     if (this.cancelled && this.nativeCancellationDispatched) return;
+
+    this.cancelled = true;
+
     if (SessionQueueManager.shared.cancelQueued(this)) {
-      this.cancelled = true;
       return;
     }
     const state = this.getState();
     if (state === SessionState.Created) {
-      this.cancelled = true;
       return;
     }
     if (state === SessionState.Running) {
       this.dispatchNativeCancellation();
     }
-    this.cancelled = true;
   }
 
   /** Enables additional native debug-log capture for this session. */

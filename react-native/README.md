@@ -216,6 +216,7 @@ Call `FFmpegKitExtended.initialize()` and await it before using FFmpeg, FFprobe,
 The native session starts asynchronously, while the TypeScript `Session` polls buffered native logs, statistics, and state. This keeps C callbacks and JavaScript callback lifetime management out of the C ABI boundary while preserving per-session completion/log/statistics callbacks.
 
 Calling `cancel()` before execution begins prevents Created or queued work from starting. If cancellation is requested while asynchronous native startup is already in flight, the request is retained and forwarded when the session first reaches Running.
+`isCancelled` records that cancellation was requested; the final native state and return code determine whether cancellation won a race with completion.
 
 Session objects are single-use execution objects. Create a new `Session` object for another execution.
 

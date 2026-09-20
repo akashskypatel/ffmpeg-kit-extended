@@ -206,6 +206,22 @@ test('Created cancellation prevents later submission', async () => {
   assert.deepEqual(cancelCalls, []);
 });
 
+test('state-read failure latches cancellation before exposing the error', async () => {
+  const error = new Error('state read failed during cancellation');
+  stateError = error;
+  registry.retain(1024, 20);
+  const session = new FFmpegSession(20, '-version');
+
+  assert.throws(() => session.cancel(), reason => reason === error);
+  assert.equal(session.isCancelled, true);
+
+  stateError = undefined;
+  await assert.rejects(session.executeAsync(), SessionCancelledException);
+  assert.equal(executionStarts, 0);
+  assert.equal(manager.queueLength, 0);
+  assert.deepEqual(cancelCalls, []);
+});
+
 test('queued cancellation removes work without native cancellation and releases ownership', async () => {
   manager.maxConcurrentSessions = 1;
   let releaseActive;
@@ -234,9 +250,38 @@ test('a running history wrapper forwards cancellation despite not being submitte
   const session = new FFmpegSession(16, '-version');
 
   session.cancel();
+  session.cancel();
 
   assert.equal(session.isCancelled, true);
   assert.deepEqual(cancelCalls, [16]);
+});
+
+test('immediate native cancellation failure preserves intent and allows monitor retry', async () => {
+  const error = new Error('immediate native cancellation failed');
+  sessionState = 1;
+  cancelError = error;
+  registry.retain(14336, 20);
+  const session = new FFmpegSession(20, '-version');
+  const execution = session.executeAsync({pollIntervalMs: 10});
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(executionStarts, 1);
+
+  assert.throws(() => session.cancel(), reason => reason === error);
+  assert.equal(session.isCancelled, true);
+  assert.equal(cancelAttempts, 1);
+  assert.deepEqual(cancelCalls, []);
+
+  cancelError = undefined;
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(cancelAttempts, 2);
+  assert.deepEqual(cancelCalls, [20]);
+
+  sessionState = 2;
+  await execution;
+  await manager.waitForAll();
+  assert.deepEqual(releases, [20]);
+  assert.equal(manager.activeSessionCount, 0);
 });
 
 test('startup-handoff cancellation waits for Running and dispatches once', async () => {
