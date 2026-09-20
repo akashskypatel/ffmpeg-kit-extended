@@ -70,6 +70,24 @@ String describeAppleSlices(Iterable<AppleSliceCandidate> candidates) {
   return values.isEmpty ? '(none)' : values.join(', ');
 }
 
+String appleSliceSelectionFailureMessage({
+  required AppleSliceRequest request,
+  required String root,
+  required Iterable<AppleSliceCandidate> candidates,
+}) {
+  final available = describeAppleSlices(candidates);
+  if (request.platform == 'ios' &&
+      request.variant == 'simulator' &&
+      request.architecture == 'x86_64') {
+    return 'iOS simulator x86_64 was requested, but no compatible x86_64 '
+        'XCFramework slice exists in $root. Available slices: $available. '
+        'An arm64-only simulator artifact cannot be copied or relabeled as '
+        'x86_64, and Podfile EXCLUDED_ARCHS cannot manufacture a hook asset.';
+  }
+  return 'Could not find Apple slice for $request in $root. Available slices: '
+      '$available';
+}
+
 /// Reads the small subset of the XCFramework property list needed for slice
 /// selection. XCFramework Info.plists are XML, so keeping this parser local
 /// avoids making the build hook depend on a platform-specific plist utility.

@@ -108,6 +108,22 @@ void main() {
       ),
       isNull,
     );
+    expect(
+      appleSliceSelectionFailureMessage(
+        request: const AppleSliceRequest(
+          platform: 'ios',
+          variant: 'simulator',
+          architecture: 'x86_64',
+        ),
+        root: '/fixture.xcframework',
+        candidates: arm64Only,
+      ),
+      allOf(
+        contains('iOS simulator x86_64 was requested'),
+        contains('arm64-only simulator artifact'),
+        contains('EXCLUDED_ARCHS'),
+      ),
+    );
   });
 
   test('macOS combined fixture supports both requested architectures', () {
@@ -355,28 +371,28 @@ void main() {
 
 AppleCommandRunner _fakeLipo(Map<String, Set<String>> architectures) =>
     (executable, args) async {
-    if (args.length >= 3 && args[1] == '-info') {
-      final path = args[2];
-      final values = architectures[path] ?? const <String>{};
-      final output = values.length > 1
-          ? 'Architectures in the fat file: $path are: ${values.join(' ')}'
-          : 'Non-fat file: $path is architecture: ${values.single}';
-      return ProcessResult(0, 0, output, '');
-    }
-    if (args.contains('-thin')) {
-      final output = args[args.indexOf('-output') + 1];
-      final architecture = args[args.indexOf('-thin') + 1];
-      File(output).writeAsBytesSync([9]);
-      architectures[output] = {architecture};
-      return ProcessResult(0, 0, '', '');
-    }
-    if (args.contains('-verify_arch')) {
-      final architecture = args[args.indexOf('-verify_arch') + 1];
-      final path = args[args.indexOf('-verify_arch') + 2];
-      final valid =
-          architectures[path]?.length == 1 &&
-          architectures[path]!.contains(architecture);
-      return ProcessResult(valid ? 0 : 1, valid ? 0 : 1, '', '');
-    }
-    return ProcessResult(1, 1, '', 'unknown fake lipo command');
+      if (args.length >= 3 && args[1] == '-info') {
+        final path = args[2];
+        final values = architectures[path] ?? const <String>{};
+        final output = values.length > 1
+            ? 'Architectures in the fat file: $path are: ${values.join(' ')}'
+            : 'Non-fat file: $path is architecture: ${values.single}';
+        return ProcessResult(0, 0, output, '');
+      }
+      if (args.contains('-thin')) {
+        final output = args[args.indexOf('-output') + 1];
+        final architecture = args[args.indexOf('-thin') + 1];
+        File(output).writeAsBytesSync([9]);
+        architectures[output] = {architecture};
+        return ProcessResult(0, 0, '', '');
+      }
+      if (args.contains('-verify_arch')) {
+        final architecture = args[args.indexOf('-verify_arch') + 1];
+        final path = args[args.indexOf('-verify_arch') + 2];
+        final valid =
+            architectures[path]?.length == 1 &&
+            architectures[path]!.contains(architecture);
+        return ProcessResult(valid ? 0 : 1, valid ? 0 : 1, '', '');
+      }
+      return ProcessResult(1, 1, '', 'unknown fake lipo command');
     };

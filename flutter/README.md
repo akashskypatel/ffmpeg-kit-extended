@@ -106,7 +106,7 @@ Flutter Web uses the same public API and shared session implementation as native
      gpl: true
    ```
 
-   **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`.
+   **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`. If Flutter requests simulator `x86_64` and the artifact has no such slice, the hook fails early with the available-slice diagnostic; Podfile `EXCLUDED_ARCHS` settings do not create native hook assets.
 
    **Important**: If you change the selected bundle configuration, rerun the build. Local override files are dependency-tracked, so replacing a local bundle is picked up without `flutter clean`.
 

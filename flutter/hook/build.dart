@@ -839,8 +839,11 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
 
   if (selectedSlice == null) {
     throw _exception(
-      'Could not find Apple slice for $request in ${libDir.path}. '
-      'Available slices: ${describeAppleSlices(candidates)}',
+      appleSliceSelectionFailureMessage(
+        request: request,
+        root: libDir.path,
+        candidates: candidates,
+      ),
     );
   }
 
