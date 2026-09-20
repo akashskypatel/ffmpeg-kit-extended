@@ -245,3 +245,141 @@ String _decodeXml(String value) => value
     .replaceAll('&quot;', '"')
     .replaceAll('&apos;', "'")
     .replaceAll('&amp;', '&');
+
+typedef AppleCommandRunner =
+    Future<ProcessResult> Function(String executable, List<String> arguments);
+
+class AppleBinaryException implements Exception {
+  final String message;
+
+  const AppleBinaryException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+class AppleBinaryVerification {
+  final Set<String> sourceArchitectures;
+  final Set<String> outputArchitectures;
+
+  const AppleBinaryVerification({
+    required this.sourceArchitectures,
+    required this.outputArchitectures,
+  });
+}
+
+Set<String> parseAppleLipoArchitectures(String output) {
+  final fatMatch = RegExp(
+    r'\bare:\s*(.+)',
+    caseSensitive: false,
+  ).firstMatch(output);
+  if (fatMatch != null) {
+    return fatMatch
+        .group(1)!
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((architecture) => architecture.isNotEmpty)
+        .toSet();
+  }
+
+  final thinMatch = RegExp(
+    r'\bis architecture:\s*([^\s]+)',
+    caseSensitive: false,
+  ).firstMatch(output);
+  return thinMatch == null ? const {} : {thinMatch.group(1)!};
+}
+
+Future<ProcessResult> _runAppleCommand(
+  String executable,
+  List<String> arguments,
+) => Process.run(executable, arguments);
+
+Future<Set<String>> inspectAppleBinaryArchitectures(
+  File binary, {
+  AppleCommandRunner runner = _runAppleCommand,
+}) async {
+  final result = await runner('xcrun', ['lipo', '-info', binary.path]);
+  final output = '${result.stdout}\n${result.stderr}';
+  if (result.exitCode != 0) {
+    throw AppleBinaryException(
+      'Unable to inspect Apple binary ${binary.path}: ${output.trim()}',
+    );
+  }
+  final architectures = parseAppleLipoArchitectures(output);
+  if (architectures.isEmpty) {
+    throw AppleBinaryException(
+      'Apple binary ${binary.path} reported no architectures: ${output.trim()}',
+    );
+  }
+  return architectures;
+}
+
+Future<AppleBinaryVerification> materializeAppleBinary({
+  required File source,
+  required File destination,
+  required String architecture,
+  required String diagnosticContext,
+  AppleCommandRunner runner = _runAppleCommand,
+}) async {
+  if (destination.existsSync()) destination.deleteSync();
+
+  final sourceArchitectures = await inspectAppleBinaryArchitectures(
+    source,
+    runner: runner,
+  );
+  if (!sourceArchitectures.contains(architecture)) {
+    throw AppleBinaryException(
+      '$diagnosticContext: requested architecture $architecture is not '
+      'available in ${source.path}; detected architectures: '
+      '${sourceArchitectures.toList()..sort()}',
+    );
+  }
+
+  if (sourceArchitectures.length > 1) {
+    final result = await runner('xcrun', [
+      'lipo',
+      source.path,
+      '-thin',
+      architecture,
+      '-output',
+      destination.path,
+    ]);
+    if (result.exitCode != 0) {
+      throw AppleBinaryException(
+        '$diagnosticContext: lipo failed while selecting $architecture from '
+        '${source.path}: ${result.stderr}',
+      );
+    }
+  } else {
+    source.copySync(destination.path);
+  }
+
+  final outputArchitectures = await inspectAppleBinaryArchitectures(
+    destination,
+    runner: runner,
+  );
+  if (outputArchitectures.length != 1 ||
+      !outputArchitectures.contains(architecture)) {
+    throw AppleBinaryException(
+      '$diagnosticContext: output ${destination.path} has architectures '
+      '${outputArchitectures.toList()..sort()}, expected only $architecture',
+    );
+  }
+
+  final verification = await runner('xcrun', [
+    'lipo',
+    '-verify_arch',
+    architecture,
+    destination.path,
+  ]);
+  if (verification.exitCode != 0) {
+    throw AppleBinaryException(
+      '$diagnosticContext: lipo verification failed for $architecture at '
+      '${destination.path}: ${verification.stderr}',
+    );
+  }
+  return AppleBinaryVerification(
+    sourceArchitectures: sourceArchitectures,
+    outputArchitectures: outputArchitectures,
+  );
+}

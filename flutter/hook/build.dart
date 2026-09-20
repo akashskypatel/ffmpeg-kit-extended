@@ -902,20 +902,34 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   }
   companionDir.createSync(recursive: true);
 
-  await _thinOrCopyAppleBinary(
+  final frameworkVerification = await _thinOrCopyAppleBinary(
     source: sourceMainDylib,
     destination: frameworkBinary,
     archStr: archStr,
+    diagnosticContext: _appleDiagnosticContext(input),
+  );
+  _log(
+    'Source architectures: '
+    '${frameworkVerification.sourceArchitectures.toList()..sort()}; '
+    'Output architecture: '
+    '${frameworkVerification.outputArchitectures.toList()..sort()}',
   );
 
   final companionLibraries = <File>[];
   for (final dylib in sourceDylibs) {
     if (dylib.path == sourceMainDylib.path) continue;
     final destination = File(p.join(companionDir.path, p.basename(dylib.path)));
-    await _thinOrCopyAppleBinary(
+    final companionVerification = await _thinOrCopyAppleBinary(
       source: dylib,
       destination: destination,
       archStr: archStr,
+      diagnosticContext: _appleDiagnosticContext(input),
+    );
+    _log(
+      'Companion ${p.basename(dylib.path)} source architectures: '
+      '${companionVerification.sourceArchitectures.toList()..sort()}; '
+      'output architecture: '
+      '${companionVerification.outputArchitectures.toList()..sort()}',
     );
     companionLibraries.add(destination);
   }
@@ -955,25 +969,20 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   );
 }
 
-Future<void> _thinOrCopyAppleBinary({
+Future<AppleBinaryVerification> _thinOrCopyAppleBinary({
   required File source,
   required File destination,
   required String archStr,
+  required String diagnosticContext,
 }) async {
   destination.parent.createSync(recursive: true);
-  _log('Thinning ${p.basename(source.path)} to $archStr...');
-
-  final lipoRes = await Process.run('lipo', [
-    source.path,
-    '-thin',
-    archStr,
-    '-output',
-    destination.path,
-  ]);
-
-  if (lipoRes.exitCode != 0) {
-    source.copySync(destination.path);
-  }
+  _log('Preparing ${p.basename(source.path)} for $archStr...');
+  return materializeAppleBinary(
+    source: source,
+    destination: destination,
+    architecture: archStr,
+    diagnosticContext: diagnosticContext,
+  );
 }
 
 Future<void> _copyDirectory(Directory source, Directory destination) async {
@@ -1049,6 +1058,13 @@ String _getAppleArch() {
   if (targetArch == Architecture.arm64) return 'arm64';
   if (targetArch == Architecture.x64) return 'x86_64';
   return 'arm64';
+}
+
+String _appleDiagnosticContext(BuildInput input) {
+  final sdk = targetOS == OS.iOS
+      ? input.config.code.iOS.targetSdk.type
+      : 'macOS';
+  return 'Target: ${targetOS.name}-${targetArch.name}; SDK: $sdk';
 }
 
 Future<bool> _downloadFile(String url, File target) async {
