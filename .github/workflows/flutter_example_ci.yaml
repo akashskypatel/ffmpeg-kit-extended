@@ -225,7 +225,7 @@ jobs:
 
       - name: Run Flutter tests
         working-directory: flutter
-        run: flutter test
+        run: flutter test --exclude-tags native
 
       - name: Get example dependencies
         working-directory: flutter/example
@@ -234,3 +234,51 @@ jobs:
       - name: Build Web Wasm example
         working-directory: flutter/example
         run: flutter build web --wasm
+
+  verify-native-linux:
+    needs: build
+    if: github.event.pull_request.draft == false
+    name: Native API Verification (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.0"
+          channel: "stable"
+          cache: true
+
+      - name: Install Linux runtime dependencies
+        run: |
+          flutter config --no-analytics
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgtk-3-0 libstdc++-12-dev
+
+      - name: Download staged Linux app
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-app
+          path: flutter/example/build/linux/x64/debug/bundle
+
+      - name: Locate staged FFmpegKit library
+        run: |
+          native_dir="$(find "$GITHUB_WORKSPACE/flutter/example/build/linux/x64/debug/bundle" -type f -name 'libffmpegkit.so' -printf '%h\n' | head -n 1)"
+          if [[ -z "$native_dir" ]]; then
+            echo "The staged Linux app does not contain libffmpegkit.so" >&2
+            find "$GITHUB_WORKSPACE/flutter/example/build/linux/x64/debug/bundle" -maxdepth 4 -type f | sort >&2
+            exit 1
+          fi
+          echo "LD_LIBRARY_PATH=$native_dir:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          echo "Using staged native library directory: $native_dir"
+
+      - name: Get plugin dependencies
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Run native API tests
+        working-directory: flutter
+        run: flutter test --tags native test/api_test.dart

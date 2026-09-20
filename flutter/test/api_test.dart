@@ -132,6 +132,7 @@ void main() {
   final tempDir = Directory.systemTemp.createTempSync('ffmpeg_kit_native_test');
   final testVideoFile = path.join(tempDir.path, 'dummy_video.mp4');
   final testAudioFile = path.join(tempDir.path, 'dummy_audio.wav');
+  bool libraryLoaded = false;
 
   // Convert paths to native C strings for use in tests
   String getTestVideoFile() =>
@@ -142,10 +143,10 @@ void main() {
     if (tempDir.existsSync()) {
       tempDir.deleteSync(recursive: true);
     }
-    FFmpegKitConfig.clearSessions();
+    if (libraryLoaded) {
+      FFmpegKitConfig.clearSessions();
+    }
   });
-
-  bool libraryLoaded = false;
 
   setUpAll(() async {
     await FFmpegKitExtended.initialize();
@@ -216,6 +217,7 @@ void main() {
   );
 
   tearDown(() async {
+    if (!libraryLoaded) return;
     ffmpeg.ffplay_kit_stop();
     // 1. Disable all global callbacks immediately
     ffmpeg.ffmpeg_kit_config_enable_log_callback(nullptr, nullptr);
