@@ -386,9 +386,9 @@ Future<AppleBinaryVerification> materializeAppleBinary({
 
   final verification = await runner('xcrun', [
     'lipo',
+    destination.path,
     '-verify_arch',
     architecture,
-    destination.path,
   ]);
   if (verification.exitCode != 0) {
     throw AppleBinaryException(

@@ -387,8 +387,9 @@ AppleCommandRunner _fakeLipo(Map<String, Set<String>> architectures) =>
         return ProcessResult(0, 0, '', '');
       }
       if (args.contains('-verify_arch')) {
-        final architecture = args[args.indexOf('-verify_arch') + 1];
-        final path = args[args.indexOf('-verify_arch') + 2];
+        final verifyIndex = args.indexOf('-verify_arch');
+        final architecture = args[verifyIndex + 1];
+        final path = args.sublist(1, verifyIndex).single;
         final valid =
             architectures[path]?.length == 1 &&
             architectures[path]!.contains(architecture);
