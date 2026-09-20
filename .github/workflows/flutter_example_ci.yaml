@@ -115,7 +115,7 @@ jobs:
           yes | flutter doctor --android-licenses >/dev/null
 
       - name: Configure Apple build
-        if: matrix.platform == 'ios' || matrix.platform == 'macos'
+        if: matrix.platform == 'ios' || matrix.platform == 'ios-simulator' || matrix.platform == 'macos'
         run: |
           flutter config --no-analytics
           flutter config --enable-swift-package-manager
