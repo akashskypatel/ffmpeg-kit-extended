@@ -122,7 +122,6 @@ export class SessionQueueManager {
     this.cancelCurrent();
   }
 
-  /** Resolves after both the active set and pending queue become empty. */
   /** Removes one waiting session and rejects its execution promise. */
   cancelQueued(session: CancellableSession): boolean {
     const index = this.queue.findIndex(item => item.session === session);
@@ -132,6 +131,8 @@ export class SessionQueueManager {
     this.discard(item);
     return true;
   }
+
+  /** Resolves after both the active set and pending queue become empty. */
   async waitForAll(): Promise<void> {
     while (this.isBusy || this.queue.length > 0) {
       await new Promise(resolve => setTimeout(resolve, 100));

@@ -35,6 +35,7 @@ export abstract class Session {
   readonly command: string;
   readonly type: SessionType;
   private cancelled = false;
+  private nativeCancellationDispatched = false;
   private submitted = false;
 
   protected constructor(sessionId: number, command: string, type: SessionType) {
@@ -117,16 +118,19 @@ export abstract class Session {
 
   /** Cancels pre-start work locally or requests native cancellation once running. */
   cancel(): void {
-    if (this.cancelled) return;
+    if (this.cancelled && this.nativeCancellationDispatched) return;
     if (SessionQueueManager.shared.cancelQueued(this)) {
       this.cancelled = true;
       return;
     }
-    if (!this.submitted && this.getState() === SessionState.Created) {
+    const state = this.getState();
+    if (state === SessionState.Created) {
       this.cancelled = true;
       return;
     }
-    NativeFFmpegKitExtended.cancelSession(this.sessionId);
+    if (state === SessionState.Running) {
+      this.dispatchNativeCancellation();
+    }
     this.cancelled = true;
   }
 
@@ -196,6 +200,13 @@ export abstract class Session {
     }
   }
 
+  /** Forwards cancellation and records successful native dispatch exactly once. */
+  private dispatchNativeCancellation(): void {
+    if (this.nativeCancellationDispatched) return;
+    NativeFFmpegKitExtended.cancelSession(this.sessionId);
+    this.nativeCancellationDispatched = true;
+  }
+
   protected async monitor<T extends Session>(
     self: T,
     options: ExecuteOptions<T> & {
@@ -210,6 +221,7 @@ export abstract class Session {
     let statisticsProcessed = 0;
     let callbackFailed = false;
     let monitorFailed = false;
+    let nativeCancellationFailed = false;
     let firstErrorSet = false;
     let firstError: unknown;
     const recordError = (error: unknown): void => {
@@ -273,6 +285,20 @@ export abstract class Session {
           // Preserve the state-read failure as the primary error.
         }
         throw firstError;
+      }
+      if (
+        state === SessionState.Running &&
+        this.cancelled &&
+        !this.nativeCancellationDispatched &&
+        !nativeCancellationFailed
+      ) {
+        try {
+          this.dispatchNativeCancellation();
+        } catch (error) {
+          nativeCancellationFailed = true;
+          monitorFailed = true;
+          recordError(error);
+        }
       }
       if (state === SessionState.Completed || state === SessionState.Failed) {
         let terminalErrorSet = false;
