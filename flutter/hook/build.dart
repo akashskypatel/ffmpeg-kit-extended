@@ -134,6 +134,9 @@ Future<void> _buildWebDataAssets(
   if (!loaderSource.existsSync()) {
     throw _exception('Missing web Wasm loader: ${loaderSource.path}');
   }
+  output.dependencies.add(bridgeSource.uri);
+  output.dependencies.add(callbackRuntimeSource.uri);
+  output.dependencies.add(loaderSource.uri);
   const bridgeFileName = 'ffmpegkit_bridge.mjs';
   const callbackRuntimeFileName = 'ffmpegkit_callback_runtime.mjs';
   const loaderFileName = 'ffmpegkit_loader.mjs';

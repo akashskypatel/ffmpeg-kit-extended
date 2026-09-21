@@ -72,6 +72,14 @@ void main() {
         expect(assets, hasLength(5));
         expect(input.config.buildDataAssets, isTrue);
         expect(
+          output.dependencies,
+          containsAll(<Uri>[
+            input.packageRoot.resolve('web/ffmpegkit_bridge.mjs'),
+            input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs'),
+            input.packageRoot.resolve('web/ffmpegkit_loader.mjs'),
+          ]),
+        );
+        expect(
           Directory(p.join(workspaceRoot.path, 'web')).existsSync(),
           isFalse,
         );

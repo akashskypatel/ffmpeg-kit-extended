@@ -45,7 +45,7 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       }
       _addStatus('FFMPEG_OK');
 
-      final ffprobeSession = await FFprobeKit.executeAsync('-nostdin -version');
+      final ffprobeSession = await FFprobeKit.executeAsync('-version');
       if (!ReturnCode.isSuccess(ffprobeSession.getReturnCode())) {
         throw StateError(
           'FFprobe smoke command failed: ${ffprobeSession.getReturnCode()}',
