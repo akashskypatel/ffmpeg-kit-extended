@@ -189,14 +189,3 @@ class _QueuedSession {
 
   _QueuedSession(this.session, this.executor, this.completer);
 }
-
-/// Exception thrown when a session is cancelled.
-class SessionCancelledException implements Exception {
-  final String message;
-
-  SessionCancelledException(this.message);
-
-  /// Returns a string representation of this exception.
-  @override
-  String toString() => 'SessionCancelledException: $message';
-}

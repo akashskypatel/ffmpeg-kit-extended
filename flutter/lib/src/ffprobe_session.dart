@@ -153,6 +153,7 @@ class FFprobeSession extends Session {
   /// Enqueues this session for synchronous native execution and returns `this`
   /// immediately (fire-and-forget).
   FFprobeSession execute() {
+    claimExecutionSubmission();
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
@@ -207,6 +208,7 @@ class FFprobeSession extends Session {
     FFprobeSessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
   }) async {
+    claimExecutionSubmission();
     if (completeCallback != null) _completeCallback = completeCallback;
     if (logCallback != null) _logCallback = logCallback;
     _ensureRegistered();

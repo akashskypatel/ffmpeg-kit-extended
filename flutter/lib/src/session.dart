@@ -140,6 +140,13 @@ abstract class Session {
 
   bool _isCancelled = false;
 
+  /// Whether this session has already been handed to an execution path.
+  ///
+  /// A session object represents one native execution.  History wrappers may
+  /// expose sessions that are already running or terminal, but those objects
+  /// are read-only observations and cannot be submitted again.
+  bool _submitted = false;
+
   /// Whether [cancel] has been called on this session.
   bool get isCancelled => _isCancelled;
 
@@ -342,6 +349,40 @@ abstract class Session {
       );
       rethrow;
     }
+  }
+
+  /// Returns the state used by the one-shot submission guard.
+  ///
+  /// The protected seam lets lifecycle tests provide a deterministic state
+  /// oracle without loading a native backend. Production sessions delegate to
+  /// the native state query.
+  @protected
+  SessionState executionStateForSubmission() => getState();
+
+  /// Claims this session for exactly one execution submission.
+  ///
+  /// The claim is made before callback registration, queue insertion, or
+  /// native execution. A second call, a pre-start cancellation, or a session
+  /// observed outside the Created state is rejected without mutating any of
+  /// those execution surfaces.
+  @protected
+  void claimExecutionSubmission() {
+    _ensureNotDisposed();
+    if (_submitted) {
+      throw StateError('Session $sessionId has already been submitted');
+    }
+    if (_isCancelled) {
+      throw SessionCancelledException(
+        'Session $sessionId was cancelled before submission',
+      );
+    }
+    final state = executionStateForSubmission();
+    if (state != SessionState.created) {
+      throw StateError(
+        'Session $sessionId cannot be submitted from state $state',
+      );
+    }
+    _submitted = true;
   }
 
   /// Returns the native exit code.
@@ -830,4 +871,15 @@ abstract class Session {
       rethrow;
     }
   }
+}
+
+/// Exception thrown when a session cannot be submitted because it was
+/// cancelled before execution began.
+class SessionCancelledException implements Exception {
+  final String message;
+
+  SessionCancelledException(this.message);
+
+  @override
+  String toString() => 'SessionCancelledException: $message';
 }

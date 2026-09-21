@@ -314,6 +314,7 @@ class FFmpegSession extends Session {
   ///
   /// If you need to await the result, use [executeAsync] instead.
   FFmpegSession execute() {
+    claimExecutionSubmission();
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
@@ -392,6 +393,7 @@ class FFmpegSession extends Session {
     FFmpegLogCallback? logCallback,
     FFmpegStatisticsCallback? statisticsCallback,
   }) async {
+    claimExecutionSubmission();
     if (completeCallback != null) _completeCallback = completeCallback;
     if (logCallback != null) _logCallback = logCallback;
     if (statisticsCallback != null) _statisticsCallback = statisticsCallback;

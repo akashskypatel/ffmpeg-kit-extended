@@ -313,6 +313,7 @@ class MediaInformationSession extends FFprobeSession {
   /// immediately (fire-and-forget).
   @override
   MediaInformationSession execute() {
+    claimExecutionSubmission();
     SessionQueueManager()
         .executeSession(this, () async {
           enableNativeLogCallback();
@@ -363,6 +364,7 @@ class MediaInformationSession extends FFprobeSession {
     FFprobeSessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
   }) async {
+    claimExecutionSubmission();
     // Accept the base-class typed callback for call-site compatibility;
     // wrap it into the correct MediaInformation type.
     if (completeCallback != null) {

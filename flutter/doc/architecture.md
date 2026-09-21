@@ -109,3 +109,9 @@ FFmpeg, FFprobe, and media-information completion in a real headless browser.
 - The hook’s Web asset staging is DataAsset-only; it does not copy runtime files into a consuming app's source `web/` or generated `build/web/` directories.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
 - Keep platform-specific imports below the platform directories and preserve the shared backend interfaces when extending the API.
+### Session submission authority
+
+Each Flutter session claims execution once while its native state is `Created`.
+The claim happens before callback registration or queue insertion, so repeated
+calls and history wrappers for running or terminal sessions cannot submit the
+same native handle again. A new execution requires a new session object.

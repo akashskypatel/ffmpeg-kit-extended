@@ -822,3 +822,9 @@ This project is licensed under the LGPL v3.0 by default. However, depending on t
 Understand the difference between LGPL and GPL licenses before using this plugin in your project.
 
 Using GPL licensed components in your application may require your application to also be licensed under GPL.
+## Session lifecycle
+
+Session objects are one-shot execution objects. A session may be submitted
+once, and history wrappers for running or terminal sessions are read-only
+observations; create a new session for another execution. Cancellation before
+submission prevents later execution.

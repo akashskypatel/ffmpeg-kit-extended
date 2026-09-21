@@ -426,6 +426,7 @@ class FFplaySession extends Session {
 
   /// Enqueues session for synchronous native execution and returns `this` immediately.
   FFplaySession execute() {
+    claimExecutionSubmission();
     SessionQueueManager()
         .executeSession(this, () async {
           FFmpegKitExtended.requireInitialized();
@@ -487,6 +488,7 @@ class FFplaySession extends Session {
     FFplaySessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
   }) async {
+    claimExecutionSubmission();
     if (timeout != null) _timeout = timeout;
     if (completeCallback != null) _completeCallback = completeCallback;
     if (logCallback != null) _logCallback = logCallback;
