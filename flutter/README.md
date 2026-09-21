@@ -847,3 +847,6 @@ native release.
 `currentSession` when the execution Future settles, including startup and
 transport failures. `FFplayKit.start` starts a Created global session or
 resumes a paused session; it does not re-execute an already submitted session.
+Calling `FFplaySession.cancel()` records cancellation before its playback stop
+operation. A stop failure therefore cannot erase the cancellation request, and
+queued or pre-start sessions do not invoke the playback stop control.

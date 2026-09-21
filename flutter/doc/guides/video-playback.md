@@ -491,3 +491,6 @@ See the `flutter/example/` directory for a complete working video player impleme
 including startup and transport failures. `FFplayKit.start` starts a Created
 global session or resumes a paused session; it does not submit an already
 executing or terminal session again.
+`FFplaySession.cancel()` records the cancellation request before stopping
+playback. If stopping fails, the request remains visible through
+`isCancelled`; queued or pre-start sessions skip the playback stop call.

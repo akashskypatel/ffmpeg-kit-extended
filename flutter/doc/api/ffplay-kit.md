@@ -356,7 +356,8 @@ if (FFplayKit.isClosed()) {
 
 #### cancel
 
-Cancels a specific FFplay session.
+Cancels a specific FFplay session. Cancellation intent is recorded before the
+playback stop is attempted, so a stop failure cannot erase the request.
 
 ```dart
 static void cancel(FFplaySession session)

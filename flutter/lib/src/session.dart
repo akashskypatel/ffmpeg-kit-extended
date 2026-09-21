@@ -260,6 +260,13 @@ abstract class Session {
     _executionStarted = true;
   }
 
+  /// Whether the queue has handed this session to its executor.
+  ///
+  /// Concrete session types use this protected seam to avoid invoking
+  /// playback-specific native controls for work that was still queued.
+  @protected
+  bool get hasExecutionStarted => _executionStarted;
+
   /// Performs the platform cancellation dispatch.
   ///
   /// Kept as a protected seam so lifecycle tests can observe retry and

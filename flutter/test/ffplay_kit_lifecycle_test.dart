@@ -14,6 +14,10 @@ class _FakeFFplaySession extends FFplaySession {
   bool paused;
   int executeCalls = 0;
   int resumeCalls = 0;
+  int stopCalls = 0;
+  int cancellationDispatches = 0;
+  bool throwOnStop = false;
+  bool throwOnCancellation = false;
   final Completer<void> execution = Completer<void>();
 
   @override
@@ -26,6 +30,22 @@ class _FakeFFplaySession extends FFplaySession {
   void resume() {
     resumeCalls++;
     paused = false;
+  }
+
+  void submit() => claimExecutionSubmission();
+
+  void markStartedForTest() => markExecutionStarted();
+
+  @override
+  void dispatchNativeCancellation() {
+    cancellationDispatches++;
+    if (throwOnCancellation) throw StateError('cancellation failed');
+  }
+
+  @override
+  void stop() {
+    stopCalls++;
+    if (throwOnStop) throw StateError('stop failed');
   }
 
   @override
@@ -106,4 +126,28 @@ void main() {
       expect(terminal.resumeCalls, 0);
     },
   );
+
+  test('cancellation is latched before a fallible FFplay stop', () {
+    final session = _FakeFFplaySession(SessionState.created);
+    session.submit();
+    session.state = SessionState.running;
+    session.markStartedForTest();
+    session.throwOnStop = true;
+
+    expect(session.cancel, throwsStateError);
+    expect(session.isCancelled, isTrue);
+    expect(session.cancellationDispatches, 1);
+    expect(session.stopCalls, 1);
+  });
+
+  test('pre-start cancellation does not invoke FFplay stop', () {
+    final session = _FakeFFplaySession(SessionState.created);
+    session.submit();
+
+    session.cancel();
+
+    expect(session.isCancelled, isTrue);
+    expect(session.stopCalls, 0);
+    expect(session.cancellationDispatches, 0);
+  });
 }

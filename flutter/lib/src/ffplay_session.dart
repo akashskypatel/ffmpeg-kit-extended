@@ -395,11 +395,44 @@ class FFplaySession extends Session {
     }
   }
 
-  /// Cancels session — stops playback then delegates to [Session.cancel].
+  /// Cancels the session and stops playback after cancellation is recorded.
+  ///
+  /// [Session.cancel] records intent before it performs fallible state or
+  /// native work. The playback-specific stop is only relevant after the queue
+  /// has handed the session to its executor; a stop failure never erases the
+  /// cancellation request or replaces an earlier cancellation failure.
   @override
   void cancel() {
-    stop();
-    super.cancel();
+    Object? primaryError;
+    StackTrace? primaryStackTrace;
+
+    try {
+      super.cancel();
+    } catch (error, stackTrace) {
+      primaryError = error;
+      primaryStackTrace = stackTrace;
+    }
+
+    if (hasExecutionStarted) {
+      try {
+        stop();
+      } catch (error, stackTrace) {
+        if (primaryError == null) {
+          primaryError = error;
+          primaryStackTrace = stackTrace;
+        } else {
+          log(
+            'FFplaySession.cancel: stop failed after cancellation error',
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
+      }
+    }
+
+    if (primaryError != null) {
+      Error.throwWithStackTrace(primaryError, primaryStackTrace!);
+    }
   }
 
   /// Seeks to [seconds] from the start of the media.
