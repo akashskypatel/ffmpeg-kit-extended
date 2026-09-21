@@ -4,11 +4,10 @@ import 'web_asset_paths.dart';
 
 enum WebRuntimeSelection { packagedDefault, customOverride }
 
-WebRuntimeSelection selectWebRuntime(Iterable<String> assets) {
-  return assets.contains(WebAssetPaths.overrideManifestKey)
-      ? WebRuntimeSelection.customOverride
-      : WebRuntimeSelection.packagedDefault;
-}
+WebRuntimeSelection selectWebRuntime(Iterable<String> assets) =>
+    assets.contains(WebAssetPaths.overrideManifestKey)
+        ? WebRuntimeSelection.customOverride
+        : WebRuntimeSelection.packagedDefault;
 
 void validateCustomWebRuntimeManifest(String source) {
   final decoded = jsonDecode(source);
