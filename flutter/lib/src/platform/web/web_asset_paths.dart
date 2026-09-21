@@ -14,6 +14,10 @@ final class WebAssetPaths {
   static const overrideAssetKeyRoot =
       'packages/ffmpeg_kit_extended_flutter/wasm_override';
 
+  /// The logical asset key that marks an explicit custom runtime.
+  static const overrideManifestKey =
+      '$overrideAssetKeyRoot/ffmpegkit_wasm_manifest.json';
+
   /// The browser URL root for an explicit custom runtime.
   static const overrideAssetRoot = 'assets/$overrideAssetKeyRoot';
 

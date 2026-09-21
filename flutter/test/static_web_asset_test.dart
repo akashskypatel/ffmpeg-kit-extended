@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:ffmpeg_kit_extended_flutter/src/platform/web/web_asset_paths.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/platform/web/web_runtime_selection.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -47,6 +48,47 @@ void main() {
     expect(
       WebAssetPaths.overrideAssetRoot,
       'assets/packages/ffmpeg_kit_extended_flutter/wasm_override',
+    );
+    expect(
+      WebAssetPaths.overrideManifestKey,
+      'packages/ffmpeg_kit_extended_flutter/wasm_override/'
+      'ffmpegkit_wasm_manifest.json',
+    );
+  });
+
+  test('uses asset metadata as the authoritative Web runtime selector', () {
+    expect(
+      selectWebRuntime(const <String>[]),
+      WebRuntimeSelection.packagedDefault,
+    );
+    expect(
+      selectWebRuntime(const <String>[
+        'packages/ffmpeg_kit_extended_flutter/wasm_override/ffmpegkit.mjs',
+      ]),
+      WebRuntimeSelection.packagedDefault,
+    );
+    expect(
+      selectWebRuntime(const <String>[
+        WebAssetPaths.overrideManifestKey,
+      ]),
+      WebRuntimeSelection.customOverride,
+    );
+  });
+
+  test('requires the custom manifest to identify the override root', () {
+    expect(
+      () => validateCustomWebRuntimeManifest(
+        '{"schema":1,"root":"wasm_override"}',
+      ),
+      returnsNormally,
+    );
+    expect(
+      () => validateCustomWebRuntimeManifest('{"schema":1,"root":"wasm"}'),
+      throwsFormatException,
+    );
+    expect(
+      () => validateCustomWebRuntimeManifest('not-json'),
+      throwsFormatException,
     );
   });
 

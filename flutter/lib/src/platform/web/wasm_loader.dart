@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
+import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import 'retryable_initialization.dart';
 import 'web_asset_paths.dart';
+import 'web_runtime_selection.dart';
 
 /// Loads the Emscripten module and connects ffigen_js to that module instance.
 final class WasmLoader {
@@ -81,30 +83,21 @@ final class WasmLoader {
   }
 
   Future<String> _selectAssetRoot() async {
-    try {
-      final response = await web.window.fetch(overrideManifest.toJS).toDart;
-      if (response.status == 404) return assetRoot;
-      if (!response.ok) {
-        throw StateError(
-          'Unable to inspect the custom FFmpegKit Web runtime manifest '
-          '(${response.status}).',
-        );
-      }
-      final manifest = (await response.text().toDart).toDart;
-      if (!manifest.contains('wasm_override')) {
-        throw StateError(
-          'The custom FFmpegKit Web runtime manifest does not identify '
-          'wasm_override.',
-        );
-      }
-      return overrideAssetRoot;
-    } catch (error) {
-      if (error is StateError) rethrow;
-      // A missing optional DataAsset is expected for the stable default path.
-      // The required default bridge load below still reports an unavailable
-      // application asset as a normal initialization failure.
+    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final selection = selectWebRuntime(manifest.listAssets());
+    if (selection == WebRuntimeSelection.packagedDefault) {
       return assetRoot;
     }
+
+    final manifestSource = await rootBundle.loadString(
+      WebAssetPaths.overrideManifestKey,
+    );
+    try {
+      validateCustomWebRuntimeManifest(manifestSource);
+    } on FormatException catch (error) {
+      throw StateError(error.message);
+    }
+    return overrideAssetRoot;
   }
 
   void requireInitialized() {
