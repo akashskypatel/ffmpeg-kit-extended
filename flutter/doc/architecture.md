@@ -23,7 +23,7 @@ The main shared layer is under `lib/src/`: `session.dart`, the FFmpeg/FFprobe/FF
 
 Native-only code lives under `lib/src/platform/native/` and includes `backend_native.dart`, `callback_bridge_native.dart`, `session_finalizer_native.dart`, the native loader, native FFplay surfaces, and `generated/ffmpeg_kit_bindings_native.dart`. It loads the native code asset, converts Dart strings and argument arrays to native memory, invokes the C wrapper, routes callbacks, and releases native handles.
 
-Web-only code lives under `lib/src/platform/web/` and `lib/src/web/`. `backend_web.dart` invokes `generated/ffmpeg_kit_bindings_web.dart` through `wasm_loader.dart`; `wasm_memory.dart` reads and writes the Emscripten heap; `callback_bridge_web.dart` adapts Web events; and `web/ffplay_surface_web.dart` renders copied RGBA frames. `web/ffmpegkit_bridge.mjs` supplies Emscripten runtime services and is staged beside the Wasm data asset by `hook/build.dart`.
+Web-only code lives under `lib/src/platform/web/` and `lib/src/web/`. `backend_web.dart` invokes `generated/ffmpeg_kit_bindings_web.dart` through `wasm_loader.dart`; `wasm_memory.dart` reads and writes the Emscripten heap; `callback_bridge_web.dart` adapts Web events; and `web/ffplay_surface_web.dart` renders copied RGBA frames. The default `assets/wasm/` package assets provide the ordinary Web runtime. For custom/non-default selections, `web/ffmpegkit_bridge.mjs` and its support modules are emitted beside the selected Wasm pair as `wasm_override/` DataAssets by `hook/build.dart`.
 
 Conditional exports are concentrated in the platform barrels (`ffmpeg_kit_extended_flutter_native.dart` and `ffplay_surface.dart`). Shared session/business logic must not import `dart:ffi`, `package:ffi`, JS interop, generated platform bindings, or platform surface implementations.
 
@@ -46,11 +46,11 @@ Wasm/browser verification.
 
 ## Initialization and execution
 
-Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization loads the DataAsset-delivered `ffmpegkit.mjs`/`ffmpegkit.wasm` pair and exposes the generated module to the Web backend. Successful initialization is idempotent, concurrent calls share one attempt, and a failed Web attempt can be retried. Calls made before initialization are rejected by the backend contract.
+Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization probes for the custom `wasm_override/` manifest and otherwise loads the ordinary package `wasm/` asset pair, then exposes the generated module to the Web backend. Successful initialization is idempotent, concurrent calls share one attempt, and a failed Web attempt can be retried. Calls made before initialization are rejected by the backend contract.
 
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and emits the runtime and bridge files as Flutter DataAssets. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
+The default build uses the pinned ordinary package assets. For custom/non-default Web selections, the build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and emits the runtime and bridge files plus a manifest as Flutter DataAssets under `wasm_override/`. Those selections require a toolchain with Dart DataAssets. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin

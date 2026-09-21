@@ -13,6 +13,10 @@ final class WasmLoader {
 
   static final instance = WasmLoader._();
   static const assetRoot = 'assets/packages/ffmpeg_kit_extended_flutter/wasm';
+  static const overrideAssetRoot =
+      'assets/packages/ffmpeg_kit_extended_flutter/wasm_override';
+  static const overrideManifest =
+      '$overrideAssetRoot/ffmpegkit_wasm_manifest.json';
 
   final _initialization = RetryableInitialization<JSObject>();
 
@@ -39,6 +43,7 @@ final class WasmLoader {
   }
 
   Future<JSObject> _loadModule() async {
+    final selectedAssetRoot = await _selectAssetRoot();
     final existing = globalContext.getProperty<JSAny?>(
       'ffmpegKitExtendedModuleFactory'.toJS,
     );
@@ -46,7 +51,7 @@ final class WasmLoader {
       final loaded = Completer<void>();
       final script = web.HTMLScriptElement()
         ..type = 'module'
-        ..src = '$assetRoot/ffmpegkit_bridge.mjs';
+        ..src = '$selectedAssetRoot/ffmpegkit_bridge.mjs';
       script.addEventListener(
         'load',
         ((web.Event _) => loaded.complete()).toJS,
@@ -55,7 +60,9 @@ final class WasmLoader {
       script.addEventListener(
         'error',
         ((web.Event _) => loaded.completeError(
-          StateError('Unable to load $assetRoot/ffmpegkit_bridge.mjs'),
+          StateError(
+            'Unable to load $selectedAssetRoot/ffmpegkit_bridge.mjs',
+          ),
         )).toJS,
         web.AddEventListenerOptions(once: true),
       );
@@ -72,6 +79,33 @@ final class WasmLoader {
     }
     final promise = result as JSPromise<JSObject>;
     return promise.toDart;
+  }
+
+  Future<String> _selectAssetRoot() async {
+    try {
+      final response = await web.window.fetch(overrideManifest.toJS).toDart;
+      if (response.status == 404) return assetRoot;
+      if (!response.ok) {
+        throw StateError(
+          'Unable to inspect the custom FFmpegKit Web runtime manifest '
+          '(${response.status}).',
+        );
+      }
+      final manifest = await response.text().toDart;
+      if (!manifest.contains('wasm_override')) {
+        throw StateError(
+          'The custom FFmpegKit Web runtime manifest does not identify '
+          'wasm_override.',
+        );
+      }
+      return overrideAssetRoot;
+    } catch (error) {
+      if (error is StateError) rethrow;
+      // A missing optional DataAsset is expected for the stable default path.
+      // The required default bridge load below still reports an unavailable
+      // application asset as a normal initialization failure.
+      return assetRoot;
+    }
   }
 
   void requireInitialized() {

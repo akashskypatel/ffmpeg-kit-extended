@@ -215,6 +215,10 @@ jobs:
         working-directory: flutter
         run: flutter pub get
 
+      - name: Check Dart formatting
+        working-directory: flutter
+        run: dart format --output=none --set-exit-if-changed hook test
+
       - name: Run Dart analyze
         working-directory: flutter
         run: dart analyze
@@ -227,6 +231,14 @@ jobs:
         working-directory: flutter
         run: flutter test --exclude-tags native
 
+      - name: Build stable default Flutter Web Wasm
+        working-directory: flutter/example
+        run: flutter build web --wasm
+
+      - name: Verify package publication contents
+        working-directory: flutter
+        run: dart pub publish --dry-run
+
   web-runtime-smoke:
     if: github.event.pull_request.draft == false
     name: Flutter Web Runtime Smoke
@@ -236,17 +248,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Dart DataAssets are currently available only on Flutter master. Keep
-      # the stable native/package matrix above independent of this Web gate.
-      - name: Clone Flutter SDK (master for Dart DataAssets)
+      - name: Clone Flutter SDK (stable default Web runtime)
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: master
-          channel: master
+          flutter-version: "3.47.0"
+          channel: stable
           cache: true
 
       - name: Configure Flutter Web runtime
-        run: flutter config --no-analytics --enable-dart-data-assets
+        run: flutter config --no-analytics
 
       - name: Get plugin dependencies
         working-directory: flutter
@@ -290,7 +300,7 @@ jobs:
           exit 1
 
       - name: Run Flutter Web browser smoke
-        run: node "$RUNNER_TEMP/ffmpeg-web-smoke/web_runtime_smoke.mjs" http://127.0.0.1:8080/
+        run: node "$RUNNER_TEMP/ffmpeg-web-smoke/web_runtime_smoke.mjs" http://127.0.0.1:8080/ wasm
 
       - name: Stop Flutter Web server
         if: always()
@@ -305,6 +315,84 @@ jobs:
         with:
           name: flutter-web-runtime-smoke-log
           path: ${{ runner.temp }}/ffmpeg-web-smoke/flutter-run.log
+          if-no-files-found: warn
+
+  web-custom-override-smoke:
+    if: github.event.pull_request.draft == false
+    name: Flutter Web Custom DataAsset Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Flutter SDK (master for custom DataAssets)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: master
+          channel: master
+          cache: true
+
+      - name: Configure Flutter custom DataAssets
+        run: flutter config --no-analytics --enable-dart-data-assets
+
+      - name: Get custom fixture dependencies
+        working-directory: flutter/test/fixtures/review16_custom_web_workspace
+        run: flutter pub get
+
+      - name: Build custom Web Wasm fixture
+        working-directory: flutter/test/fixtures/review16_custom_web_workspace/apps/app
+        run: flutter build web --wasm --no-pub
+
+      - name: Install headless browser
+        run: |
+          set -euo pipefail
+          smoke_dir="$RUNNER_TEMP/ffmpeg-web-custom-smoke"
+          mkdir -p "$smoke_dir"
+          npm --prefix "$smoke_dir" init --yes
+          npm --prefix "$smoke_dir" install --no-save playwright@1.52.0
+          "$smoke_dir/node_modules/.bin/playwright" install --with-deps chromium
+          cp "$GITHUB_WORKSPACE/flutter/example/web_runtime_smoke.mjs" "$smoke_dir/web_runtime_smoke.mjs"
+
+      - name: Start custom Flutter Web Wasm server
+        working-directory: flutter/test/fixtures/review16_custom_web_workspace/apps/app
+        run: |
+          set -euo pipefail
+          smoke_log="$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.log"
+          smoke_pid="$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.pid"
+          flutter run -d web-server --wasm --cross-origin-isolation \
+            --web-hostname 127.0.0.1 --web-port 8080 \
+            --target=lib/main.dart >"$smoke_log" 2>&1 &
+          echo $! >"$smoke_pid"
+          for attempt in $(seq 1 180); do
+            if ! kill -0 "$(cat "$smoke_pid")" 2>/dev/null; then
+              cat "$smoke_log"
+              exit 1
+            fi
+            if curl --fail --silent http://127.0.0.1:8080/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$smoke_log"
+          exit 1
+
+      - name: Run custom Web browser smoke
+        run: node "$RUNNER_TEMP/ffmpeg-web-custom-smoke/web_runtime_smoke.mjs" http://127.0.0.1:8080/ wasm_override
+
+      - name: Stop custom Flutter Web server
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload custom Web smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-custom-runtime-smoke-log
+          path: ${{ runner.temp }}/ffmpeg-web-custom-smoke/flutter-run.log
           if-no-files-found: warn
 
   verify-native-linux:

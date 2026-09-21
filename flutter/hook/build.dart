@@ -21,6 +21,9 @@ const String version = "0.11.2";
 const String _extractMarkerFileName = '.extract_complete';
 const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
+const String _defaultWebAssetRoot = 'wasm';
+const String _customWebAssetRoot = 'wasm_override';
+const String _customWebAssetManifest = 'ffmpegkit_wasm_manifest.json';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
@@ -71,12 +74,20 @@ Future<void> _buildWebDataAssets(
   BuildOutputBuilder output,
 ) async {
   final configResult = _loadConfig(input, output);
+  if (isDefaultWebRuntime(configResult.config)) {
+    _log(
+      'Using the ordinary package Web assets under $_defaultWebAssetRoot/ '
+      'for the default base/small/LGPL runtime.',
+    );
+    return;
+  }
   if (!input.config.buildDataAssets) {
     throw _exception(
-      'Flutter Web DataAssets are required for the Web Wasm runtime. '
-      'Use a Flutter toolchain that exposes and enables Dart DataAssets '
-      '(Flutter >=3.47.0 when supported), then run `flutter build web --wasm` '
-      'or `flutter run --wasm`.',
+      'Custom or non-default Flutter Web Wasm configuration '
+      '(${configDiagnosticSummary(configResult.config)}) requires Dart '
+      'DataAssets. This Flutter toolchain supplied buildDataAssets: false. '
+      'Use a toolchain that exposes and enables Dart DataAssets, or remove '
+      'the Web/Wasm override and use the default package runtime.',
     );
   }
   final source = await _resolveWebArtifact(
@@ -109,7 +120,7 @@ Future<void> _buildWebDataAssets(
     output.assets.data.add(
       DataAsset(
         package: packageName,
-        name: p.posix.join('wasm', name),
+        name: p.posix.join(_customWebAssetRoot, name),
         file: file.uri,
       ),
     );
@@ -134,15 +145,27 @@ Future<void> _buildWebDataAssets(
   if (!loaderSource.existsSync()) {
     throw _exception('Missing web Wasm loader: ${loaderSource.path}');
   }
+  final manifestSource = File(
+    p.fromUri(input.packageRoot.resolve('web/$_customWebAssetManifest')),
+  );
+  if (!manifestSource.existsSync()) {
+    throw _exception(
+      'Missing custom Web Wasm asset manifest: ${manifestSource.path}',
+    );
+  }
+  output.dependencies.add(manifestSource.uri);
   output.dependencies.add(bridgeSource.uri);
   output.dependencies.add(callbackRuntimeSource.uri);
   output.dependencies.add(loaderSource.uri);
   const bridgeFileName = 'ffmpegkit_bridge.mjs';
   const callbackRuntimeFileName = 'ffmpegkit_callback_runtime.mjs';
   const loaderFileName = 'ffmpegkit_loader.mjs';
-  final bridgeName = p.posix.join('wasm', bridgeFileName);
-  final callbackRuntimeName = p.posix.join('wasm', callbackRuntimeFileName);
-  final loaderName = p.posix.join('wasm', loaderFileName);
+  final bridgeName = p.posix.join(_customWebAssetRoot, bridgeFileName);
+  final callbackRuntimeName = p.posix.join(
+    _customWebAssetRoot,
+    callbackRuntimeFileName,
+  );
+  final loaderName = p.posix.join(_customWebAssetRoot, loaderFileName);
   output.assets.data.add(
     DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
   );
@@ -156,10 +179,27 @@ Future<void> _buildWebDataAssets(
   output.assets.data.add(
     DataAsset(package: packageName, name: loaderName, file: loaderSource.uri),
   );
+  output.assets.data.add(
+    DataAsset(
+      package: packageName,
+      name: p.posix.join(_customWebAssetRoot, _customWebAssetManifest),
+      file: manifestSource.uri,
+    ),
+  );
   _log(
     'Emitted ffmpegkit.mjs, ffmpegkit.wasm, loader, bridge, and callback runtime '
-    'for $packageName as Flutter Web DataAssets under wasm/',
+    'plus the runtime manifest for $packageName as Flutter Web DataAssets '
+    'under $_customWebAssetRoot/',
   );
+}
+
+@visibleForTesting
+bool isDefaultWebRuntime(dynamic config) {
+  final type = config['type']?.toString() ?? 'base';
+  final gpl = config['gpl'] == true;
+  final small = config['small'] == true;
+  final override = config['web']?.toString() ?? config['wasm']?.toString();
+  return type == 'base' && !gpl && small && override == null;
 }
 
 @visibleForTesting

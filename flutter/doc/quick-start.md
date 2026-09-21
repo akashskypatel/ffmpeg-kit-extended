@@ -89,9 +89,11 @@ The browser must report `window.crossOriginIsolated === true`.
 Custom Web/Wasm ZIPs or directories must contain exactly one runtime directory
 with both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects split or
 ambiguous runtime pairs.
-Local Web overrides may be an archive or a directory; remote Web overrides are
-HTTP(S) archive URLs. Native overrides keep their documented platform-specific
-archive formats.
+The default base/small/LGPL runtime is an ordinary package asset and works on
+stable Flutter 3.47. Local Web overrides may be an archive or a directory;
+remote Web overrides are HTTP(S) archive URLs. Custom/non-default Web
+selections require Dart DataAssets and are delivered under `wasm_override/`.
+Native overrides keep their documented platform-specific archive formats.
 
 ## Initialize the Plugin
 

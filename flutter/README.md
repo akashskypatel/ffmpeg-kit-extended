@@ -31,7 +31,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
     - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
   - **Linux**: Full video playback support with `OpenGL` integration.
     - **arm64**: `arm64` architecture currently not supported, coming soon!
-  - **Web**: Downloads the matching `wasm32` static bundle during the build hook and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
+  - **Web**: Ships the pinned default base/small/LGPL `wasm32` runtime as ordinary package assets and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
@@ -133,7 +133,7 @@ Flutter Web uses the same public API and shared session implementation as native
      # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-   **Note**: Native libraries and the WebAssembly bundle are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds use the `wasm` or `web` config override when supplied; otherwise the hook selects the bundle matching the pinned library release. No manual configuration script is required.
+   **Note**: Native libraries are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). The default Web runtime is already packaged under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`. A `wasm` or `web` override, or any non-default Web selection, uses DataAssets under `wasm_override/` and therefore requires a toolchain that exposes Dart DataAssets. No manual configuration script is required.
 
    **Dart Pub Workspaces**: Put the official `hooks.user_defines.ffmpeg_kit_extended_flutter` map in the workspace-root `pubspec.yaml`; do not rely on an app-member `hooks.user_defines` map unless the Flutter integration proves that placement is forwarded to dependency hooks. When no official userDefines are supplied, the legacy resolver considers the package-config root and in-root package entries, accepting configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root pubspec. If multiple dependent workspace roots could supply package-specific legacy configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Legacy relative local override paths resolve from the pubspec that defines them and are dependency-tracked. Flutter Web uses the workspace-root configuration as the canonical source; the hook does not guess a consuming app or write runtime files into an app's `web/` or `build/web/` directories.
 
@@ -234,7 +234,7 @@ flutter build web --wasm
 ```
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The build hook downloads and verifies the configured `wasm32` bundle, then emits the Wasm runtime, loader, callback bridge, and support modules as Flutter DataAssets. With Dart DataAssets enabled, Flutter 3.47+ delivers the same package assets for both `flutter build web --wasm` and `flutter run --wasm`; the hook does not write generated files into the consuming app's `web/` or `build/web/` directories. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
+The default base/small/LGPL runtime is delivered from the package's ordinary `wasm/` assets, so stable Flutter 3.47 can run `flutter build web --wasm` and `flutter run --wasm` without Dart DataAssets. For a custom or non-default Web selection, the build hook downloads and verifies the configured `wasm32` bundle, then emits the Wasm runtime, loader, callback bridge, callback runtime, and manifest as DataAssets under `wasm_override/`. Such selections require a Flutter toolchain with Dart DataAssets and are rejected clearly when the feature is unavailable. The hook does not write generated files into the consuming app's `web/` or `build/web/` directories. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin

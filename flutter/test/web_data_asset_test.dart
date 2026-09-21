@@ -18,21 +18,49 @@ void main() {
     if (tempRoot.existsSync()) await tempRoot.delete(recursive: true);
   });
 
-  test('rejects Web hooks when Flutter DataAssets are unavailable', () async {
+  test('uses ordinary package assets for the default Web runtime', () async {
     await expectLater(
       testBuildHook(
         mainMethod: build_hook.main,
         extensions: const [],
-        check: (_, _) {},
+        check: (input, output) {
+          expect(input.config.buildDataAssets, isFalse);
+          expect(
+            output.assets.encodedAssets.where((asset) => asset.isDataAsset),
+            isEmpty,
+          );
+        },
       ),
-      throwsA(
-        predicate<Object>(
-          (error) =>
-              error.toString().contains('Flutter Web DataAssets are required'),
-        ),
-      ),
+      completes,
     );
   });
+
+  test(
+    'rejects custom Web hooks when Flutter DataAssets are unavailable',
+    () async {
+      await expectLater(
+        testBuildHook(
+          mainMethod: build_hook.main,
+          extensions: const [],
+          userDefines: PackageUserDefines(
+            workspacePubspec: PackageUserDefinesSource(
+              defines: {'type': 'base', 'web': 'runtime'},
+              basePath: tempRoot.uri,
+            ),
+          ),
+          check: (_, _) {},
+        ),
+        throwsA(
+          predicate<Object>(
+            (error) =>
+                error.toString().contains(
+                  'Custom or non-default Flutter Web Wasm configuration',
+                ),
+          ),
+        ),
+      );
+    },
+  );
 
   test('emits the Web runtime only through Flutter DataAssets', () async {
     final workspaceRoot = Directory(p.join(tempRoot.path, 'workspace'))
@@ -62,14 +90,15 @@ void main() {
         expect(
           assets.map((asset) => asset.name).toSet(),
           equals({
-            'wasm/ffmpegkit.mjs',
-            'wasm/ffmpegkit.wasm',
-            'wasm/ffmpegkit_bridge.mjs',
-            'wasm/ffmpegkit_callback_runtime.mjs',
-            'wasm/ffmpegkit_loader.mjs',
+            'wasm_override/ffmpegkit.mjs',
+            'wasm_override/ffmpegkit.wasm',
+            'wasm_override/ffmpegkit_bridge.mjs',
+            'wasm_override/ffmpegkit_callback_runtime.mjs',
+            'wasm_override/ffmpegkit_loader.mjs',
+            'wasm_override/ffmpegkit_wasm_manifest.json',
           }),
         );
-        expect(assets, hasLength(5));
+        expect(assets, hasLength(6));
         expect(input.config.buildDataAssets, isTrue);
         expect(
           output.dependencies,
@@ -77,6 +106,7 @@ void main() {
             input.packageRoot.resolve('web/ffmpegkit_bridge.mjs'),
             input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs'),
             input.packageRoot.resolve('web/ffmpegkit_loader.mjs'),
+            input.packageRoot.resolve('web/ffmpegkit_wasm_manifest.json'),
           ]),
         );
         expect(
@@ -88,6 +118,38 @@ void main() {
           isFalse,
         );
       },
+    );
+  });
+
+  test('classifies only base/small/LGPL without an override as default', () {
+    expect(
+      build_hook.isDefaultWebRuntime({
+        'type': 'base',
+        'gpl': false,
+        'small': true,
+      }),
+      isTrue,
+    );
+    expect(
+      build_hook.isDefaultWebRuntime({'type': 'base'}),
+      isFalse,
+    );
+    expect(
+      build_hook.isDefaultWebRuntime({
+        'type': 'base',
+        'gpl': false,
+        'small': true,
+        'wasm': 'runtime',
+      }),
+      isFalse,
+    );
+    expect(
+      build_hook.isDefaultWebRuntime({
+        'type': 'video',
+        'gpl': false,
+        'small': true,
+      }),
+      isFalse,
     );
   });
 }

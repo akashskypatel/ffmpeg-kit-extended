@@ -140,11 +140,14 @@ Cross-Origin-Embedder-Policy: require-corp
 
 Check `window.crossOriginIsolated` in the browser; it must be `true` for threaded Wasm execution.
 
-Flutter 3.47+'s enabled DataAsset pipeline is the Web runtime delivery path. The hook
-emits the two Wasm files, loader, callback bridge, and callback runtime as
-package DataAssets, so `flutter build web --wasm` and `flutter run --wasm` use
-the same package asset definitions. No generated runtime files are copied into
-the consuming app's source `web/` tree or `build/web/` output directory.
+The default base/small/LGPL Web runtime is delivered as ordinary package assets
+under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`, so stable Flutter
+3.47 can build and run it without Dart DataAssets. Custom Web/Wasm overrides
+and non-default Web selections require Dart DataAssets; the hook emits their
+Wasm files, loader, callback bridge, callback runtime, and manifest under
+`wasm_override/`, and rejects them clearly when the feature is unavailable.
+No generated runtime files are copied into the consuming app's source `web/`
+tree or `build/web/` output directory.
 
 Custom Web/Wasm ZIPs or directories must contain exactly one coherent runtime
 directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects
