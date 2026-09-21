@@ -10,6 +10,17 @@ import 'wasm_memory.dart';
 
 FFmpegKitBackend createPlatformBackend() => WebFFmpegKitBackend();
 
+/// Converts a Wasm session pointer only when the C factory returned one.
+SessionHandle requireWebSessionHandle(
+  bindings.Pointer<bindings.Void> pointer,
+  String operation,
+) {
+  if (pointer.address == 0) {
+    throw StateError('$operation returned a null session handle');
+  }
+  return SessionHandle(pointer);
+}
+
 /// Web/Wasm implementation of the platform-neutral FFmpegKit backend.
 ///
 /// Every FFmpegKit C ABI call goes through the generated ffigen_js bindings.
@@ -51,9 +62,6 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   bindings.Pointer<bindings.Void> _pointer(SessionHandle handle) =>
       handle.value as bindings.Pointer<bindings.Void>;
 
-  SessionHandle _handle(bindings.Pointer<bindings.Void> pointer) =>
-      SessionHandle(pointer);
-
   String? _stringAndFree(bindings.Pointer<bindings.Char> pointer) =>
       wasmMemory.readAndFree(pointer);
 
@@ -80,7 +88,10 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return wasmMemory.withUtf8(
       command,
-      (pointer) => _handle(bindings.ffmpeg_kit_create_session(pointer)),
+      (pointer) => requireWebSessionHandle(
+        bindings.ffmpeg_kit_create_session(pointer),
+        'ffmpeg_kit_create_session',
+      ),
     );
   }
 
@@ -89,8 +100,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return _withArguments(
       arguments,
-      (argv) => _handle(
+      (argv) => requireWebSessionHandle(
         bindings.ffmpeg_kit_create_session_from_argv(arguments.length, argv),
+        'ffmpeg_kit_create_session_from_argv',
       ),
     );
   }
@@ -100,7 +112,10 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return wasmMemory.withUtf8(
       command,
-      (pointer) => _handle(bindings.ffprobe_kit_create_session(pointer)),
+      (pointer) => requireWebSessionHandle(
+        bindings.ffprobe_kit_create_session(pointer),
+        'ffprobe_kit_create_session',
+      ),
     );
   }
 
@@ -109,8 +124,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return _withArguments(
       arguments,
-      (argv) => _handle(
+      (argv) => requireWebSessionHandle(
         bindings.ffprobe_kit_create_session_from_argv(arguments.length, argv),
+        'ffprobe_kit_create_session_from_argv',
       ),
     );
   }
@@ -120,7 +136,10 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return wasmMemory.withUtf8(
       command,
-      (pointer) => _handle(bindings.ffplay_kit_create_session(pointer)),
+      (pointer) => requireWebSessionHandle(
+        bindings.ffplay_kit_create_session(pointer),
+        'ffplay_kit_create_session',
+      ),
     );
   }
 
@@ -129,8 +148,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return _withArguments(
       arguments,
-      (argv) => _handle(
+      (argv) => requireWebSessionHandle(
         bindings.ffplay_kit_create_session_from_argv(arguments.length, argv),
+        'ffplay_kit_create_session_from_argv',
       ),
     );
   }
@@ -140,7 +160,10 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return wasmMemory.withUtf8(
       command,
-      (pointer) => _handle(bindings.media_information_create_session(pointer)),
+      (pointer) => requireWebSessionHandle(
+        bindings.media_information_create_session(pointer),
+        'media_information_create_session',
+      ),
     );
   }
 
@@ -151,11 +174,12 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     return _withArguments(
       arguments,
-      (argv) => _handle(
+      (argv) => requireWebSessionHandle(
         bindings.media_information_create_session_from_argv(
           arguments.length,
           argv,
         ),
+        'media_information_create_session_from_argv',
       ),
     );
   }
@@ -722,7 +746,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       for (var i = 0; ; i++) {
         final value = pointer[i];
         if (value.address == 0) break;
-        result.add(_handle(value));
+        result.add(requireWebSessionHandle(value, 'ffmpeg_kit_get_sessions'));
       }
       return result;
     } finally {
@@ -751,7 +775,9 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       _sessionList(bindings.ffmpeg_kit_get_media_information_sessions());
 
   SessionHandle? _optionalHandle(bindings.Pointer<bindings.Void> pointer) =>
-      pointer.address == 0 ? null : _handle(pointer);
+      pointer.address == 0
+      ? null
+      : requireWebSessionHandle(pointer, 'ffmpeg_kit_history_session_lookup');
 
   @override
   SessionHandle? getSessionById(int sessionId) =>

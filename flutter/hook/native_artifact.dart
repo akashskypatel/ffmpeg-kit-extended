@@ -59,8 +59,14 @@ void validateTargetArchitecture(OS targetOS, Architecture architecture) {
     case OS.iOS:
     case OS.macOS:
       appleArtifactArchitecture(architecture);
-    default:
+    case OS.linux:
+    case OS.windows:
       desktopArtifactArchitecture(architecture, platform: targetOS.name);
+    default:
+      throw StateError(
+        'Unsupported target OS "${targetOS.name}"; supported target OSes: '
+        'android, iOS, linux, macOS, windows.',
+      );
   }
 }
 

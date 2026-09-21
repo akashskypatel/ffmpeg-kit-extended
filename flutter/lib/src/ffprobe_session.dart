@@ -137,6 +137,7 @@ class FFprobeSession extends Session {
             _ensureRegistered();
             dispatchPendingLogs();
           },
+          onCancel: unregisterIfIdle,
         );
     return controller.stream;
   }
@@ -149,7 +150,7 @@ class FFprobeSession extends Session {
   void setCompleteCallback(FFprobeSessionCompleteCallback? completeCallback) {
     _completeCallback = completeCallback;
     if (completeCallback == null) {
-      _unregisterIfIdle();
+      unregisterIfIdle();
     } else {
       _ensureRegistered();
     }
@@ -159,7 +160,7 @@ class FFprobeSession extends Session {
   void setLogCallback(FFmpegLogCallback? logCallback) {
     _logCallback = logCallback;
     if (logCallback == null) {
-      _unregisterIfIdle();
+      unregisterIfIdle();
     } else {
       _ensureRegistered();
     }
@@ -168,13 +169,13 @@ class FFprobeSession extends Session {
   /// Clears the completion callback and unregisters from [CallbackManager].
   void removeCompleteCallback() {
     _completeCallback = null;
-    _unregisterIfIdle();
+    unregisterIfIdle();
   }
 
   /// Clears the log callback.
   void removeLogCallback() {
     _logCallback = null;
-    _unregisterIfIdle();
+    unregisterIfIdle();
   }
 
   // ---------------------------------------------------------------------------
@@ -543,11 +544,13 @@ class FFprobeSession extends Session {
   /// Backwards-compatible alias used throughout this file.
   void _unregister() => unregister();
 
-  void _unregisterIfIdle() {
+  @protected
+  void unregisterIfIdle() {
     if (_completeCallback == null &&
         _logCallback == null &&
-        !(_logBatchStreamController?.hasListener ?? false)) {
-      _unregister();
+        !(_logBatchStreamController?.hasListener ?? false) &&
+        !hasPendingExecutionRouting) {
+      unregister();
     }
   }
 }

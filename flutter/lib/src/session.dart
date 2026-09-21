@@ -204,10 +204,10 @@ abstract class Session {
   /// Disposal is deterministic, idempotent, and valid for sessions that have
   /// completed, been cancelled, or were never executed. The cleanup order is
   /// `releaseHandle` -> disposed-state commit -> finalizer detach -> execution
-  /// error-handler clear -> [onDispose]. Native finalizer attachment is
-  /// detached after the native handle release commits, while Web uses this
-  /// explicit path because it has no native-finalizer equivalent. A failed
-  /// native release leaves the session retryable.
+  /// error-handler clear -> [onDispose]. Native and Web finalizers are
+  /// detached after the handle release commits; Web also has a GC safety net
+  /// while explicit disposal remains deterministic. A failed native release
+  /// leaves the session retryable.
   ///
   /// Dispose a running session only when cancellation/release semantics of the
   /// selected backend are acceptable to the caller. The native wrapper cancels
@@ -277,6 +277,14 @@ abstract class Session {
   /// Whether the queue-owned execution has reached its terminal handoff.
   @protected
   bool get hasExecutionSettled => _executionSettled;
+
+  /// Whether a submitted execution still owns callback routing.
+  ///
+  /// Callback sinks may be removed while a queued or running execution is
+  /// still waiting for its completion event.  The session must remain in the
+  /// callback map until that execution settles.
+  @protected
+  bool get hasPendingExecutionRouting => _submitted && !_executionSettled;
 
   /// Claims the single completion-callback dispatch for this session.
   ///

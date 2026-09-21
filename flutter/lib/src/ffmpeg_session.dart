@@ -245,6 +245,7 @@ class FFmpegSession extends Session {
             _ensureRegistered();
             dispatchPendingLogs();
           },
+          onCancel: _unregisterIfIdle,
         );
     return controller.stream;
   }
@@ -688,7 +689,8 @@ class FFmpegSession extends Session {
     if (_completeCallback == null &&
         _logCallback == null &&
         _statisticsCallback == null &&
-        !(_logBatchStreamController?.hasListener ?? false)) {
+        !(_logBatchStreamController?.hasListener ?? false) &&
+        !hasPendingExecutionRouting) {
       _unregister();
     }
   }

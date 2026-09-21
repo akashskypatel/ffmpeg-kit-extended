@@ -737,9 +737,15 @@ class FFmpegKitExtended {
         return FFplaySession.fromHandle(handle, cmd);
       }
 
-      // Unknown type — fall back to FFmpegSession as the most general wrapper.
-      ownershipDelegated = true;
-      return FFmpegSession.fromHandle(handle, cmd);
+      // Unknown type is not safe to wrap as FFmpeg: the subclass controls
+      // callback routing, cleanup, and native operations. Release the still-
+      // untransferred token and fail closed with the classification evidence.
+      duplicateReleaseAttempted = true;
+      _releaseUntransferredHandle(handle);
+      throw StateError(
+        'Session $sessionId returned an unknown native session type; '
+        'refusing to adopt its handle.',
+      );
     } catch (error, stackTrace) {
       if (!ownershipDelegated && !duplicateReleaseAttempted) {
         _releaseUntransferredHandle(handle);

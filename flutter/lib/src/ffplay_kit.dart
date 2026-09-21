@@ -58,7 +58,7 @@ class FFplayKit {
       _activeFFplaySession!.setLogCallback(onLog);
     }
     final session = _activeFFplaySession!;
-    _startTrackedExecution(session);
+    await _startTrackedExecution(session, propagateStartupError: true);
     return session;
   }
 
@@ -160,7 +160,7 @@ class FFplayKit {
     try {
       switch (session.getState()) {
         case SessionState.created:
-          _startTrackedExecution(session);
+          unawaited(_startTrackedExecution(session));
         case SessionState.running:
           if (session.isPaused()) session.resume();
         case SessionState.completed:
@@ -176,24 +176,49 @@ class FFplayKit {
     }
   }
 
-  static void _startTrackedExecution(FFplaySession session) {
+  static Future<void> _startTrackedExecution(
+    FFplaySession session, {
+    bool propagateStartupError = false,
+  }) async {
     if (!_trackedExecutions.add(session)) return;
-    unawaited(() async {
-      try {
-        await session.executeAsync();
-      } catch (error, stackTrace) {
-        log(
-          'FFplayKit: tracked execution failed for session ${session.sessionId}',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      } finally {
-        _trackedExecutions.remove(session);
-        if (identical(_activeFFplaySession, session)) {
-          _activeFFplaySession = null;
-        }
+
+    try {
+      await session.executeAsync();
+    } catch (error, stackTrace) {
+      log(
+        'FFplayKit: tracked startup failed for session ${session.sessionId}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _trackedExecutions.remove(session);
+      if (identical(_activeFFplaySession, session)) {
+        _activeFFplaySession = null;
       }
-    }());
+      if (propagateStartupError) {
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+      return;
+    }
+
+    unawaited(_finishTrackedExecution(session));
+  }
+
+  static Future<void> _finishTrackedExecution(FFplaySession session) async {
+    try {
+      final completion = session.executionFutureForTracking;
+      if (completion != null) await completion;
+    } catch (error, stackTrace) {
+      log(
+        'FFplayKit: tracked execution failed for session ${session.sessionId}',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      _trackedExecutions.remove(session);
+      if (identical(_activeFFplaySession, session)) {
+        _activeFFplaySession = null;
+      }
+    }
   }
 
   static void _clearCurrentIfUntracked(FFplaySession session) {

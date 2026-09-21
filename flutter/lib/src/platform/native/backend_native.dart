@@ -1,6 +1,7 @@
 import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
 
 import '../../generated/ffmpeg_kit_bindings_native.dart' as bindings;
 import '../backend.dart';
@@ -8,6 +9,22 @@ import 'callback_bridge_native.dart';
 import 'ffmpeg_kit_extended_flutter_loader.dart';
 
 FFmpegKitBackend createPlatformBackend() => NativeFFmpegKitBackend();
+
+/// Converts a native session pointer only when the C factory returned one.
+///
+/// A zero pointer is an allocation failure, not a valid session wrapper. Keep
+/// this check at the backend boundary so every native factory has the same
+/// fail-closed contract.
+@visibleForTesting
+SessionHandle requireNativeSessionHandle(
+  Pointer<Void> pointer,
+  String operation,
+) {
+  if (pointer.address == 0) {
+    throw StateError('$operation returned a null session handle');
+  }
+  return SessionHandle(pointer);
+}
 
 final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   @override
@@ -42,8 +59,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     final commandPointer = command.toNativeUtf8(allocator: calloc);
     try {
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.ffmpeg_kit_create_session(commandPointer.cast()),
+        'ffmpeg_kit_create_session',
       );
     } finally {
       calloc.free(commandPointer);
@@ -61,8 +79,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
         strings.add(value);
         argv[i] = value.cast();
       }
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.ffmpeg_kit_create_session_from_argv(arguments.length, argv),
+        'ffmpeg_kit_create_session_from_argv',
       );
     } finally {
       for (final value in strings) {
@@ -77,8 +96,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     final commandPointer = command.toNativeUtf8(allocator: calloc);
     try {
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.ffprobe_kit_create_session(commandPointer.cast()),
+        'ffprobe_kit_create_session',
       );
     } finally {
       calloc.free(commandPointer);
@@ -96,8 +116,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
         strings.add(value);
         argv[i] = value.cast();
       }
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.ffprobe_kit_create_session_from_argv(arguments.length, argv),
+        'ffprobe_kit_create_session_from_argv',
       );
     } finally {
       for (final value in strings) {
@@ -112,8 +133,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     final commandPointer = command.toNativeUtf8(allocator: calloc);
     try {
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.ffplay_kit_create_session(commandPointer.cast()),
+        'ffplay_kit_create_session',
       );
     } finally {
       calloc.free(commandPointer);
@@ -131,8 +153,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
         strings.add(value);
         argv[i] = value.cast();
       }
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.ffplay_kit_create_session_from_argv(arguments.length, argv),
+        'ffplay_kit_create_session_from_argv',
       );
     } finally {
       for (final value in strings) {
@@ -147,8 +170,9 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
     requireInitialized();
     final commandPointer = command.toNativeUtf8(allocator: calloc);
     try {
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.media_information_create_session(commandPointer.cast()),
+        'media_information_create_session',
       );
     } finally {
       calloc.free(commandPointer);
@@ -168,11 +192,12 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
         strings.add(value);
         argv[i] = value.cast();
       }
-      return SessionHandle(
+      return requireNativeSessionHandle(
         bindings.media_information_create_session_from_argv(
           arguments.length,
           argv,
         ),
+        'media_information_create_session_from_argv',
       );
     } finally {
       for (final value in strings) {

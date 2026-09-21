@@ -7,6 +7,7 @@ import 'package:ffmpeg_kit_extended_flutter/src/ffplay_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffprobe_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/media_information_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/platform/native/backend_native.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/native/ffmpeg_kit_extended_flutter_loader.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/native/session_finalizer_native.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/session_finalizer.dart';
@@ -96,6 +97,13 @@ class _NoopFFmpegSession extends FFmpegSession {
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  SessionState executionStateForSubmission() => SessionState.created;
+
+  void submitForTest() => claimExecutionSubmission();
+
+  void settleForTest() => markExecutionSettled();
 }
 
 class _NoopFFprobeSession extends FFprobeSession {
@@ -103,6 +111,13 @@ class _NoopFFprobeSession extends FFprobeSession {
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  SessionState executionStateForSubmission() => SessionState.created;
+
+  void submitForTest() => claimExecutionSubmission();
+
+  void settleForTest() => markExecutionSettled();
 }
 
 class _NoopFFplaySession extends FFplaySession {
@@ -110,6 +125,13 @@ class _NoopFFplaySession extends FFplaySession {
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  SessionState executionStateForSubmission() => SessionState.created;
+
+  void submitForTest() => claimExecutionSubmission();
+
+  void settleForTest() => markExecutionSettled();
 }
 
 class _NoopMediaInformationSession extends MediaInformationSession {
@@ -118,6 +140,13 @@ class _NoopMediaInformationSession extends MediaInformationSession {
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  SessionState executionStateForSubmission() => SessionState.created;
+
+  void submitForTest() => claimExecutionSubmission();
+
+  void settleForTest() => markExecutionSettled();
 }
 
 void main() {
@@ -150,6 +179,28 @@ void main() {
   });
 
   group('Session lifetime', () {
+    test('native session factories reject null handles', () {
+      expect(
+        () => requireNativeSessionHandle(
+          Pointer<Void>.fromAddress(0),
+          'test_create_session',
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('test_create_session returned a null session handle'),
+          ),
+        ),
+      );
+
+      final handle = requireNativeSessionHandle(
+        Pointer<Void>.fromAddress(1),
+        'test_create_session',
+      );
+      expect((handle.value as Pointer<Void>).address, 1);
+    });
+
     test(
       'disposes once, detaches finalizer, and rejects later handle queries',
       () {
@@ -449,10 +500,57 @@ void main() {
       await Future.wait(
         subscriptions.map((subscription) => subscription.cancel()),
       );
-      ffmpeg.removeLogCallback();
-      ffprobe.removeLogCallback();
-      ffplay.removeLogCallback();
-      mediaInfo.removeMediaInfoCompleteCallback();
+
+      expect(manager.ffmpegSessions, isNot(contains(340)));
+      expect(manager.ffprobeSessions, isNot(contains(341)));
+      expect(manager.ffplaySessions, isNot(contains(342)));
+      expect(manager.mediaInformationSessions, isNot(contains(343)));
+      expect(manager.ffprobeSessions, isNot(contains(343)));
     });
+
+    test(
+      'pending execution keeps callback routing after the last sink closes',
+      () async {
+        final ffmpeg = _NoopFFmpegSession(350);
+        final ffprobe = _NoopFFprobeSession(351);
+        final ffplay = _NoopFFplaySession(352);
+        final mediaInfo = _NoopMediaInformationSession(353);
+        ffmpeg.submitForTest();
+        ffprobe.submitForTest();
+        ffplay.submitForTest();
+        mediaInfo.submitForTest();
+
+        final subscriptions = [
+          ffmpeg.logBatchStream.listen((_) {}),
+          ffprobe.logBatchStream.listen((_) {}),
+          ffplay.logBatchStream.listen((_) {}),
+          mediaInfo.logBatchStream.listen((_) {}),
+        ];
+        await Future.wait(
+          subscriptions.map((subscription) => subscription.cancel()),
+        );
+
+        expect(manager.ffmpegSessions, contains(350));
+        expect(manager.ffprobeSessions, contains(351));
+        expect(manager.ffplaySessions, contains(352));
+        expect(manager.mediaInformationSessions, contains(353));
+        expect(manager.ffprobeSessions, contains(353));
+
+        ffmpeg.settleForTest();
+        ffprobe.settleForTest();
+        ffplay.settleForTest();
+        mediaInfo.settleForTest();
+        ffmpeg.removeLogCallback();
+        ffprobe.removeLogCallback();
+        ffplay.removeLogCallback();
+        mediaInfo.removeMediaInfoCompleteCallback();
+
+        expect(manager.ffmpegSessions, isNot(contains(350)));
+        expect(manager.ffprobeSessions, isNot(contains(351)));
+        expect(manager.ffplaySessions, isNot(contains(352)));
+        expect(manager.mediaInformationSessions, isNot(contains(353)));
+        expect(manager.ffprobeSessions, isNot(contains(353)));
+      },
+    );
   });
 }

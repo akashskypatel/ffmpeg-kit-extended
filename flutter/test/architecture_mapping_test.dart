@@ -99,4 +99,21 @@ void main() {
       returnsNormally,
     );
   });
+
+  test('rejects unsupported target operating systems explicitly', () {
+    final supported = [OS.android, OS.iOS, OS.linux, OS.macOS, OS.windows];
+    for (final targetOS in OS.values) {
+      if (supported.any((value) => value == targetOS)) continue;
+      expect(
+        () => validateTargetArchitecture(targetOS, Architecture.x64),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains(targetOS.name), contains('supported target OSes')),
+          ),
+        ),
+      );
+    }
+  });
 }

@@ -86,6 +86,7 @@ class FFplaySession extends Session {
   StreamController<(int, int)> _videoSizeController =
       StreamController<(int, int)>.broadcast();
   Timer? _videoSizeTimer;
+  Future<void>? _executionFutureForTracking;
 
   // ---------------------------------------------------------------------------
   // Constructors
@@ -258,6 +259,7 @@ class FFplaySession extends Session {
             _ensureRegistered();
             dispatchPendingLogs();
           },
+          onCancel: _unregisterIfIdle,
         );
     return controller.stream;
   }
@@ -570,8 +572,9 @@ class FFplaySession extends Session {
     completeCallback: completeCallback,
   ).executeAsync(logCallback: logCallback);
 
-  /// Executes this session asynchronously and returns a [Future] that
-  /// resolves once playback finishes or is cancelled.
+  /// Executes this session asynchronously and returns after native startup has
+  /// been handed off. Playback continues under the queue's completion
+  /// lifecycle; use the completion callback for end-of-playback notification.
   Future<FFplaySession> executeAsync({
     int? timeout,
     FFplaySessionCompleteCallback? completeCallback,
@@ -583,9 +586,20 @@ class FFplaySession extends Session {
     if (logCallback != null) _logCallback = logCallback;
     _ensureRegistered();
 
-    await SessionQueueManager().executeSession(this, _runAsync);
+    final startup = Completer<void>();
+    final execution = SessionQueueManager().executeSession(
+      this,
+      () => _runAsync(startup),
+    );
+    _executionFutureForTracking = execution;
+    unawaited(_observeQueuedExecution(execution, startup));
+    await startup.future;
     return this;
   }
+
+  /// The queue-owned completion future used by [FFplayKit] to retain global
+  /// ownership after the startup handoff returned from [executeAsync].
+  Future<void>? get executionFutureForTracking => _executionFutureForTracking;
 
   // ---------------------------------------------------------------------------
   // Playback properties
@@ -785,7 +799,7 @@ class FFplaySession extends Session {
   // ---------------------------------------------------------------------------
 
   /// Core async execution body, called by [executeAsync] through the queue.
-  Future<void> _runAsync() async {
+  Future<void> _runAsync(Completer<void> startup) async {
     final sessionCompleter = Completer<void>();
     trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;
@@ -860,6 +874,7 @@ class FFplaySession extends Session {
       // never fire against a not-yet-started session during queue delays.
       _startPositionStream();
       _startVideoSizeStream();
+      if (!startup.isCompleted) startup.complete();
     } catch (e, st) {
       log(
         'FFplaySession: error starting async session ffplay_kit_session_execute_async $sessionId',
@@ -872,11 +887,25 @@ class FFplaySession extends Session {
       _unregister();
       _stopPositionStream();
       _stopVideoSizeStream();
+      if (!startup.isCompleted) startup.completeError(e, st);
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
 
     await sessionCompleter.future;
+  }
+
+  Future<void> _observeQueuedExecution(
+    Future<void> execution,
+    Completer<void> startup,
+  ) async {
+    try {
+      await execution;
+    } catch (error, stackTrace) {
+      if (!startup.isCompleted) {
+        startup.completeError(error, stackTrace);
+      }
+    }
   }
 
   /// Ensures session is registered with the callback manager.
@@ -973,7 +1002,8 @@ class FFplaySession extends Session {
   void _unregisterIfIdle() {
     if (_completeCallback == null &&
         _logCallback == null &&
-        !(_logBatchStreamController?.hasListener ?? false)) {
+        !(_logBatchStreamController?.hasListener ?? false) &&
+        !hasPendingExecutionRouting) {
       _unregister();
     }
   }

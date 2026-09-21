@@ -103,7 +103,7 @@ class MediaInformationSession extends FFprobeSession {
   ) {
     _mediaInfoCompleteCallback = cb;
     if (cb == null) {
-      _unregisterIfIdle();
+      unregisterIfIdle();
     } else {
       ensureRegistered();
     }
@@ -113,7 +113,7 @@ class MediaInformationSession extends FFprobeSession {
   /// if no other log-delivery sinks remain attached.
   void removeMediaInfoCompleteCallback() {
     _mediaInfoCompleteCallback = null;
-    _unregisterIfIdle();
+    unregisterIfIdle();
   }
 
   /// Kept for API compatibility with callers that hold an [FFprobeSession]
@@ -686,8 +686,12 @@ class MediaInformationSession extends FFprobeSession {
 
   /// Unregisters this session only if no complete callback or log-delivery
   /// sink (log callback / batch stream listener) remains attached.
-  void _unregisterIfIdle() {
-    if (_mediaInfoCompleteCallback == null && !hasActiveLogDelivery) {
+  @override
+  @protected
+  void unregisterIfIdle() {
+    if (_mediaInfoCompleteCallback == null &&
+        !hasActiveLogDelivery &&
+        !hasPendingExecutionRouting) {
       unregister();
     }
   }
