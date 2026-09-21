@@ -125,3 +125,7 @@ Disposal follows the same ownership boundary: native release is the commit
 point. Release failure leaves the session live and retryable; finalizer detach
 and Dart cleanup happen only after release succeeds, and later cleanup errors
 cannot roll back or repeat the native release.
+
+FFplayKit ownership follows Future settlement rather than only the completion
+callback. The newest active session remains current until its tracked
+execution settles, and an older session cannot clear a newer one.

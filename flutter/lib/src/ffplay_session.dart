@@ -86,6 +86,15 @@ class FFplaySession extends Session {
   // Constructors
   // ---------------------------------------------------------------------------
 
+  /// Creates an in-memory session for package lifecycle tests.
+  FFplaySession.test({int sessionId = 1})
+    : _timeout = 500,
+      super.noFinalizer() {
+    handle = const SessionHandle(Object());
+    this.sessionId = sessionId;
+    command = 'test';
+  }
+
   /// Restores an [FFplaySession] from existing native [handle].
   /// Used internally when wrapping handles from session-history API.
   /// No callbacks registered; call [setCompleteCallback] if needed.

@@ -836,3 +836,8 @@ result.
 If native release fails, the handle and finalizer remain available for a later
 retry; cleanup failures after a successful release do not cause a second
 native release.
+
+`FFplayKit.executeAsync` returns a live session after scheduling and clears
+`currentSession` when the execution Future settles, including startup and
+transport failures. `FFplayKit.start` starts a Created global session or
+resumes a paused session; it does not re-execute an already submitted session.

@@ -613,3 +613,10 @@ Future<void> _safeVideoPlayback(String path) async {
 4. **Use streams for real-time updates**
 5. **Test on all target platforms**
 6. **Monitor memory usage on mobile devices**
+
+## FFplayKit ownership
+
+The high-level FFplay session remains the current session until its execution
+Future settles. Completion callbacks are user notifications and are not the
+sole ownership signal. `start()` submits a Created global session or resumes a
+paused Running session without re-executing an already submitted session.

@@ -483,3 +483,11 @@ void _debugPlaybackState() {
 ## Complete Example
 
 See the `flutter/example/` directory for a complete working video player implementation that demonstrates all features discussed in this guide.
+
+### FFplayKit lifecycle
+
+`FFplayKit.executeAsync` returns the live session after scheduling. The global
+`currentSession` remains set until the tracked execution Future settles,
+including startup and transport failures. `FFplayKit.start` starts a Created
+global session or resumes a paused session; it does not submit an already
+executing or terminal session again.
