@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
+import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 const _smokeMediaPath = '/review16-custom-smoke.mp4';
@@ -81,9 +81,7 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(body: Center(child: SelectableText(_statuses.join('\n')))),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+    home: Scaffold(body: Center(child: SelectableText(_statuses.join('\n')))),
+  );
 }
