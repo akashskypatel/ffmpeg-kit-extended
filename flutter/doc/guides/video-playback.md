@@ -494,3 +494,6 @@ executing or terminal session again.
 `FFplaySession.cancel()` records the cancellation request before stopping
 playback. If stopping fails, the request remains visible through
 `isCancelled`; queued or pre-start sessions skip the playback stop call.
+The global `currentSession` is cleared after a successful cancel or close only
+for an untracked session. A tracked execution remains current until its
+execution Future settles, including a failed close attempt.

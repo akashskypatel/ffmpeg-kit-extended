@@ -15,8 +15,10 @@ class _FakeFFplaySession extends FFplaySession {
   int executeCalls = 0;
   int resumeCalls = 0;
   int stopCalls = 0;
+  int closeCalls = 0;
   int cancellationDispatches = 0;
   bool throwOnStop = false;
+  bool throwOnClose = false;
   bool throwOnCancellation = false;
   final Completer<void> execution = Completer<void>();
 
@@ -46,6 +48,12 @@ class _FakeFFplaySession extends FFplaySession {
   void stop() {
     stopCalls++;
     if (throwOnStop) throw StateError('stop failed');
+  }
+
+  @override
+  void close() {
+    closeCalls++;
+    if (throwOnClose) throw StateError('close failed');
   }
 
   @override
@@ -150,4 +158,47 @@ void main() {
     expect(session.stopCalls, 0);
     expect(session.cancellationDispatches, 0);
   });
+
+  test('successful cancellation clears an untracked current session', () {
+    final session = _FakeFFplaySession(SessionState.created);
+    FFplayKit.setCurrentSessionForTest(session);
+
+    FFplayKit.cancel(session);
+
+    expect(FFplayKit.currentSession, isNull);
+  });
+
+  test(
+    'tracked cancellation retains current ownership until settlement',
+    () async {
+      final session = _FakeFFplaySession(SessionState.created);
+      FFplayKit.trackExecutionForTest(session, session.executeAsync);
+
+      FFplayKit.cancel(session);
+      expect(FFplayKit.currentSession, same(session));
+
+      session.execution.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(FFplayKit.currentSession, isNull);
+    },
+  );
+
+  test(
+    'successful close clears current ownership but failed close does not',
+    () {
+      final session = _FakeFFplaySession(SessionState.created);
+      FFplayKit.setCurrentSessionForTest(session);
+
+      FFplayKit.close();
+      expect(session.closeCalls, 1);
+      expect(FFplayKit.currentSession, isNull);
+
+      final failed = _FakeFFplaySession(SessionState.created);
+      failed.throwOnClose = true;
+      FFplayKit.setCurrentSessionForTest(failed);
+
+      expect(FFplayKit.close, throwsStateError);
+      expect(FFplayKit.currentSession, same(failed));
+    },
+  );
 }

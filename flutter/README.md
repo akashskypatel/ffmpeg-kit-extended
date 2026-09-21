@@ -854,3 +854,6 @@ resumes a paused session; it does not re-execute an already submitted session.
 Calling `FFplaySession.cancel()` records cancellation before its playback stop
 operation. A stop failure therefore cannot erase the cancellation request, and
 queued or pre-start sessions do not invoke the playback stop control.
+`FFplayKit.cancel()` and `FFplayKit.close()` clear the global current session
+only after their operation succeeds and only when no tracked execution is
+pending; tracked sessions remain current until their execution Future settles.

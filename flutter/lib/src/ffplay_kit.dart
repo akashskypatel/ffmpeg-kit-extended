@@ -104,7 +104,14 @@ class FFplayKit {
   }
 
   /// Cancels a [session] if it is currently running.
-  static void cancel(FFplaySession session) => session.cancel();
+  ///
+  /// An untracked session that was never handed to an executor is no longer
+  /// current after cancellation succeeds. Tracked executions retain global
+  /// ownership until their execution Future settles.
+  static void cancel(FFplaySession session) {
+    session.cancel();
+    _clearCurrentIfUntracked(session);
+  }
 
   /// Returns the current active [FFplaySession], if any.
   static FFplaySession? getCurrentSession() => _activeFFplaySession;
@@ -185,6 +192,13 @@ class FFplayKit {
     }());
   }
 
+  static void _clearCurrentIfUntracked(FFplaySession session) {
+    if (identical(_activeFFplaySession, session) &&
+        !_trackedExecutions.contains(session)) {
+      _activeFFplaySession = null;
+    }
+  }
+
   /// Installs a test session and tracks a supplied execution Future.
   @visibleForTesting
   static void trackExecutionForTest(
@@ -256,8 +270,10 @@ class FFplayKit {
 
   /// Closes the active session and releases resources.
   static void close() {
-    if (_activeFFplaySession != null) {
-      _activeFFplaySession!.close();
+    final session = _activeFFplaySession;
+    if (session != null) {
+      session.close();
+      _clearCurrentIfUntracked(session);
     }
   }
 
