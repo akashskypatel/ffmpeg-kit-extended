@@ -96,10 +96,16 @@ example, `flutter build web --wasm` and a served Web application for Web asset
 validation—and do not treat `flutter test` as coverage of non-host hook
 selection.
 
+The Flutter Web runtime smoke entrypoint is
+`example/lib/web_runtime_smoke.dart`; its Playwright runner is
+`example/web_runtime_smoke.mjs`. The existing Flutter CI workflow runs that
+entrypoint through a cross-origin-isolated Web server and verifies initialization,
+FFmpeg, FFprobe, and media-information completion in a real headless browser.
+
 ## Known limitations and maintenance rules
 
 - Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.
 - Web completion, log, and statistics delivery uses generated callback pointers. The bridge requires a bundle with a usable Wasm function table and a browser deployment that supports the bundle's pthread configuration.
-- The hook’s Web asset staging follows the current Flutter data-asset behavior and contains a compatibility fallback for direct build output staging.
+- The hook’s Web asset staging is DataAsset-only; it does not copy runtime files into a consuming app's source `web/` or generated `build/web/` directories.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
 - Keep platform-specific imports below the platform directories and preserve the shared backend interfaces when extending the API.
