@@ -162,6 +162,8 @@ abstract class Session {
 
   bool _disposed = false;
   bool _disposing = false;
+  bool _executionSettled = false;
+  final Completer<void> _executionSettlement = Completer<void>();
   final Set<Completer<void>> _executionCompleters = <Completer<void>>{};
   SessionExecutionErrorCallback? _executionErrorCallback;
 
@@ -307,6 +309,20 @@ abstract class Session {
   @protected
   void trackExecution(Completer<void> completer) {
     _executionCompleters.add(completer);
+  }
+
+  /// Marks the queue-owned execution as terminal.
+  ///
+  /// The queue calls this from its `finally` block for every item that was
+  /// handed to an executor. Cancellation monitoring uses the signal to stop
+  /// retrying after execution settles, even when the final native state read
+  /// failed or never reached `Running`.
+  void markExecutionSettled() {
+    if (_executionSettled) return;
+    _executionSettled = true;
+    if (!_executionSettlement.isCompleted) {
+      _executionSettlement.complete();
+    }
   }
 
   /// Registers the handler used when the platform cannot deliver a normal
@@ -786,6 +802,9 @@ abstract class Session {
         error: e,
         stackTrace: st,
       );
+      if (_executionStarted) {
+        unawaited(_monitorCancellationDispatch());
+      }
       rethrow;
     }
 
@@ -827,7 +846,10 @@ abstract class Session {
     if (_cancellationMonitorActive || !_isCancelled) return;
     _cancellationMonitorActive = true;
     try {
-      while (_isCancelled && !_nativeCancellationDispatched && !_disposed) {
+      while (_isCancelled &&
+          !_nativeCancellationDispatched &&
+          !_disposed &&
+          !_executionSettled) {
         SessionState state;
         try {
           state = executionStateForSubmission();
@@ -837,10 +859,11 @@ abstract class Session {
             error: e,
             stackTrace: st,
           );
-          await Future<void>.delayed(const Duration(milliseconds: 10));
+          await _waitForCancellationRetry();
           continue;
         }
 
+        if (_executionSettled) break;
         if (state == SessionState.completed || state == SessionState.failed) {
           break;
         }
@@ -856,12 +879,19 @@ abstract class Session {
           }
         }
         if (!_nativeCancellationDispatched) {
-          await Future<void>.delayed(const Duration(milliseconds: 10));
+          await _waitForCancellationRetry();
         }
       }
     } finally {
       _cancellationMonitorActive = false;
     }
+  }
+
+  Future<void> _waitForCancellationRetry() async {
+    await Future.any<void>(<Future<void>>[
+      _executionSettlement.future,
+      Future<void>.delayed(const Duration(milliseconds: 10)),
+    ]);
   }
 
   // ---- Session-type identity ----------------------------------------------

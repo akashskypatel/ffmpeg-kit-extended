@@ -169,6 +169,7 @@ class SessionQueueManager {
         queued.completer.completeError(error, stackTrace);
       }
     } finally {
+      queued.session.markExecutionSettled();
       _activeSessions.remove(queued.session);
       // Trigger processing for the next session in queue
       _processQueue();

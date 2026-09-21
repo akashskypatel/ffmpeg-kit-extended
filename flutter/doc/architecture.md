@@ -119,7 +119,9 @@ same native handle again. A new execution requires a new session object.
 Cancellation is latched before queue/state/native operations. Queued sessions
 are removed by identity and discarded in order-preserving fashion; a submitted
 session that is still in native startup retains its request until the state is
-`Running`, when one native cancellation is dispatched.
+`Running`, when one native cancellation is dispatched. The queue marks every
+started execution settled from its `finally` block, bounding cancellation
+handoff retries even when state reads fail or startup never reports `Running`.
 
 Disposal follows the same ownership boundary: native release is the commit
 point. Release failure leaves the session live and retryable; finalizer detach

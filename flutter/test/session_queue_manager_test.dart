@@ -6,9 +6,7 @@ import 'package:ffmpeg_kit_extended_flutter/src/session_queue_manager.dart';
 import 'package:test/test.dart';
 
 class _QueueSession extends Session {
-  _QueueSession({
-    this.throwOnDiscard = false,
-  }) : super.noFinalizer() {
+  _QueueSession({this.throwOnDiscard = false}) : super.noFinalizer() {
     handle = const SessionHandle(Object());
     sessionId = _nextId++;
     command = 'test';
@@ -18,6 +16,7 @@ class _QueueSession extends Session {
   SessionState state = SessionState.created;
   bool throwOnDiscard;
   bool throwOnStateRead = false;
+  int transientStateReadFailures = 0;
   int discarded = 0;
   int cancellationDispatches = 0;
 
@@ -26,6 +25,10 @@ class _QueueSession extends Session {
   @override
   SessionState executionStateForSubmission() {
     if (throwOnStateRead) throw StateError('state read failed');
+    if (transientStateReadFailures > 0) {
+      transientStateReadFailures--;
+      throw StateError('transient state read failed');
+    }
     return state;
   }
 
@@ -187,6 +190,43 @@ void main() {
       await future;
     },
   );
+
+  test('state-read retry dispatches while execution is live', () async {
+    final gate = Completer<void>();
+    final session = _QueueSession();
+    session.submit();
+    session.state = SessionState.running;
+    session.transientStateReadFailures = 1;
+
+    final future = queue.executeSession(session, () async {
+      await gate.future;
+    });
+
+    expect(session.cancel, throwsStateError);
+    expect(session.cancellationDispatches, 1);
+
+    gate.complete();
+    await future;
+  });
+
+  test('state-read retry stops at execution settlement', () async {
+    final gate = Completer<void>();
+    final session = _QueueSession();
+    session.submit();
+    session.throwOnStateRead = true;
+
+    final future = queue.executeSession(session, () async {
+      await gate.future;
+    });
+
+    expect(session.cancel, throwsStateError);
+    expect(session.cancellationDispatches, 0);
+
+    gate.complete();
+    await future;
+    session.state = SessionState.running;
+    expect(session.cancellationDispatches, 0);
+  });
 
   test('startup cancellation waits for Running and dispatches once', () async {
     final gate = Completer<void>();

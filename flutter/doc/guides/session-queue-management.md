@@ -89,6 +89,11 @@ queueManager.clearQueue();
 queueManager.cancelAll();
 ```
 
+Cancellation requests remain latched while a started session is handing off to
+native execution. The queue ends that retry window when the executor settles,
+including failure paths and startup paths that never report `Running`; no late
+native cancellation is dispatched after settlement.
+
 ### Waiting for Completion
 
 ```dart
