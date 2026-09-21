@@ -1225,6 +1225,39 @@ Future<bool> _downloadFile(String url, File target) async {
   }
 }
 
+const String windowsArchiveExtractionScript = r'''
+$ErrorActionPreference = 'Stop'
+Expand-Archive -LiteralPath $env:FFMPEG_KIT_ARCHIVE -DestinationPath $env:FFMPEG_KIT_DESTINATION -Force
+''';
+
+@visibleForTesting
+class WindowsArchiveExtractionInvocation {
+  final List<String> arguments;
+  final Map<String, String> environment;
+
+  WindowsArchiveExtractionInvocation({
+    required this.arguments,
+    required Map<String, String> environment,
+  }) : environment = Map.unmodifiable(environment);
+}
+
+@visibleForTesting
+WindowsArchiveExtractionInvocation buildWindowsArchiveExtractionInvocation(
+  String archivePath,
+  String destinationPath,
+) => WindowsArchiveExtractionInvocation(
+  arguments: const [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    windowsArchiveExtractionScript,
+  ],
+  environment: {
+    'FFMPEG_KIT_ARCHIVE': archivePath,
+    'FFMPEG_KIT_DESTINATION': destinationPath,
+  },
+);
+
 Future<bool> _extractFile(File zipFile, String destPath) async {
   File? tempZipFile;
   try {
@@ -1237,15 +1270,21 @@ Future<bool> _extractFile(File zipFile, String destPath) async {
         );
         zipFile = tempZipFile;
       }
-      final res = await Process.run('powershell', [
-        '-command',
-        'Expand-Archive -Path "${zipFile.path}" -DestinationPath "$destPath" -Force',
-      ]);
+      final invocation = buildWindowsArchiveExtractionInvocation(
+        zipFile.path,
+        destPath,
+      );
+      final res = await Process.run(
+        'powershell',
+        invocation.arguments,
+        environment: invocation.environment,
+        includeParentEnvironment: true,
+      );
       if (res.exitCode != 0) {
         _log(
-          'Command: Expand-Archive -Path "${zipFile.path}" -DestinationPath "$destPath" -Force',
+          'PowerShell Expand-Archive failed for ${zipFile.path} '
+          'to $destPath',
         );
-        _log('Failed to extract ${zipFile.path}');
         _log('Error: ${res.stderr}');
       }
       return res.exitCode == 0;
