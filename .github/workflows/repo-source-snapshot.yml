@@ -1,0 +1,289 @@
+name: Reusable Repository Source Snapshot
+
+on:
+  workflow_call:
+    inputs:
+      source_ref:
+        description: Exact branch, tag, or commit to snapshot. Empty uses the caller event SHA.
+        required: false
+        type: string
+        default: ""
+      artifact_prefix:
+        description: Prefix for snapshot and log artifacts.
+        required: false
+        type: string
+        default: repo-source-snapshot
+      retention_days:
+        description: Artifact retention in days.
+        required: false
+        type: number
+        default: 7
+      include_submodules:
+        description: Recursively initialize Git submodules.
+        required: false
+        type: boolean
+        default: true
+      include_lfs:
+        description: Fetch Git LFS objects during checkout.
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      snapshot_sha:
+        description: Exact checked-out source commit.
+        value: ${{ jobs.snapshot.outputs.snapshot_sha }}
+      artifact_name:
+        description: Uploaded source snapshot artifact name.
+        value: ${{ jobs.snapshot.outputs.artifact_name }}
+      artifact_id:
+        description: Uploaded source snapshot artifact ID.
+        value: ${{ jobs.snapshot.outputs.artifact_id }}
+      artifact_digest:
+        description: Digest reported by actions/upload-artifact.
+        value: ${{ jobs.snapshot.outputs.artifact_digest }}
+    secrets:
+      GH_TOKEN:
+        required: false
+
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact branch, tag, or commit to snapshot. Empty uses the dispatch SHA.
+        required: false
+        type: string
+        default: ""
+      artifact_prefix:
+        description: Prefix for snapshot and log artifacts.
+        required: false
+        type: string
+        default: repo-source-snapshot
+      retention_days:
+        description: Artifact retention in days.
+        required: false
+        type: number
+        default: 7
+      include_submodules:
+        description: Recursively initialize Git submodules.
+        required: false
+        type: boolean
+        default: true
+      include_lfs:
+        description: Fetch Git LFS objects during checkout.
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repo-source-snapshot-${{ github.repository_id }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    outputs:
+      snapshot_sha: ${{ steps.metadata.outputs.snapshot_sha }}
+      artifact_name: ${{ steps.metadata.outputs.artifact_name }}
+      artifact_id: ${{ steps.upload.outputs['artifact-id'] }}
+      artifact_digest: ${{ steps.upload.outputs['artifact-digest'] }}
+
+    steps:
+      - name: Initialize diagnostic log
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="${RUNNER_TEMP}/repo-source-snapshot.log"
+          : > "$log"
+          {
+            echo "workflow=${GITHUB_WORKFLOW}"
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "event=${GITHUB_EVENT_NAME}"
+            echo "event_sha=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF}"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "runtimeExecution=false"
+            echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } | tee -a "$log"
+
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.sha }}
+          fetch-depth: 1
+          submodules: ${{ inputs.include_submodules && 'recursive' || 'false' }}
+          lfs: ${{ inputs.include_lfs }}
+          token: ${{ secrets.GH_TOKEN || github.token }}
+          persist-credentials: false
+
+      - name: Verify recursive submodule materialization
+        if: ${{ inputs.include_submodules }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="${RUNNER_TEMP}/repo-source-snapshot.log"
+          exec > >(tee -a "$log") 2>&1
+          if git submodule status --recursive | grep -E '^-'; then
+            echo "one or more submodules are uninitialized" >&2
+            exit 2
+          fi
+          git submodule status --recursive
+
+      - name: Verify source authority
+        id: metadata
+        env:
+          REQUESTED_REF: ${{ inputs.source_ref != '' && inputs.source_ref || github.sha }}
+          ARTIFACT_PREFIX: ${{ inputs.artifact_prefix != '' && inputs.artifact_prefix || 'repo-source-snapshot' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="${RUNNER_TEMP}/repo-source-snapshot.log"
+          exec > >(tee -a "$log") 2>&1
+          trap 'status=$?; echo "verify_source_exit=${status}"' EXIT
+
+          snapshot_sha="$(git rev-parse HEAD)"
+          artifact_name="${ARTIFACT_PREFIX}-${GITHUB_RUN_ID}"
+
+          echo "requested_ref=${REQUESTED_REF}"
+          echo "snapshot_sha=${snapshot_sha}"
+          echo "git_version=$(git --version)"
+          echo "tar_version=$(tar --version | head -n 1)"
+          echo "rsync_version=$(rsync --version | head -n 1)"
+          git status --short
+
+          if [[ "${REQUESTED_REF}" =~ ^[0-9a-fA-F]{40}$ ]] && [[ "${snapshot_sha,,}" != "${REQUESTED_REF,,}" ]]; then
+            echo "exact source SHA mismatch: requested=${REQUESTED_REF}; actual=${snapshot_sha}" >&2
+            exit 3
+          fi
+
+          echo "snapshot_sha=${snapshot_sha}" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Build source snapshot archive
+        env:
+          SNAPSHOT_SHA: ${{ steps.metadata.outputs.snapshot_sha }}
+          ARTIFACT_NAME: ${{ steps.metadata.outputs.artifact_name }}
+          INCLUDE_SUBMODULES: ${{ inputs.include_submodules }}
+          INCLUDE_LFS: ${{ inputs.include_lfs }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="${RUNNER_TEMP}/repo-source-snapshot.log"
+          exec > >(tee -a "$log") 2>&1
+          trap 'status=$?; echo "snapshot_archive_exit=${status}"' EXIT
+
+          out="${RUNNER_TEMP}/repo-source-snapshot-result"
+          source_dir="${out}/source"
+          rm -rf "$out"
+          mkdir -p "$source_dir"
+
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.git/**' \
+            "${GITHUB_WORKSPACE}/" "$source_dir/"
+
+          if find "$source_dir" -name .git -print -quit | grep -q .; then
+            echo "snapshot unexpectedly contains .git metadata" >&2
+            exit 4
+          fi
+
+          (
+            cd "$out"
+            find source -type f -print0 \
+              | LC_ALL=C sort -z \
+              | xargs -0 -r sha256sum > SHA256SUMS
+
+            : > SYMLINKS.tsv
+            while IFS= read -r -d '' link; do
+              printf '%s\t%s\n' "$link" "$(readlink "$link")"
+            done < <(find source -type l -print0 | LC_ALL=C sort -z) > SYMLINKS.tsv
+
+            if [[ "$INCLUDE_SUBMODULES" == "true" ]]; then
+              git -C "$GITHUB_WORKSPACE" submodule status --recursive > SUBMODULES.txt
+            else
+              : > SUBMODULES.txt
+            fi
+
+            tar -czf source.tar.gz source
+            sha256sum source.tar.gz > source.tar.gz.sha256
+          )
+
+          file_count="$(find "$source_dir" -type f | wc -l | tr -d ' ')"
+          symlink_count="$(find "$source_dir" -type l | wc -l | tr -d ' ')"
+          byte_count="$(du -sb "$source_dir" | awk '{print $1}')"
+          archive_sha="$(awk '{print $1}' "${out}/source.tar.gz.sha256")"
+
+          jq -n \
+            --arg repository "$GITHUB_REPOSITORY" \
+            --arg event "$GITHUB_EVENT_NAME" \
+            --arg event_sha "$GITHUB_SHA" \
+            --arg snapshot_sha "$SNAPSHOT_SHA" \
+            --arg artifact_name "$ARTIFACT_NAME" \
+            --arg archive_sha256 "$archive_sha" \
+            --arg generated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson file_count "$file_count" \
+            --argjson symlink_count "$symlink_count" \
+            --argjson byte_count "$byte_count" \
+            --argjson include_submodules "$INCLUDE_SUBMODULES" \
+            --argjson include_lfs "$INCLUDE_LFS" \
+            '{
+              repository: $repository,
+              event: $event,
+              event_sha: $event_sha,
+              snapshot_sha: $snapshot_sha,
+              artifact_name: $artifact_name,
+              archive_sha256: $archive_sha256,
+              file_count: $file_count,
+              symlink_count: $symlink_count,
+              byte_count: $byte_count,
+              include_submodules: $include_submodules,
+              include_lfs: $include_lfs,
+              runtimeExecution: false,
+              generated_at: $generated_at
+            }' > "${out}/snapshot-metadata.json"
+
+          echo "snapshot_file_count=${file_count}"
+          echo "snapshot_symlink_count=${symlink_count}"
+          echo "snapshot_byte_count=${byte_count}"
+          echo "archive_sha256=${archive_sha}"
+          cat "${out}/snapshot-metadata.json"
+
+      - name: Upload source snapshot
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.metadata.outputs.artifact_name }}
+          path: |
+            ${{ runner.temp }}/repo-source-snapshot-result/source.tar.gz
+            ${{ runner.temp }}/repo-source-snapshot-result/source.tar.gz.sha256
+            ${{ runner.temp }}/repo-source-snapshot-result/SHA256SUMS
+            ${{ runner.temp }}/repo-source-snapshot-result/SYMLINKS.tsv
+            ${{ runner.temp }}/repo-source-snapshot-result/SUBMODULES.txt
+            ${{ runner.temp }}/repo-source-snapshot-result/snapshot-metadata.json
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+
+      - name: Record final source status
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          log="${RUNNER_TEMP}/repo-source-snapshot.log"
+          {
+            echo "final_job_status=${{ job.status }}"
+            echo "final_sha=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+            git status --short 2>&1 || true
+            echo "finished_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } | tee -a "$log"
+
+      - name: Upload diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix != '' && inputs.artifact_prefix || 'repo-source-snapshot' }}-log-${{ github.run_id }}
+          path: ${{ runner.temp }}/repo-source-snapshot.log
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
