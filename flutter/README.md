@@ -94,10 +94,12 @@ Flutter Web uses the same public API and shared session implementation as native
          # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-   `hooks.user_defines` is the primary configuration path. Values from the
-   workspace-root pubspec participate in Hooks cache invalidation. Relative
-   local override paths are resolved from that pubspec and registered as hook
-   dependencies.
+   `hooks.user_defines` is the primary configuration path for native and Web
+   builds. Values from the workspace-root pubspec participate in Hooks cache
+   invalidation. Relative local override paths are resolved from that pubspec
+   and registered as hook dependencies. If both configuration sources are
+   present, `hooks.user_defines` wins and the legacy resolver is not consulted;
+   this precedence is the same for every supported platform.
 
    Platform overrides may be local paths or HTTP(S) URLs. Only `http://` and
    `https://` are accepted for remote overrides; URL-like schemes such as
@@ -117,7 +119,9 @@ Flutter Web uses the same public API and shared session implementation as native
    `.xcframework`.
 
    For older applications, the legacy `ffmpeg_kit_extended_config` section is
-   still accepted as a bounded fallback:
+   still accepted as a bounded migration fallback on every supported platform.
+   It remains compatible with the existing native and Web platform override
+   keys, but it does not override an explicit `hooks.user_defines` value:
 
    ```yaml
    ffmpeg_kit_extended_config:
@@ -133,7 +137,7 @@ Flutter Web uses the same public API and shared session implementation as native
      # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-   **Note**: Native libraries are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). The default Web runtime is already packaged under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`. A `wasm` or `web` override, or any non-default Web selection, uses DataAssets under `wasm_override/` and therefore requires a toolchain that exposes Dart DataAssets. No manual configuration script is required.
+   **Note**: Native libraries are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). The default Web runtime is already packaged under `assets/packages/ffmpeg_kit_extended_flutter/assets/wasm/`. A `wasm` or `web` override, or any non-default Web selection, uses DataAssets under `wasm_override/` and therefore requires a toolchain that exposes Dart DataAssets. No manual configuration script is required.
 
    **Dart Pub Workspaces**: Put the official `hooks.user_defines.ffmpeg_kit_extended_flutter` map in the workspace-root `pubspec.yaml`; do not rely on an app-member `hooks.user_defines` map unless the Flutter integration proves that placement is forwarded to dependency hooks. When no official userDefines are supplied, the legacy resolver considers the package-config root and in-root package entries, accepting configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root pubspec. If multiple dependent workspace roots could supply package-specific legacy configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Legacy relative local override paths resolve from the pubspec that defines them and are dependency-tracked. Flutter Web uses the workspace-root configuration as the canonical source; the hook does not guess a consuming app or write runtime files into an app's `web/` or `build/web/` directories.
 

@@ -127,9 +127,9 @@ void main() {
     expect(pathReaderInvoked, isFalse);
   });
 
-  test('explicit userDefines take precedence over the legacy resolver', () {
+  test('explicit userDefines take precedence for native and Web overrides', () {
     final user = ConfigResult(
-      {'type': 'video'},
+      {'type': 'video', 'android': 'user-android', 'web': 'user-web'},
       tempRoot.path,
       source: 'hooks.user_defines',
     );
@@ -144,16 +144,24 @@ void main() {
     );
 
     expect(result.config['type'], equals('video'));
+    expect(result.config['android'], equals('user-android'));
+    expect(result.config['web'], equals('user-web'));
     expect(legacyCalled, isFalse);
   });
 
-  test('no userDefines falls back to the legacy resolver', () {
+  test('no userDefines preserves legacy native and Web compatibility', () {
     final result = selectConfigSource(
       userDefines: null,
-      legacy: () => ConfigResult({'type': 'audio'}, tempRoot.path),
+      legacy: () => ConfigResult({
+        'type': 'audio',
+        'ios': 'legacy-ios',
+        'wasm': 'legacy-wasm',
+      }, tempRoot.path),
     );
 
     expect(result.config['type'], equals('audio'));
+    expect(result.config['ios'], equals('legacy-ios'));
+    expect(result.config['wasm'], equals('legacy-wasm'));
     expect(result.source, equals('legacy ffmpeg_kit_extended_config'));
   });
 

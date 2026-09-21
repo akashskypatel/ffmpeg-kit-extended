@@ -29,8 +29,11 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
 
     **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration script is required.
 
-    `hooks.user_defines` is the primary configuration path. The legacy
-    `ffmpeg_kit_extended_config` section remains a bounded migration fallback.
+    `hooks.user_defines` is the primary configuration path for native and Web
+    builds. The legacy `ffmpeg_kit_extended_config` section remains a bounded
+    migration fallback on every supported platform. If both sources are
+    present, `hooks.user_defines` wins; this precedence is unchanged for
+    platform override keys.
     Platform overrides may be local paths or HTTP(S) URLs. Only `http://` and
     `https://` are accepted for remote overrides; URL-like schemes such as
     `ftp://` fail explicitly. When the hook executes, remote overrides are
