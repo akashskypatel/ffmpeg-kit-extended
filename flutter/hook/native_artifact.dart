@@ -32,12 +32,9 @@ File selectExactMainLibrary(
 }
 
 Directory selectAppleXcframeworkRoot(Directory extractRoot) {
-  final candidates = <Directory>[];
-  if (p.basename(extractRoot.path).endsWith('.xcframework')) {
-    candidates.add(extractRoot);
-  }
+  final nestedCandidates = <Directory>[];
   if (extractRoot.existsSync()) {
-    candidates.addAll(
+    nestedCandidates.addAll(
       extractRoot
           .listSync(recursive: true, followLinks: false)
           .whereType<Directory>()
@@ -46,6 +43,12 @@ Directory selectAppleXcframeworkRoot(Directory extractRoot) {
           ),
     );
   }
+  final candidates = nestedCandidates.isNotEmpty
+      ? nestedCandidates
+      : <Directory>[
+          if (p.basename(extractRoot.path).endsWith('.xcframework'))
+            extractRoot,
+        ];
 
   final uniqueCandidates = <String, Directory>{};
   for (final candidate in candidates) {

@@ -147,6 +147,18 @@ void main() {
     );
   });
 
+  test('archive wrapper with one nested Apple XCFramework is accepted', () {
+    final root = directory('bundle.xcframework/bundle.xcframework');
+    expect(
+      p.normalize(
+        selectAppleXcframeworkRoot(
+          Directory('${tempRoot.path}/bundle.xcframework'),
+        ).path,
+      ),
+      p.normalize(root.path),
+    );
+  });
+
   test('Apple multiple XCFramework roots are rejected', () {
     directory('one.xcframework');
     directory('nested/two.xcframework');
