@@ -110,6 +110,12 @@ Flutter Web uses the same public API and shared session implementation as native
    reuse the existing extraction. Prefer versioned or content-addressed URLs
    for reproducible builds. Local override files remain filesystem dependencies.
 
+   Native local or remote archives must preserve the platform layout: Android
+   requires `jni/<abi>/libffmpegkit.so`, Linux requires one runtime directory
+   containing `libffmpegkit.so`, Windows requires one containing
+   `libffmpegkit.dll`, and Apple archives must contain exactly one FFmpegKit
+   `.xcframework`.
+
    For older applications, the legacy `ffmpeg_kit_extended_config` section is
    still accepted as a bounded fallback:
 

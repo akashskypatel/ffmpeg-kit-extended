@@ -11,6 +11,7 @@ import 'package:yaml/yaml.dart';
 
 import 'apple.dart';
 import 'config.dart';
+import 'native_artifact.dart';
 
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
@@ -547,7 +548,12 @@ Future<FFmpegArtifact?> _resolveArtifact(
         overrideUrl: overrideUri.toString(),
         cacheDir: cacheDir,
       );
-      return await _handleDownloadedFile(targetFile, cacheDir, input);
+      return await _handleDownloadedFile(
+        targetFile,
+        cacheDir,
+        input,
+        requireAppleFramework: targetOS == OS.iOS || targetOS == OS.macOS,
+      );
     } else {
       _log('Artifact: local override $overrideUrl');
       final cacheFile = await resolveLocalOverrideToCache(
@@ -556,7 +562,12 @@ Future<FFmpegArtifact?> _resolveArtifact(
         cacheDir: cacheDir,
         addDependency: addDependency,
       );
-      return await _handleDownloadedFile(cacheFile, cacheDir, input);
+      return await _handleDownloadedFile(
+        cacheFile,
+        cacheDir,
+        input,
+        requireAppleFramework: targetOS == OS.iOS || targetOS == OS.macOS,
+      );
     }
   } else {
     final license = gpl ? 'gpl' : 'lgpl';
@@ -634,7 +645,12 @@ Future<FFmpegArtifact?> _resolveArtifact(
     _log('SHA256 verification passed');
   }
 
-  return _handleDownloadedFile(targetFile, cacheDir, input);
+  return _handleDownloadedFile(
+    targetFile,
+    cacheDir,
+    input,
+    requireAppleFramework: targetOS == OS.iOS || targetOS == OS.macOS,
+  );
 }
 
 Future<FFmpegArtifact> _handleDownloadedFile(
@@ -642,6 +658,7 @@ Future<FFmpegArtifact> _handleDownloadedFile(
   Directory cacheDir,
   BuildInput input, {
   bool useExtractionRoot = false,
+  bool requireAppleFramework = false,
 }) async {
   if (file.path.endsWith('.aar')) {
     return FFmpegArtifact(file: file, isAar: true);
@@ -652,16 +669,17 @@ Future<FFmpegArtifact> _handleDownloadedFile(
     cacheDir,
     _extractFile,
   );
-  // Auto-detect the xcframework directory inside
-  final finalExtractedDir = extractRoot
-      .listSync()
-      .whereType<Directory>()
-      .firstWhere(
-        (d) => p.basename(d.path).endsWith('.xcframework'),
-        orElse: () => Directory(
-          p.join(extractRoot.path, p.basename(extractRoot.path)),
-        ), // flat zip fallback
-      );
+  final finalExtractedDir = requireAppleFramework
+      ? selectAppleXcframeworkRoot(extractRoot)
+      : extractRoot
+            .listSync()
+            .whereType<Directory>()
+            .firstWhere(
+              (d) => p.basename(d.path).endsWith('.xcframework'),
+              orElse: () => Directory(
+                p.join(extractRoot.path, p.basename(extractRoot.path)),
+              ), // flat zip fallback
+            );
   return FFmpegArtifact(
     file: file,
     extractedDir: useExtractionRoot ? extractRoot : finalExtractedDir,
@@ -711,9 +729,10 @@ Future<void> _emitAssets(
           ..sort((a, b) => a.path.compareTo(b.path));
 
     // Identify the main ffmpegkit library and companion libraries
-    final mainLibrary = soFiles.firstWhere(
-      (file) => p.basename(file.path) == 'libffmpegkit.so',
-      orElse: () => soFiles.first,
+    final mainLibrary = selectExactMainLibrary(
+      soFiles,
+      expectedBasename: 'libffmpegkit.so',
+      platform: 'Android ABI $abi',
     );
 
     // Add the main library
@@ -813,24 +832,13 @@ Future<void> _emitAssets(
     final uniqueLibFiles = libFiles.toSet().toList()
       ..sort((a, b) => a.path.compareTo(b.path));
 
-    if (uniqueLibFiles.isEmpty) {
-      _log('No library files found in ${libDir.path}');
-      return;
-    }
-
-    // Identify the main ffmpegkit library and companion libraries
-    File mainLibrary;
-    try {
-      mainLibrary = uniqueLibFiles.firstWhere(
-        (file) => p.basename(file.path).toLowerCase().contains('ffmpegkit'),
-      );
-    } catch (e) {
-      // If no ffmpegkit library found, use the first library
-      mainLibrary = uniqueLibFiles.first;
-      _log(
-        'No ffmpegkit library found, using ${p.basename(mainLibrary.path)} as main library',
-      );
-    }
+    final expectedMainName =
+        targetOS == OS.windows ? 'libffmpegkit.dll' : 'libffmpegkit.so';
+    final mainLibrary = selectExactMainLibrary(
+      uniqueLibFiles,
+      expectedBasename: expectedMainName,
+      platform: targetOS == OS.windows ? 'Windows' : 'Linux',
+    );
 
     // Add the main library
     output.assets.code.add(
@@ -1007,7 +1015,9 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   }
 
   final infoPlist = File(p.join(resourcesDir.path, 'Info.plist'));
-  infoPlist.writeAsStringSync(_appleFrameworkInfoPlist());
+  infoPlist.writeAsStringSync(
+    _appleFrameworkInfoPlist(simulator: wantsSimulator),
+  );
 
   if (targetOS == OS.macOS) {
     _createFrameworkSymlink(
@@ -1079,8 +1089,11 @@ void _createFrameworkSymlink(
   link.createSync(target);
 }
 
-String _appleFrameworkInfoPlist() {
-  final platform = targetOS == OS.macOS ? 'MacOSX' : 'iPhoneOS';
+String _appleFrameworkInfoPlist({required bool simulator}) {
+  final platform = appleFrameworkSupportedPlatform(
+    macOS: targetOS == OS.macOS,
+    simulator: simulator,
+  );
   return '''
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
