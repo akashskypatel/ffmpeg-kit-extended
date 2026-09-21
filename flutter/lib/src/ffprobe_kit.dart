@@ -22,7 +22,11 @@ import 'callback_manager.dart' as callback_manager;
 
 /// A convenience class for executing FFprobe commands.
 class FFprobeKit {
-  /// Cancels a [session] if it is currently running.
+  /// Requests cancellation of a [session].
+  ///
+  /// The request is recorded immediately. Queued and startup sessions may not
+  /// have a native cancellation to deliver yet, and a repeated call may retry
+  /// an earlier failed delivery.
   static void cancel(FFprobeSession session) => session.cancel();
 
   /// Retrieves media information for the given [path].
@@ -30,35 +34,38 @@ class FFprobeKit {
       FFprobeSession.createMediaInformationSession(path).execute();
 
   /// Retrieves media information for the given [path] asynchronously.
-  static Future<FFprobeSession> getMediaInformationAsync(String path,
-          {callback_manager.FFprobeSessionCompleteCallback? onComplete}) =>
-      FFprobeSession.createMediaInformationSessionAsync(path,
-              onComplete: onComplete)
-          .executeAsync();
+  static Future<FFprobeSession> getMediaInformationAsync(
+    String path, {
+    callback_manager.FFprobeSessionCompleteCallback? onComplete,
+  }) => FFprobeSession.createMediaInformationSessionAsync(
+    path,
+    onComplete: onComplete,
+  ).executeAsync();
 
   /// Executes an FFprobe [command] synchronously.
   static FFprobeSession execute(String command) =>
       FFprobeSession.executeCommand(command);
 
   /// Executes an FFprobe [command] asynchronously.
-  static Future<FFprobeSession> executeAsync(String command,
-          {callback_manager.FFprobeSessionCompleteCallback? onComplete,
-          callback_manager.FFmpegLogCallback? onLog}) =>
-      FFprobeSession.executeCommandAsync(
-        command,
-        completeCallback: onComplete,
-        logCallback: onLog,
-      );
+  static Future<FFprobeSession> executeAsync(
+    String command, {
+    callback_manager.FFprobeSessionCompleteCallback? onComplete,
+    callback_manager.FFmpegLogCallback? onLog,
+  }) => FFprobeSession.executeCommandAsync(
+    command,
+    completeCallback: onComplete,
+    logCallback: onLog,
+  );
 
   /// Creates a new [FFprobeSession] without executing it.
   /// Use [execute] or [executeAsync] to execute the session.
-  static FFprobeSession createSession(String command,
-          {callback_manager.FFprobeSessionCompleteCallback? onComplete,
-          callback_manager.FFmpegLogCallback? onLog}) =>
-      FFprobeSession(
-        command,
-        completeCallback: onComplete,
-      )..setLogCallback(onLog);
+  static FFprobeSession createSession(
+    String command, {
+    callback_manager.FFprobeSessionCompleteCallback? onComplete,
+    callback_manager.FFmpegLogCallback? onLog,
+  }) =>
+      FFprobeSession(command, completeCallback: onComplete)
+        ..setLogCallback(onLog);
 
   /// Lists all active FFprobe sessions.
   static List<FFprobeSession> getFFprobeSessions() =>

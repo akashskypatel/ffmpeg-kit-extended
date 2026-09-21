@@ -33,16 +33,23 @@ class FFmpegKit {
   /// - [onComplete]: Optional callback invoked when execution completes.
   /// - [onLog]: Optional callback invoked for each log message.
   /// - [onStatistics]: Optional callback invoked for each statistics update.
-  static Future<FFmpegSession> executeAsync(String command,
-          {callback_manager.FFmpegSessionCompleteCallback? onComplete,
-          callback_manager.FFmpegLogCallback? onLog,
-          callback_manager.FFmpegStatisticsCallback? onStatistics}) =>
-      FFmpegSession.executeCommandAsync(command,
-          completeCallback: onComplete,
-          logCallback: onLog,
-          statisticsCallback: onStatistics);
+  static Future<FFmpegSession> executeAsync(
+    String command, {
+    callback_manager.FFmpegSessionCompleteCallback? onComplete,
+    callback_manager.FFmpegLogCallback? onLog,
+    callback_manager.FFmpegStatisticsCallback? onStatistics,
+  }) => FFmpegSession.executeCommandAsync(
+    command,
+    completeCallback: onComplete,
+    logCallback: onLog,
+    statisticsCallback: onStatistics,
+  );
 
-  /// Cancels a [session] if it is currently running.
+  /// Requests cancellation of a [session].
+  ///
+  /// The request is recorded immediately. Queued and startup sessions may not
+  /// have a native cancellation to deliver yet, and a repeated call may retry
+  /// an earlier failed delivery.
   static void cancel(FFmpegSession session) => session.cancel();
 
   /// Creates a new [FFmpegSession] without executing it.

@@ -122,11 +122,15 @@ session that is still in native startup retains its request until the state is
 `Running`, when one native cancellation is dispatched. The queue marks every
 started execution settled from its `finally` block, bounding cancellation
 handoff retries even when state reads fail or startup never reports `Running`.
+Repeated cancellation can retry a failed native delivery, while natural
+completion can still win the cancellation race; `isCancelled` records intent,
+not the terminal result.
 
 Disposal follows the same ownership boundary: native release is the commit
 point. Release failure leaves the session live and retryable; finalizer detach
-and Dart cleanup happen only after release succeeds, and later cleanup errors
-cannot roll back or repeat the native release.
+and Dart cleanup happen only after release succeeds. The cleanup order is
+finalizer detach, execution error-handler clear, then `onDispose()`; later
+cleanup errors cannot roll back or repeat the native release.
 
 FFplayKit ownership follows Future settlement rather than only the completion
 callback. The newest active session remains current until its tracked

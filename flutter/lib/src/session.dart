@@ -201,10 +201,12 @@ abstract class Session {
   /// Releases this session's native handle and associated Dart resources.
   ///
   /// Disposal is deterministic, idempotent, and valid for sessions that have
-  /// completed, been cancelled, or were never executed. Native finalizer
-  /// attachment is detached after the native handle release commits, while
-  /// Web uses this explicit path because it has no native-finalizer
-  /// equivalent. A failed native release leaves the session retryable.
+  /// completed, been cancelled, or were never executed. The cleanup order is
+  /// `releaseHandle` -> disposed-state commit -> finalizer detach -> execution
+  /// error-handler clear -> [onDispose]. Native finalizer attachment is
+  /// detached after the native handle release commits, while Web uses this
+  /// explicit path because it has no native-finalizer equivalent. A failed
+  /// native release leaves the session retryable.
   ///
   /// Dispose a running session only when cancellation/release semantics of the
   /// selected backend are acceptable to the caller. The native wrapper cancels
@@ -242,8 +244,10 @@ abstract class Session {
     }
   }
 
-  /// Gives concrete session types a hook to close Dart-side resources before
-  /// the backend releases their native handle.
+  /// Gives concrete session types a hook to close Dart-side resources after
+  /// the backend release has committed and the finalizer/error handler have
+  /// been detached. This ordering prevents a post-release cleanup failure from
+  /// causing a second native release.
   @protected
   void onDispose() {}
 
@@ -777,8 +781,13 @@ abstract class Session {
 
   /// Requests cancellation of this session.
   ///
-  /// Has no effect if the session has already completed, failed, or been
-  /// previously cancelled.
+  /// Records the request before queue, state, or native operations. Cancellation
+  /// before submission removes the session from consideration, queued
+  /// cancellation removes its queue item, and startup cancellation remains
+  /// pending until the live execution can accept native delivery. A repeated
+  /// call does not duplicate successful native delivery, but it may retry a
+  /// delivery that previously failed. Natural completion can still win a
+  /// cancellation race.
   void cancel() {
     _ensureNotDisposed();
     // Latch intent before any queue, state, or native operation can fail.

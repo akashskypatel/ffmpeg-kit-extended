@@ -142,9 +142,17 @@ class FFmpegKitExtended {
   // ---------------------------------------------------------------------------
 
   /// Cancels the session identified by [sessionId].
-  /// IMPORTANT: passing a 0 will cancel all sessions.
+  ///
+  /// Passing `0` cancels all active and queued sessions managed by
+  /// [SessionQueueManager], using the same all-attempts/first-error behavior
+  /// as [cancelAllSessions]. A nonzero ID uses the current Dart object/history
+  /// lookup and requests cancellation only when that session is available.
   static void cancelSession(int sessionId) {
     requireInitialized();
+    if (sessionId == 0) {
+      cancelAllSessions();
+      return;
+    }
     getSession(sessionId)?.cancel();
   }
 

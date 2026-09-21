@@ -103,7 +103,11 @@ class FFplayKit {
     return _activeFFplaySession!;
   }
 
-  /// Cancels a [session] if it is currently running.
+  /// Requests cancellation of a [session].
+  ///
+  /// The request is recorded before playback stop is attempted. Queued or
+  /// pre-start sessions do not invoke the playback stop control, and a failed
+  /// stop can be retried without losing the cancellation request.
   ///
   /// An untracked session that was never handed to an executor is no longer
   /// current after cancellation succeeds. Tracked executions retain global

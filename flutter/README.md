@@ -840,12 +840,18 @@ observations; create a new session for another execution. Cancellation before
 submission or while queued removes it before native execution. Cancellation
 requested during native startup is retained until it can be forwarded to a
 Running session; `isCancelled` records the request, not a guaranteed winning
-result.
+result. Running cancellation attempts native delivery; repeating `cancel()` may
+retry a failed delivery, while natural completion may still win the race.
+
+`FFmpegKitExtended.cancelSession(0)` is the compatibility spelling for
+`cancelAllSessions()` and applies to sessions active or queued in the Flutter
+session queue. Nonzero IDs use the current Dart/history lookup.
 
 `dispose()` commits ownership only after the native handle release succeeds.
 If native release fails, the handle and finalizer remain available for a later
 retry; cleanup failures after a successful release do not cause a second
-native release.
+native release. The post-release cleanup order is finalizer detach, execution
+error-handler clear, then the concrete session's `onDispose()` hook.
 
 `FFplayKit.executeAsync` returns a live session after scheduling and clears
 `currentSession` when the execution Future settles, including startup and
