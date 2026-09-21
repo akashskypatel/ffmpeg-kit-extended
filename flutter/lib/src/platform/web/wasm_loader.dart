@@ -5,6 +5,7 @@ import 'dart:js_interop_unsafe';
 import 'package:web/web.dart' as web;
 
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
+import 'retryable_initialization.dart';
 
 /// Loads the Emscripten module and connects ffigen_js to that module instance.
 final class WasmLoader {
@@ -13,26 +14,33 @@ final class WasmLoader {
   static final instance = WasmLoader._();
   static const assetRoot = 'assets/packages/ffmpeg_kit_extended_flutter/wasm';
 
-  JSObject? _module;
-  Future<void>? _initializing;
+  final _initialization = RetryableInitialization<JSObject>();
 
-  bool get initialized => _module != null;
+  bool get initialized => _initialization.initialized;
 
   JSObject get module {
-    final value = _module;
-    if (value == null) {
+    if (!initialized) {
       throw StateError(
         'FFmpegKitExtended.initialize() must be awaited before using Web.',
       );
     }
-    return value;
+    return _initialization.value;
   }
 
-  Future<void> initialize() => _initializing ??= _load();
+  Future<void> initialize() async {
+    await _initialization.initialize(_loadAndCommit);
+  }
 
-  Future<void> _load() async {
+  Future<JSObject> _loadAndCommit() async {
+    final module = await _loadModule();
+    bindings.NativeLibrary.instance = module as bindings.NativeLibrary;
+    bindings.ffmpeg_kit_initialize();
+    return module;
+  }
+
+  Future<JSObject> _loadModule() async {
     final existing = globalContext.getProperty<JSAny?>(
-      'ffmpegKitExtendedModulePromise'.toJS,
+      'ffmpegKitExtendedModuleFactory'.toJS,
     );
     if (existing == null) {
       final loaded = Completer<void>();
@@ -55,12 +63,15 @@ final class WasmLoader {
       await loaded.future;
     }
 
-    final promise = globalContext.getProperty<JSPromise<JSObject>>(
-      'ffmpegKitExtendedModulePromise'.toJS,
+    final factory = globalContext.getProperty<JSFunction>(
+      'ffmpegKitExtendedModuleFactory'.toJS,
     );
-    _module = await promise.toDart;
-    bindings.NativeLibrary.instance = _module! as bindings.NativeLibrary;
-    bindings.ffmpeg_kit_initialize();
+    final result = factory.callAsFunction();
+    if (result == null) {
+      throw StateError('FFmpegKit Web module factory returned no Promise.');
+    }
+    final promise = result as JSPromise<JSObject>;
+    return promise.toDart;
   }
 
   void requireInitialized() {

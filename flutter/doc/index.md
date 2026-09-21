@@ -165,6 +165,10 @@ void main() async {
 }
 ```
 
+Successful initialization is idempotent and concurrent calls share one
+in-flight attempt. A failed Web initialization rejects that attempt and can be
+retried with a later call.
+
 ### Basic Usage
 
 ```dart

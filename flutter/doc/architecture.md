@@ -46,11 +46,11 @@ Wasm/browser verification.
 
 ## Initialization and execution
 
-Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization loads the staged `ffmpegkit.mjs`/`ffmpegkit.wasm` pair and exposes the generated module to the Web backend. Calls made before initialization are rejected by the backend contract.
+Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization loads the DataAsset-delivered `ffmpegkit.mjs`/`ffmpegkit.wasm` pair and exposes the generated module to the Web backend. Successful initialization is idempotent, concurrent calls share one attempt, and a failed Web attempt can be retried. Calls made before initialization are rejected by the backend contract.
 
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and stages them under the package Web asset directory. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
+The build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and emits the runtime and bridge files as Flutter DataAssets. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin

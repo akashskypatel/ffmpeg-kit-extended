@@ -57,7 +57,9 @@ class FFmpegKitExtended {
   /// }
   /// ```
   ///
-  /// Calling this more than once is safe (subsequent calls are no-ops).
+  /// Calling this more than once is safe: concurrent calls share one attempt,
+  /// successful initialization is idempotent, and a failed Web attempt can be
+  /// retried by calling this method again.
   static Future<void> initialize() => ffmpegKitBackend.initialize();
 
   /// Returns `true` if [initialize] has been called successfully.

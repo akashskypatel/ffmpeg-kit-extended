@@ -207,6 +207,10 @@ Flutter Web uses the same public API and shared session implementation as native
 
    > **Important**: Any FFmpeg, FFprobe, or FFplay API call made before `initialize()` completes will throw a `StateError`.
 
+   Initialization is idempotent after success, and concurrent callers share the
+   same in-flight attempt. If Web initialization fails, the failed attempt is
+   rejected and a later `initialize()` call starts a fresh attempt.
+
 ### Web build and deployment
 
 For local Web Wasm development, use Flutter's cross-origin isolation option so
