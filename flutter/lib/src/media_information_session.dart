@@ -99,7 +99,11 @@ class MediaInformationSession extends FFprobeSession {
     MediaInformationSessionCompleteCallback? cb,
   ) {
     _mediaInfoCompleteCallback = cb;
-    ensureRegistered();
+    if (cb == null) {
+      _unregisterIfIdle();
+    } else {
+      ensureRegistered();
+    }
   }
 
   /// Clears the completion callback and unregisters from [CallbackManager]
@@ -180,7 +184,9 @@ class MediaInformationSession extends FFprobeSession {
     }
 
     _mediaInfoCompleteCallback = completeCallback;
-    ensureRegistered();
+    if (completeCallback != null) {
+      ensureRegistered();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -221,7 +227,9 @@ class MediaInformationSession extends FFprobeSession {
     registerFinalizer();
 
     _mediaInfoCompleteCallback = completeCallback;
-    ensureRegistered();
+    if (completeCallback != null) {
+      ensureRegistered();
+    }
   }
 
   /// Restores a [MediaInformationSession] from a native [handle].

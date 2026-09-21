@@ -31,7 +31,8 @@ import 'platform/backend_selector.dart';
 ///
 /// ### Lifecycle
 /// 1. Construct via [FFmpegSession.new] (or [create]) to allocate the native
-///    session object and register it with [CallbackManager].
+///    session object. Sessions are registered with [CallbackManager] lazily
+///    when a callback, log listener, or execution is attached.
 /// 2. Call [executeAsync] (or the static [executeCommandAsync]) to schedule
 ///    execution and await the result.
 ///    Use [execute] / [executeCommand] only when you deliberately want
@@ -71,6 +72,7 @@ class FFmpegSession extends Session {
     FFmpegSessionCompleteCallback? completeCallback,
     FFmpegLogCallback? logCallback,
     FFmpegStatisticsCallback? statisticsCallback,
+    bool register = true,
   }) : super.noFinalizer() {
     handle = const SessionHandle(Object());
     this.sessionId = sessionId;
@@ -78,8 +80,10 @@ class FFmpegSession extends Session {
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
-    CallbackManager().registerFFmpegSession(this);
-    _registered = true;
+    if (register) {
+      CallbackManager().registerFFmpegSession(this);
+      _registered = true;
+    }
   }
 
   /// Restores an [FFmpegSession] from an existing native [handle].
@@ -101,11 +105,10 @@ class FFmpegSession extends Session {
 
   /// Creates a new [FFmpegSession] for [command].
   ///
-  /// The session is immediately registered with [CallbackManager] so that
-  /// global native callbacks (completion, log, statistics) can locate it by
-  /// session ID even before [executeAsync] is called.  Registration is
-  /// removed when the completion callback fires or when all per-session
-  /// callbacks are cleared via the remove* methods.
+  /// The session is registered with [CallbackManager] when a callback or log
+  /// listener is supplied, and otherwise on first execution or log-listener
+  /// attachment. Registration is removed when execution completes or when all
+  /// per-session callbacks and listeners are cleared.
   ///
   /// - [completeCallback]: Invoked once when execution finishes.
   /// - [logCallback]: Invoked for each buffered log line during execution.
@@ -137,8 +140,11 @@ class FFmpegSession extends Session {
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
-    CallbackManager().registerFFmpegSession(this);
-    _registered = true;
+    if (completeCallback != null ||
+        logCallback != null ||
+        statisticsCallback != null) {
+      _ensureRegistered();
+    }
   }
 
   /// Creates a new [FFmpegSession] from an explicit argument list.
@@ -165,8 +171,11 @@ class FFmpegSession extends Session {
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
-    CallbackManager().registerFFmpegSession(this);
-    _registered = true;
+    if (completeCallback != null ||
+        logCallback != null ||
+        statisticsCallback != null) {
+      _ensureRegistered();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -266,7 +275,11 @@ class FFmpegSession extends Session {
   /// in-place (no new registration entry is created).
   void setCompleteCallback(FFmpegSessionCompleteCallback? completeCallback) {
     _completeCallback = completeCallback;
-    _ensureRegistered();
+    if (completeCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Clears the completion callback.
@@ -281,7 +294,11 @@ class FFmpegSession extends Session {
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
     _logCallback = logCallback;
-    _ensureRegistered();
+    if (logCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Clears the log callback.
@@ -293,7 +310,11 @@ class FFmpegSession extends Session {
   /// Sets or replaces the statistics callback.
   void setStatisticsCallback(FFmpegStatisticsCallback? statisticsCallback) {
     _statisticsCallback = statisticsCallback;
-    _ensureRegistered();
+    if (statisticsCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Clears the statistics callback.

@@ -80,8 +80,9 @@ class FFprobeSession extends Session {
     }
 
     _completeCallback = completeCallback;
-    CallbackManager().registerFFprobeSession(this);
-    _registered = true;
+    if (completeCallback != null) {
+      ensureRegistered();
+    }
   }
 
   /// Restores an [FFprobeSession] from an existing native [handle].
@@ -140,13 +141,21 @@ class FFprobeSession extends Session {
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFprobeSessionCompleteCallback? completeCallback) {
     _completeCallback = completeCallback;
-    _ensureRegistered();
+    if (completeCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
     _logCallback = logCallback;
-    _ensureRegistered();
+    if (logCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Clears the completion callback and unregisters from [CallbackManager].

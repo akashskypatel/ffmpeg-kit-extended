@@ -158,8 +158,9 @@ class FFplaySession extends Session {
 
     _completeCallback = completeCallback;
 
-    CallbackManager().registerFFplaySession(this);
-    _registered = true;
+    if (completeCallback != null) {
+      _ensureRegistered();
+    }
   }
 
   /// Creates a new [FFplaySession] from pre-tokenized [arguments].
@@ -182,8 +183,9 @@ class FFplaySession extends Session {
     registerFinalizer();
 
     _completeCallback = completeCallback;
-    CallbackManager().registerFFplaySession(this);
-    _registered = true;
+    if (completeCallback != null) {
+      _ensureRegistered();
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -266,13 +268,21 @@ class FFplaySession extends Session {
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFplaySessionCompleteCallback? completeCallback) {
     _completeCallback = completeCallback;
-    _ensureRegistered();
+    if (completeCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
     _logCallback = logCallback;
-    _ensureRegistered();
+    if (logCallback == null) {
+      _unregisterIfIdle();
+    } else {
+      _ensureRegistered();
+    }
   }
 
   /// Clears completion callback and unregisters session from

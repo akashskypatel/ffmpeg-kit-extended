@@ -12,7 +12,6 @@ mixin _SynchronousFixture {
   bool fail = false;
   final StateError failure = StateError('synchronous backend failed');
 
-  @override
   void dispatchPendingLogs() {}
 
   bool get started;
