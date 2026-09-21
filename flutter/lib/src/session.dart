@@ -200,8 +200,9 @@ abstract class Session {
   ///
   /// Disposal is deterministic, idempotent, and valid for sessions that have
   /// completed, been cancelled, or were never executed. Native finalizer
-  /// attachment is detached before the handle is released, while Web uses
-  /// this explicit path because it has no native-finalizer equivalent.
+  /// attachment is detached after the native handle release commits, while
+  /// Web uses this explicit path because it has no native-finalizer
+  /// equivalent. A failed native release leaves the session retryable.
   ///
   /// Dispose a running session only when cancellation/release semantics of the
   /// selected backend are acceptable to the caller. The native wrapper cancels
@@ -210,15 +211,22 @@ abstract class Session {
     if (_disposed || _disposing) return;
     _disposing = true;
     try {
+      // Native release is the ownership commit point. If it throws, retain
+      // the finalizer and the live handle so a later dispose() can retry.
+      releaseHandle(_handle);
+      _disposed = true;
+
+      // Everything below is post-commit cleanup. Failures remain visible to
+      // the caller, but the committed disposal state prevents a second native
+      // release attempt.
       try {
         _sessionFinalizer.detach(this);
       } finally {
-        clearExecutionErrorHandler();
         try {
-          onDispose();
+          clearExecutionErrorHandler();
         } finally {
           try {
-            releaseHandle(_handle);
+            onDispose();
           } finally {
             for (final completer in _executionCompleters) {
               if (!completer.isCompleted) completer.complete();
@@ -228,7 +236,6 @@ abstract class Session {
         }
       }
     } finally {
-      _disposed = true;
       _disposing = false;
     }
   }

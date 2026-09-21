@@ -831,3 +831,8 @@ submission or while queued removes it before native execution. Cancellation
 requested during native startup is retained until it can be forwarded to a
 Running session; `isCancelled` records the request, not a guaranteed winning
 result.
+
+`dispose()` commits ownership only after the native handle release succeeds.
+If native release fails, the handle and finalizer remain available for a later
+retry; cleanup failures after a successful release do not cause a second
+native release.

@@ -120,3 +120,8 @@ Cancellation is latched before queue/state/native operations. Queued sessions
 are removed by identity and discarded in order-preserving fashion; a submitted
 session that is still in native startup retains its request until the state is
 `Running`, when one native cancellation is dispatched.
+
+Disposal follows the same ownership boundary: native release is the commit
+point. Release failure leaves the session live and retryable; finalizer detach
+and Dart cleanup happen only after release succeeds, and later cleanup errors
+cannot roll back or repeat the native release.
