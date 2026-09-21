@@ -182,8 +182,11 @@ class FFplayKit {
   }) async {
     if (!_trackedExecutions.add(session)) return;
 
+    late final Future<FFplaySession> execution;
     try {
-      await session.executeAsync();
+      execution = session.executeAsync();
+      final startup = session.startupFutureForTracking;
+      await (startup ?? execution);
     } catch (error, stackTrace) {
       log(
         'FFplayKit: tracked startup failed for session ${session.sessionId}',
@@ -200,13 +203,15 @@ class FFplayKit {
       return;
     }
 
-    unawaited(_finishTrackedExecution(session));
+    unawaited(_finishTrackedExecution(session, execution));
   }
 
-  static Future<void> _finishTrackedExecution(FFplaySession session) async {
+  static Future<void> _finishTrackedExecution(
+    FFplaySession session,
+    Future<FFplaySession> completion,
+  ) async {
     try {
-      final completion = session.executionFutureForTracking;
-      if (completion != null) await completion;
+      await completion;
     } catch (error, stackTrace) {
       log(
         'FFplayKit: tracked execution failed for session ${session.sessionId}',

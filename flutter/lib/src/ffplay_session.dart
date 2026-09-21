@@ -572,9 +572,11 @@ class FFplaySession extends Session {
     completeCallback: completeCallback,
   ).executeAsync(logCallback: logCallback);
 
-  /// Executes this session asynchronously and returns after native startup has
-  /// been handed off. Playback continues under the queue's completion
-  /// lifecycle; use the completion callback for end-of-playback notification.
+  /// Executes this session asynchronously and completes after playback ends.
+  ///
+  /// [FFplayKit.executeAsync] uses the startup handoff internally so callers
+  /// that need the global playback session can continue without waiting for
+  /// terminal playback completion.
   Future<FFplaySession> executeAsync({
     int? timeout,
     FFplaySessionCompleteCallback? completeCallback,
@@ -592,10 +594,17 @@ class FFplaySession extends Session {
       () => _runAsync(startup),
     );
     _executionFutureForTracking = execution;
+    _startupFutureForTracking = startup.future;
     unawaited(_observeQueuedExecution(execution, startup));
     await startup.future;
+    await execution;
     return this;
   }
+
+  Future<void>? _startupFutureForTracking;
+
+  /// The startup future used by [FFplayKit] to return after native handoff.
+  Future<void>? get startupFutureForTracking => _startupFutureForTracking;
 
   /// The queue-owned completion future used by [FFplayKit] to retain global
   /// ownership after the startup handoff returned from [executeAsync].
