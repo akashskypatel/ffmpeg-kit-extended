@@ -217,8 +217,9 @@ void main() {
   test(
     'terminal state before startup does not dispatch native cancellation',
     () async {
-      final session = _QueueSession(state: SessionState.completed);
+      final session = _QueueSession();
       session.submit();
+      session.state = SessionState.completed;
 
       final future = queue.executeSession(session, () async {});
       await Future<void>.delayed(Duration.zero);
