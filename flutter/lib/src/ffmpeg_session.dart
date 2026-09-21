@@ -593,6 +593,12 @@ class FFmpegSession extends Session {
     _unregister();
   }
 
+  @override
+  void onCancelledBeforeStart() {
+    _closeLogStreams();
+    _unregister();
+  }
+
   /// Ensures the session is registered with [CallbackManager].
   ///
   /// No-op if already registered. Re-registers if the session was previously

@@ -572,6 +572,13 @@ class MediaInformationSession extends FFprobeSession {
     super.onDispose();
   }
 
+  @override
+  @protected
+  void onCancelledBeforeStart() {
+    closeLogStreams();
+    unregister();
+  }
+
   /// Routes registration through [CallbackManager.registerMediaInformationSession]
   /// so the session lands in both the media-information and ffprobe maps.
   ///

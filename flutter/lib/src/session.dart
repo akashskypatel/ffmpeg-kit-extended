@@ -33,6 +33,7 @@ import 'log.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 import 'platform/session_finalizer.dart';
+import 'session_queue_manager.dart';
 import 'statistics.dart';
 
 typedef SessionExecutionErrorCallback =
@@ -146,6 +147,10 @@ abstract class Session {
   /// expose sessions that are already running or terminal, but those objects
   /// are read-only observations and cannot be submitted again.
   bool _submitted = false;
+  bool _executionStarted = false;
+  bool _nativeCancellationDispatched = false;
+  bool _cancellationMonitorActive = false;
+  bool _cancelledBeforeStartCleaned = false;
 
   /// Whether [cancel] has been called on this session.
   bool get isCancelled => _isCancelled;
@@ -232,6 +237,47 @@ abstract class Session {
   /// the backend releases their native handle.
   @protected
   void onDispose() {}
+
+  /// Closes Dart-side callback and stream resources when execution is
+  /// cancelled before native work starts. Concrete session types override
+  /// this hook; it is deliberately separate from [onDispose] because a
+  /// cancelled queued session still owns its native handle.
+  @protected
+  void onCancelledBeforeStart() {}
+
+  /// Marks the queue handoff immediately before the executor is invoked.
+  ///
+  /// This distinguishes a queued item that can be removed safely from a
+  /// dequeued item whose native startup may still need cancellation delivery.
+  void markExecutionStarted() {
+    _executionStarted = true;
+  }
+
+  /// Performs the platform cancellation dispatch.
+  ///
+  /// Kept as a protected seam so lifecycle tests can observe retry and
+  /// exactly-once behavior without loading a native backend.
+  @protected
+  void dispatchNativeCancellation() {
+    ffmpegKitBackend.cancelSession(handle);
+  }
+
+  /// Called by [SessionQueueManager] when a queued item is discarded.
+  void discardBeforeExecution() {
+    _cleanupCancelledBeforeStart();
+  }
+
+  /// Records cancellation for a queue-wide discard without querying native
+  /// state or dispatching a native cancellation call.
+  void markCancelledBeforeExecution() {
+    _isCancelled = true;
+  }
+
+  void _cleanupCancelledBeforeStart() {
+    if (_cancelledBeforeStartCleaned) return;
+    _cancelledBeforeStartCleaned = true;
+    onCancelledBeforeStart();
+  }
 
   /// Releases the platform handle owned by this session.
   ///
@@ -704,28 +750,104 @@ abstract class Session {
   /// Has no effect if the session has already completed, failed, or been
   /// previously cancelled.
   void cancel() {
-    FFmpegKitExtended.requireInitialized();
-    // Take a consistent snapshot before evaluating the guard.
-    final currentState = getState();
-    final currentReturnCode = getReturnCode();
+    _ensureNotDisposed();
+    // Latch intent before any queue, state, or native operation can fail.
+    _isCancelled = true;
 
-    if (currentState == SessionState.completed ||
-        currentState == SessionState.failed ||
-        ReturnCode.isCancel(currentReturnCode) ||
-        _isCancelled) {
+    if (SessionQueueManager().cancelQueued(this)) {
       return;
     }
+
+    if (!_submitted) {
+      _cleanupCancelledBeforeStart();
+      return;
+    }
+
+    SessionState currentState;
     try {
-      ffmpegKitBackend.cancelSession(handle);
+      currentState = executionStateForSubmission();
     } catch (e, st) {
       log(
-        'Session.cancel: error cancelling session ffmpeg_kit_cancel_session',
+        'Session.cancel: error reading state before cancellation for session $sessionId',
         error: e,
         stackTrace: st,
       );
       rethrow;
     }
-    _isCancelled = true;
+
+    if (currentState == SessionState.completed ||
+        currentState == SessionState.failed) {
+      return;
+    }
+    if (currentState == SessionState.running) {
+      try {
+        _dispatchNativeCancellationIfNeeded();
+      } catch (e, st) {
+        log(
+          'Session.cancel: error cancelling session ffmpeg_kit_cancel_session',
+          error: e,
+          stackTrace: st,
+        );
+        unawaited(_monitorCancellationDispatch());
+        rethrow;
+      }
+      return;
+    }
+
+    // A submitted session can remain Created while the native worker is
+    // handing off to its worker thread. Keep the intent and wait for Running.
+    if (_executionStarted) {
+      unawaited(_monitorCancellationDispatch());
+    } else {
+      _cleanupCancelledBeforeStart();
+    }
+  }
+
+  void _dispatchNativeCancellationIfNeeded() {
+    if (_nativeCancellationDispatched) return;
+    dispatchNativeCancellation();
+    _nativeCancellationDispatched = true;
+  }
+
+  Future<void> _monitorCancellationDispatch() async {
+    if (_cancellationMonitorActive || !_isCancelled) return;
+    _cancellationMonitorActive = true;
+    try {
+      while (_isCancelled && !_nativeCancellationDispatched && !_disposed) {
+        SessionState state;
+        try {
+          state = executionStateForSubmission();
+        } catch (e, st) {
+          log(
+            'Session.cancel: retrying state read for session $sessionId',
+            error: e,
+            stackTrace: st,
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          continue;
+        }
+
+        if (state == SessionState.completed || state == SessionState.failed) {
+          break;
+        }
+        if (state == SessionState.running) {
+          try {
+            _dispatchNativeCancellationIfNeeded();
+          } catch (e, st) {
+            log(
+              'Session.cancel: retrying native cancellation for session $sessionId',
+              error: e,
+              stackTrace: st,
+            );
+          }
+        }
+        if (!_nativeCancellationDispatched) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      }
+    } finally {
+      _cancellationMonitorActive = false;
+    }
   }
 
   // ---- Session-type identity ----------------------------------------------

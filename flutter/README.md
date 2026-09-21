@@ -827,4 +827,7 @@ Using GPL licensed components in your application may require your application t
 Session objects are one-shot execution objects. A session may be submitted
 once, and history wrappers for running or terminal sessions are read-only
 observations; create a new session for another execution. Cancellation before
-submission prevents later execution.
+submission or while queued removes it before native execution. Cancellation
+requested during native startup is retained until it can be forwarded to a
+Running session; `isCancelled` records the request, not a guaranteed winning
+result.

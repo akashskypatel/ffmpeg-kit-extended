@@ -853,6 +853,14 @@ class FFplaySession extends Session {
     _unregister();
   }
 
+  @override
+  void onCancelledBeforeStart() {
+    _stopPositionStream();
+    _stopVideoSizeStream();
+    _closeLogStreams();
+    _unregister();
+  }
+
   /// Unregisters session from the callback manager.
   void _unregister() {
     if (!_registered) return;

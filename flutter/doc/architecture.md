@@ -115,3 +115,8 @@ Each Flutter session claims execution once while its native state is `Created`.
 The claim happens before callback registration or queue insertion, so repeated
 calls and history wrappers for running or terminal sessions cannot submit the
 same native handle again. A new execution requires a new session object.
+
+Cancellation is latched before queue/state/native operations. Queued sessions
+are removed by identity and discarded in order-preserving fashion; a submitted
+session that is still in native startup retains its request until the state is
+`Running`, when one native cancellation is dispatched.

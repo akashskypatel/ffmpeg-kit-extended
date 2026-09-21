@@ -444,6 +444,13 @@ class FFprobeSession extends Session {
     unregister();
   }
 
+  @override
+  @protected
+  void onCancelledBeforeStart() {
+    closeLogStreams();
+    unregister();
+  }
+
   /// Returns `true` while any log-delivery sink (callback or batch stream
   /// listener) is still attached to this session.
   ///
