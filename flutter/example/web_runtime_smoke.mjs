@@ -8,6 +8,7 @@ const pageErrors = [];
 const consoleErrors = [];
 const runtimeRoot = process.argv[3];
 const runtimeRequests = [];
+const failedAssetResponses = [];
 
 page.on('pageerror', (error) => pageErrors.push(String(error)));
 page.on('console', (message) => {
@@ -15,6 +16,11 @@ page.on('console', (message) => {
 });
 page.on('request', (request) => {
   if (request.url().includes('ffmpegkit')) runtimeRequests.push(request.url());
+});
+page.on('response', (response) => {
+  if (response.url().includes('ffmpegkit') && response.status() >= 400) {
+    failedAssetResponses.push(`${response.status()} ${response.url()}`);
+  }
 });
 
 try {
@@ -42,8 +48,20 @@ try {
   assert.match(status, /MEDIA_INFO_OK/);
   assert.match(status, /PASS/);
   assert.doesNotMatch(status, /FAIL:/);
-  assert.deepEqual(pageErrors, []);
-  assert.deepEqual(consoleErrors, []);
+  assert.deepEqual(
+    pageErrors,
+    [],
+    `Page errors: ${pageErrors.join(' | ')}; ` +
+        `Failed asset responses: ${failedAssetResponses.join(' | ')}; ` +
+        `Runtime requests: ${runtimeRequests.join(', ')}`,
+  );
+  assert.deepEqual(
+    consoleErrors,
+    [],
+    `Console errors: ${consoleErrors.join(' | ')}; ` +
+        `Failed asset responses: ${failedAssetResponses.join(' | ')}; ` +
+        `Runtime requests: ${runtimeRequests.join(', ')}`,
+  );
   if (runtimeRoot) {
     assert.ok(
       runtimeRequests.some((url) =>
