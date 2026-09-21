@@ -101,11 +101,14 @@ Flutter Web uses the same public API and shared session implementation as native
 
    Platform overrides may be local paths or HTTP(S) URLs. Only `http://` and
    `https://` are accepted for remote overrides; URL-like schemes such as
-   `ftp://` fail explicitly instead of being treated as local files. Remote
-   overrides are cached by their full URL and refreshed on each hook run. If
-   the bytes change, the matching extracted artifact is discarded; identical
-   bytes may reuse the existing extraction. Prefer versioned or
-   content-addressed URLs for reproducible builds.
+   `ftp://` fail explicitly instead of being treated as local files. When the
+   hook executes, remote overrides are refreshed and cached by their full URL.
+   Remote URLs are not filesystem dependencies; URL changes invalidate through
+   Hooks inputs, while a server-side change at an unchanged URL is not observed
+   while Hooks skips the cached hook invocation. If the hook runs and the bytes
+   change, the matching extracted artifact is discarded; identical bytes may
+   reuse the existing extraction. Prefer versioned or content-addressed URLs
+   for reproducible builds. Local override files remain filesystem dependencies.
 
    For older applications, the legacy `ffmpeg_kit_extended_config` section is
    still accepted as a bounded fallback:

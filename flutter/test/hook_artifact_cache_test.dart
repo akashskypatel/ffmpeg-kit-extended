@@ -153,11 +153,10 @@ void main() {
   });
 
   test(
-    'refreshes a remote override and invalidates changed extraction',
+    'refreshes a remote override without a filesystem dependency callback',
     () async {
       final cacheDir = Directory(p.join(tempRoot.path, 'cache'));
       final uri = Uri.parse('https://example.test/bundle-official-looking.zip');
-      final dependencies = <Uri>[];
       var bytes = <int>[1, 2, 3];
       Future<bool> download(Uri requestedUri, File target) async {
         expect(requestedUri, uri);
@@ -169,7 +168,6 @@ void main() {
       final cacheFile = await resolveRemoteOverrideToCache(
         overrideUrl: uri.toString(),
         cacheDir: cacheDir,
-        addDependency: dependencies.add,
         download: download,
       );
       final extractRoot = extractRootFor(cacheFile, cacheDir);
@@ -179,7 +177,6 @@ void main() {
       final reusedCacheFile = await resolveRemoteOverrideToCache(
         overrideUrl: uri.toString(),
         cacheDir: cacheDir,
-        addDependency: dependencies.add,
         download: download,
       );
       expect(reusedCacheFile.path, equals(cacheFile.path));
@@ -196,7 +193,6 @@ void main() {
       expect(changed, isTrue);
       expect(cacheFile.readAsBytesSync(), equals(<int>[4, 5, 6]));
       expect(extractRoot.existsSync(), isFalse);
-      expect(dependencies, contains(uri));
     },
   );
 
@@ -206,7 +202,6 @@ void main() {
       () => resolveRemoteOverrideToCache(
         overrideUrl: 'ftp://example.test/bundle.zip',
         cacheDir: Directory(p.join(tempRoot.path, 'cache')),
-        addDependency: (_) {},
         download: (_, _) async {
           invoked = true;
           return true;

@@ -33,10 +33,14 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     `ffmpeg_kit_extended_config` section remains a bounded migration fallback.
     Platform overrides may be local paths or HTTP(S) URLs. Only `http://` and
     `https://` are accepted for remote overrides; URL-like schemes such as
-    `ftp://` fail explicitly. Remote overrides use the full URL as their cache
-    identity and refresh on every hook run; changed bytes invalidate the matching
-    extraction, while identical bytes may reuse it. Prefer versioned or
-    content-addressed URLs for reproducible builds.
+    `ftp://` fail explicitly. When the hook executes, remote overrides are
+    refreshed and use the full URL as their cache identity. Remote URLs are not
+    filesystem dependencies: URL changes invalidate through Hooks inputs, while
+    a server-side change at an unchanged URL is not observed while Hooks skips
+    the cached hook invocation. If the hook runs and bytes change, the matching
+    extraction is invalidated; identical bytes may reuse it. Prefer versioned or
+    content-addressed URLs for reproducible builds. Local override files remain
+    filesystem dependencies.
 
     **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. For Web, configure `hooks.user_defines.ffmpeg_kit_extended_flutter` in the consuming app package, or enable Flutter Web data assets when using a shared workspace root.
 

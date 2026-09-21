@@ -286,7 +286,6 @@ Future<FFmpegArtifact> _resolveWebArtifact(
     final target = await resolveRemoteOverrideToCache(
       overrideUrl: overrideUri.toString(),
       cacheDir: cacheDir,
-      addDependency: addDependency,
     );
     return _handleDownloadedFile(
       target,
@@ -545,7 +544,6 @@ Future<FFmpegArtifact?> _resolveArtifact(
       final targetFile = await resolveRemoteOverrideToCache(
         overrideUrl: overrideUri.toString(),
         cacheDir: cacheDir,
-        addDependency: addDependency,
       );
       return await _handleDownloadedFile(targetFile, cacheDir, input);
     } else {
@@ -1296,14 +1294,12 @@ Future<bool> _downloadRemoteOverride(Uri uri, File target) =>
 Future<File> resolveRemoteOverrideToCache({
   required String overrideUrl,
   required Directory cacheDir,
-  required void Function(Uri uri) addDependency,
   RemoteOverrideDownloader? download,
 }) async {
   final uri = parseRemoteOverride(overrideUrl);
   if (uri == null) {
     throw _exception('Expected an HTTP(S) remote override: $overrideUrl');
   }
-  addDependency(uri);
   final cacheFile = remoteCacheFileFor(uri, cacheDir);
   await syncRemoteOverrideToCache(
     uri: uri,
