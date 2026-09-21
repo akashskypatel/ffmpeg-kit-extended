@@ -8,7 +8,6 @@ import 'package:test/test.dart';
 class _QueueSession extends Session {
   _QueueSession({
     this.throwOnDiscard = false,
-    this.state = SessionState.created,
   }) : super.noFinalizer() {
     handle = const SessionHandle(Object());
     sessionId = _nextId++;
@@ -16,7 +15,7 @@ class _QueueSession extends Session {
   }
 
   static int _nextId = 1;
-  SessionState state;
+  SessionState state = SessionState.created;
   bool throwOnDiscard;
   bool throwOnStateRead = false;
   int discarded = 0;
