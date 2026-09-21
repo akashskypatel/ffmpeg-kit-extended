@@ -486,8 +486,8 @@ See the `flutter/example/` directory for a complete working video player impleme
 
 ### FFplayKit lifecycle
 
-`FFplayKit.executeAsync` returns the live session after scheduling. The global
-`currentSession` remains set until the tracked execution Future settles,
+`FFplayKit.executeAsync` returns the live session after native startup handoff,
+without waiting for full playback. The global `currentSession` remains set until the tracked execution Future settles,
 including startup and transport failures. `FFplayKit.start` starts a Created
 global session or resumes a paused session; it does not submit an already
 executing or terminal session again.

@@ -14,9 +14,10 @@ The `FFplayKit` class provides a convenient interface for media playback using F
 **Important**: Only one FFplay session can be active at a time. Starting a new session automatically replaces any existing one.
 
 `FFplayKit.execute` and `executeAsync` are Future-based playback APIs managed
-by the session queue. The direct `FFplaySession.execute` compatibility method
-is blocking and should not be used for long playback work on the Flutter UI
-isolate.
+by the session queue. Their Future completes after native startup has been
+handed off, not after full playback; use `onComplete` for the terminal event.
+The direct `FFplaySession.execute` compatibility method is blocking and should
+not be used for long playback work on the Flutter UI isolate.
 
 ## Video Playback
 
@@ -54,7 +55,8 @@ static Future<FFplaySession> execute(String command)
 
 **Returns:**
 
-- `Future<FFplaySession>`: A Future that completes with the session
+- `Future<FFplaySession>`: A Future that completes after startup handoff with
+  the live session; playback remains tracked until completion
 
 **Example:**
 
@@ -86,7 +88,8 @@ static Future<FFplaySession> executeAsync(
 
 **Returns:**
 
-- `Future<FFplaySession>`: A Future that completes with the session
+- `Future<FFplaySession>`: A Future that completes after startup handoff with
+  the live session; playback remains tracked until `onComplete`
 
 **Example:**
 
@@ -720,10 +723,14 @@ await FFplayKit.executeAsync(
 
 4. **Position and Duration**: `getPosition()` and `getDuration()` return `0.0` when no session is active — no null check needed.
 
-5. **Use Async for UI**: Use `executeAsync` to avoid blocking the UI thread:
+5. **Use Async for UI**: Use `executeAsync` to avoid blocking the UI thread.
+   Its Future is a startup handoff; use `onComplete` for playback completion:
 
    ```dart
-   await FFplayKit.executeAsync('video.mp4');
+   await FFplayKit.executeAsync(
+     'video.mp4',
+     onComplete: (_) => print('Playback finished'),
+   );
    ```
 
 6. **Periodic Updates**: Use timers for smooth progress updates:

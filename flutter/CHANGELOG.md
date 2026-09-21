@@ -17,6 +17,12 @@
 - Reconcile queue admission, duplicate-session, and cancellation behavior so
   completed or cancelled work cannot be submitted or retained twice.
 - Make Dart Hooks `userDefines` the primary Flutter build configuration with a bounded legacy fallback; track relative override files as dependencies and document workspace-root setup.
+- Keep callback routing alive through queued/running execution while removing
+  idle log-stream listeners, reject null/unknown session handles instead of
+  guessing a wrapper type, and add a Web garbage-collection release safety net.
+- Make `FFplayKit.executeAsync` resolve at native startup handoff while keeping
+  global ownership until playback settles; unsupported build-hook target OSes
+  now fail closed with an explicit diagnostic.
 - Select Apple XCFramework slices by platform, simulator/device variant, and requested architecture; verify framework and companion binary architectures before emission and fail clearly when a simulator slice is unavailable.
 - Surface build-hook configuration, artifact, cache, slice, and architecture decisions in diagnostics; document Hooks runner lock ownership and recovery guidance.
 - Fix Dart Hook configuration resolution in Pub Workspaces with root precedence, normal dependency-graph filtering, deterministic ambiguity handling, and explicit default fallback.

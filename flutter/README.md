@@ -864,9 +864,10 @@ retry; cleanup failures after a successful release do not cause a second
 native release. The post-release cleanup order is finalizer detach, execution
 error-handler clear, then the concrete session's `onDispose()` hook.
 
-`FFplayKit.executeAsync` returns a live session after scheduling and clears
-`currentSession` when the execution Future settles, including startup and
-transport failures. `FFplayKit.start` starts a Created global session or
+`FFplayKit.executeAsync` returns a live session after native startup has been
+handed off; it does not wait for full playback. `currentSession` remains the
+newest tracked session until its execution Future settles, including startup
+and transport failures. `FFplayKit.start` starts a Created global session or
 resumes a paused session; it does not re-execute an already submitted session.
 Calling `FFplaySession.cancel()` records cancellation before its playback stop
 operation. A stop failure therefore cannot erase the cancellation request, and
@@ -874,3 +875,7 @@ queued or pre-start sessions do not invoke the playback stop control.
 `FFplayKit.cancel()` and `FFplayKit.close()` clear the global current session
 only after their operation succeeds and only when no tracked execution is
 pending; tracked sessions remain current until their execution Future settles.
+
+On Web, abandoned session wrappers also have a garbage-collection finalizer
+safety net that releases their Wasm handle. Call `dispose()` explicitly when
+deterministic release timing is required.

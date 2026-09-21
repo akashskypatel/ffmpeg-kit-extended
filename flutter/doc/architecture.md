@@ -37,12 +37,11 @@ dart run ffigen --config ffigen_native.yaml
 dart run ffigen_js --config ffigen_js.yaml
 ```
 
-The Web generator is currently sourced from the `akashskypatel/ffigen_js`
-fork at commit `429ef72aa61cd509296215d84ce910b578f321a9`, which contains the
-required Wasm `uint64` interop support. Keep this exact SHA in `pubspec.yaml`;
-when upstream incorporates the fix, migrate the dependency only after
-regenerating the bindings and rerunning the analyzer, package tests, and Web
-Wasm/browser verification.
+The Web generator currently uses the accepted published prerelease
+`ffigen_js: ^0.0.16-pre`, which contains the required Wasm `uint64` interop
+support. Keep this dependency exception until a stable publication is
+available; migrate only after regenerating the bindings and rerunning the
+analyzer, package tests, and Web Wasm/browser verification.
 
 ## Initialization and execution
 
@@ -71,7 +70,7 @@ retention.
 
 ## Handles, finalizers, and memory
 
-Backends create and release opaque session and information handles. Shared sessions store only a neutral `SessionHandle` and call the backend for lifecycle operations. Native handles are pointers and use `NativeFinalizer` as a safety net; explicit release remains the deterministic cleanup path. Web handles are Wasm-side numeric values and use the Web backend’s release operations, so Web callers should explicitly dispose abandoned Created sessions when deterministic release matters. History and lookup wrappers adopt their acquired handles and are independently disposable.
+Backends create and release opaque session and information handles. Shared sessions store only a neutral `SessionHandle` and call the backend for lifecycle operations. Native handles are pointers and use `NativeFinalizer` as a safety net; explicit release remains the deterministic cleanup path. Web handles use the Web backend’s release operations and a `Finalizer` safety net for abandoned wrappers; callers should still explicitly dispose sessions when deterministic release timing matters. History and lookup wrappers adopt their acquired handles and are independently disposable. A zero factory handle or an unknown history type is rejected and released rather than wrapped as the wrong session subtype.
 
 Native strings and argument vectors are allocated for the duration of the call and freed by the native backend. Web strings and arrays are encoded into Emscripten memory through `wasm_memory.dart`, passed to the generated bindings, and freed after the wrapper call. Returned strings are copied before their Wasm allocations can be reused. Treat all Wasm pointers as invalid after the corresponding allocation is freed.
 
@@ -144,3 +143,5 @@ cleanup errors cannot roll back or repeat the native release.
 FFplayKit ownership follows Future settlement rather than only the completion
 callback. The newest active session remains current until its tracked
 execution settles, and an older session cannot clear a newer one.
+The FFplay startup Future completes at the native handoff so callers can attach
+surfaces and controls without waiting for full playback.

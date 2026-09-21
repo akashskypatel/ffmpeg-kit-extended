@@ -86,6 +86,12 @@ An `FFplaySession` represents a playback instance.
 
 - **Playback Control**: While `FFplayKit` provides global controls, individual `FFplaySession` objects also expose methods for `pause()`, `resume()`, and `stop()`.
 - **Playback Stats**: Monitor current playback position and duration.
+- **Async startup handoff**: `FFplaySession.executeAsync()` completes after the
+  native execution has started. Playback remains queue-owned until its
+  completion callback and cleanup finish.
+- **Callback routing lifetime**: Removing the last log listener unregisters an
+  idle session, but callback routing remains registered while a submitted
+  execution is pending.
 
 ## Return Codes
 
