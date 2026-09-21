@@ -10,6 +10,7 @@
 - Track inspected Pub metadata and local native/Web overrides as hook dependencies; detect same-size content changes and invalidate stale extracted artifacts.
 - Separate configuration and Web staging roots, and add regression coverage and documentation for workspace resolution and local override behavior.
 - Require HTTP(S)-only remote override refreshes with URL-derived cache identity, reject incoherent Web runtime pairs, and reconcile Hooks configuration and platform diagnostics across the Flutter documentation.
+- Reject the known-incompatible automatic Flutter Web debug artifact while preserving explicit Web debug runtime overrides; document the canonical `assets/packages/ffmpeg_kit_extended_flutter/assets/wasm/` asset root.
 
 ## Version 0.6.2
 

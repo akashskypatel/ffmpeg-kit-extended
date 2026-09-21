@@ -19,7 +19,7 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     hooks:
       user_defines:
         ffmpeg_kit_extended_flutter:
-          type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
+          type: "base" # native pre-bundled builds: debug, base, full, audio, video, video_hw
           gpl: true # enable to include GPL libraries
           small: true # enable to use smaller builds
           # Preserve platform override keys under this same map.
@@ -144,7 +144,7 @@ Cross-Origin-Embedder-Policy: require-corp
 Check `window.crossOriginIsolated` in the browser; it must be `true` for threaded Wasm execution.
 
 The default base/small/LGPL Web runtime is delivered as ordinary package assets
-under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`, so stable Flutter
+under `assets/packages/ffmpeg_kit_extended_flutter/assets/wasm/`, so stable Flutter
 3.47 can build and run it without Dart DataAssets. Custom Web/Wasm overrides
 and non-default Web selections require Dart DataAssets; the hook emits their
 Wasm files, loader, callback bridge, callback runtime, and manifest under
@@ -159,6 +159,12 @@ complete pairs.
 Local Web overrides may be an archive or a directory; remote Web overrides
 are HTTP(S) archive URLs. Native overrides keep their documented
 platform-specific archive formats.
+
+`debug` is supported for native prebuilt targets where available. The
+automatic prebuilt Flutter Web debug artifact is not supported because the
+published artifact is browser-incompatible. For Web debug/custom development,
+provide an explicit `web`/`wasm` override containing one coherent
+`ffmpegkit.mjs` + `ffmpegkit.wasm` pair.
 
 ## 4. Troubleshooting Installation
 

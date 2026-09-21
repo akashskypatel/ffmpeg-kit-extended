@@ -74,6 +74,7 @@ Future<void> _buildWebDataAssets(
   BuildOutputBuilder output,
 ) async {
   final configResult = _loadConfig(input, output);
+  validateWebBundleSelection(configResult.config);
   if (isDefaultWebRuntime(configResult.config)) {
     _log(
       'Using the ordinary package Web assets under $_defaultWebAssetRoot/ '
@@ -191,6 +192,22 @@ Future<void> _buildWebDataAssets(
     'plus the runtime manifest for $packageName as Flutter Web DataAssets '
     'under $_customWebAssetRoot/',
   );
+}
+
+/// Rejects the known-invalid automatic Web debug artifact before any
+/// DataAsset fallback, download, cache, or extraction work can begin.
+@visibleForTesting
+void validateWebBundleSelection(dynamic config) {
+  final type = config['type']?.toString() ?? 'base';
+  final override = config['web']?.toString() ?? config['wasm']?.toString();
+  if (type == 'debug' && (override == null || override.trim().isEmpty)) {
+    throw _exception(
+      'The automatic prebuilt Flutter Web debug artifact is unsupported '
+      'because the published artifact is browser-incompatible. For Web '
+      'debug/custom development, provide an explicit web/wasm override '
+      'containing one coherent ffmpegkit.mjs + ffmpegkit.wasm pair.',
+    );
+  }
 }
 
 @visibleForTesting
@@ -714,15 +731,12 @@ Future<FFmpegArtifact> _handleDownloadedFile(
   );
   final finalExtractedDir = requireAppleFramework
       ? selectAppleXcframeworkRoot(extractRoot)
-      : extractRoot
-            .listSync()
-            .whereType<Directory>()
-            .firstWhere(
-              (d) => p.basename(d.path).endsWith('.xcframework'),
-              orElse: () => Directory(
-                p.join(extractRoot.path, p.basename(extractRoot.path)),
-              ), // flat zip fallback
-            );
+      : extractRoot.listSync().whereType<Directory>().firstWhere(
+          (d) => p.basename(d.path).endsWith('.xcframework'),
+          orElse: () => Directory(
+            p.join(extractRoot.path, p.basename(extractRoot.path)),
+          ), // flat zip fallback
+        );
   return FFmpegArtifact(
     file: file,
     extractedDir: useExtractionRoot ? extractRoot : finalExtractedDir,
@@ -875,8 +889,9 @@ Future<void> _emitAssets(
     final uniqueLibFiles = libFiles.toSet().toList()
       ..sort((a, b) => a.path.compareTo(b.path));
 
-    final expectedMainName =
-        targetOS == OS.windows ? 'libffmpegkit.dll' : 'libffmpegkit.so';
+    final expectedMainName = targetOS == OS.windows
+        ? 'libffmpegkit.dll'
+        : 'libffmpegkit.so';
     final mainLibrary = selectExactMainLibrary(
       uniqueLibFiles,
       expectedBasename: expectedMainName,

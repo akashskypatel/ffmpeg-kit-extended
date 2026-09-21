@@ -86,7 +86,7 @@ Flutter Web uses the same public API and shared session implementation as native
    hooks:
      user_defines:
        ffmpeg_kit_extended_flutter:
-         type: "base" # pre-bundled builds: debug, base, full, audio, video, video_hw
+          type: "base" # native pre-bundled builds: debug, base, full, audio, video, video_hw
          gpl: true # enable to include GPL libraries. WARNING: Make sure you understand what GPL license means before enabling. Check https://www.ffmpeg.org/legal.html for more information.
          small: true # enable to use smaller builds
          # Preserve platform override keys under this same map.
@@ -284,6 +284,12 @@ validation.
     ```
 
 ### 2.2 Pre-bundled Builds
+
+`debug` is supported for native prebuilt targets where available. The
+automatic prebuilt Flutter Web debug artifact is not supported because the
+published artifact is browser-incompatible. For Web debug/custom development,
+provide an explicit `web`/`wasm` override containing one coherent
+`ffmpegkit.mjs` + `ffmpegkit.wasm` pair.
 
 - **base**: Basic build with core FFmpeg libraries. Does not contain any extra libraries.
 - **full**: Full build with all platform-compatible FFmpeg libraries. See: <https://github.com/akashskypatel/ffmpeg-kit-builders?tab=readme-ov-file#supported-external-libraries>

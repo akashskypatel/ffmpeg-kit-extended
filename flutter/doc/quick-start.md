@@ -19,7 +19,7 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     hooks:
       user_defines:
         ffmpeg_kit_extended_flutter:
-          type: "base" # pre-bundled builds: base, full, audio, video, streaming, video_hw
+          type: "base" # native pre-bundled builds: debug, base, full, audio, video, streaming, video_hw
           gpl: true # enable to include GPL libraries
           small: true # enable to use smaller builds
           # Preserve platform override keys under this same map.
@@ -34,6 +34,10 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     migration fallback on every supported platform. If both sources are
     present, `hooks.user_defines` wins and the legacy source does not override
     platform-specific values.
+
+    `debug` is supported for native prebuilt targets where available. The
+    automatic prebuilt Flutter Web debug artifact is browser-incompatible;
+    provide an explicit `web`/`wasm` override for Web debug/custom development.
     Platform overrides accept local paths or HTTP(S) URLs only. When the hook
     executes, remote URLs are refreshed and cached by their full URL. Remote
     URLs are not filesystem dependencies: URL changes invalidate through Hooks

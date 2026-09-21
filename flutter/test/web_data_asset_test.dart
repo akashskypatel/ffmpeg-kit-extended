@@ -52,15 +52,47 @@ void main() {
         ),
         throwsA(
           predicate<Object>(
-            (error) =>
-                error.toString().contains(
-                  'Custom or non-default Flutter Web Wasm configuration',
-                ),
+            (error) => error.toString().contains(
+              'Custom or non-default Flutter Web Wasm configuration',
+            ),
           ),
         ),
       );
     },
   );
+
+  for (final buildDataAssets in [false, true]) {
+    test(
+      'rejects implicit Web debug before download with buildDataAssets=$buildDataAssets',
+      () async {
+        final extensions = buildDataAssets
+            ? <ProtocolExtension>[DataAssetsExtension()]
+            : const <ProtocolExtension>[];
+        await expectLater(
+          testBuildHook(
+            mainMethod: build_hook.main,
+            extensions: extensions,
+            userDefines: PackageUserDefines(
+              workspacePubspec: PackageUserDefinesSource(
+                defines: {'type': 'debug'},
+                basePath: tempRoot.uri,
+              ),
+            ),
+            check: (_, _) {},
+          ),
+          throwsA(
+            predicate<Object>(
+              (error) =>
+                  error.toString().contains(
+                    'automatic prebuilt Flutter Web debug artifact is unsupported',
+                  ) &&
+                  !error.toString().contains('Downloading'),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   test('emits the Web runtime only through Flutter DataAssets', () async {
     final workspaceRoot = Directory(p.join(tempRoot.path, 'workspace'))
@@ -77,7 +109,7 @@ void main() {
       extensions: [DataAssetsExtension()],
       userDefines: PackageUserDefines(
         workspacePubspec: PackageUserDefinesSource(
-          defines: {'type': 'base', 'web': 'runtime'},
+          defines: {'type': 'debug', 'web': 'runtime'},
           basePath: workspaceRoot.uri,
         ),
       ),
@@ -130,10 +162,7 @@ void main() {
       }),
       isTrue,
     );
-    expect(
-      build_hook.isDefaultWebRuntime({'type': 'base'}),
-      isFalse,
-    );
+    expect(build_hook.isDefaultWebRuntime({'type': 'base'}), isFalse);
     expect(
       build_hook.isDefaultWebRuntime({
         'type': 'base',
@@ -150,6 +179,28 @@ void main() {
         'small': true,
       }),
       isFalse,
+    );
+    expect(
+      () => build_hook.validateWebBundleSelection({'type': 'debug'}),
+      throwsA(
+        predicate<Object>(
+          (error) => error.toString().contains('browser-incompatible'),
+        ),
+      ),
+    );
+    expect(
+      () => build_hook.validateWebBundleSelection({
+        'type': 'debug',
+        'web': 'https://example.test/runtime.zip',
+      }),
+      returnsNormally,
+    );
+    expect(
+      () => build_hook.validateWebBundleSelection({
+        'type': 'debug',
+        'wasm': 'runtime',
+      }),
+      returnsNormally,
     );
   });
 }
