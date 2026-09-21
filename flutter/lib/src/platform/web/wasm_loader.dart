@@ -6,17 +6,16 @@ import 'package:web/web.dart' as web;
 
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import 'retryable_initialization.dart';
+import 'web_asset_paths.dart';
 
 /// Loads the Emscripten module and connects ffigen_js to that module instance.
 final class WasmLoader {
   WasmLoader._();
 
   static final instance = WasmLoader._();
-  static const assetRoot = 'assets/packages/ffmpeg_kit_extended_flutter/wasm';
-  static const overrideAssetRoot =
-      'assets/packages/ffmpeg_kit_extended_flutter/wasm_override';
-  static const overrideManifest =
-      '$overrideAssetRoot/ffmpegkit_wasm_manifest.json';
+  static const assetRoot = WebAssetPaths.defaultAssetRoot;
+  static const overrideAssetRoot = WebAssetPaths.overrideAssetRoot;
+  static const overrideManifest = WebAssetPaths.overrideManifest;
 
   final _initialization = RetryableInitialization<JSObject>();
 

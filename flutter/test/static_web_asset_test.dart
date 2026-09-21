@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:ffmpeg_kit_extended_flutter/src/platform/web/web_asset_paths.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -27,6 +28,25 @@ void main() {
     expect(
       File('${assetRoot.path}/ffmpegkit.mjs').readAsStringSync(),
       contains('export default'),
+    );
+  });
+
+  test('matches Flutter dependency-asset URL roots', () {
+    expect(
+      WebAssetPaths.defaultAssetKeyRoot,
+      'packages/ffmpeg_kit_extended_flutter/assets/wasm',
+    );
+    expect(
+      WebAssetPaths.defaultAssetRoot,
+      'assets/packages/ffmpeg_kit_extended_flutter/assets/wasm',
+    );
+    expect(
+      WebAssetPaths.overrideAssetKeyRoot,
+      'packages/ffmpeg_kit_extended_flutter/wasm_override',
+    );
+    expect(
+      WebAssetPaths.overrideAssetRoot,
+      'assets/packages/ffmpeg_kit_extended_flutter/wasm_override',
     );
   });
 
