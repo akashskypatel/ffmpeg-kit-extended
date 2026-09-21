@@ -51,6 +51,13 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     `libffmpegkit.dll`, and Apple archives must contain exactly one FFmpegKit
     `.xcframework`.
 
+    The build hook validates architecture before downloading or extracting an
+    artifact. Android supports `arm`, `arm64`, `ia32` (`x86`), and `x64`
+    (`x86_64`); Apple supports `arm64` and `x64`; Linux and Windows support
+    `arm64` and `x64`. Unsupported architectures fail with a diagnostic that
+    names the requested architecture and supported set. The hook never maps an
+    unsupported request to a different architecture.
+
     **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. Flutter Web uses the workspace-root `hooks.user_defines` map as the canonical configuration source; the hook emits package runtime files as DataAssets and does not write into an app's `web/` or `build/web/` directories.
 
     For example, in the workspace root:
@@ -102,6 +109,10 @@ void main() async {
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+The published Android artifact contains `armeabi-v7a`, `arm64-v8a`, `x86`, and
+`x86_64` layouts. Custom AAR overrides must provide the ABI requested by the
+build; an unsupported architecture is rejected before extraction.
+
 ### iOS / macOS
 
 1. Ensure your deployment target is at least **iOS 13.0** or **macOS 10.15**.
@@ -115,13 +126,19 @@ void main() async {
 <string>This app requires access to files to process videos.</string>
 ```
 
+Apple builds request `arm64` or `x86_64` slices from the XCFramework. A
+simulator `x86_64` build is valid only when that slice is present; the hook does
+not relabel an `arm64` slice as `x86_64`.
+
 ### Windows
 
-The Windows implementation uses `libffmpegkit.dll`. No specific configuration is required as the binaries are bundled automatically.
+The Windows implementation uses `libffmpegkit.dll`. The published native
+artifacts support `arm64` and `x86_64`; unsupported target architectures fail
+before artifact download.
 
 ### Linux
 
-Ensure you have basic `ffmpeg` runtime dependencies installed on your system if you are building from source.
+Ensure you have basic `ffmpeg` runtime dependencies installed on your system if you are building from source. The published native artifacts support `arm64` and `x86_64`; unsupported target architectures fail before artifact download.
 
 ### WebAssembly Web
 

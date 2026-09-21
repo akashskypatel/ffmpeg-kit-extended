@@ -1,6 +1,68 @@
 import 'dart:io';
 
+import 'package:code_assets/code_assets.dart';
 import 'package:path/path.dart' as p;
+
+String androidAbiForArchitecture(Architecture architecture) {
+  switch (architecture) {
+    case Architecture.arm:
+      return 'armeabi-v7a';
+    case Architecture.arm64:
+      return 'arm64-v8a';
+    case Architecture.ia32:
+      return 'x86';
+    case Architecture.x64:
+      return 'x86_64';
+    default:
+      throw StateError(
+        'Unsupported Android target architecture "${architecture.name}"; '
+        'supported architectures: arm, arm64, ia32, x64.',
+      );
+  }
+}
+
+String appleArtifactArchitecture(Architecture architecture) {
+  switch (architecture) {
+    case Architecture.arm64:
+      return 'arm64';
+    case Architecture.x64:
+      return 'x86_64';
+    default:
+      throw StateError(
+        'Unsupported Apple target architecture "${architecture.name}"; '
+        'supported architectures: arm64, x64.',
+      );
+  }
+}
+
+String desktopArtifactArchitecture(
+  Architecture architecture, {
+  required String platform,
+}) {
+  switch (architecture) {
+    case Architecture.arm64:
+      return 'arm64';
+    case Architecture.x64:
+      return 'x86_64';
+    default:
+      throw StateError(
+        'Unsupported $platform target architecture "${architecture.name}"; '
+        'supported architectures: arm64, x64.',
+      );
+  }
+}
+
+void validateTargetArchitecture(OS targetOS, Architecture architecture) {
+  switch (targetOS) {
+    case OS.android:
+      androidAbiForArchitecture(architecture);
+    case OS.iOS:
+    case OS.macOS:
+      appleArtifactArchitecture(architecture);
+    default:
+      desktopArtifactArchitecture(architecture, platform: targetOS.name);
+  }
+}
 
 File selectExactMainLibrary(
   Iterable<File> candidates, {

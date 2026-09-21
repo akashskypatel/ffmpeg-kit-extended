@@ -48,6 +48,7 @@ void main(List<String> args) async {
       'Target: ${targetOS.name}-${targetArch.name}; '
       'SDK: ${_buildHookSdk(input)}',
     );
+    validateTargetArchitecture(targetOS, targetArch);
 
     // 1. Load Configuration
     final configResult = _loadConfig(input, output);
@@ -658,9 +659,10 @@ Future<FFmpegArtifact?> _resolveArtifact(
       url = "$_baseUrlTemplate/$tag/$filename";
     } else {
       // Windows, Linux
-      final archStr = targetArch == Architecture.x64
-          ? 'x86_64'
-          : (targetArch == Architecture.arm64 ? 'arm64' : 'x86_64');
+      final archStr = desktopArtifactArchitecture(
+        targetArch,
+        platform: targetOS.name,
+      );
       final parts = ['bundle', currentType, platformName, archStr, 'shared'];
       if (type == 'debug') {
         parts.add('debug');
@@ -1183,17 +1185,11 @@ String _appleFrameworkInfoPlist({required bool simulator}) {
 }
 
 String _getAndroidAbi() {
-  if (targetArch == Architecture.arm) return 'armeabi-v7a';
-  if (targetArch == Architecture.arm64) return 'arm64-v8a';
-  if (targetArch == Architecture.ia32) return 'x86';
-  if (targetArch == Architecture.x64) return 'x86_64';
-  return 'arm64-v8a';
+  return androidAbiForArchitecture(targetArch);
 }
 
 String _getAppleArch() {
-  if (targetArch == Architecture.arm64) return 'arm64';
-  if (targetArch == Architecture.x64) return 'x86_64';
-  return 'arm64';
+  return appleArtifactArchitecture(targetArch);
 }
 
 String _appleDiagnosticContext(BuildInput input) {

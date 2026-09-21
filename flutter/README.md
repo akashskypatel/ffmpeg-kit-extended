@@ -26,11 +26,14 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 
 - **Cross-Platform Support**: Works on `Android`, `iOS`, `macOS`, `Linux`, `Windows`, and WebAssembly-enabled `Web` builds.
   - **Android**: Full video playback support with native surface rendering.
-    - **x86**: `x86` architecture is not supported due to its legacy status.
+    - Supported native artifact architectures are `arm` (`armeabi-v7a`),
+      `arm64` (`arm64-v8a`), `ia32` (`x86`), and `x64` (`x86_64`).
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
-    - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
+    - **iOS**: Supports physical `devices` and `simulators`; `x86_64` is
+      selected only when the requested XCFramework slice exists.
   - **Linux**: Full video playback support with `OpenGL` integration.
-    - **arm64**: `arm64` architecture currently not supported, coming soon!
+    - Supported artifact architectures are `arm64` and `x86_64`.
+  - **Windows**: Supported artifact architectures are `arm64` and `x86_64`.
   - **Web**: Ships the pinned default base/small/LGPL `wasm32` runtime as ordinary package assets and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
@@ -48,11 +51,11 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 
 | Platform                 | Status       | Video Playback    | Architecture         | Minimum Requirements |
 | ------------------------ | ------------ | ----------------- | -------------------- | -------------------- |
-| Android (and Android TV) | ✅ Supported | ✅ Native       | armv7, arm64, x86_64 | API 26+              |
-| iOS (and Simulator)      | ✅ Supported | ✅ Texture      | arm64                | iOS 13+              |
+| Android (and Android TV) | ✅ Supported | ✅ Native       | armv7, arm64, x86, x86_64 | API 26+          |
+| iOS (and Simulator)      | ✅ Supported | ✅ Texture      | arm64; x86_64 when present | iOS 13+         |
 | macOS                    | ✅ Supported | ✅ Texture      | arm64, x86_64        | macOS 13+            |
-| Linux                    | ✅ Supported | ✅ Texture      | x86_64               | glibc 2.28+          |
-| Windows                  | ✅ Supported | ✅ Texture      | x86_64               | Windows 8+           |
+| Linux                    | ✅ Supported | ✅ Texture      | arm64, x86_64        | glibc 2.28+          |
+| Windows                  | ✅ Supported | ✅ Texture      | arm64, x86_64        | Windows 8+           |
 | Web (Wasm)               | ✅ Supported | ✅ RGBA frames | wasm32              | Flutter Wasm build   |
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
@@ -152,6 +155,8 @@ Flutter Web uses the same public API and shared session implementation as native
    ```
 
    **Apple slice selection**: The build hook reads the XCFramework `AvailableLibraries` metadata and matches the target platform, simulator/device variant, and requested architecture. iOS device builds use `arm64`; iOS simulator builds use `arm64` and use `x86_64` only when the selected XCFramework actually provides that slice. macOS builds select a compatible `arm64` or `x86_64` entry. The prebuilt iOS bundle supports `arm64`; simulator `x86_64` is supported only when a custom XCFramework actually provides that slice. An arm64-only simulator artifact is not labeled universal and cannot be copied or relabeled as `x86_64`. If Flutter requests simulator `x86_64` and the artifact has no such slice, the hook fails early with the available-slice diagnostic. Podfile `EXCLUDED_ARCHS` settings affect downstream Xcode/CocoaPods targets; they do not choose the architecture requested from the Dart build hook or create native hook assets.
+
+   **Architecture validation**: Android accepts `arm`, `arm64`, `ia32`, and `x64`; Apple accepts `arm64` and `x64`; Linux and Windows accept `arm64` and `x64`. Any other target architecture fails before artifact download or extraction with the requested architecture and supported set. Custom archives must contain the requested architecture; the hook never substitutes a different architecture or relabels a binary.
 
    ### Build Hook Troubleshooting
 
