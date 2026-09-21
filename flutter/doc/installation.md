@@ -42,7 +42,7 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     content-addressed URLs for reproducible builds. Local override files remain
     filesystem dependencies.
 
-    **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. For Web, configure `hooks.user_defines.ffmpeg_kit_extended_flutter` in the consuming app package, or enable Flutter Web data assets when using a shared workspace root.
+    **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. Flutter Web uses the workspace-root `hooks.user_defines` map as the canonical configuration source; the hook emits package runtime files as DataAssets and does not write into an app's `web/` or `build/web/` directories.
 
     For example, in the workspace root:
 
@@ -133,6 +133,12 @@ Cross-Origin-Embedder-Policy: require-corp
 ```
 
 Check `window.crossOriginIsolated` in the browser; it must be `true` for threaded Wasm execution.
+
+Flutter 3.47+'s enabled DataAsset pipeline is the Web runtime delivery path. The hook
+emits the two Wasm files, loader, callback bridge, and callback runtime as
+package DataAssets, so `flutter build web --wasm` and `flutter run --wasm` use
+the same package asset definitions. No generated runtime files are copied into
+the consuming app's source `web/` tree or `build/web/` output directory.
 
 Custom Web/Wasm ZIPs or directories must contain exactly one coherent runtime
 directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects

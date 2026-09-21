@@ -29,7 +29,7 @@ late final Architecture targetArch;
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    // Flutter web builds do not expose a CodeAsset target. Stage the wasm
+    // Flutter web builds do not expose a CodeAsset target. Emit the Wasm
     // runtime as package data instead.
     if (!input.config.buildCodeAssets) {
       await _buildWebDataAssets(input, output);
@@ -70,13 +70,12 @@ Future<void> _buildWebDataAssets(
   BuildOutputBuilder output,
 ) async {
   final configResult = _loadConfig(input, output);
-  if (!input.config.buildDataAssets && configResult.stagingBaseDir == null) {
+  if (!input.config.buildDataAssets) {
     throw _exception(
-      'Cannot determine the consuming Flutter app root for Web runtime '
-      'staging in a shared Pub Workspace. Configure '
-      'hooks.user_defines.ffmpeg_kit_extended_flutter in the consuming app '
-      'package or enable Flutter Web data assets. The legacy '
-      'ffmpeg_kit_extended_config key is only a compatibility fallback.',
+      'Flutter Web DataAssets are required for the Web Wasm runtime. '
+      'Use a Flutter toolchain that exposes and enables Dart DataAssets '
+      '(Flutter >=3.47.0 when supported), then run `flutter build web --wasm` '
+      'or `flutter run --wasm`.',
     );
   }
   final source = await _resolveWebArtifact(
@@ -104,66 +103,15 @@ Future<void> _buildWebDataAssets(
       name: File(p.join(runtimeDir.path, name)),
   };
 
-  final stagingBaseDir = configResult.stagingBaseDir;
-  final webAssetDirs = stagingBaseDir == null
-      ? const <Directory>[]
-      : [
-          Directory(
-            p.join(
-              stagingBaseDir,
-              'build',
-              'web',
-              'assets',
-              'packages',
-              packageName,
-              'wasm',
-            ),
-          ),
-          // Stable Flutter does not expose Dart data assets to `flutter run`.
-          // Keep the same files in the app's web tree so the debug web server can
-          // serve the package asset URL as well.
-          Directory(
-            p.join(
-              stagingBaseDir,
-              'web',
-              'assets',
-              'packages',
-              packageName,
-              'wasm',
-            ),
-          ),
-        ];
-  Future<void> stageWebAsset(File source, String name) async {
-    for (final webAssetDir in webAssetDirs) {
-      webAssetDir.createSync(recursive: true);
-      final destination = File(p.join(webAssetDir.path, name));
-      final destinationHash = destination.existsSync()
-          ? await _computeFileSha256(destination)
-          : null;
-      final sourceHash = await _computeFileSha256(source);
-      if (destinationHash != sourceHash) {
-        source.copySync(destination.path);
-      }
-    }
-    output.dependencies.add(source.uri);
-  }
-
-  if (input.config.buildDataAssets) {
-    for (final name in requiredRuntimeFiles) {
-      final file = runtimeFilesByName[name]!;
-      output.assets.data.add(
-        DataAsset(
-          package: packageName,
-          name: p.posix.join('wasm', name),
-          file: file.uri,
-        ),
-      );
-    }
-  }
-  if (stagingBaseDir != null) {
-    for (final name in requiredRuntimeFiles) {
-      await stageWebAsset(runtimeFilesByName[name]!, name);
-    }
+  for (final name in requiredRuntimeFiles) {
+    final file = runtimeFilesByName[name]!;
+    output.assets.data.add(
+      DataAsset(
+        package: packageName,
+        name: p.posix.join('wasm', name),
+        file: file.uri,
+      ),
+    );
   }
   final bridgeSource = File(
     p.fromUri(input.packageRoot.resolve('web/ffmpegkit_bridge.mjs')),
@@ -191,30 +139,22 @@ Future<void> _buildWebDataAssets(
   final bridgeName = p.posix.join('wasm', bridgeFileName);
   final callbackRuntimeName = p.posix.join('wasm', callbackRuntimeFileName);
   final loaderName = p.posix.join('wasm', loaderFileName);
-  if (input.config.buildDataAssets) {
-    output.assets.data.add(
-      DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
-    );
-    output.assets.data.add(
-      DataAsset(
-        package: packageName,
-        name: callbackRuntimeName,
-        file: callbackRuntimeSource.uri,
-      ),
-    );
-    output.assets.data.add(
-      DataAsset(package: packageName, name: loaderName, file: loaderSource.uri),
-    );
-  }
-  if (stagingBaseDir != null) {
-    await stageWebAsset(bridgeSource, bridgeFileName);
-    await stageWebAsset(callbackRuntimeSource, callbackRuntimeFileName);
-    await stageWebAsset(loaderSource, loaderFileName);
-  }
+  output.assets.data.add(
+    DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
+  );
+  output.assets.data.add(
+    DataAsset(
+      package: packageName,
+      name: callbackRuntimeName,
+      file: callbackRuntimeSource.uri,
+    ),
+  );
+  output.assets.data.add(
+    DataAsset(package: packageName, name: loaderName, file: loaderSource.uri),
+  );
   _log(
-    'Staged ffmpegkit.mjs, ffmpegkit.wasm, loader, bridge, and callback runtime '
-    'for '
-    '$packageName at assets/packages/$packageName/wasm/',
+    'Emitted ffmpegkit.mjs, ffmpegkit.wasm, loader, bridge, and callback runtime '
+    'for $packageName as Flutter Web DataAssets under wasm/',
   );
 }
 
@@ -410,20 +350,14 @@ WebRuntimeSource _webRuntimeSourceFromArtifact(FFmpegArtifact artifact) {
 
 ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
   final packageRoot = p.normalize(input.packageRoot.toFilePath());
-  final stagingBaseDir = resolveStagingBaseDir(
-    outputFile: input.outputFile.toFilePath(),
-    fallbackBaseDir: packageRoot,
-  );
   _log('input.packageRoot: $packageRoot');
   _log('Platform.packageConfig: ${Platform.packageConfig}');
-  _log('stagingBaseDir: $stagingBaseDir');
 
   final userDefinesResult = resolveUserDefines(
     read: (key) => input.userDefines[key],
     readPath: (key) => input.userDefines.path(key),
     readBase: (key) => input.userDefines.baseUri([key]),
     packageRoot: packageRoot,
-    stagingBaseDir: stagingBaseDir,
     addDependency: output.dependencies.add,
     log: _log,
   );
@@ -436,7 +370,6 @@ ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
       readPubspec: _readPubspec,
       log: _log,
       addDependency: output.dependencies.add,
-      stagingBaseDir: stagingBaseDir,
     ),
   );
   _log('Configuration source: ${result.source}');

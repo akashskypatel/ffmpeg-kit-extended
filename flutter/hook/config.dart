@@ -13,13 +13,11 @@ class PubspecData {
 class ConfigResult {
   final dynamic config;
   final String configBaseDir;
-  final String? stagingBaseDir;
   final String source;
 
   const ConfigResult(
     this.config,
-    this.configBaseDir,
-    this.stagingBaseDir, {
+    this.configBaseDir, {
     this.source = 'legacy ffmpeg_kit_extended_config',
   });
 }
@@ -53,7 +51,6 @@ ConfigResult? resolveUserDefines({
   required UserDefinePathReader readPath,
   required UserDefineBaseReader readBase,
   required String packageRoot,
-  required String? stagingBaseDir,
   required void Function(Uri uri) addDependency,
   required void Function(String message) log,
 }) {
@@ -89,12 +86,7 @@ ConfigResult? resolveUserDefines({
       ? p.normalize(packageRoot)
       : p.normalize(Directory.fromUri(configBaseUri).path);
   log('Using configuration from hooks.user_defines');
-  return ConfigResult(
-    config,
-    configBaseDir,
-    stagingBaseDir,
-    source: 'hooks.user_defines',
-  );
+  return ConfigResult(config, configBaseDir, source: 'hooks.user_defines');
 }
 
 ConfigResult selectConfigSource({
@@ -139,22 +131,6 @@ bool isUriLikeOverride(String value) {
   return RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(value);
 }
 
-String resolveStagingBaseDir({
-  required String outputFile,
-  required String fallbackBaseDir,
-}) {
-  var current = Directory(outputFile).parent;
-  while (true) {
-    if (p.basename(current.path) == '.dart_tool') {
-      return p.normalize(current.parent.path);
-    }
-    final parent = current.parent;
-    if (p.equals(parent.path, current.path)) break;
-    current = parent;
-  }
-  return p.normalize(fallbackBaseDir);
-}
-
 typedef PubspecReader = PubspecData? Function(File file);
 
 class ConfigResolutionException implements Exception {
@@ -173,12 +149,8 @@ ConfigResult resolveConfig({
   required PubspecReader readPubspec,
   required void Function(String message) log,
   void Function(Uri uri) addDependency = _ignoreDependency,
-  String? stagingBaseDir,
 }) {
   final normalizedPackageRoot = p.normalize(packageRoot);
-  final normalizedStagingBaseDir = p.normalize(
-    stagingBaseDir ?? normalizedPackageRoot,
-  );
   var workspaceRootDetected = false;
   if (packageConfig != null) {
     // packageConfig is a file:/// URI pointing to .dart_tool/package_config.json
@@ -203,7 +175,6 @@ ConfigResult resolveConfig({
       return ConfigResult(
         rootPubspecData!.config,
         configRoot,
-        rootPubspecData.isWorkspace ? null : normalizedStagingBaseDir,
         source: 'legacy ffmpeg_kit_extended_config',
       );
     }
@@ -301,7 +272,6 @@ ConfigResult resolveConfig({
       return ConfigResult(
         candidate.config,
         p.dirname(candidate.pubspec.path),
-        p.dirname(candidate.pubspec.path),
         source: 'legacy ffmpeg_kit_extended_config',
       );
     }
@@ -357,7 +327,6 @@ ConfigResult resolveConfig({
         return ConfigResult(
           pubspec!.config,
           normalizedPackageRoot,
-          normalizedStagingBaseDir,
           source: 'legacy ffmpeg_kit_extended_config',
         );
       }
@@ -371,7 +340,6 @@ ConfigResult resolveConfig({
   return ConfigResult(
     {'type': 'base', 'gpl': false, 'small': true},
     normalizedPackageRoot,
-    workspaceRootDetected ? null : normalizedStagingBaseDir,
     source: 'defaults',
   );
 }

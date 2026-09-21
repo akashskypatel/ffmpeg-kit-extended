@@ -1,0 +1,14 @@
+name: review16_data_assets_workspace
+publish_to: none
+
+environment:
+  sdk: ">=3.12.0 <4.0.0"
+
+workspace:
+  - apps/app
+
+hooks:
+  user_defines:
+    ffmpeg_kit_extended_flutter:
+      type: base
+      web: runtime

@@ -28,7 +28,6 @@ void main() {
       readPath: (_) => null,
       readBase: (_) => root.uri,
       packageRoot: tempRoot.path,
-      stagingBaseDir: root.path,
       addDependency: (_) {},
       log: logs.add,
     );
@@ -74,7 +73,6 @@ void main() {
             readPath: (key) => input.userDefines.path(key),
             readBase: (key) => input.userDefines.baseUri([key]),
             packageRoot: input.packageRoot.toFilePath(),
-            stagingBaseDir: input.packageRoot.toFilePath(),
             addDependency: (_) {},
             log: (_) {},
           );
@@ -102,7 +100,6 @@ void main() {
       readPath: (key) => key == 'ios' ? bundle.uri : null,
       readBase: (_) => workspaceRoot.uri,
       packageRoot: p.join(workspaceRoot.path, 'packages', 'ffmpeg'),
-      stagingBaseDir: p.join(workspaceRoot.path, 'apps', 'app'),
       addDependency: dependencies.add,
       log: (_) {},
     );
@@ -122,7 +119,6 @@ void main() {
       },
       readBase: (_) => tempRoot.uri,
       packageRoot: tempRoot.path,
-      stagingBaseDir: tempRoot.path,
       addDependency: (_) {},
       log: (_) {},
     );
@@ -135,7 +131,6 @@ void main() {
     final user = ConfigResult(
       {'type': 'video'},
       tempRoot.path,
-      tempRoot.path,
       source: 'hooks.user_defines',
     );
     var legacyCalled = false;
@@ -144,7 +139,7 @@ void main() {
       userDefines: user,
       legacy: () {
         legacyCalled = true;
-        return ConfigResult({'type': 'audio'}, tempRoot.path, tempRoot.path);
+        return ConfigResult({'type': 'audio'}, tempRoot.path);
       },
     );
 
@@ -155,8 +150,7 @@ void main() {
   test('no userDefines falls back to the legacy resolver', () {
     final result = selectConfigSource(
       userDefines: null,
-      legacy: () =>
-          ConfigResult({'type': 'audio'}, tempRoot.path, tempRoot.path),
+      legacy: () => ConfigResult({'type': 'audio'}, tempRoot.path),
     );
 
     expect(result.config['type'], equals('audio'));
@@ -168,7 +162,6 @@ void main() {
       userDefines: null,
       legacy: () => ConfigResult(
         {'type': 'base', 'gpl': false, 'small': true},
-        tempRoot.path,
         tempRoot.path,
         source: 'defaults',
       ),
@@ -185,7 +178,6 @@ void main() {
         readPath: (_) => null,
         readBase: (_) => null,
         packageRoot: tempRoot.path,
-        stagingBaseDir: tempRoot.path,
         addDependency: (_) {},
         log: (_) {},
       ),

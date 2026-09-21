@@ -20,27 +20,6 @@ void main() {
     }
   });
 
-  test('derives the workspace root from a shared hook output path', () {
-    final workspaceRoot = _createDirectory(tempRoot, 'workspace');
-    _createDirectory(tempRoot, p.join('workspace', 'apps', 'app'));
-    final outputFile = p.join(
-      workspaceRoot.path,
-      '.dart_tool',
-      'hooks_runner',
-      'ffmpeg_kit_extended_flutter',
-      'checksum',
-      'output.json',
-    );
-
-    expect(
-      resolveStagingBaseDir(
-        outputFile: outputFile,
-        fallbackBaseDir: tempRoot.path,
-      ),
-      equals(p.normalize(workspaceRoot.path)),
-    );
-  });
-
   test('root configuration takes precedence over workspace packages', () {
     final workspaceRoot = _createDirectory(tempRoot, 'workspace');
     final packageRoot = _createDirectory(tempRoot, 'package');
@@ -68,12 +47,10 @@ ffmpeg_kit_extended_config:
       packageConfig: _packageConfigUri(workspaceRoot),
       readPubspec: _readPubspec,
       log: (_) {},
-      stagingBaseDir: memberRoot.path,
     );
 
     expect(result.config['type'], equals('video'));
     expect(result.configBaseDir, equals(workspaceRoot.path));
-    expect(result.stagingBaseDir, isNull);
   });
 
   test('selects the only configured workspace package', () {
@@ -136,7 +113,6 @@ ffmpeg_kit_extended_config:
     expect(result.config['gpl'], isTrue);
     expect(result.config['small'], isTrue);
     expect(result.configBaseDir, equals(p.normalize(memberRoot.path)));
-    expect(result.stagingBaseDir, equals(p.normalize(memberRoot.path)));
     expect(
       dependencies.map((uri) => p.normalize(uri.toFilePath())),
       containsAll(<String>[
@@ -435,7 +411,6 @@ workspace:
     expect(result.config['type'], equals('base'));
     expect(result.config['gpl'], isFalse);
     expect(result.config['small'], isTrue);
-    expect(result.stagingBaseDir, isNull);
     expect(logs.join('\n'), contains('Dart Pub Workspace detected'));
     expect(
       logs.join('\n'),

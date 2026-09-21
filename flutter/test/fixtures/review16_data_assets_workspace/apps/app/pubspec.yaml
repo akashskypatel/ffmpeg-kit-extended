@@ -1,0 +1,13 @@
+name: review16_data_assets_app
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.47.0"
+
+dependencies:
+  ffmpeg_kit_extended_flutter:
+    path: ../../../../..
+  flutter:
+    sdk: flutter
