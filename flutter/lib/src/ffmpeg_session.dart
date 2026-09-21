@@ -33,19 +33,19 @@ import 'platform/backend_selector.dart';
 /// 1. Construct via [FFmpegSession.new] (or [create]) to allocate the native
 ///    session object. Sessions are registered with [CallbackManager] lazily
 ///    when a callback, log listener, or execution is attached.
-/// 2. Call [executeAsync] (or the static [executeCommandAsync]) to schedule
-///    execution and await the result.
-///    Use [execute] / [executeCommand] only when you deliberately want
-///    fire-and-forget behaviour and observe completion through [completeCallback].
+/// 2. Call [execute] / [executeCommand] for a blocking result, or
+///    [executeAsync] / [executeCommandAsync] to submit work to the managed
+///    asynchronous queue.
 /// 3. The session is automatically unregistered from [CallbackManager] after
-///    the completion callback fires.
+///    execution settles.
 ///
 /// ### execute() vs executeAsync()
-/// [execute] enqueues the native call and returns `this` immediately —
-/// *before* the session has necessarily started or finished.  It is therefore
-/// **not** a true synchronous call from the caller's perspective.
-/// Use [executeAsync] when you need a [Future] that resolves only after
-/// execution finishes.
+/// [execute] blocks until native execution and Dart-side cleanup complete, so
+/// its returned session has terminal state, output, and logs available without
+/// calling `SessionQueueManager().waitForAll()`. Do not use it for long work on
+/// the Flutter UI isolate. Use [executeAsync] for a [Future]-based,
+/// queue-managed operation; the queue concurrency limit applies to that async
+/// path.
 class FFmpegSession extends Session {
   FFmpegSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
@@ -399,7 +399,7 @@ class FFmpegSession extends Session {
     return this;
   }
 
-  /// Creates and enqueues a session for synchronous execution.
+  /// Creates and executes a session synchronously.
   ///
   /// Returns after the blocking execution has completed.
   static FFmpegSession executeCommand(

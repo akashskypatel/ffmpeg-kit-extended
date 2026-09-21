@@ -13,6 +13,11 @@ The `FFplayKit` class provides a convenient interface for media playback using F
 
 **Important**: Only one FFplay session can be active at a time. Starting a new session automatically replaces any existing one.
 
+`FFplayKit.execute` and `executeAsync` are Future-based playback APIs managed
+by the session queue. The direct `FFplaySession.execute` compatibility method
+is blocking and should not be used for long playback work on the Flutter UI
+isolate.
+
 ## Video Playback
 
 For video playback, use the `FFplaySurface` class to create a cross-platform video surface:

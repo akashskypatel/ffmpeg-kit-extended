@@ -30,6 +30,10 @@ import 'platform/backend_selector.dart';
 /// A session for executing FFprobe commands.
 ///
 /// Use this class to retrieve media metadata and stream information.
+/// [execute] blocks until native execution and Dart-side cleanup complete, so
+/// terminal state and output are available when it returns. Do not use the
+/// blocking path for long work on the Flutter UI isolate. [executeAsync] is the
+/// Future-based path managed by [SessionQueueManager].
 class FFprobeSession extends Session {
   FFprobeSessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
@@ -235,7 +239,7 @@ class FFprobeSession extends Session {
     return this;
   }
 
-  /// Creates and enqueues a session for synchronous execution.
+  /// Creates and executes a session synchronously.
   static FFprobeSession executeCommand(
     String command, {
     FFprobeSessionCompleteCallback? completeCallback,

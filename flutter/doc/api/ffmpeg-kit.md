@@ -13,6 +13,14 @@ The `FFmpegKit` class provides a convenient interface for executing FFmpeg comma
 - Manage and track FFmpeg sessions
 - Cancel running operations
 
+### Execution contract
+
+`execute` is blocking and returns a terminal session after the command and
+cleanup finish. Inspect its output, logs, and return code immediately; it does
+not require `SessionQueueManager().waitForAll()`. Avoid long synchronous work
+on the Flutter UI isolate. `executeAsync` returns a `Future`, is managed by
+`SessionQueueManager`, and honors its concurrency limit.
+
 ## Class Methods
 
 ### execute

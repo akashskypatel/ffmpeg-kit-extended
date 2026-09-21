@@ -34,6 +34,9 @@ import 'platform/backend_selector.dart';
 /// ### Lifecycle
 /// Use [FFplayKit] to create and execute sessions for global tracking.
 /// Deprecated static helpers still work but bypass tracking.
+/// The direct [execute] method blocks until native playback work and cleanup
+/// complete. Use [FFplayKit.executeAsync] for long-running playback from the
+/// Flutter UI isolate and for queue-managed execution.
 class FFplaySession extends Session {
   FFplaySessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;

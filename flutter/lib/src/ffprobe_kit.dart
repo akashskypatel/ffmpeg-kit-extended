@@ -30,6 +30,9 @@ class FFprobeKit {
   static void cancel(FFprobeSession session) => session.cancel();
 
   /// Retrieves media information for the given [path].
+  ///
+  /// This call blocks until FFprobe has completed and the returned session can
+  /// be inspected immediately. Use [getMediaInformationAsync] for long work.
   static MediaInformationSession getMediaInformation(String path) =>
       FFprobeSession.createMediaInformationSession(path).execute();
 
@@ -43,10 +46,16 @@ class FFprobeKit {
   ).executeAsync();
 
   /// Executes an FFprobe [command] synchronously.
+  ///
+  /// The returned session is terminal when this method returns. Avoid the
+  /// blocking path for long work on the Flutter UI isolate.
   static FFprobeSession execute(String command) =>
       FFprobeSession.executeCommand(command);
 
   /// Executes an FFprobe [command] asynchronously.
+  ///
+  /// The Future is managed by [SessionQueueManager] and honors its concurrency
+  /// limit.
   static Future<FFprobeSession> executeAsync(
     String command, {
     callback_manager.FFprobeSessionCompleteCallback? onComplete,

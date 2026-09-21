@@ -23,11 +23,18 @@ import 'ffmpeg_session.dart';
 
 /// A convenience class for executing FFmpeg commands.
 class FFmpegKit {
-  /// Executes an FFmpeg [command] synchronously.
+  /// Executes an FFmpeg [command] synchronously and blocks until it finishes.
+  ///
+  /// The returned session is already terminal and can be inspected without
+  /// calling `SessionQueueManager().waitForAll()`. Avoid this path for long
+  /// work on the Flutter UI isolate; use [executeAsync] instead.
   static FFmpegSession execute(String command) =>
       FFmpegSession.executeCommand(command);
 
   /// Executes an FFmpeg [command] asynchronously.
+  ///
+  /// The Future is managed by `SessionQueueManager` and honors its concurrency
+  /// limit.
   ///
   /// - [command]: The FFmpeg command to execute.
   /// - [onComplete]: Optional callback invoked when execution completes.

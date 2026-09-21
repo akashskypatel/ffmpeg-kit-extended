@@ -51,6 +51,9 @@ Future<void> awaitMediaInformationExecution(
 /// Internally runs an ffprobe command with `-print_format json -show_format
 /// -show_streams -show_chapters` and parses the result into a [MediaInformation]
 /// object that can be retrieved via [getMediaInformation].
+/// [execute] blocks until parsing and cleanup complete, so callers can inspect
+/// media information immediately. Use [executeAsync] for long work on the
+/// Flutter UI isolate; that path is managed by [SessionQueueManager].
 class MediaInformationSession extends FFprobeSession {
   MediaInformationSessionCompleteCallback? _mediaInfoCompleteCallback;
 
@@ -418,7 +421,7 @@ class MediaInformationSession extends FFprobeSession {
     return this;
   }
 
-  /// Creates and enqueues a session for synchronous execution.
+  /// Creates and executes a session synchronously.
   static MediaInformationSession executeCommand(
     String command, {
     MediaInformationSessionCompleteCallback? completeCallback,

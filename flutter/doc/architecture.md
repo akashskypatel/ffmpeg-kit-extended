@@ -63,9 +63,15 @@ The runtime check is `window.crossOriginIsolated === true`. Without it, `SharedA
 
 `CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. The Web callback bridge creates generated `ffigen_js` function pointers, registers them with the C wrapper, and routes callback events directly to the same manager. Callback pointers remain owned until the C callback slots are disabled and the event-loop lifetime barrier has elapsed.
 
+The callback maps are routing state, not a lifetime registry for every created
+session. A session is registered when a callback, listener, or execution needs
+routing and is removed when that need settles. A created-but-unused session can
+therefore be disposed deterministically without relying on callback-map
+retention.
+
 ## Handles, finalizers, and memory
 
-Backends create and release opaque session and information handles. Shared sessions store only a neutral `SessionHandle` and call the backend for lifecycle operations. Native handles are pointers and use `NativeFinalizer` where appropriate; explicit release remains the primary cleanup path. Web handles are Wasm-side numeric values and use the Web backend’s release operations.
+Backends create and release opaque session and information handles. Shared sessions store only a neutral `SessionHandle` and call the backend for lifecycle operations. Native handles are pointers and use `NativeFinalizer` as a safety net; explicit release remains the deterministic cleanup path. Web handles are Wasm-side numeric values and use the Web backend’s release operations, so Web callers should explicitly dispose abandoned Created sessions when deterministic release matters. History and lookup wrappers adopt their acquired handles and are independently disposable.
 
 Native strings and argument vectors are allocated for the duration of the call and freed by the native backend. Web strings and arrays are encoded into Emscripten memory through `wasm_memory.dart`, passed to the generated bindings, and freed after the wrapper call. Returned strings are copied before their Wasm allocations can be reused. Treat all Wasm pointers as invalid after the corresponding allocation is freed.
 
@@ -79,14 +85,17 @@ Web rendering is a copied-frame path; it does not create an SDL window or native
 
 ```powershell
 cd flutter
-dart --suppress-analytics analyze
-dart --suppress-analytics test
+dart --disable-analytics analyze
+dart --disable-analytics test
 node --check web/ffmpegkit_bridge.mjs
 cd example
 flutter build web --wasm --no-pub
 ```
 
-`dart test` can be blocked in restricted environments when its build hook cannot update the Dart telemetry session file; that is an environment limitation, not a substitute for the analyzer or Web build. Use `git diff --check` before handoff.
+Configure Flutter analytics once with `flutter config --no-analytics`, and use
+`dart --disable-analytics` for direct Dart commands. If an already-running Dart
+daemon has locked `dart-flutter-telemetry.log`, terminate that daemon and retry;
+do not add product code to work around the local telemetry file.
 
 Flutter's test runner evaluates the native-assets build hook for the host
 `TargetPlatform.tester`. Consequently, `flutter test` cannot select this

@@ -157,6 +157,10 @@ FFmpeg Kit Extended provides two primary ways to run commands:
 
 This call **blocks** the current thread until the command finishes. It is simple to use but will freeze your UI if called on the main thread.
 
+The returned session is terminal when `execute` returns; its result does not
+require `SessionQueueManager().waitForAll()`. The queue concurrency limit
+applies to `executeAsync`, not to this already-blocking direct path.
+
 **Capturing Output:** Even though it's synchronous, you can retrieve the terminal output and logs from the returned `Session` object.
 
 ```dart

@@ -3,6 +3,19 @@
 ## Version 1.0.0
 
 - Added WebAssembly wasm32 support
+- Make synchronous FFmpeg, FFprobe, FFplay, and media-information execution
+  return only after native work, terminal callbacks, and cleanup complete;
+  asynchronous execution remains Future-based and queue-managed.
+- Make session lifecycle failure-safe: one execution submission, pre-start and
+  startup cancellation delivery, failure-atomic disposal, settle-safe FFplay
+  ownership, media-information async error propagation, and deterministic
+  callback routing for created sessions.
+- Preserve the Web debug/default-runtime contract and reject unsupported target
+  architectures instead of silently substituting a different artifact.
+- Make Windows archive extraction pass paths through environment variables so
+  legal path characters cannot become PowerShell source code.
+- Reconcile queue admission, duplicate-session, and cancellation behavior so
+  completed or cancelled work cannot be submitted or retained twice.
 - Make Dart Hooks `userDefines` the primary Flutter build configuration with a bounded legacy fallback; track relative override files as dependencies and document workspace-root setup.
 - Select Apple XCFramework slices by platform, simulator/device variant, and requested architecture; verify framework and companion binary architectures before emission and fail clearly when a simulator slice is unavailable.
 - Surface build-hook configuration, artifact, cache, slice, and architecture decisions in diagnostics; document Hooks runner lock ownership and recovery guidance.

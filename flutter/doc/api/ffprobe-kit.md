@@ -11,6 +11,15 @@ The `FFprobeKit` class provides a convenient interface for extracting media info
 - Execute custom FFprobe commands
 - Get chapter and metadata information
 
+### Execution contract
+
+The synchronous `execute` and `getMediaInformation` methods block until
+FFprobe has finished and cleanup has completed. Their returned sessions can be
+inspected immediately; no `SessionQueueManager().waitForAll()` call is needed
+for their own result. Use the asynchronous methods for long work on the
+Flutter UI isolate. Those Future-based methods are managed by
+`SessionQueueManager` and honor its concurrency limit.
+
 ## Class Methods
 
 ### getMediaInformation

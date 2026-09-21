@@ -61,6 +61,11 @@ The `SessionQueueManager` is a singleton:
 final queueManager = SessionQueueManager();
 ```
 
+The queue owns the `executeAsync`/Future-based path. Direct `execute()` calls
+are already blocking and return a terminal session, so callers must not use
+`waitForAll()` to make a synchronous result available. Use `waitForAll()` when
+you intentionally need to await all queued or active asynchronous sessions.
+
 ### Monitoring Status
 
 ```dart

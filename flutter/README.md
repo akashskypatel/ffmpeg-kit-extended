@@ -368,6 +368,12 @@ Apple table entries measure the uncompressed framework binaries and exclude debu
 
 ### 3.1 Basic Command Execution
 
+`FFmpegKit.execute(...)` is blocking and returns a terminal session after the
+command and cleanup finish. Inspect its result immediately; it does not need
+`SessionQueueManager().waitForAll()`. Use `executeAsync(...)` for long-running
+work on the Flutter UI isolate. The asynchronous Future is managed by
+`SessionQueueManager` and honors its concurrency limit.
+
 Execute an FFmpeg command asynchronously:
 
 ```dart

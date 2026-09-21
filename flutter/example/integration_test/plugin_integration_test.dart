@@ -68,7 +68,6 @@ void main() async {
     if (!File(videoPath).existsSync()) {
       if (kDebugMode) print("Creating test video at: $videoPath");
       FFmpegKit.execute("$dummyVideoCommand -y $videoPath");
-      await SessionQueueManager().waitForAll();
       expect(File(videoPath).existsSync(), isTrue);
     }
   }
@@ -85,7 +84,6 @@ void main() async {
     if (!File(audioPath).existsSync()) {
       if (kDebugMode) print("Creating test audio at: $audioPath");
       FFmpegKit.execute("$dummyAudioCommand -y $audioPath");
-      await SessionQueueManager().waitForAll();
       expect(File(audioPath).existsSync(), isTrue);
     }
   }
@@ -229,7 +227,6 @@ void main() async {
       final session = FFmpegKit.createSession("-version");
       session.enableDebugLog();
       session.execute();
-      await SessionQueueManager().waitForAll();
       if (kDebugMode) print("Session ID: ${session.sessionId}");
       if (kDebugMode) print("Debug enabled: ${session.isDebugLogEnabled()}");
       if (kDebugMode) print("Return Code: ${session.getReturnCode()}");
@@ -277,7 +274,6 @@ void main() async {
         if (kDebugMode) print("History Session ID: ${s.sessionId}");
         if (kDebugMode) print(s.getOutput());
       }
-      await SessionQueueManager().waitForAll();
 
       final sessions = FFmpegKit.getFFmpegSessions();
       if (kDebugMode) print("Sessions count: ${sessions.length}");
@@ -312,7 +308,6 @@ void main() async {
 
     testWidgets('Session Output and Logs', (WidgetTester tester) async {
       final session = FFmpegKit.execute("-version");
-      await SessionQueueManager().waitForAll();
       if (kDebugMode) print("Test 6 Session ID: ${session.sessionId}");
 
       final output = session.getOutput();
@@ -341,7 +336,6 @@ void main() async {
 
     testWidgets('Session Timing Information', (WidgetTester tester) async {
       final session = FFmpegKit.execute("-version");
-      await SessionQueueManager().waitForAll();
 
       final createTime = session.getCreateTime();
       final startTime = session.getStartTime();
@@ -364,7 +358,6 @@ void main() async {
     testWidgets('Session Log Entries', (WidgetTester tester) async {
       FFmpegKitConfig.enableRedirection();
       final session = FFmpegKit.execute("-version");
-      await SessionQueueManager().waitForAll();
 
       final logsCount = session.getLogsCount();
       if (kDebugMode) print("Logs count: $logsCount");
@@ -396,7 +389,6 @@ void main() async {
       final session = FFmpegKit.execute(
         "-i $videoPath -c:v mpeg4 -q:v 5 -y $outputPath",
       );
-      await SessionQueueManager().waitForAll();
 
       if (kDebugMode) print("Transcoding result: ${session.getReturnCode()}");
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
@@ -451,7 +443,6 @@ void main() async {
       WidgetTester tester,
     ) async {
       final session = FFmpegKit.execute("-version");
-      await SessionQueueManager().waitForAll();
 
       final output = session.getOutput();
       if (kDebugMode) print("Sync FFmpeg -version output: \n$output");
@@ -494,7 +485,6 @@ void main() async {
       WidgetTester tester,
     ) async {
       final session = FFmpegKit.execute("-h");
-      //await SessionQueueManager().waitForAll();
 
       final output = session.getOutput();
       if (kDebugMode) {
@@ -531,7 +521,6 @@ void main() async {
       WidgetTester tester,
     ) async {
       final session = FFprobeKit.execute("-version");
-      await SessionQueueManager().waitForAll();
 
       final output = session.getOutput();
       if (kDebugMode) print("Sync FFprobe -version output: \n$output");
@@ -559,7 +548,6 @@ void main() async {
     });
     testWidgets('Execute Sync - Version', (WidgetTester tester) async {
       final session = FFprobeKit.execute("-version");
-      await SessionQueueManager().waitForAll();
 
       expect(session.getState(), SessionState.completed);
       expect(ReturnCode.isSuccess(session.getReturnCode()), isTrue);
@@ -576,7 +564,6 @@ void main() async {
 
     testWidgets('Get Media Information - Video', (WidgetTester tester) async {
       final session = FFprobeKit.getMediaInformation(videoPath);
-      await SessionQueueManager().waitForAll();
 
       if (kDebugMode) print("FFprobe result: ${session.getReturnCode()}");
       if (kDebugMode) print("FFprobe output: ${session.getOutput()}");
@@ -621,7 +608,6 @@ void main() async {
 
     testWidgets('Stream Information Details', (WidgetTester tester) async {
       final session = FFprobeKit.getMediaInformation(videoPath);
-      await SessionQueueManager().waitForAll();
       final mediaInfo = session.getMediaInformation();
 
       expect(mediaInfo, isNotNull);
@@ -648,7 +634,6 @@ void main() async {
     testWidgets('Get FFprobe Sessions', (WidgetTester tester) async {
       FFprobeKit.execute("-version");
       FFprobeKit.execute("-version");
-      await SessionQueueManager().waitForAll();
 
       final sessions = FFprobeKit.getFFprobeSessions();
       for (var session in sessions) {
@@ -676,8 +661,6 @@ void main() async {
     });
     testWidgets('Media Information Type Check', (WidgetTester tester) async {
       final session = FFprobeKit.getMediaInformation(videoPath);
-      // Ensure completion before checking properties that might depend on state, though type check is static
-      await SessionQueueManager().waitForAll();
 
       expect(session.isFFmpegSession(), isFalse);
       expect(session.isFFplaySession(), isFalse);
@@ -688,7 +671,6 @@ void main() async {
 
     testWidgets('Media Information Properties', (WidgetTester tester) async {
       final session = FFprobeKit.getMediaInformation(videoPath);
-      await SessionQueueManager().waitForAll();
       final mediaInfo = session.getMediaInformation();
 
       expect(mediaInfo, isNotNull);
@@ -713,7 +695,6 @@ void main() async {
 
     testWidgets('Stream Information Properties', (WidgetTester tester) async {
       final session = FFprobeKit.getMediaInformation(videoPath);
-      await SessionQueueManager().waitForAll();
       final mediaInfo = session.getMediaInformation();
 
       expect(mediaInfo, isNotNull);
