@@ -262,6 +262,10 @@ jobs:
         working-directory: flutter/example
         run: flutter pub get
 
+      - name: Build stable Web Wasm output
+        working-directory: flutter/example
+        run: flutter build web --wasm --target=lib/web_runtime_smoke.dart
+
       - name: Install headless browser
         run: |
           set -euo pipefail
@@ -272,15 +276,14 @@ jobs:
           "$smoke_dir/node_modules/.bin/playwright" install --with-deps chromium
           cp "$GITHUB_WORKSPACE/flutter/example/web_runtime_smoke.mjs" "$smoke_dir/web_runtime_smoke.mjs"
 
-      - name: Start Flutter Web Wasm server
+      - name: Start stable Web Wasm static server
         working-directory: flutter/example
         run: |
           set -euo pipefail
           smoke_log="$RUNNER_TEMP/ffmpeg-web-smoke/flutter-run.log"
           smoke_pid="$RUNNER_TEMP/ffmpeg-web-smoke/flutter-run.pid"
-          flutter run -d web-server --wasm --cross-origin-isolation \
-            --web-hostname 127.0.0.1 --web-port 8080 \
-            --target=lib/web_runtime_smoke.dart >"$smoke_log" 2>&1 &
+          node "$GITHUB_WORKSPACE/flutter/example/web_static_server.mjs" \
+            "$GITHUB_WORKSPACE/flutter/example/build/web" 8080 >"$smoke_log" 2>&1 &
           echo $! >"$smoke_pid"
           for attempt in $(seq 1 180); do
             if ! kill -0 "$(cat "$smoke_pid")" 2>/dev/null; then
