@@ -79,15 +79,12 @@ Future<void> _buildWebDataAssets(
       'ffmpeg_kit_extended_config key is only a compatibility fallback.',
     );
   }
-  final artifact = await _resolveWebArtifact(
+  final source = await _resolveWebArtifact(
     configResult,
     input,
     output.dependencies.add,
   );
-  final extractedDir = artifact.extractedDir;
-  if (extractedDir == null || !extractedDir.existsSync()) {
-    throw _exception('Could not find extracted WASM bundle for web build');
-  }
+  final extractedDir = source.searchRoot;
 
   final runtimeDir = selectWebRuntimeDirectory(extractedDir);
   if (runtimeDir == null) {
@@ -95,6 +92,9 @@ Future<void> _buildWebDataAssets(
       'WASM bundle must contain exactly one directory with both '
       'ffmpegkit.mjs and ffmpegkit.wasm under ${extractedDir.path}',
     );
+  }
+  for (final dependency in source.dependencies) {
+    output.dependencies.add(dependency);
   }
 
   final packageName = input.packageName;
@@ -245,7 +245,37 @@ Directory? selectWebRuntimeDirectory(Directory extractedDir) {
   return completeDirectories.length == 1 ? completeDirectories.single : null;
 }
 
-Future<FFmpegArtifact> _resolveWebArtifact(
+@visibleForTesting
+WebRuntimeSource? resolveLocalWebDirectory({
+  required String overridePath,
+  required String configBaseDir,
+}) {
+  final localPath = p.isAbsolute(overridePath)
+      ? overridePath
+      : p.join(configBaseDir, overridePath);
+  if (FileSystemEntity.typeSync(localPath, followLinks: false) !=
+      FileSystemEntityType.directory) {
+    return null;
+  }
+
+  final searchRoot = Directory(localPath);
+  final runtimeDir = selectWebRuntimeDirectory(searchRoot);
+  if (runtimeDir == null) {
+    throw _exception(
+      'Local Web override directory must contain exactly one directory '
+      'with both ffmpegkit.mjs and ffmpegkit.wasm: $localPath',
+    );
+  }
+  return WebRuntimeSource(
+    searchRoot: searchRoot,
+    dependencies: [
+      File(p.join(runtimeDir.path, 'ffmpegkit.mjs')).uri,
+      File(p.join(runtimeDir.path, 'ffmpegkit.wasm')).uri,
+    ],
+  );
+}
+
+Future<WebRuntimeSource> _resolveWebArtifact(
   ConfigResult configResult,
   BuildInput input,
   void Function(Uri uri) addDependency,
@@ -270,29 +300,49 @@ Future<FFmpegArtifact> _resolveWebArtifact(
   if (overrideUrl != null) {
     final overrideUri = parseRemoteOverride(overrideUrl);
     if (overrideUri == null) {
+      final localPath = p.isAbsolute(overrideUrl)
+          ? overrideUrl
+          : p.join(configResult.configBaseDir, overrideUrl);
+      final localType = FileSystemEntity.typeSync(
+        localPath,
+        followLinks: false,
+      );
+      final localDirectory = resolveLocalWebDirectory(
+        overridePath: overrideUrl,
+        configBaseDir: configResult.configBaseDir,
+      );
+      if (localDirectory != null) return localDirectory;
+      if (localType != FileSystemEntityType.file &&
+          localType != FileSystemEntityType.notFound) {
+        throw _exception(
+          'Local Web override must be a file or directory: $localPath',
+        );
+      }
       final target = await resolveLocalOverrideToCache(
         overridePath: overrideUrl,
         configBaseDir: configResult.configBaseDir,
         cacheDir: cacheDir,
         addDependency: addDependency,
       );
-      return _handleDownloadedFile(
+      final artifact = await _handleDownloadedFile(
         target,
         cacheDir,
         input,
         useExtractionRoot: true,
       );
+      return _webRuntimeSourceFromArtifact(artifact);
     }
     final target = await resolveRemoteOverrideToCache(
       overrideUrl: overrideUri.toString(),
       cacheDir: cacheDir,
     );
-    return _handleDownloadedFile(
+    final artifact = await _handleDownloadedFile(
       target,
       cacheDir,
       input,
       useExtractionRoot: true,
     );
+    return _webRuntimeSourceFromArtifact(artifact);
   } else {
     final currentType = type == 'debug' ? 'base' : type;
     final parts = [
@@ -341,12 +391,21 @@ Future<FFmpegArtifact> _resolveWebArtifact(
     }
     _log('SHA256 verification passed');
   }
-  return _handleDownloadedFile(
+  final artifact = await _handleDownloadedFile(
     targetFile,
     cacheDir,
     input,
     useExtractionRoot: true,
   );
+  return _webRuntimeSourceFromArtifact(artifact);
+}
+
+WebRuntimeSource _webRuntimeSourceFromArtifact(FFmpegArtifact artifact) {
+  final searchRoot = artifact.extractedDir;
+  if (searchRoot == null || !searchRoot.existsSync()) {
+    throw _exception('Could not find extracted WASM bundle for web build');
+  }
+  return WebRuntimeSource(searchRoot: searchRoot);
 }
 
 ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
@@ -404,6 +463,16 @@ class FFmpegArtifact {
   final bool isAar;
 
   FFmpegArtifact({required this.file, this.extractedDir, this.isAar = false});
+}
+
+class WebRuntimeSource {
+  final Directory searchRoot;
+  final List<Uri> dependencies;
+
+  const WebRuntimeSource({
+    required this.searchRoot,
+    this.dependencies = const <Uri>[],
+  });
 }
 
 class AppleRuntimeLayout {
@@ -907,7 +976,6 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
       ),
     );
   }
-
   final sliceDir = Directory(p.join(libDir.path, selectedSlice.identifier));
   _log(
     'XCFramework slice: ${selectedSlice.identifier} '

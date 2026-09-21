@@ -83,6 +83,9 @@ The browser must report `window.crossOriginIsolated === true`.
 Custom Web/Wasm ZIPs or directories must contain exactly one runtime directory
 with both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects split or
 ambiguous runtime pairs.
+Local Web overrides may be an archive or a directory; remote Web overrides are
+HTTP(S) archive URLs. Native overrides keep their documented platform-specific
+archive formats.
 
 ## Initialize the Plugin
 

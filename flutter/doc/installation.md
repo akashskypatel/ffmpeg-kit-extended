@@ -138,6 +138,9 @@ Custom Web/Wasm ZIPs or directories must contain exactly one coherent runtime
 directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects
 split files from different directories and ambiguous layouts with multiple
 complete pairs.
+Local Web overrides may be an archive or a directory; remote Web overrides
+are HTTP(S) archive URLs. Native overrides keep their documented
+platform-specific archive formats.
 
 ## 4. Troubleshooting Installation
 

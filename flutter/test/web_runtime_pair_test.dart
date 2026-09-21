@@ -45,6 +45,52 @@ void main() {
     );
   });
 
+  test('resolves a flat local Web directory and tracks both runtime files', () {
+    writeRuntimeFile('bundle', 'ffmpegkit.mjs');
+    writeRuntimeFile('bundle', 'ffmpegkit.wasm');
+
+    final source = resolveLocalWebDirectory(
+      overridePath: 'bundle',
+      configBaseDir: tempRoot.path,
+    );
+
+    expect(source?.searchRoot.path, equals(p.join(tempRoot.path, 'bundle')));
+    expect(
+      source?.dependencies,
+      containsAll(<Uri>[
+        File(p.join(tempRoot.path, 'bundle', 'ffmpegkit.mjs')).uri,
+        File(p.join(tempRoot.path, 'bundle', 'ffmpegkit.wasm')).uri,
+      ]),
+    );
+  });
+
+  test('resolves a nested relative local Web directory', () {
+    writeRuntimeFile('bundle/runtime', 'ffmpegkit.mjs');
+    final wasm = writeRuntimeFile('bundle/runtime', 'ffmpegkit.wasm');
+
+    final source = resolveLocalWebDirectory(
+      overridePath: 'bundle',
+      configBaseDir: tempRoot.path,
+    );
+
+    expect(source?.dependencies, contains(wasm.uri));
+    wasm.writeAsStringSync('changed');
+    expect(File.fromUri(wasm.uri).readAsStringSync(), equals('changed'));
+  });
+
+  test('rejects a local Web directory without one coherent runtime pair', () {
+    writeRuntimeFile('bundle/scripts', 'ffmpegkit.mjs');
+    writeRuntimeFile('bundle/wasm', 'ffmpegkit.wasm');
+
+    expect(
+      () => resolveLocalWebDirectory(
+        overridePath: 'bundle',
+        configBaseDir: tempRoot.path,
+      ),
+      throwsA(isA<Exception>()),
+    );
+  });
+
   test('rejects a split runtime pair', () {
     writeRuntimeFile('bundle/scripts', 'ffmpegkit.mjs');
     writeRuntimeFile('bundle/wasm', 'ffmpegkit.wasm');
