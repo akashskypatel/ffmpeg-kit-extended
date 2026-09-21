@@ -257,6 +257,48 @@ void main() {
   );
 
   test(
+    'duplicate admission rejects without changing the queue or discarding',
+    () async {
+      final gate = Completer<void>();
+      final session = _QueueSession();
+      var discardCalls = 0;
+      final firstFuture = queue.executeSession(session, () => gate.future);
+      final queueLengthBeforeDuplicate = queue.queueLength;
+
+      final duplicateFuture = queue.executeSession(
+        session,
+        () async {},
+        onDiscard: () => discardCalls++,
+      );
+
+      await expectLater(duplicateFuture, throwsStateError);
+      expect(queue.queueLength, queueLengthBeforeDuplicate);
+      expect(discardCalls, 0);
+      expect(session.cancelCalls, 0);
+
+      gate.complete();
+      await firstFuture;
+    },
+  );
+
+  test(
+    'distinct session objects can still be admitted independently',
+    () async {
+      final gate = Completer<void>();
+      final first = _QueueSession();
+      final second = _QueueSession();
+      queue.maxConcurrentSessions = 1;
+
+      final firstFuture = queue.executeSession(first, () => gate.future);
+      final secondFuture = queue.executeSession(second, () async {});
+
+      expect(queue.queueLength, 1);
+      gate.complete();
+      await Future.wait([firstFuture, secondFuture]);
+    },
+  );
+
+  test(
     'state-read failure retains cancellation intent without native dispatch',
     () async {
       final gate = Completer<void>();

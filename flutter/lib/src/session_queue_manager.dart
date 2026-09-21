@@ -75,6 +75,10 @@ class SessionQueueManager {
   /// a concurrency slot becomes available.
   ///
   /// Returns a Future that completes when the session finishes execution.
+  ///
+  /// The same session object cannot be admitted while it is already active or
+  /// queued. This identity check rejects the duplicate without touching the
+  /// queue or invoking [onDiscard]; distinct session objects remain eligible.
   Future<void> executeSession(
     Session session,
     Future<void> Function() executor, {
@@ -83,6 +87,11 @@ class SessionQueueManager {
     if (session.isDisposed) {
       return Future<void>.error(
         StateError('Cannot execute a disposed session'),
+      );
+    }
+    if (_containsSession(session)) {
+      return Future<void>.error(
+        StateError('Session ${session.sessionId} is already queued or active'),
       );
     }
     final completer = Completer<void>();
@@ -98,6 +107,13 @@ class SessionQueueManager {
     _processQueue();
 
     return completer.future;
+  }
+
+  bool _containsSession(Session session) {
+    if (_activeSessions.any((active) => identical(active, session))) {
+      return true;
+    }
+    return _queue.any((queued) => identical(queued.session, session));
   }
 
   /// Processes the session queue, starting as many sessions as allowed.
