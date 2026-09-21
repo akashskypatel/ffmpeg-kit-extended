@@ -19,6 +19,8 @@ library;
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:meta/meta.dart';
+
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'platform/backend.dart';
@@ -87,12 +89,18 @@ class FFplaySession extends Session {
   // ---------------------------------------------------------------------------
 
   /// Creates an in-memory session for package lifecycle tests.
-  FFplaySession.test({int sessionId = 1})
-    : _timeout = 500,
-      super.noFinalizer() {
+  @visibleForTesting
+  FFplaySession.test({
+    int sessionId = 1,
+    FFplaySessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
+  }) : _timeout = 500,
+       super.noFinalizer() {
     handle = const SessionHandle(Object());
     this.sessionId = sessionId;
     command = 'test';
+    _completeCallback = completeCallback;
+    _logCallback = logCallback;
   }
 
   /// Restores an [FFplaySession] from existing native [handle].
@@ -466,35 +474,63 @@ class FFplaySession extends Session {
   // Execution
   // ---------------------------------------------------------------------------
 
-  /// Enqueues session for synchronous native execution and returns `this` immediately.
+  /// Executes this session synchronously and returns only after native work and
+  /// cleanup have completed. Backend failures are rethrown after cleanup.
   FFplaySession execute() {
     claimExecutionSubmission();
-    SessionQueueManager()
-        .executeSession(this, () async {
-          FFmpegKitExtended.requireInitialized();
-          _enableNativeLogCallback();
-          try {
-            ffmpegKitBackend.executeFFplaySession(handle, _timeout);
-          } catch (e, st) {
-            log(
-              'FFplaySession: error in native function ffplay_kit_session_execute',
-              error: e,
-              stackTrace: st,
-            );
-            rethrow;
-          }
-          dispatchPendingLogs();
-          CallbackManager().invokeSafely(
-            'FFplay completion callback',
-            sessionId,
-            () => _completeCallback?.call(this),
-          );
-          _closeLogStreams();
-          _unregister();
-        })
-        .catchError((Object e, StackTrace st) {
-          log('FFplaySession.execute: queue error: $e\n$st');
-        });
+    requireInitializedForExecution();
+    _ensureRegistered();
+
+    Object? primaryError;
+    StackTrace? primaryStackTrace;
+    void recordCleanupFailure(Object error, StackTrace stackTrace) {
+      if (primaryError == null) {
+        primaryError = error;
+        primaryStackTrace = stackTrace;
+      } else {
+        log(
+          'FFplaySession.execute: cleanup failed after primary error for session $sessionId',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    try {
+      enableNativeLogCallback();
+      configureSynchronousNativeCallbacks();
+      markExecutionStarted();
+      executeSynchronously();
+      dispatchPendingLogs();
+      CallbackManager().dispatchFFplayComplete(sessionId);
+    } catch (error, stackTrace) {
+      primaryError = error;
+      primaryStackTrace = stackTrace;
+      log(
+        'FFplaySession.execute: synchronous execution failed for session $sessionId',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      try {
+        _closeLogStreams();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      }
+      try {
+        _unregister();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      } finally {
+        _stopPositionStream();
+        _stopVideoSizeStream();
+        markExecutionSettled();
+      }
+    }
+
+    if (primaryError != null) {
+      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
+    }
     return this;
   }
 
@@ -806,7 +842,7 @@ class FFplaySession extends Session {
     };
 
     try {
-      _enableNativeLogCallback();
+      enableNativeLogCallback();
       ffmpegKitBackend.configureFFplaySessionCompleteCallback();
       ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
       // Start polling only after the native session is executing so timers
@@ -865,7 +901,20 @@ class FFplaySession extends Session {
     }
   }
 
-  void _enableNativeLogCallback() {
+  /// Configures the native FFplay completion callback for sync execution.
+  @protected
+  void configureSynchronousNativeCallbacks() {
+    ffmpegKitBackend.configureFFplaySessionCompleteCallback();
+  }
+
+  /// Invokes the blocking FFplay backend operation.
+  @protected
+  void executeSynchronously() {
+    ffmpegKitBackend.executeFFplaySession(handle, _timeout);
+  }
+
+  @protected
+  void enableNativeLogCallback() {
     try {
       ffmpegKitBackend.enableFFmpegLogCallback();
     } catch (e, st) {

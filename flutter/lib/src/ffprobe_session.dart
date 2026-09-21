@@ -42,6 +42,21 @@ class FFprobeSession extends Session {
   // Constructors
   // ---------------------------------------------------------------------------
 
+  /// Creates an in-memory FFprobe session for lifecycle tests.
+  @visibleForTesting
+  FFprobeSession.test({
+    int sessionId = 1,
+    String command = 'test',
+    FFprobeSessionCompleteCallback? completeCallback,
+    FFmpegLogCallback? logCallback,
+  }) : super.noFinalizer() {
+    handle = const SessionHandle(Object());
+    this.sessionId = sessionId;
+    this.command = command;
+    _completeCallback = completeCallback;
+    _logCallback = logCallback;
+  }
+
   /// Creates a new [FFprobeSession] for [command].
   ///
   /// - [completeCallback]: Invoked once when the command finishes.
@@ -150,36 +165,61 @@ class FFprobeSession extends Session {
   // Execution
   // ---------------------------------------------------------------------------
 
-  /// Enqueues this session for synchronous native execution and returns `this`
-  /// immediately (fire-and-forget).
+  /// Executes this session synchronously and returns only after native work and
+  /// cleanup have completed. Backend failures are rethrown after cleanup.
   FFprobeSession execute() {
     claimExecutionSubmission();
-    SessionQueueManager()
-        .executeSession(this, () async {
-          FFmpegKitExtended.requireInitialized();
-          enableNativeLogCallback();
-          try {
-            ffmpegKitBackend.executeFFprobeSession(handle);
-          } catch (e, st) {
-            log(
-              'FFprobeSession.execute: error executing session ffprobe_kit_session_execute $command',
-              error: e,
-              stackTrace: st,
-            );
-            rethrow;
-          }
-          dispatchPendingLogs();
-          CallbackManager().invokeSafely(
-            'FFprobe completion callback',
-            sessionId,
-            () => _completeCallback?.call(this),
-          );
-          closeLogStreams();
-          _unregister();
-        })
-        .catchError((Object e, StackTrace st) {
-          log('FFprobeSession.execute: queue error: $e\n$st');
-        });
+    requireInitializedForExecution();
+    ensureRegistered();
+
+    Object? primaryError;
+    StackTrace? primaryStackTrace;
+    void recordCleanupFailure(Object error, StackTrace stackTrace) {
+      if (primaryError == null) {
+        primaryError = error;
+        primaryStackTrace = stackTrace;
+      } else {
+        log(
+          'FFprobeSession.execute: cleanup failed after primary error for session $sessionId',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    try {
+      enableNativeLogCallback();
+      configureSynchronousNativeCallbacks();
+      markExecutionStarted();
+      executeSynchronously();
+      dispatchPendingLogs();
+      CallbackManager().dispatchFFprobeComplete(sessionId);
+    } catch (error, stackTrace) {
+      primaryError = error;
+      primaryStackTrace = stackTrace;
+      log(
+        'FFprobeSession.execute: synchronous execution failed for session $sessionId',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      try {
+        closeLogStreams();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      }
+      try {
+        unregister();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      } finally {
+        markExecutionSettled();
+      }
+    }
+
+    if (primaryError != null) {
+      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
+    }
     return this;
   }
 
@@ -423,6 +463,18 @@ class FFprobeSession extends Session {
       );
       rethrow;
     }
+  }
+
+  /// Configures native completion callbacks for sync execution.
+  @protected
+  void configureSynchronousNativeCallbacks() {
+    ffmpegKitBackend.configureFFprobeSessionCompleteCallback();
+  }
+
+  /// Invokes the blocking FFprobe backend operation.
+  @protected
+  void executeSynchronously() {
+    ffmpegKitBackend.executeFFprobeSession(handle);
   }
 
   /// Closes any open log stream controllers for this session.

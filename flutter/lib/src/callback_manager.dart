@@ -63,6 +63,7 @@ class CallbackManager {
       _warn('FFmpeg completion for unknown session $sessionId');
       return;
     }
+    if (!session.claimCompletionDispatch()) return;
     _invoke('FFmpeg session completion', sessionId, () {
       session.completeCallback?.call(session);
     });
@@ -78,6 +79,7 @@ class CallbackManager {
       _warn('FFprobe completion for unknown session $sessionId');
       return;
     }
+    if (!session.claimCompletionDispatch()) return;
     if (session is MediaInformationSession) {
       _invoke('Media-information session completion', sessionId, () {
         session.mediaInfoCompleteCallback?.call(session);
@@ -101,6 +103,7 @@ class CallbackManager {
       _warn('FFplay completion for unknown session $sessionId');
       return;
     }
+    if (!session.claimCompletionDispatch()) return;
     _invoke('FFplay session completion', sessionId, () {
       session.completeCallback?.call(session);
     });
@@ -115,6 +118,7 @@ class CallbackManager {
       _warn('Media-information completion for unknown session $sessionId');
       return;
     }
+    if (!session.claimCompletionDispatch()) return;
     _invoke('Media-information session completion', sessionId, () {
       session.mediaInfoCompleteCallback?.call(session);
     });

@@ -20,6 +20,8 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:meta/meta.dart';
+
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
 import 'platform/backend.dart';
@@ -304,57 +306,72 @@ class FFmpegSession extends Session {
   // Execution
   // ---------------------------------------------------------------------------
 
-  /// Enqueues this session for synchronous (blocking) native execution via
-  /// [SessionQueueManager] and returns `this` immediately.
+  /// Executes this session synchronously and returns only after native work
+  /// and Dart-side completion cleanup have finished.
   ///
-  /// This method returns as soon as the session is *enqueued*, not when it
-  /// has *finished*.  Depending on queue depth the native call may not have
-  /// started yet when this returns.  [getState()] immediately after [execute]
-  /// may still return [SessionState.created].
-  ///
-  /// If you need to await the result, use [executeAsync] instead.
+  /// Unlike [executeAsync], this path is deliberately not queue-managed. The
+  /// queue limit applies only to asynchronous execution. Backend failures are
+  /// rethrown with their original stack trace after cleanup.
   FFmpegSession execute() {
     claimExecutionSubmission();
-    SessionQueueManager()
-        .executeSession(this, () async {
-          FFmpegKitExtended.requireInitialized();
-          _enableNativeLogCallback();
-          // Blocking native call — returns only after FFmpeg finishes.
-          try {
-            ffmpegKitBackend.executeFFmpegSession(handle);
-          } catch (e, st) {
-            log(
-              'FFmpegSession.execute: error in native function ffmpeg_kit_session_execute for session $sessionId',
-              error: e,
-              stackTrace: st,
-            );
-            rethrow;
-          }
-          // Flush any remaining log entries before invoking the callback.
-          dispatchPendingLogs();
-          // Invoke the completion callback without allowing user code to
-          // control cleanup of this fire-and-forget execution.
-          CallbackManager().invokeSafely(
-            'FFmpeg completion callback',
-            sessionId,
-            () => _completeCallback?.call(this),
-          );
-          _closeLogStreams();
-          _unregister();
-        })
-        .catchError((Object e, StackTrace st) {
-          log(
-            'FFmpegSession.execute: queue error for session $sessionId',
-            error: e,
-            stackTrace: st,
-          );
-        });
+    requireInitializedForExecution();
+    _ensureRegistered();
+
+    Object? primaryError;
+    StackTrace? primaryStackTrace;
+    void recordCleanupFailure(Object error, StackTrace stackTrace) {
+      if (primaryError == null) {
+        primaryError = error;
+        primaryStackTrace = stackTrace;
+      } else {
+        log(
+          'FFmpegSession.execute: cleanup failed after primary error for session $sessionId',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    try {
+      enableNativeLogCallback();
+      configureSynchronousNativeCallbacks();
+      // Mark the handoff immediately before the blocking native call.
+      markExecutionStarted();
+      executeSynchronously();
+      dispatchPendingLogs();
+      CallbackManager().dispatchFFmpegComplete(sessionId);
+    } catch (error, stackTrace) {
+      primaryError = error;
+      primaryStackTrace = stackTrace;
+      log(
+        'FFmpegSession.execute: synchronous execution failed for session $sessionId',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      try {
+        _closeLogStreams();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      }
+      try {
+        _unregister();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      } finally {
+        markExecutionSettled();
+      }
+    }
+
+    if (primaryError != null) {
+      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
+    }
     return this;
   }
 
   /// Creates and enqueues a session for synchronous execution.
   ///
-  /// See [execute] for the return-before-completion caveat.
+  /// Returns after the blocking execution has completed.
   static FFmpegSession executeCommand(
     String command, {
     FFmpegSessionCompleteCallback? completeCallback,
@@ -510,7 +527,7 @@ class FFmpegSession extends Session {
     };
 
     try {
-      _enableNativeLogCallback();
+      enableNativeLogCallback();
       // Enable the global native completion and statistics callbacks so the C
       // layer can post events back to Dart. These calls are idempotent.
       ffmpegKitBackend.configureFFmpegCallbacks();
@@ -564,7 +581,21 @@ class FFmpegSession extends Session {
     }
   }
 
-  void _enableNativeLogCallback() {
+  /// Configures native completion and statistics callbacks for sync execution.
+  @protected
+  void configureSynchronousNativeCallbacks() {
+    ffmpegKitBackend.configureFFmpegSessionCompleteCallback();
+    ffmpegKitBackend.configureStatisticsCallback();
+  }
+
+  /// Invokes the blocking FFmpeg backend operation.
+  @protected
+  void executeSynchronously() {
+    ffmpegKitBackend.executeFFmpegSession(handle);
+  }
+
+  @protected
+  void enableNativeLogCallback() {
     try {
       ffmpegKitBackend.enableFFmpegLogCallback();
     } catch (e, st) {

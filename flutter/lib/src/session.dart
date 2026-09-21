@@ -163,6 +163,7 @@ abstract class Session {
   bool _disposed = false;
   bool _disposing = false;
   bool _executionSettled = false;
+  bool _completionDispatched = false;
   final Completer<void> _executionSettlement = Completer<void>();
   final Set<Completer<void>> _executionCompleters = <Completer<void>>{};
   SessionExecutionErrorCallback? _executionErrorCallback;
@@ -272,6 +273,31 @@ abstract class Session {
   /// playback-specific native controls for work that was still queued.
   @protected
   bool get hasExecutionStarted => _executionStarted;
+
+  /// Whether the queue-owned execution has reached its terminal handoff.
+  @protected
+  bool get hasExecutionSettled => _executionSettled;
+
+  /// Claims the single completion-callback dispatch for this session.
+  ///
+  /// Native callback bridges and synchronous wrappers can observe the same
+  /// terminal execution through different paths. The session owns this
+  /// one-shot guard so local and global completion callbacks are delivered at
+  /// most once per session.
+  bool claimCompletionDispatch() {
+    if (_completionDispatched) return false;
+    _completionDispatched = true;
+    return true;
+  }
+
+  /// Requires the selected backend to be initialized before direct execution.
+  ///
+  /// Kept as a narrow protected seam so synchronous lifecycle tests can prove
+  /// ordering without loading a platform library.
+  @protected
+  void requireInitializedForExecution() {
+    FFmpegKitExtended.requireInitialized();
+  }
 
   /// Performs the platform cancellation dispatch.
   ///

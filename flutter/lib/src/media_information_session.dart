@@ -138,6 +138,21 @@ class MediaInformationSession extends FFprobeSession {
   // Constructors
   // ---------------------------------------------------------------------------
 
+  /// Creates an in-memory media-information session for lifecycle tests.
+  @visibleForTesting
+  MediaInformationSession.test({
+    int sessionId = 1,
+    String command = 'test',
+    MediaInformationSessionCompleteCallback? completeCallback,
+    int timeout = 500,
+  }) : _timeout = timeout,
+       super.internal() {
+    handle = const SessionHandle(Object());
+    this.sessionId = sessionId;
+    this.command = command;
+    _mediaInfoCompleteCallback = completeCallback;
+  }
+
   /// Creates a [MediaInformationSession] from a custom ffprobe [command].
   ///
   /// [command] is prefixed with `-v error -hide_banner` before being sent to
@@ -328,40 +343,62 @@ class MediaInformationSession extends FFprobeSession {
   // Execution
   // ---------------------------------------------------------------------------
 
-  /// Enqueues this session for synchronous native execution and returns `this`
-  /// immediately (fire-and-forget).
+  /// Executes this session synchronously and returns only after native work and
+  /// cleanup have completed. Backend failures are rethrown after cleanup.
   @override
   MediaInformationSession execute() {
     claimExecutionSubmission();
-    SessionQueueManager()
-        .executeSession(this, () async {
-          enableNativeLogCallback();
-          try {
-            ffmpegKitBackend.executeMediaInformationSession(handle, _timeout);
-          } catch (e, st) {
-            log(
-              'MediaInformationSession.execute: error executing media_information_session_execute $command',
-              error: e,
-              stackTrace: st,
-            );
-            rethrow;
-          }
-          dispatchPendingLogs();
-          CallbackManager().invokeSafely(
-            'Media-information completion callback',
-            sessionId,
-            () => _mediaInfoCompleteCallback?.call(this),
-          );
-          closeLogStreams();
-          unregister();
-        })
-        .catchError((Object e, StackTrace st) {
-          log(
-            'MediaInformationSession.execute: queue error',
-            error: e,
-            stackTrace: st,
-          );
-        });
+    requireInitializedForExecution();
+    ensureRegistered();
+
+    Object? primaryError;
+    StackTrace? primaryStackTrace;
+    void recordCleanupFailure(Object error, StackTrace stackTrace) {
+      if (primaryError == null) {
+        primaryError = error;
+        primaryStackTrace = stackTrace;
+      } else {
+        log(
+          'MediaInformationSession.execute: cleanup failed after primary error for session $sessionId',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    try {
+      enableNativeLogCallback();
+      configureSynchronousNativeCallbacks();
+      markExecutionStarted();
+      executeSynchronously();
+      dispatchPendingLogs();
+      CallbackManager().dispatchMediaInformationComplete(sessionId);
+    } catch (error, stackTrace) {
+      primaryError = error;
+      primaryStackTrace = stackTrace;
+      log(
+        'MediaInformationSession.execute: synchronous execution failed for session $sessionId',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      try {
+        closeLogStreams();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      }
+      try {
+        unregister();
+      } catch (error, stackTrace) {
+        recordCleanupFailure(error, stackTrace);
+      } finally {
+        markExecutionSettled();
+      }
+    }
+
+    if (primaryError != null) {
+      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
+    }
     return this;
   }
 
@@ -486,6 +523,20 @@ class MediaInformationSession extends FFprobeSession {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /// Configures the media-information completion callback for sync execution.
+  @override
+  @protected
+  void configureSynchronousNativeCallbacks() {
+    ffmpegKitBackend.configureMediaInformationSessionCompleteCallback();
+  }
+
+  /// Invokes the blocking media-information backend operation.
+  @override
+  @protected
+  void executeSynchronously() {
+    ffmpegKitBackend.executeMediaInformationSession(handle, _timeout);
+  }
 
   /// Executes this session asynchronously and invokes the complete callback when done.
   Future<void> _runAsyncMediaInfo() async {
