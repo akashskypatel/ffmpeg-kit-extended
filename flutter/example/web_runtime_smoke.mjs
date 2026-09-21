@@ -20,11 +20,19 @@ page.on('request', (request) => {
 try {
   console.log('STARTING');
   await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 30_000});
-  await page.waitForFunction(
-    () => /(?:PASS|FAIL:)/.test(document.title),
-    null,
-    {timeout: 120_000},
-  );
+  try {
+    await page.waitForFunction(
+      () => /(?:PASS|FAIL:)/.test(document.title),
+      null,
+      {timeout: 120_000},
+    );
+  } catch (error) {
+    console.error(`Smoke timeout; title: ${await page.title()}`);
+    console.error(`Runtime requests: ${runtimeRequests.join(', ')}`);
+    console.error(`Page errors: ${pageErrors.join(' | ')}`);
+    console.error(`Console errors: ${consoleErrors.join(' | ')}`);
+    throw error;
+  }
 
   const status = await page.title();
   assert.match(status, /STARTING/);
