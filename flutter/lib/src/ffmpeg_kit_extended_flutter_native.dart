@@ -28,8 +28,7 @@ export 'platform/native/ffplay_desktop_texture.dart'
 export 'platform/native/ffplay_kit_android.dart'
     if (dart.library.js_interop) 'web/ffplay_kit_android_web.dart';
 export 'session.dart';
-export 'session_queue_manager.dart'
-    show SessionQueueManager, SessionCancelledException;
+export 'session_queue_manager.dart' show SessionQueueManager;
 export 'signal.dart';
 export 'statistics.dart';
 export 'stream_information.dart';

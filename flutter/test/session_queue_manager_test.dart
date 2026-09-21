@@ -18,7 +18,7 @@ class _QueueSession extends Session {
   static int _nextId = 1;
   SessionState state;
   bool throwOnDiscard;
-  bool throwOnStateRead;
+  bool throwOnStateRead = false;
   int discarded = 0;
   int cancellationDispatches = 0;
 
