@@ -91,7 +91,7 @@ final class WasmLoader {
           '(${response.status}).',
         );
       }
-      final manifest = await response.text().toDart;
+      final manifest = (await response.text().toDart).toDart;
       if (!manifest.contains('wasm_override')) {
         throw StateError(
           'The custom FFmpegKit Web runtime manifest does not identify '
