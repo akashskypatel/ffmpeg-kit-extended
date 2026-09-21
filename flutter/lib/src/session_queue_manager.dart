@@ -180,8 +180,18 @@ class SessionQueueManager {
   void cancelCurrent() {
     // Collect sessions to cancel to avoid concurrent modification issues
     final sessionsToCancel = _activeSessions.toList();
+    Object? firstError;
+    StackTrace? firstStackTrace;
     for (final session in sessionsToCancel) {
-      session.cancel();
+      try {
+        session.cancel();
+      } catch (error, stackTrace) {
+        firstError ??= error;
+        firstStackTrace ??= stackTrace;
+      }
+    }
+    if (firstError != null) {
+      Error.throwWithStackTrace(firstError, firstStackTrace!);
     }
   }
 

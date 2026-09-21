@@ -436,6 +436,10 @@ final sessions = FFmpegKitExtended.getSessions();
 final ffmpegSessions = FFmpegKit.getFFmpegSessions();
 ```
 
+Queue-wide cancellation attempts every active session even if an individual
+cancellation fails, then rethrows the first error after the queue has been
+cleared.
+
 ### 3.5 FFplay Video Playback
 
 The plugin supports complete video playback with a unified cross-platform surface API.

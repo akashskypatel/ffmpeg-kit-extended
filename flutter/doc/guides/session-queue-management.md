@@ -93,6 +93,9 @@ Cancellation requests remain latched while a started session is handing off to
 native execution. The queue ends that retry window when the executor settles,
 including failure paths and startup paths that never report `Running`; no late
 native cancellation is dispatched after settlement.
+`cancelCurrent()` and `cancelAll()` attempt every active session even when an
+earlier cancellation throws, then rethrow the first cancellation error. The
+queue is cleared before `cancelAll()` attempts active sessions.
 
 ### Waiting for Completion
 
@@ -133,9 +136,9 @@ class BatchProcessor {
 | `activeSessionCount` | Number of sessions currently executing. |
 | `queueLength` | Number of sessions waiting for an available slot. |
 | `isBusy` | Returns true if any sessions are active or queued. |
-| `cancelCurrent()` | Cancels the latest active session. |
+| `cancelCurrent()` | Attempts every active session and rethrows the first cancellation error. |
 | `clearQueue()` | Removes all sessions from the waiting queue. |
-| `cancelAll()` | Cancels all active and waiting sessions. |
+| `cancelAll()` | Clears waiting sessions, attempts every active session, and rethrows the first cancellation error. |
 | `waitForAll()` | Returns a Future that completes when the queue is empty. |
 
 ### Exceptions

@@ -19,6 +19,8 @@ class _QueueSession extends Session {
   int transientStateReadFailures = 0;
   int discarded = 0;
   int cancellationDispatches = 0;
+  int cancelCalls = 0;
+  bool throwOnCancel = false;
 
   void submit() => claimExecutionSubmission();
 
@@ -35,6 +37,13 @@ class _QueueSession extends Session {
   @override
   void dispatchNativeCancellation() {
     cancellationDispatches++;
+  }
+
+  @override
+  void cancel() {
+    cancelCalls++;
+    if (throwOnCancel) throw StateError('cancel failed for $sessionId');
+    super.cancel();
   }
 
   @override
@@ -168,6 +177,84 @@ void main() {
     gate.complete();
     await future;
   });
+
+  test(
+    'cancelCurrent attempts every active session and throws the first error',
+    () async {
+      queue.maxConcurrentSessions = 3;
+      final gates = List.generate(3, (_) => Completer<void>());
+      final sessions = List.generate(3, (_) => _QueueSession());
+      sessions.first.throwOnCancel = true;
+      sessions[2].throwOnCancel = true;
+      final futures = <Future<void>>[];
+
+      for (var i = 0; i < sessions.length; i++) {
+        futures.add(queue.executeSession(sessions[i], () => gates[i].future));
+      }
+
+      expect(queue.cancelCurrent, throwsA(isA<StateError>()));
+      expect(sessions.map((session) => session.cancelCalls), [1, 1, 1]);
+
+      for (final gate in gates) {
+        gate.complete();
+      }
+      await Future.wait(futures);
+    },
+  );
+
+  test(
+    'cancelCurrent succeeds after attempting all sessions when none fail',
+    () async {
+      queue.maxConcurrentSessions = 2;
+      final firstGate = Completer<void>();
+      final secondGate = Completer<void>();
+      final first = _QueueSession();
+      final second = _QueueSession();
+      final firstFuture = queue.executeSession(first, () => firstGate.future);
+      final secondFuture = queue.executeSession(
+        second,
+        () => secondGate.future,
+      );
+
+      queue.cancelCurrent();
+
+      expect(first.cancelCalls, 1);
+      expect(second.cancelCalls, 1);
+      firstGate.complete();
+      secondGate.complete();
+      await Future.wait([firstFuture, secondFuture]);
+    },
+  );
+
+  test(
+    'cancelAll clears queued sessions and attempts every active session',
+    () async {
+      queue.maxConcurrentSessions = 2;
+      final firstGate = Completer<void>();
+      final secondGate = Completer<void>();
+      final queued = _QueueSession();
+      final first = _QueueSession()..throwOnCancel = true;
+      final second = _QueueSession();
+      final firstFuture = queue.executeSession(first, () => firstGate.future);
+      final secondFuture = queue.executeSession(
+        second,
+        () => secondGate.future,
+      );
+      final queuedFuture = queue.executeSession(queued, () async {});
+
+      expect(queue.cancelAll, throwsA(isA<StateError>()));
+      expect(first.cancelCalls, 1);
+      expect(second.cancelCalls, 1);
+      await expectLater(
+        queuedFuture,
+        throwsA(isA<SessionCancelledException>()),
+      );
+
+      firstGate.complete();
+      secondGate.complete();
+      await Future.wait([firstFuture, secondFuture]);
+    },
+  );
 
   test(
     'state-read failure retains cancellation intent without native dispatch',

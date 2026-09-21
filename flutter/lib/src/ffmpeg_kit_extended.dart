@@ -157,6 +157,9 @@ class FFmpegKitExtended {
   }
 
   /// Cancels all active and queued sessions managed by [SessionQueueManager].
+  ///
+  /// Every active session is attempted. If one or more cancellations fail, the
+  /// first error is rethrown after all active sessions have been attempted.
   static void cancelAllSessions() {
     requireInitialized();
     SessionQueueManager().cancelAll();
@@ -250,7 +253,8 @@ class FFmpegKitExtended {
   static String getPackageName() => _packageInformation().packageName;
 
   /// Returns the external libraries bundled with this FFmpegKit build.
-  static String getExternalLibraries() => _packageInformation().externalLibraries;
+  static String getExternalLibraries() =>
+      _packageInformation().externalLibraries;
 
   /// Returns the FFmpegKit bundle type.
   static String getBundleType() => _packageInformation().bundleType;
@@ -265,28 +269,35 @@ class FFmpegKitExtended {
   static String getRegisteredCodecs() => _packageInformation().registeredCodecs;
 
   /// Returns a comma-separated list of all registered encoders.
-  static String getRegisteredEncoders() => _packageInformation().registeredEncoders;
+  static String getRegisteredEncoders() =>
+      _packageInformation().registeredEncoders;
 
   /// Returns a comma-separated list of all registered decoders.
-  static String getRegisteredDecoders() => _packageInformation().registeredDecoders;
+  static String getRegisteredDecoders() =>
+      _packageInformation().registeredDecoders;
 
   /// Returns a comma-separated list of all registered muxers.
   static String getRegisteredMuxers() => _packageInformation().registeredMuxers;
 
   /// Returns a comma-separated list of all registered demuxers.
-  static String getRegisteredDemuxers() => _packageInformation().registeredDemuxers;
+  static String getRegisteredDemuxers() =>
+      _packageInformation().registeredDemuxers;
 
   /// Returns a comma-separated list of all registered filters.
-  static String getRegisteredFilters() => _packageInformation().registeredFilters;
+  static String getRegisteredFilters() =>
+      _packageInformation().registeredFilters;
 
   /// Returns a comma-separated list of all registered protocols.
-  static String getRegisteredProtocols() => _packageInformation().registeredProtocols;
+  static String getRegisteredProtocols() =>
+      _packageInformation().registeredProtocols;
 
   /// Returns a comma-separated list of all registered bitstream filters.
-  static String getRegisteredBitstreamFilters() => _packageInformation().registeredBitstreamFilters;
+  static String getRegisteredBitstreamFilters() =>
+      _packageInformation().registeredBitstreamFilters;
 
   /// Returns the FFmpeg build configuration string.
-  static String getBuildConfiguration() => _packageInformation().buildConfiguration;
+  static String getBuildConfiguration() =>
+      _packageInformation().buildConfiguration;
 
   /// Returns the library build date.
   static String getBuildDate() => _packageInformation().buildDate;
@@ -310,31 +321,51 @@ class FFmpegKitExtended {
   /// Returns all sessions in native-layer history, correctly typed.
   static List<Session> getSessions() {
     requireInitialized();
-    return ffmpegKitBackend.getSessions().map(_wrapSession).whereType<Session>().toList();
+    return ffmpegKitBackend
+        .getSessions()
+        .map(_wrapSession)
+        .whereType<Session>()
+        .toList();
   }
 
   /// Returns all FFmpeg sessions in native-layer history.
   static List<FFmpegSession> getFFmpegSessions() {
     requireInitialized();
-    return ffmpegKitBackend.getFFmpegSessions().map(_wrapSession).whereType<FFmpegSession>().toList();
+    return ffmpegKitBackend
+        .getFFmpegSessions()
+        .map(_wrapSession)
+        .whereType<FFmpegSession>()
+        .toList();
   }
 
   /// Returns all FFprobe sessions in native-layer history.
   static List<FFprobeSession> getFFprobeSessions() {
     requireInitialized();
-    return ffmpegKitBackend.getFFprobeSessions().map(_wrapSession).whereType<FFprobeSession>().toList();
+    return ffmpegKitBackend
+        .getFFprobeSessions()
+        .map(_wrapSession)
+        .whereType<FFprobeSession>()
+        .toList();
   }
 
   /// Returns all FFplay sessions in native-layer history.
   static List<FFplaySession> getFFplaySessions() {
     requireInitialized();
-    return ffmpegKitBackend.getFFplaySessions().map(_wrapSession).whereType<FFplaySession>().toList();
+    return ffmpegKitBackend
+        .getFFplaySessions()
+        .map(_wrapSession)
+        .whereType<FFplaySession>()
+        .toList();
   }
 
   /// Returns all MediaInformation sessions in native-layer history.
   static List<MediaInformationSession> getMediaInformationSessions() {
     requireInitialized();
-    return ffmpegKitBackend.getMediaInformationSessions().map(_wrapSession).whereType<MediaInformationSession>().toList();
+    return ffmpegKitBackend
+        .getMediaInformationSessions()
+        .map(_wrapSession)
+        .whereType<MediaInformationSession>()
+        .toList();
   }
 
   // ---------------------------------------------------------------------------
@@ -395,7 +426,9 @@ class FFmpegKitExtended {
   /// Gets the session ID for a given session handle.
   static int getSessionId(Object handle) {
     requireInitialized();
-    final sessionHandle = handle is SessionHandle ? handle : SessionHandle(handle);
+    final sessionHandle = handle is SessionHandle
+        ? handle
+        : SessionHandle(handle);
     return ffmpegKitBackend.getSessionId(sessionHandle);
   }
 
@@ -684,7 +717,9 @@ class FFmpegKitExtended {
     // MediaInformation must be checked before FFprobe because
     // MediaInformationSession IS-A FFprobeSession; the FFprobe flag would
     // also match for a MediaInformation handle.
-    final isMediaInfoSession = ffmpegKitBackend.isMediaInformationSession(handle);
+    final isMediaInfoSession = ffmpegKitBackend.isMediaInformationSession(
+      handle,
+    );
     if (isMediaInfoSession) {
       return MediaInformationSession.fromHandle(handle, cmd);
     }
@@ -702,7 +737,6 @@ class FFmpegKitExtended {
     }
 
     // Unknown type — fall back to FFmpegSession as the most general wrapper.
-      return FFmpegSession.fromHandle(handle, cmd);
+    return FFmpegSession.fromHandle(handle, cmd);
   }
-
 }
