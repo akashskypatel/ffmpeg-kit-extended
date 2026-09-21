@@ -171,9 +171,13 @@ class MediaInformationSession extends FFprobeSession {
     this.command = finalCommand;
 
     try {
-      handle = ffmpegKitBackend.createMediaInformationSession(finalCommand);
-      sessionId = ffmpegKitBackend.getSessionId(handle);
-      registerFinalizer();
+      final ownedHandle = ffmpegKitBackend.createMediaInformationSession(
+        finalCommand,
+      );
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
+      );
     } catch (e, st) {
       log(
         'MediaInformationSession: error creating session $finalCommand',
@@ -211,10 +215,12 @@ class MediaInformationSession extends FFprobeSession {
     command = finalArguments.join(' ');
 
     try {
-      handle = ffmpegKitBackend.createMediaInformationSessionFromArguments(
-        finalArguments,
+      final ownedHandle = ffmpegKitBackend
+          .createMediaInformationSessionFromArguments(finalArguments);
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
       );
-      sessionId = ffmpegKitBackend.getSessionId(handle);
     } catch (e, st) {
       log(
         'MediaInformationSession.fromArguments: error getting session id '
@@ -224,8 +230,6 @@ class MediaInformationSession extends FFprobeSession {
       );
       rethrow;
     }
-    registerFinalizer();
-
     _mediaInfoCompleteCallback = completeCallback;
     if (completeCallback != null) {
       ensureRegistered();
@@ -237,11 +241,16 @@ class MediaInformationSession extends FFprobeSession {
     : _timeout = 500,
       super.internal() {
     FFmpegKitExtended.requireInitialized();
-    this.handle = handle is SessionHandle ? handle : SessionHandle(handle);
+    final ownedHandle = handle is SessionHandle
+        ? handle
+        : SessionHandle(handle);
     this.command = command;
 
     try {
-      sessionId = ffmpegKitBackend.getSessionId(this.handle);
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
+      );
     } catch (e, st) {
       log(
         'MediaInformationSession.fromHandle: error getting session id for ffmpeg_kit_session_get_session_id $command',
@@ -250,7 +259,6 @@ class MediaInformationSession extends FFprobeSession {
       );
       rethrow;
     }
-    registerFinalizer();
     // No callback registration: restored sessions have no active callbacks.
   }
 

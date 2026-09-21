@@ -92,13 +92,18 @@ class FFmpegSession extends Session {
   /// No callbacks are registered; call [setCompleteCallback] /
   /// [setLogCallback] / [setStatisticsCallback] if callbacks are needed.
   FFmpegSession.fromHandle(SessionHandle handle, String command) {
-    this.handle = handle;
-    this.command = command;
-    sessionId = ffmpegKitBackend.getSessionId(handle);
-    _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
-      FFmpegKitExtended.parseArguments(command),
+    int? expectedDurationMs;
+    adoptOwnedHandle(
+      handle,
+      readSessionId: ffmpegKitBackend.getSessionId,
+      onBeforeCommit: () {
+        expectedDurationMs = _deriveExpectedTranscodingDurationMs(
+          FFmpegKitExtended.parseArguments(command),
+        );
+      },
     );
-    registerFinalizer();
+    this.command = command;
+    _expectedTranscodingDurationMs = expectedDurationMs;
     // No registration: restored sessions are not expected to fire native
     // callbacks unless the caller explicitly sets callbacks and re-executes.
   }
@@ -120,11 +125,16 @@ class FFmpegSession extends Session {
     FFmpegStatisticsCallback? statisticsCallback,
   }) {
     FFmpegKitExtended.requireInitialized();
+    final expectedDurationMs = _deriveExpectedTranscodingDurationMs(
+      FFmpegKitExtended.parseArguments(command),
+    );
     try {
-      handle = ffmpegKitBackend.createFFmpegSession(command);
+      final ownedHandle = ffmpegKitBackend.createFFmpegSession(command);
       this.command = command;
-      sessionId = ffmpegKitBackend.getSessionId(handle);
-      registerFinalizer();
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
+      );
     } catch (e, stack) {
       log(
         "FFmpegSession: Failed to call native function ffmpeg_kit_create_session",
@@ -134,9 +144,7 @@ class FFmpegSession extends Session {
       rethrow;
     }
 
-    _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
-      FFmpegKitExtended.parseArguments(command),
-    );
+    _expectedTranscodingDurationMs = expectedDurationMs;
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
@@ -159,14 +167,15 @@ class FFmpegSession extends Session {
     FFmpegStatisticsCallback? statisticsCallback,
   }) {
     FFmpegKitExtended.requireInitialized();
-    handle = ffmpegKitBackend.createFFmpegSessionFromArguments(arguments);
-
-    command = FFmpegKitExtended.argumentsToString(arguments);
-    sessionId = ffmpegKitBackend.getSessionId(handle);
-    _expectedTranscodingDurationMs = _deriveExpectedTranscodingDurationMs(
+    final displayCommand = FFmpegKitExtended.argumentsToString(arguments);
+    final expectedDurationMs = _deriveExpectedTranscodingDurationMs(arguments);
+    final ownedHandle = ffmpegKitBackend.createFFmpegSessionFromArguments(
       arguments,
     );
-    registerFinalizer();
+
+    command = displayCommand;
+    adoptOwnedHandle(ownedHandle, readSessionId: ffmpegKitBackend.getSessionId);
+    _expectedTranscodingDurationMs = expectedDurationMs;
 
     _completeCallback = completeCallback;
     _logCallback = logCallback;

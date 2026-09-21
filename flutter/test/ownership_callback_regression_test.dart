@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi';
 
 import 'package:ffmpeg_kit_extended_flutter/src/callback_manager.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_session.dart';
@@ -6,6 +7,8 @@ import 'package:ffmpeg_kit_extended_flutter/src/ffplay_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffprobe_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/media_information_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/platform/native/ffmpeg_kit_extended_flutter_loader.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/platform/native/session_finalizer_native.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/session_finalizer.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session_queue_manager.dart';
@@ -54,6 +57,30 @@ class _ReleasableSession extends Session {
     events?.add('release');
     if (throwOnRelease) throw StateError('release failed');
   }
+
+  void adoptOwned(
+    SessionHandle handle, {
+    required int Function(SessionHandle) readSessionId,
+    void Function()? onBeforeCommit,
+  }) {
+    adoptOwnedHandle(
+      handle,
+      readSessionId: readSessionId,
+      onBeforeCommit: onBeforeCommit,
+    );
+  }
+}
+
+class _ThrowingFinalizer implements SessionFinalizer {
+  final StateError failure = StateError('finalizer attach failed');
+
+  @override
+  void attach(Object owner, Object handle, {required Object detachToken}) {
+    throw failure;
+  }
+
+  @override
+  void detach(Object detachToken) {}
 }
 
 class _CleanupFailingSession extends _ReleasableSession {
@@ -178,6 +205,102 @@ void main() {
       expect(session.releases, 1);
       expect(finalizer.detaches, 1);
     });
+  });
+
+  group('Owned handle adoption', () {
+    test('session-ID failure releases the newly acquired handle once', () {
+      final finalizer = _RecordingFinalizer();
+      final session = _ReleasableSession(finalizer: finalizer);
+      final failure = StateError('session ID failed');
+
+      expect(
+        () => session.adoptOwned(
+          const SessionHandle('owned-id-failure'),
+          readSessionId: (_) => throw failure,
+        ),
+        throwsA(same(failure)),
+      );
+
+      expect(session.releases, 1);
+      expect(finalizer.attaches, 0);
+    });
+
+    test('finalizer attachment failure rolls back the handle once', () {
+      final finalizer = _ThrowingFinalizer();
+      final session = _ReleasableSession(finalizer: finalizer);
+
+      expect(
+        () => session.adoptOwned(
+          const SessionHandle('owned-finalizer-failure'),
+          readSessionId: (_) => 410,
+        ),
+        throwsA(same(finalizer.failure)),
+      );
+
+      expect(session.releases, 1);
+    });
+
+    test('rollback release failure does not replace the primary error', () {
+      final session = _ReleasableSession()..throwOnRelease = true;
+      final failure = StateError('primary adoption failure');
+
+      expect(
+        () => session.adoptOwned(
+          const SessionHandle('owned-rollback-failure'),
+          readSessionId: (_) => throw failure,
+        ),
+        throwsA(same(failure)),
+      );
+
+      expect(session.releases, 1);
+    });
+
+    test('successful adoption transfers release authority to dispose', () {
+      final finalizer = _RecordingFinalizer();
+      final session = _ReleasableSession(finalizer: finalizer);
+
+      session.adoptOwned(
+        const SessionHandle('owned-success'),
+        readSessionId: (_) => 411,
+      );
+
+      expect(session.sessionId, 411);
+      expect(session.releases, 0);
+      expect(finalizer.attaches, 1);
+
+      session.dispose();
+      session.dispose();
+
+      expect(session.releases, 1);
+      expect(finalizer.detaches, 1);
+    });
+
+    test(
+      'native finalizer fails closed when release symbol is unavailable',
+      () {
+        final previousPointer = ffmpegKitHandleReleasePtr;
+        ffmpegKitHandleReleasePtr = null;
+        try {
+          final finalizer = NativeSessionFinalizer();
+          expect(
+            () => finalizer.attach(
+              Object(),
+              Pointer<Void>.fromAddress(1),
+              detachToken: Object(),
+            ),
+            throwsA(
+              isA<StateError>().having(
+                (error) => error.message,
+                'message',
+                contains('handle-release symbol'),
+              ),
+            ),
+          );
+        } finally {
+          ffmpegKitHandleReleasePtr = previousPointer;
+        }
+      },
+    );
   });
 
   group('Callback isolation', () {

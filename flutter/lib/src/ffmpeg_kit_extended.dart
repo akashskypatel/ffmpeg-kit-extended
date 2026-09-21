@@ -329,51 +329,33 @@ class FFmpegKitExtended {
   /// Returns all sessions in native-layer history, correctly typed.
   static List<Session> getSessions() {
     requireInitialized();
-    return ffmpegKitBackend
-        .getSessions()
-        .map(_wrapSession)
-        .whereType<Session>()
-        .toList();
+    return _wrapSessions<Session>(ffmpegKitBackend.getSessions());
   }
 
   /// Returns all FFmpeg sessions in native-layer history.
   static List<FFmpegSession> getFFmpegSessions() {
     requireInitialized();
-    return ffmpegKitBackend
-        .getFFmpegSessions()
-        .map(_wrapSession)
-        .whereType<FFmpegSession>()
-        .toList();
+    return _wrapSessions<FFmpegSession>(ffmpegKitBackend.getFFmpegSessions());
   }
 
   /// Returns all FFprobe sessions in native-layer history.
   static List<FFprobeSession> getFFprobeSessions() {
     requireInitialized();
-    return ffmpegKitBackend
-        .getFFprobeSessions()
-        .map(_wrapSession)
-        .whereType<FFprobeSession>()
-        .toList();
+    return _wrapSessions<FFprobeSession>(ffmpegKitBackend.getFFprobeSessions());
   }
 
   /// Returns all FFplay sessions in native-layer history.
   static List<FFplaySession> getFFplaySessions() {
     requireInitialized();
-    return ffmpegKitBackend
-        .getFFplaySessions()
-        .map(_wrapSession)
-        .whereType<FFplaySession>()
-        .toList();
+    return _wrapSessions<FFplaySession>(ffmpegKitBackend.getFFplaySessions());
   }
 
   /// Returns all MediaInformation sessions in native-layer history.
   static List<MediaInformationSession> getMediaInformationSessions() {
     requireInitialized();
-    return ffmpegKitBackend
-        .getMediaInformationSessions()
-        .map(_wrapSession)
-        .whereType<MediaInformationSession>()
-        .toList();
+    return _wrapSessions<MediaInformationSession>(
+      ffmpegKitBackend.getMediaInformationSessions(),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -708,43 +690,93 @@ class FFmpegKitExtended {
   /// checked first to avoid mis-classifying it as a plain [FFprobeSession].
   static Session? _wrapSession(SessionHandle handle) {
     requireInitialized();
-    final sessionId = ffmpegKitBackend.getSessionId(handle);
-    final manager = callback_manager.CallbackManager();
+    var ownershipDelegated = false;
+    var duplicateReleaseAttempted = false;
+    try {
+      final sessionId = ffmpegKitBackend.getSessionId(handle);
+      final manager = callback_manager.CallbackManager();
 
-    // Prefer the live Dart object from CallbackManager when available — it
-    // carries callbacks and execution state that a fresh fromHandle would lack.
-    final existing =
-        manager.ffmpegSessions[sessionId] ??
-        manager.mediaInformationSessions[sessionId] ??
-        manager.ffprobeSessions[sessionId] ??
-        manager.ffplaySessions[sessionId];
-    if (existing != null) return existing;
+      // Prefer the live Dart object from CallbackManager when available — it
+      // carries callbacks and execution state that a fresh fromHandle would lack.
+      final existing =
+          manager.ffmpegSessions[sessionId] ??
+          manager.mediaInformationSessions[sessionId] ??
+          manager.ffprobeSessions[sessionId] ??
+          manager.ffplaySessions[sessionId];
+      if (existing != null) {
+        duplicateReleaseAttempted = true;
+        ffmpegKitBackend.releaseSession(handle);
+        return existing;
+      }
 
-    final cmd = _getSessionCommand(handle);
+      final cmd = _getSessionCommand(handle);
 
-    // MediaInformation must be checked before FFprobe because
-    // MediaInformationSession IS-A FFprobeSession; the FFprobe flag would
-    // also match for a MediaInformation handle.
-    final isMediaInfoSession = ffmpegKitBackend.isMediaInformationSession(
-      handle,
-    );
-    if (isMediaInfoSession) {
-      return MediaInformationSession.fromHandle(handle, cmd);
-    }
-    final isFfmpegSession = ffmpegKitBackend.isFFmpegSession(handle);
-    if (isFfmpegSession) {
+      // MediaInformation must be checked before FFprobe because
+      // MediaInformationSession IS-A FFprobeSession; the FFprobe flag would
+      // also match for a MediaInformation handle.
+      final isMediaInfoSession = ffmpegKitBackend.isMediaInformationSession(
+        handle,
+      );
+      if (isMediaInfoSession) {
+        ownershipDelegated = true;
+        return MediaInformationSession.fromHandle(handle, cmd);
+      }
+      final isFfmpegSession = ffmpegKitBackend.isFFmpegSession(handle);
+      if (isFfmpegSession) {
+        ownershipDelegated = true;
+        return FFmpegSession.fromHandle(handle, cmd);
+      }
+      final isFfprobeSession = ffmpegKitBackend.isFFprobeSession(handle);
+      if (isFfprobeSession) {
+        ownershipDelegated = true;
+        return FFprobeSession.fromHandle(handle, cmd);
+      }
+      final isFfplaySession = ffmpegKitBackend.isFFplaySession(handle);
+      if (isFfplaySession) {
+        ownershipDelegated = true;
+        return FFplaySession.fromHandle(handle, cmd);
+      }
+
+      // Unknown type — fall back to FFmpegSession as the most general wrapper.
+      ownershipDelegated = true;
       return FFmpegSession.fromHandle(handle, cmd);
+    } catch (error, stackTrace) {
+      if (!ownershipDelegated && !duplicateReleaseAttempted) {
+        _releaseUntransferredHandle(handle);
+      }
+      Error.throwWithStackTrace(error, stackTrace);
     }
-    final isFfprobeSession = ffmpegKitBackend.isFFprobeSession(handle);
-    if (isFfprobeSession) {
-      return FFprobeSession.fromHandle(handle, cmd);
-    }
-    final isFfplaySession = ffmpegKitBackend.isFFplaySession(handle);
-    if (isFfplaySession) {
-      return FFplaySession.fromHandle(handle, cmd);
-    }
+  }
 
-    // Unknown type — fall back to FFmpegSession as the most general wrapper.
-    return FFmpegSession.fromHandle(handle, cmd);
+  static List<T> _wrapSessions<T extends Session>(List<SessionHandle> handles) {
+    final sessions = <T>[];
+    for (var index = 0; index < handles.length; index++) {
+      try {
+        final session = _wrapSession(handles[index]);
+        if (session is T) sessions.add(session);
+      } catch (error, stackTrace) {
+        for (
+          var remaining = index + 1;
+          remaining < handles.length;
+          remaining++
+        ) {
+          _releaseUntransferredHandle(handles[remaining]);
+        }
+        Error.throwWithStackTrace(error, stackTrace);
+      }
+    }
+    return sessions;
+  }
+
+  static void _releaseUntransferredHandle(SessionHandle handle) {
+    try {
+      ffmpegKitBackend.releaseSession(handle);
+    } catch (cleanupError, cleanupStackTrace) {
+      log(
+        'FFmpegKitExtended: failed to release an untransferred session handle',
+        error: cleanupError,
+        stackTrace: cleanupStackTrace,
+      );
+    }
   }
 }

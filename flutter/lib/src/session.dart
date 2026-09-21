@@ -334,6 +334,38 @@ abstract class Session {
     ffmpegKitBackend.releaseSession(handle);
   }
 
+  /// Adopts an already-owned handle or releases it if wrapper initialization
+  /// cannot commit.
+  ///
+  /// Ownership transfers to this [Session] only after the handle, session ID,
+  /// and platform finalizer have all been initialized. A rollback release is
+  /// secondary to the original adoption error and is logged without replacing
+  /// it.
+  @protected
+  void adoptOwnedHandle(
+    SessionHandle ownedHandle, {
+    required int Function(SessionHandle) readSessionId,
+    void Function()? onBeforeCommit,
+  }) {
+    try {
+      handle = ownedHandle;
+      sessionId = readSessionId(ownedHandle);
+      onBeforeCommit?.call();
+      registerFinalizer();
+    } catch (error, stackTrace) {
+      try {
+        releaseHandle(ownedHandle);
+      } catch (cleanupError, cleanupStackTrace) {
+        log(
+          'Session: failed to roll back an uncommitted session handle',
+          error: cleanupError,
+          stackTrace: cleanupStackTrace,
+        );
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+  }
+
   /// Tracks an asynchronous execution so [dispose] can settle its internal
   /// wait even when disposal unregisters the completion callback first.
   @protected

@@ -12,7 +12,13 @@ final class NativeSessionFinalizer implements SessionFinalizer {
   NativeFinalizer get _nativeFinalizer {
     if (_finalizer != null) return _finalizer!;
     final releasePointer = ffmpegKitHandleReleasePtr;
-    _finalizer = NativeFinalizer(releasePointer ?? Pointer.fromAddress(0));
+    if (releasePointer == null || releasePointer.address == 0) {
+      throw StateError(
+        'FFmpegKit native handle-release symbol is unavailable; '
+        'cannot attach a session finalizer.',
+      );
+    }
+    _finalizer = NativeFinalizer(releasePointer);
     return _finalizer!;
   }
 

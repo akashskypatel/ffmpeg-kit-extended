@@ -108,19 +108,23 @@ class FFplaySession extends Session {
   /// No callbacks registered; call [setCompleteCallback] if needed.
   FFplaySession.fromHandle(Object handle, String command) : _timeout = 500 {
     FFmpegKitExtended.requireInitialized();
-    this.handle = handle is SessionHandle ? handle : SessionHandle(handle);
+    final ownedHandle = handle is SessionHandle
+        ? handle
+        : SessionHandle(handle);
     this.command = command;
     try {
-      sessionId = ffmpegKitBackend.getSessionId(this.handle);
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
+      );
     } catch (e, st) {
       log(
-        'FFplaySession: error in native function ffmpeg_kit_session_get_session_id',
+        'FFplaySession: error adopting a history session handle',
         error: e,
         stackTrace: st,
       );
       rethrow;
     }
-    registerFinalizer();
   }
 
   /// Creates a new [FFplaySession] for [command].
@@ -134,7 +138,12 @@ class FFplaySession extends Session {
   }) {
     FFmpegKitExtended.requireInitialized();
     try {
-      handle = ffmpegKitBackend.createFFplaySession(command);
+      final ownedHandle = ffmpegKitBackend.createFFplaySession(command);
+      this.command = command;
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
+      );
     } catch (e, st) {
       log(
         'FFplaySession: error creating FFplay session',
@@ -143,19 +152,6 @@ class FFplaySession extends Session {
       );
       rethrow;
     }
-    this.command = command;
-    try {
-      sessionId = ffmpegKitBackend.getSessionId(handle);
-    } catch (e, st) {
-      log(
-        'FFplaySession: error in native function ffmpeg_kit_session_get_session_id',
-        error: e,
-        stackTrace: st,
-      );
-      rethrow;
-    }
-    registerFinalizer();
-
     _completeCallback = completeCallback;
 
     if (completeCallback != null) {
@@ -177,10 +173,12 @@ class FFplaySession extends Session {
       throw ArgumentError.value(arguments, 'arguments', 'must not be empty');
     }
 
-    handle = ffmpegKitBackend.createFFplaySessionFromArguments(arguments);
-    command = FFmpegKitExtended.argumentsToString(arguments);
-    sessionId = ffmpegKitBackend.getSessionId(handle);
-    registerFinalizer();
+    final displayCommand = FFmpegKitExtended.argumentsToString(arguments);
+    final ownedHandle = ffmpegKitBackend.createFFplaySessionFromArguments(
+      arguments,
+    );
+    command = displayCommand;
+    adoptOwnedHandle(ownedHandle, readSessionId: ffmpegKitBackend.getSessionId);
 
     _completeCallback = completeCallback;
     if (completeCallback != null) {

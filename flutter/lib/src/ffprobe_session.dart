@@ -66,10 +66,12 @@ class FFprobeSession extends Session {
   }) {
     FFmpegKitExtended.requireInitialized();
     try {
-      handle = ffmpegKitBackend.createFFprobeSession(command);
+      final ownedHandle = ffmpegKitBackend.createFFprobeSession(command);
       this.command = command;
-      sessionId = ffmpegKitBackend.getSessionId(handle);
-      registerFinalizer();
+      adoptOwnedHandle(
+        ownedHandle,
+        readSessionId: ffmpegKitBackend.getSessionId,
+      );
     } catch (e, st) {
       log(
         'FFprobeSession: error creating session $command',
@@ -90,10 +92,11 @@ class FFprobeSession extends Session {
   /// Used internally when wrapping handles from the session-history API.
   FFprobeSession.fromHandle(Object handle, String command) {
     FFmpegKitExtended.requireInitialized();
-    this.handle = handle is SessionHandle ? handle : SessionHandle(handle);
+    final ownedHandle = handle is SessionHandle
+        ? handle
+        : SessionHandle(handle);
     this.command = command;
-    sessionId = ffmpegKitBackend.getSessionId(this.handle);
-    registerFinalizer();
+    adoptOwnedHandle(ownedHandle, readSessionId: ffmpegKitBackend.getSessionId);
   }
 
   /// Internal constructor used exclusively by [MediaInformationSession].
