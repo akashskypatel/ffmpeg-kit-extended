@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ffmpeg_kit_extended_flutter/src/media_information_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
 import 'package:test/test.dart';
@@ -53,17 +54,20 @@ void main() {
     expect(dispatchCount, 1);
   });
 
-  test('falls back to tracked executions when no handler is installed', () async {
-    final session = _TestSession();
-    final completer = Completer<void>();
-    final error = StateError('missing handler');
-    final stackTrace = StackTrace.current;
+  test(
+    'falls back to tracked executions when no handler is installed',
+    () async {
+      final session = _TestSession();
+      final completer = Completer<void>();
+      final error = StateError('missing handler');
+      final stackTrace = StackTrace.current;
 
-    session.track(completer);
-    session.dispatchExecutionError(error, stackTrace);
+      session.track(completer);
+      session.dispatchExecutionError(error, stackTrace);
 
-    await expectLater(completer.future, throwsA(same(error)));
-  });
+      await expectLater(completer.future, throwsA(same(error)));
+    },
+  );
 
   test('preserves the original error when cleanup fails', () async {
     final session = _TestSession();
@@ -74,5 +78,25 @@ void main() {
     session.completeWithError(completer, error, stackTrace);
 
     await expectLater(completer.future, throwsA(same(error)));
+  });
+
+  test(
+    'media-information execution preserves the original async error',
+    () async {
+      final error = StateError('media transport failed');
+      final stackTrace = StackTrace.current;
+
+      await expectLater(
+        awaitMediaInformationExecution(
+          Future<void>.error(error, stackTrace),
+          23,
+        ),
+        throwsA(same(error)),
+      );
+    },
+  );
+
+  test('media-information execution still completes successfully', () async {
+    await awaitMediaInformationExecution(Future<void>.value(), 24);
   });
 }

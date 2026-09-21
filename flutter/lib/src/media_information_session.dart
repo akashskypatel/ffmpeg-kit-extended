@@ -27,6 +27,25 @@ import 'callback_manager.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 
+/// Awaits a media-information execution and preserves the original backend
+/// or transport error for the caller.
+@visibleForTesting
+Future<void> awaitMediaInformationExecution(
+  Future<void> execution,
+  int sessionId,
+) async {
+  try {
+    await execution;
+  } catch (e, st) {
+    log(
+      'MediaInformationSession: error awaiting session $sessionId',
+      error: e,
+      stackTrace: st,
+    );
+    rethrow;
+  }
+}
+
 /// A specialised [FFprobeSession] for retrieving detailed media information.
 ///
 /// Internally runs an ffprobe command with `-print_format json -show_format
@@ -553,16 +572,7 @@ class MediaInformationSession extends FFprobeSession {
       rethrow;
     }
 
-    try {
-      await sessionCompleter.future;
-    } catch (e, st) {
-      log(
-        'MediaInformationSession: error awaiting session '
-        '$sessionId',
-        error: e,
-        stackTrace: st,
-      );
-    }
+    await awaitMediaInformationExecution(sessionCompleter.future, sessionId);
     // No post-await restore needed — already done inside the callback above.
   }
 
