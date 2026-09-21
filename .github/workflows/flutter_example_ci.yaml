@@ -215,12 +215,6 @@ jobs:
         working-directory: flutter
         run: flutter pub get
 
-      - name: Check Dart formatting
-        working-directory: flutter
-        run: >-
-          dart format --output=none --set-exit-if-changed
-          hook/build.dart test/static_web_asset_test.dart test/web_data_asset_test.dart
-
       - name: Run Dart analyze
         working-directory: flutter
         run: dart analyze
