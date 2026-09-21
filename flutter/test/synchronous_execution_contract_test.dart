@@ -26,8 +26,8 @@ mixin _SynchronousFixture {
 }
 
 class _SynchronousFFmpegSession extends FFmpegSession with _SynchronousFixture {
-  _SynchronousFFmpegSession({FFmpegSessionCompleteCallback? completeCallback})
-    : super.test(sessionId: 401, completeCallback: completeCallback);
+  _SynchronousFFmpegSession({super.completeCallback})
+    : super.test(sessionId: 401);
 
   @override
   SessionState executionStateForSubmission() => state;
@@ -53,8 +53,7 @@ class _SynchronousFFmpegSession extends FFmpegSession with _SynchronousFixture {
 
 class _SynchronousFFprobeSession extends FFprobeSession
     with _SynchronousFixture {
-  _SynchronousFFprobeSession({FFprobeSessionCompleteCallback? completeCallback})
-    : super.test(sessionId: 402, completeCallback: completeCallback);
+  _SynchronousFFprobeSession() : super.test(sessionId: 402);
 
   @override
   SessionState executionStateForSubmission() => state;
@@ -80,9 +79,7 @@ class _SynchronousFFprobeSession extends FFprobeSession
 
 class _SynchronousMediaInformationSession extends MediaInformationSession
     with _SynchronousFixture {
-  _SynchronousMediaInformationSession({
-    MediaInformationSessionCompleteCallback? completeCallback,
-  }) : super.test(sessionId: 403, completeCallback: completeCallback);
+  _SynchronousMediaInformationSession() : super.test(sessionId: 403);
 
   @override
   SessionState executionStateForSubmission() => state;
@@ -107,8 +104,7 @@ class _SynchronousMediaInformationSession extends MediaInformationSession
 }
 
 class _SynchronousFFplaySession extends FFplaySession with _SynchronousFixture {
-  _SynchronousFFplaySession({FFplaySessionCompleteCallback? completeCallback})
-    : super.test(sessionId: 404, completeCallback: completeCallback);
+  _SynchronousFFplaySession() : super.test(sessionId: 404);
 
   @override
   SessionState executionStateForSubmission() => state;
@@ -179,7 +175,7 @@ void main() {
   test('FFprobe synchronous execution rethrows the backend error', () {
     final session = _SynchronousFFprobeSession()..fail = true;
 
-    expect(() => session.execute(), throwsA(same(session.failure)));
+    expect(session.execute, throwsA(same(session.failure)));
     expect(session.started, isTrue);
     expect(session.settled, isTrue);
     expect(callbacks.ffprobeSessions.containsKey(session.sessionId), isFalse);

@@ -1184,13 +1184,9 @@ String _appleFrameworkInfoPlist({required bool simulator}) {
 ''';
 }
 
-String _getAndroidAbi() {
-  return androidAbiForArchitecture(targetArch);
-}
+String _getAndroidAbi() => androidAbiForArchitecture(targetArch);
 
-String _getAppleArch() {
-  return appleArtifactArchitecture(targetArch);
-}
+String _getAppleArch() => appleArtifactArchitecture(targetArch);
 
 String _appleDiagnosticContext(BuildInput input) {
   final sdk = targetOS == OS.iOS

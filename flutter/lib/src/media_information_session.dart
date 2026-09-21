@@ -151,9 +151,8 @@ class MediaInformationSession extends FFprobeSession {
     int sessionId = 1,
     String command = 'test',
     MediaInformationSessionCompleteCallback? completeCallback,
-    int timeout = 500,
-  }) : _timeout = timeout,
-       super.internal() {
+    this._timeout = 500,
+  }) : super.internal() {
     handle = const SessionHandle(Object());
     this.sessionId = sessionId;
     this.command = command;
