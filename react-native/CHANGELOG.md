@@ -2,6 +2,10 @@
 
 ## Version 1.0.0
 
+- Document the additive ABI-v2 direct log-event path, demand-driven callback
+  activation, completion independence, authoritative redirection control,
+  bounded terminal history reconciliation, internal message ownership, and the
+  local-only browser gate for unpublished Wasm runtimes.
 - Added WebAssembly wasm32 support
 - Reject the incompatible pre-built Web debug artifact and use the compatible base bundle in the Web example.
 

@@ -61,7 +61,9 @@ final class _BridgeState {
 ///
 /// This class deliberately knows nothing about FFI, JavaScript interop, or
 /// generated bindings. Platform callback bridges translate their event payloads
-/// into the dispatch methods below.
+/// into the dispatch methods below. Bridge leases are demand-driven, so
+/// completion routing remains independent of optional log and statistics
+/// consumers.
 class CallbackManager {
   static final _instance = CallbackManager._();
   CallbackManager._();

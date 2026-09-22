@@ -16,7 +16,11 @@ import type {
   Int32,
 } from 'react-native/Libraries/Types/CodegenTypes';
 
-/** Structured v2 log payload emitted after the native message is copied. */
+/**
+ * Structured v2 log payload emitted after the native message is copied.
+ * `sequence` is the native insertion order. The bridge owns and releases the
+ * native payload before exposing this managed string to JavaScript.
+ */
 export type LogEvent = {
   sessionId: Double;
   sequence: Double;
@@ -44,14 +48,17 @@ export interface Spec extends TurboModule {
   executeSessionAsync(sessionId: Double, timeoutMs: Double): void;
   cancelSession(sessionId: Double): void;
 
-  /** Process-wide structured v2 log stream. */
+  /** Process-wide structured v2 log stream; history polling is the fallback. */
   readonly onLogEvent: EventEmitter<LogEvent>;
   installLogBridge(): void;
   uninstallLogBridge(): void;
 
   /** Session snapshots and buffered callback payloads are serialized as JSON. */
   getSessionJson(sessionId: Double): string;
-  /** Returns the retained native log count for terminal reconciliation. */
+  /**
+   * Returns the retained native log count for one bounded terminal
+   * reconciliation. Normal direct delivery does not call indexed getters.
+   */
   getLogsCount(sessionId: Double): Double;
   releaseSessionHandle(sessionId: Double): void;
   getSessionsJson(kind: string): string;

@@ -26,10 +26,16 @@ import 'signal.dart';
 
 /// A convenience class for global FFmpegKit configuration.
 class FFmpegKitConfig {
-  /// Enables global log redirection.
+  /// Enables process-wide native log redirection.
+  ///
+  /// Installing a callback bridge does not call [enableRedirection]
+  /// implicitly.
   static void enableRedirection() => FFmpegKitExtended.enableRedirection();
 
-  /// Disables global log redirection.
+  /// Disables process-wide native log redirection.
+  ///
+  /// This setting remains authoritative even when a session has an optional
+  /// log consumer. Completion transport remains independent of log delivery.
   static void disableRedirection() => FFmpegKitExtended.disableRedirection();
 
   /// Sets the global log [level].

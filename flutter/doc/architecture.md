@@ -60,13 +60,37 @@ The runtime check is `window.crossOriginIsolated === true`. Without it, `SharedA
 
 ## Callback routing
 
-`CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. The Web callback bridge creates generated `ffigen_js` function pointers, registers them with the C wrapper, and routes callback events directly to the same manager. Callback pointers remain owned until the C callback slots are disabled and the event-loop lifetime barrier has elapsed.
+`CallbackManager` is platform-neutral: it registers sessions, dispatches logs/statistics, and completes FFmpeg, FFprobe, FFplay, and media-information sessions. Native callback bridges translate C callbacks into that manager. On ABI-v2-capable runtimes, the Web and native bridges carry an owned structured event containing the session ID, native sequence, level, and copied message; normal live delivery does not poll indexed history. The v1 buffered-history path remains available when v2 is not exported. Callback pointers and owned payloads remain internal to the bridge until the callback slots are disabled and the event-loop lifetime barrier has elapsed.
 
 The callback maps are routing state, not a lifetime registry for every created
 session. A session is registered when a callback, listener, or execution needs
 routing and is removed when that need settles. A created-but-unused session can
 therefore be disposed deterministically without relying on callback-map
 retention.
+
+### Callback demand, redirection, and reconciliation
+
+Completion transport is required for an asynchronous execution. Log and
+statistics transport is installed only while a matching consumer is present,
+so callback demand cannot make completion depend on optional observers. The
+wrapper does not call `enableRedirection()` as a side effect of installing a
+bridge. `FFmpegKitConfig.disableRedirection()` remains the authoritative
+native capture/forwarding switch.
+
+The direct v2 log path orders and deduplicates events by the native sequence.
+At terminal state it reads the retained log count once and fetches only a
+bounded missing range when a direct event was late; native history getters
+remain available for inspection and this reconciliation path. If v2 is absent,
+the wrapper explicitly falls back to indexed history polling. Messages are
+copied into managed objects and native payload memory is released inside the
+bridge; callers never receive a borrowed pointer.
+
+Custom or non-default Web/Wasm runtime selection requires Dart DataAssets. The
+packaged default runtime remains usable on stable Flutter 3.47, but a stable
+toolchain that reports `buildDataAssets: false` cannot verify a custom v2
+bundle. This is a toolchain capability boundary, not a product workaround
+target. The package intentionally keeps `ffigen_js: ^0.0.16-pre` because no
+stable release exists.
 
 ## Handles, finalizers, and memory
 
@@ -106,15 +130,19 @@ selection.
 
 The Flutter Web runtime smoke entrypoint is
 `example/lib/web_runtime_smoke.dart`; its Playwright runner is
-`example/web_runtime_smoke.mjs`. The existing Flutter CI workflow runs that
-entrypoint through a cross-origin-isolated Web server and verifies initialization,
-FFmpeg, FFprobe, and media-information completion in a real headless browser.
+`example/web_runtime_smoke.mjs`. Run that smoke locally through a
+cross-origin-isolated Web server. A workflow compile/build result is not a
+browser-runtime result because the hosted runner does not provide the required
+browser environment; do not use a workflow run as a substitute for the local
+browser gate.
 
 ## Known limitations and maintenance rules
 
 - Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.
 - Web completion, log, and statistics delivery uses generated callback pointers. The bridge requires a bundle with a usable Wasm function table and a browser deployment that supports the bundle's pthread configuration.
 - The hook’s Web asset staging is DataAsset-only; it does not copy runtime files into a consuming app's source `web/` or generated `build/web/` directories.
+- ABI-v2 direct log delivery is demand-driven and history-free during steady state; native history remains the public inspection and bounded terminal-reconciliation fallback.
+- `disableRedirection()` is authoritative. Installing a Flutter callback bridge does not implicitly enable native redirection, and completion remains independent of optional log/statistics consumers.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
 - Keep platform-specific imports below the platform directories and preserve the shared backend interfaces when extending the API.
 ### Session submission authority

@@ -109,6 +109,20 @@ An `FFplaySession` represents a playback instance.
   streams, and a later video-size subscription receives a fresh current-size
   emission.
 
+### Log delivery and history reconciliation
+
+On ABI-v2-capable runtimes, live log callbacks carry the native session ID,
+sequence, level, and message directly; the steady-state path does not read the
+complete indexed history. The native history getters remain available for
+inspection and for compatibility with a runtime that does not export v2.
+
+At terminal state, a v2 session reads the retained log count once and fetches
+only the bounded missing range if a direct event arrived late. Sequence order
+is authoritative, duplicates are ignored, and an unrecoverable gap is not
+filled by delivering later events out of order. Completion remains independent
+of log and statistics consumers, and `disableRedirection()` remains the
+authoritative native switch.
+
 ## History and typed lookups
 
 `FFmpegKitExtended.getSessions()` wraps the native history handles by their

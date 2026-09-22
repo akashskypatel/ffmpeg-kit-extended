@@ -213,7 +213,22 @@ React Native command execution is asynchronous. `execute()` and `executeAsync()`
 
 Call `FFmpegKitExtended.initialize()` and await it before using FFmpeg, FFprobe, or FFplay. Successful initialization is idempotent; a failed attempt can be retried, including with corrected `assetBaseUrl` options. Concurrent calls share the same initialization attempt.
 
-The native session starts asynchronously, while the TypeScript `Session` polls buffered native logs, statistics, and state. This keeps C callbacks and JavaScript callback lifetime management out of the C ABI boundary while preserving per-session completion/log/statistics callbacks.
+The native session starts asynchronously. On an ABI-v2-capable runtime, the
+TypeScript `Session` receives structured log events directly with the native
+session ID, sequence, level, and copied message; it polls state and does not
+poll the complete indexed log history during steady-state delivery. If v2 is
+not available, the wrapper explicitly uses the buffered-history compatibility
+path. Native history remains available for public getters and bounded terminal
+reconciliation.
+
+Callback activation is demand-driven: completion transport is retained for an
+async execution, while log and statistics transport is leased only while a
+matching consumer exists. Completion therefore remains independent of optional
+log/statistics callbacks. `FFmpegKitConfig.disableRedirection()` is the
+authoritative native capture/forwarding switch, and installing a TypeScript
+bridge never calls `enableRedirection()` implicitly. The native/Web bridge
+copies accepted messages into a JavaScript-owned string and releases its native
+payload internally; no borrowed pointer crosses the public API.
 
 Calling `cancel()` before execution begins prevents Created or queued work from starting. If cancellation is requested while asynchronous native startup is already in flight, the request is retained and forwarded when the session first reaches Running.
 `isCancelled` records that cancellation was requested; the final native state and return code determine whether cancellation won a race with completion.
@@ -291,7 +306,11 @@ session.setVolume(0.5);
 
 Android video rendering is implemented by `FFplayView` using a native `TextureView`. iOS, Apple tvOS, and macOS use the decoded-frame callback path and present frames with `AVSampleBufferDisplayLayer`. Windows uses the same desktop decoded-frame callback and presents BGRA frames through a WinUI 3 Composition drawing surface. Audio playback uses FFplay's native audio backend and does not require a video surface.
 
-Global native callback registration is also not exposed because per-session callbacks are dispatched by the TypeScript polling layer. This avoids duplicate callback paths and cross-thread JavaScript invocation.
+The public API keeps the process-wide native redirection controls explicit.
+Internal completion/log/statistics bridge slots are leased by consumer demand;
+they are not a second public callback-registration API. This keeps direct v2
+events and the v1 history fallback from being delivered twice while preserving
+the native `disableRedirection()` authority.
 
 ## Example applications
 

@@ -191,13 +191,18 @@ class FFmpegKitExtended {
     return LogLevel.fromValue(ffmpegKitBackend.getLogLevel());
   }
 
-  /// Enables redirection of FFmpeg logs to the system console.
+  /// Enables process-wide redirection of FFmpeg logs to the system console.
+  ///
+  /// Callback bridge demand does not call this method implicitly.
   static void enableRedirection() {
     requireInitialized();
     ffmpegKitBackend.enableRedirection();
   }
 
-  /// Disables redirection of FFmpeg logs to the system console.
+  /// Disables process-wide redirection of FFmpeg logs to the system console.
+  ///
+  /// This setting remains authoritative while optional log or statistics
+  /// consumers are active, and completion remains independent of them.
   static void disableRedirection() {
     requireInitialized();
     ffmpegKitBackend.disableRedirection();

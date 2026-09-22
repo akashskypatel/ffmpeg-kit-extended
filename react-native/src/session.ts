@@ -44,11 +44,15 @@ type MonitorOptions<T extends Session> = {
 /**
  * Base wrapper for one native FFmpegKit session.
  *
- * Session getters read the latest native snapshot on each call. Keep history
- * entries available until you finish inspecting a completed session. Calling
- * `FFmpegKitConfig.clearSessions()` while sessions are running can
- * cancel/invalidate active handles. Clearing sessions can also make later
- * getters throw because the native session no longer exists.
+ * Session getters read the latest native snapshot on each call. When the v2
+ * event bridge is available, live log delivery is direct and sequence-based;
+ * the monitor does not poll complete log history during steady state. At
+ * terminal state it reads the retained count once and fetches only a bounded
+ * missing range, while the indexed getters remain available for history and v1
+ * compatibility. Keep history entries available until you finish inspecting a
+ * completed session. Calling `FFmpegKitConfig.clearSessions()` while sessions
+ * are running can cancel/invalidate active handles. Clearing sessions can also
+ * make later getters throw because the native session no longer exists.
  *
  * A Session object may be submitted for execution once. Create a new session
  * for another execution.
@@ -137,7 +141,7 @@ export abstract class Session {
     return this.snapshot().failStackTrace;
   }
 
-  /** Returns the number of retained log entries. */
+  /** Returns the retained log count used for public inspection/reconciliation. */
   getLogsCount(): number {
     return this.snapshot().logsCount;
   }

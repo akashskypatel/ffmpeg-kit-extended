@@ -445,6 +445,28 @@ FFmpegKit.executeAsync(
 );
 ```
 
+#### Callback transport and redirection
+
+On an ABI-v2-capable runtime, live log callbacks are structured direct events
+carrying the session ID, native sequence, level, and copied message. Normal
+delivery does not poll the complete native log history. Native history getters
+remain available for public inspection and for bounded terminal reconciliation
+when an event arrives late or a compatibility bridge is in use. The v1
+buffered-history path remains the explicit fallback when v2 is unavailable.
+
+Callback bridge installation is demand-driven: completion transport is retained
+for every asynchronous execution, while log and statistics transport is leased
+only while a corresponding consumer exists. Completion is therefore
+independent of optional log/statistics consumers. `FFmpegKitConfig.disableRedirection()`
+remains authoritative for native capture and forwarding;
+installing a wrapper callback bridge does not implicitly re-enable redirection.
+
+The wrapper copies each accepted native message into its managed value and
+releases the native payload internally. No borrowed native pointer is exposed
+to Dart. Custom Web/Wasm runtimes require the Dart DataAssets capability; the
+stable Flutter 3.47 toolchain supports the packaged default runtime but rejects
+custom runtime selection when that capability is unavailable.
+
 ### 3.4 Session Management
 
 All executions return a `Session` object which can be used to control the task:

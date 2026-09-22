@@ -5,6 +5,7 @@ Learn how to monitor FFmpeg operations in real-time using callbacks.
 ## Table of Contents
 
 - [Overview](#overview)
+- [Callback Transport and Redirection](#callback-transport-and-redirection)
 - [Callback Types](#callback-types)
 - [Session-Level Callbacks](#session-level-callbacks)
 - [Global Callbacks](#global-callbacks)
@@ -25,6 +26,29 @@ Callbacks can be set at two levels:
 
 - **Session-level**: Applied to a specific operation
 - **Global-level**: Applied to all operations
+
+## Callback Transport and Redirection
+
+ABI-v2-capable runtimes deliver live log events directly with the native
+session ID, sequence, level, and message. The normal live path does not poll
+the complete indexed log history. Native history remains available to callers
+and is used only for bounded terminal reconciliation or the explicit v1
+compatibility fallback.
+
+Callback activation is demand-driven. Completion transport is retained for an
+asynchronous execution, while log and statistics transport is leased only when
+the matching callback has a consumer. Removing an optional consumer therefore
+does not cancel or delay completion. `FFmpegKitConfig.disableRedirection()` is
+the authoritative native capture/forwarding switch; installing a wrapper
+bridge never calls `enableRedirection()` implicitly.
+
+The bridge copies accepted messages into Dart-owned values and frees native
+payload memory internally. Direct events are ordered and deduplicated by the
+native sequence. At completion, the wrapper reads the retained count once and
+fetches only a missing range when a direct event was late. Custom Web/Wasm
+runtime selection requires Dart DataAssets; the stable Flutter 3.47 default
+runtime remains supported, but custom selection is rejected when DataAssets are
+unavailable. The package intentionally requires `ffigen_js: ^0.0.16-pre`.
 
 ## Callback Types
 

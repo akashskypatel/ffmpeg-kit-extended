@@ -19,7 +19,11 @@ export interface FFmpegKitInitializeOptions {
   assetBaseUrl?: string;
 }
 
-/** One owned-v2 log event after its native message has become a JS string. */
+/**
+ * One owned-v2 log event after its native message has become a JS string.
+ * Native ownership ends inside the platform bridge; consumers retain only this
+ * managed value and use `sequence` for ordering/deduplication.
+ */
 export interface LogEvent {
   sessionId: number;
   sequence: number;
@@ -45,7 +49,12 @@ export interface FFplayFrameCopyResult extends FFplayFrameMetadata {
   copied: boolean;
 }
 
-/** Platform-neutral implementation of the public FFmpegKit bridge. */
+/**
+ * Platform-neutral implementation of the public FFmpegKit bridge.
+ *
+ * Direct v2 events are the normal live path. The indexed getters remain for
+ * public history, v1 compatibility, and the single bounded terminal gap read.
+ */
 export interface FFmpegKitBackend {
   initialize(options?: FFmpegKitInitializeOptions): Promise<void>;
   getBuildStamp(): string;

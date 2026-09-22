@@ -2,6 +2,11 @@
 
 ## Version 1.0.0
 
+- Document ABI-v2 direct log events, demand-driven callback activation,
+  completion independence, authoritative redirection control, bounded terminal
+  history reconciliation, owned message lifetime, and the custom Web/Wasm
+  DataAssets capability boundary. The `ffigen_js: ^0.0.16-pre` dependency
+  remains intentional because no stable release exists.
 - Added WebAssembly wasm32 support
 - Make synchronous FFmpeg, FFprobe, FFplay, and media-information execution
   return only after native work, terminal callbacks, and cleanup complete;

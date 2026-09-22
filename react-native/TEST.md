@@ -47,6 +47,30 @@ The Web start and build scripts invoke the package-owned resolver automatically.
 
 Initialization coverage includes module-factory rejection, Wasm instantiation rejection, retry after a failed attempt, and concurrent initialization deduplication.
 
+## Review 23 callback transport evidence
+
+Review 23 uses an additive ABI-v2 event path. The direct path carries
+`sessionId`, `sequence`, `level`, and `message`, avoids steady-state indexed
+history reads, and reconciles only a bounded terminal gap. The native history
+getters remain the public inspection and explicit v1 compatibility path.
+
+The local ownership and session fixtures are the counter oracle when the
+unpublished native ABI is under test:
+
+```bash
+node --test tests/wasm-backend-memory.test.js tests/wasm-session-ownership.test.js tests/codegen-lifecycle.test.js
+```
+
+They assert completion with no optional consumers, direct delivery with zero
+steady-state history reads, one terminal count read, bounded gap recovery,
+duplicate suppression, ordering, redirection authority, and owned-payload
+release. Wrapper fixtures do not instrument native allocation/free counters;
+the native/Wasm ownership tests prove balance and free-once behavior instead.
+
+Run `npm run test:web` locally for the browser gate. Hosted workflow build or
+compile output is not browser-runtime evidence, and unpublished native ABI
+changes must use locally built runtimes rather than a workflow artifact.
+
 The Wasm runtime is intentionally not included in the npm package. The Web build hook stages it from the configured published release or local override, so package checks do not silently bundle a large binary.
 
 The authoritative workflow covers the same React Native gates plus the

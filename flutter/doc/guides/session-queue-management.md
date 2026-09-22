@@ -4,6 +4,13 @@
 
 FFmpegKit Extended provides an automated session queue management system to handle concurrent execution requests efficiently. While the underlying FFmpegKit C API uses mutex locking (limiting how many sessions can run at once based on CPU and memory), the `SessionQueueManager` at the Dart layer ensures system resources are not over-allocated by enforcing a configurable concurrency limit.
 
+Queue admission and callback delivery are separate concerns. Completion
+transport is retained for every submitted asynchronous session, while optional
+log/statistics transport is activated only while a consumer exists. On an
+ABI-v2-capable runtime, live logs arrive as direct sequence-bearing events and
+do not cause steady-state full-history polling; native history remains
+available for inspection and bounded terminal reconciliation.
+
 ## Parallel Execution with Concurrency Limits
 
 The updated `SessionQueueManager` has moved away from complex "strategies" to a simpler, more robust model:

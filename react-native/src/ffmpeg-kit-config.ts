@@ -12,12 +12,22 @@ const NativeFFmpegKitExtended = getBackend();
  * `FFmpegKitExtended.initialize()` before using native configuration methods.
  */
 export class FFmpegKitConfig {
-  /** Enables collection/redirection of native logs for session callbacks. */
+  /**
+   * Explicitly enables process-wide native log redirection.
+   *
+   * Installing an internal completion/log/statistics bridge does not call this
+   * method implicitly; the native redirection setting remains user authority.
+   */
   static enableRedirection(): void {
     NativeFFmpegKitExtended.enableRedirection();
   }
 
-  /** Disables native log redirection. Session callback delivery may stop. */
+  /**
+   * Explicitly disables process-wide native log redirection.
+   *
+   * This is authoritative even when a session has an optional log consumer;
+   * completion transport remains independent of log/statistics delivery.
+   */
   static disableRedirection(): void {
     NativeFFmpegKitExtended.disableRedirection();
   }
