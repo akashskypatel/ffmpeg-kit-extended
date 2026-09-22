@@ -204,7 +204,7 @@ class FFplayKit {
       return;
     }
 
-    unawaited(terminalObserver!);
+    unawaited(terminalObserver);
   }
 
   static Future<void> _finishTrackedExecution(

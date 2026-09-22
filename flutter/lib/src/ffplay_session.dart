@@ -831,8 +831,8 @@ class FFplaySession extends Session {
     return _videoSizeController!.stream;
   }
 
-  StreamController<double> _createPositionController() {
-    return StreamController<double>.broadcast(
+  StreamController<double> _createPositionController() =>
+      StreamController<double>.broadcast(
       onListen: () {
         if (_telemetryExecutionActive) _startPositionStream();
       },
@@ -841,11 +841,10 @@ class FFplaySession extends Session {
           _stopPositionTimers();
         }
       },
-    );
-  }
+      );
 
-  StreamController<(int, int)> _createVideoSizeController() {
-    return StreamController<(int, int)>.broadcast(
+  StreamController<(int, int)> _createVideoSizeController() =>
+      StreamController<(int, int)>.broadcast(
       onListen: () {
         if (_telemetryExecutionActive) _startVideoSizeStream();
       },
@@ -854,8 +853,7 @@ class FFplaySession extends Session {
           _stopVideoSizeTimer();
         }
       },
-    );
-  }
+      );
 
   // ---------------------------------------------------------------------------
   // Private implementation

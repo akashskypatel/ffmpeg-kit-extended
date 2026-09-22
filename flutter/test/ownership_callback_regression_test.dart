@@ -187,6 +187,9 @@ class _NoopMediaInformationSession extends MediaInformationSession {
     : super.test(sessionId: sessionId);
 
   @override
+  void registerFinalizer() {}
+
+  @override
   void dispatchPendingLogs() {}
 
   @override
@@ -503,7 +506,9 @@ void main() {
       ffmpeg.setCompleteCallback(ffmpeg.completeCallback);
       ffprobe.setCompleteCallback(ffprobe.completeCallback);
       ffplay.setCompleteCallback(ffplay.completeCallback);
-      mediaInfo.setMediaInfoCompleteCallback(mediaInfo.mediaInfoCompleteCallback);
+      mediaInfo.setMediaInfoCompleteCallback(
+        mediaInfo.mediaInfoCompleteCallback,
+      );
 
       expect(manager.ffmpegSessions, contains(310));
       expect(manager.ffprobeSessions, contains(311));
@@ -594,60 +599,68 @@ void main() {
       expect(manager.ffprobeSessions, isNot(contains(333)));
     });
 
-    test('Created log listeners do not retain sessions before execution', () async {
-      final ffmpeg = _NoopFFmpegSession(340);
-      final ffprobe = _NoopFFprobeSession(341);
-      final ffplay = _NoopFFplaySession(342);
-      final mediaInfo = _NoopMediaInformationSession(343);
+    test(
+      'Created log listeners do not retain sessions before execution',
+      () async {
+        final ffmpeg = _NoopFFmpegSession(340);
+        final ffprobe = _NoopFFprobeSession(341);
+        final ffplay = _NoopFFplaySession(342);
+        final mediaInfo = _NoopMediaInformationSession(343);
 
-      final subscriptions = [
-        ffmpeg.logBatchStream.listen((_) {}),
-        ffprobe.logBatchStream.listen((_) {}),
-        ffplay.logBatchStream.listen((_) {}),
-        mediaInfo.logBatchStream.listen((_) {}),
-      ];
+        final subscriptions = [
+          ffmpeg.logBatchStream.listen((_) {}),
+          ffprobe.logBatchStream.listen((_) {}),
+          ffplay.logBatchStream.listen((_) {}),
+          mediaInfo.logBatchStream.listen((_) {}),
+        ];
 
-      expect(manager.ffmpegSessions, isNot(contains(340)));
-      expect(manager.ffprobeSessions, isNot(contains(341)));
-      expect(manager.ffplaySessions, isNot(contains(342)));
-      expect(manager.mediaInformationSessions, isNot(contains(343)));
-      expect(manager.ffprobeSessions, isNot(contains(343)));
+        expect(manager.ffmpegSessions, isNot(contains(340)));
+        expect(manager.ffprobeSessions, isNot(contains(341)));
+        expect(manager.ffplaySessions, isNot(contains(342)));
+        expect(manager.mediaInformationSessions, isNot(contains(343)));
+        expect(manager.ffprobeSessions, isNot(contains(343)));
 
-      ffmpeg.submitForTest();
-      ffprobe.submitForTest();
-      ffplay.submitForTest();
-      mediaInfo.submitForTest();
-      ffmpeg.setCompleteCallback((_) {});
-      ffprobe.setCompleteCallback((_) {});
-      ffplay.setCompleteCallback((_) {});
-      mediaInfo.setMediaInfoCompleteCallback((_) {});
+        ffmpeg.submitForTest();
+        ffprobe.submitForTest();
+        ffplay.submitForTest();
+        mediaInfo.submitForTest();
+        ffmpeg.setCompleteCallback((_) {});
+        ffprobe.setCompleteCallback((_) {});
+        ffplay.setCompleteCallback((_) {});
+        mediaInfo.setMediaInfoCompleteCallback((_) {});
 
-      expect(manager.ffmpegSessions, contains(340));
-      expect(manager.ffprobeSessions, contains(341));
-      expect(manager.ffplaySessions, contains(342));
-      expect(manager.mediaInformationSessions, contains(343));
-      expect(manager.ffprobeSessions, contains(343));
+        expect(manager.ffmpegSessions, contains(340));
+        expect(manager.ffprobeSessions, contains(341));
+        expect(manager.ffplaySessions, contains(342));
+        expect(manager.mediaInformationSessions, contains(343));
+        expect(manager.ffprobeSessions, contains(343));
 
-      await Future.wait(
-        subscriptions.map((subscription) => subscription.cancel()),
-      );
+        await Future.wait(
+          subscriptions.map((subscription) => subscription.cancel()),
+        );
 
-      expect(manager.ffmpegSessions, contains(340));
-      expect(manager.ffprobeSessions, contains(341));
-      expect(manager.ffplaySessions, contains(342));
-      expect(manager.mediaInformationSessions, contains(343));
-      expect(manager.ffprobeSessions, contains(343));
-      ffmpeg.removeCompleteCallback();
-      ffprobe.removeCompleteCallback();
-      ffplay.removeCompleteCallback();
-      mediaInfo.removeMediaInfoCompleteCallback();
+        expect(manager.ffmpegSessions, contains(340));
+        expect(manager.ffprobeSessions, contains(341));
+        expect(manager.ffplaySessions, contains(342));
+        expect(manager.mediaInformationSessions, contains(343));
+        expect(manager.ffprobeSessions, contains(343));
+        ffmpeg.settleForTest();
+        ffprobe.settleForTest();
+        ffplay.settleForTest();
+        mediaInfo.settleForTest();
 
-      expect(manager.ffmpegSessions, isNot(contains(340)));
-      expect(manager.ffprobeSessions, isNot(contains(341)));
-      expect(manager.ffplaySessions, isNot(contains(342)));
-      expect(manager.mediaInformationSessions, isNot(contains(343)));
-      expect(manager.ffprobeSessions, isNot(contains(343)));
-    });
+        ffmpeg.removeCompleteCallback();
+        ffprobe.removeCompleteCallback();
+        ffplay.removeCompleteCallback();
+        mediaInfo.removeMediaInfoCompleteCallback();
+
+        expect(manager.ffmpegSessions, isNot(contains(340)));
+        expect(manager.ffprobeSessions, isNot(contains(341)));
+        expect(manager.ffplaySessions, isNot(contains(342)));
+        expect(manager.mediaInformationSessions, isNot(contains(343)));
+        expect(manager.ffprobeSessions, isNot(contains(343)));
+      },
+    );
 
     test(
       'pending execution keeps callback routing after the last sink closes',
