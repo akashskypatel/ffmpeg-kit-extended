@@ -21,6 +21,7 @@ class _FakeFFplaySession extends FFplaySession {
   bool throwOnClose = false;
   bool throwOnCancellation = false;
   final Completer<void> execution = Completer<void>();
+  Completer<void>? startupCompleter;
 
   @override
   SessionState getState() => state;
@@ -66,6 +67,9 @@ class _FakeFFplaySession extends FFplaySession {
     await execution.future;
     return this;
   }
+
+  @override
+  Future<void>? get startupFutureForTracking => startupCompleter?.future;
 }
 
 void main() {
@@ -107,6 +111,24 @@ void main() {
     FFplayKit.trackExecutionForTest(session, () => Future<void>.error(error));
 
     await Future<void>.delayed(Duration.zero);
+    expect(FFplayKit.currentSession, isNull);
+  });
+
+  test('startup and terminal failures share one tracked observer', () async {
+    final session = _FakeFFplaySession(SessionState.created);
+    session.startupCompleter = Completer<void>();
+    FFplayKit.setCurrentSessionForTest(session);
+    FFplayKit.start();
+
+    final startupError = StateError('startup failed');
+    session.startupCompleter!.completeError(startupError);
+    await Future<void>.value();
+    expect(FFplayKit.currentSession, same(session));
+
+    final terminalError = StateError('terminal failed');
+    session.execution.completeError(terminalError);
+    await Future<void>.value();
+    await Future<void>.value();
     expect(FFplayKit.currentSession, isNull);
   });
 

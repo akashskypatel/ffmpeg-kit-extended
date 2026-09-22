@@ -171,19 +171,32 @@ class FFplayKit {
     if (!_trackedExecutions.add(session)) return;
 
     late final Future<FFplaySession> execution;
+    Future<void>? terminalObserver;
     try {
       execution = session.executeAsync();
+      // Attach the terminal owner before awaiting startup. A startup failure
+      // is also an execution failure, so one observer must own cleanup and
+      // logging for both paths.
+      terminalObserver = _finishTrackedExecution(session, execution);
       final startup = session.startupFutureForTracking;
       await (startup ?? execution);
     } catch (error, stackTrace) {
-      log(
-        'FFplayKit: tracked startup failed for session ${session.sessionId}',
-        error: error,
-        stackTrace: stackTrace,
-      );
-      _trackedExecutions.remove(session);
-      if (identical(_activeFFplaySession, session)) {
-        _activeFFplaySession = null;
+      final observer = terminalObserver;
+      if (observer != null) {
+        await observer;
+      } else {
+        // A non-async test double or an unexpected synchronous throw can fail
+        // before executeAsync returns a Future for the terminal observer.
+        log(
+          'FFplayKit: tracked startup failed before terminal observation for '
+          'session ${session.sessionId}',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        _trackedExecutions.remove(session);
+        if (identical(_activeFFplaySession, session)) {
+          _activeFFplaySession = null;
+        }
       }
       if (propagateStartupError) {
         Error.throwWithStackTrace(error, stackTrace);
@@ -191,7 +204,7 @@ class FFplayKit {
       return;
     }
 
-    unawaited(_finishTrackedExecution(session, execution));
+    unawaited(terminalObserver!);
   }
 
   static Future<void> _finishTrackedExecution(
