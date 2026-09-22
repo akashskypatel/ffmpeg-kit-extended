@@ -1,26 +1,11 @@
-/// Logical and browser URL roots for the Flutter Web runtime assets.
+/// Canonical browser URL for the runtime staged by the Flutter build hook.
 final class WebAssetPaths {
   WebAssetPaths._();
 
-  /// The dependency-package asset key produced from `pubspec.yaml`'s
-  /// `assets/wasm/` declaration.
+  /// Logical package root used by build-hook staging.
   static const defaultAssetKeyRoot =
-      'packages/ffmpeg_kit_extended_flutter/assets/wasm';
+      'packages/ffmpeg_kit_extended_flutter/wasm';
 
-  /// The browser URL root for the packaged default runtime.
+  /// Browser URL root for the selected default or custom runtime.
   static const defaultAssetRoot = 'assets/$defaultAssetKeyRoot';
-
-  /// The logical DataAsset key root for an explicit custom runtime.
-  static const overrideAssetKeyRoot =
-      'packages/ffmpeg_kit_extended_flutter/wasm_override';
-
-  /// The logical asset key that marks an explicit custom runtime.
-  static const overrideManifestKey =
-      '$overrideAssetKeyRoot/ffmpegkit_wasm_manifest.json';
-
-  /// The browser URL root for an explicit custom runtime.
-  static const overrideAssetRoot = 'assets/$overrideAssetKeyRoot';
-
-  static const overrideManifest =
-      '$overrideAssetRoot/ffmpegkit_wasm_manifest.json';
 }

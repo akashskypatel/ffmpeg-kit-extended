@@ -318,28 +318,28 @@ jobs:
 
   web-custom-override-smoke:
     if: github.event.pull_request.draft == false
-    name: Flutter Web Custom DataAsset Smoke
+    name: Flutter Web Custom Runtime Smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone Flutter SDK (master for custom DataAssets)
+      - name: Clone stable Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: master
-          channel: master
+          flutter-version: "3.47.0"
+          channel: "stable"
           cache: true
 
-      - name: Configure Flutter custom DataAssets
-        run: flutter config --no-analytics --enable-dart-data-assets
+      - name: Configure Flutter Web runtime
+        run: flutter config --no-analytics
 
       - name: Get custom fixture dependencies
         working-directory: flutter/test/fixtures/review16_custom_web_workspace
         run: flutter pub get
 
-      - name: Build custom Web Wasm fixture
+      - name: Build custom Web Wasm fixture without DataAssets
         working-directory: flutter/test/fixtures/review16_custom_web_workspace/apps/app
         run: flutter build web --wasm --no-pub
 
@@ -353,15 +353,15 @@ jobs:
           "$smoke_dir/node_modules/.bin/playwright" install --with-deps chromium
           cp "$GITHUB_WORKSPACE/flutter/example/web_runtime_smoke.mjs" "$smoke_dir/web_runtime_smoke.mjs"
 
-      - name: Start custom Flutter Web Wasm server
+      - name: Start custom Flutter Web Wasm static server
         working-directory: flutter/test/fixtures/review16_custom_web_workspace/apps/app
         run: |
           set -euo pipefail
           smoke_log="$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.log"
           smoke_pid="$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.pid"
-          flutter run -d web-server --wasm --cross-origin-isolation \
-            --web-hostname 127.0.0.1 --web-port 8080 \
-            --target=lib/main.dart >"$smoke_log" 2>&1 &
+          node "$GITHUB_WORKSPACE/flutter/example/web_static_server.mjs" \
+            "$GITHUB_WORKSPACE/flutter/test/fixtures/review16_custom_web_workspace/apps/app/build/web" \
+            8080 >"$smoke_log" 2>&1 &
           echo $! >"$smoke_pid"
           for attempt in $(seq 1 180); do
             if ! kill -0 "$(cat "$smoke_pid")" 2>/dev/null; then
@@ -377,7 +377,7 @@ jobs:
           exit 1
 
       - name: Run custom Web browser smoke
-        run: node "$RUNNER_TEMP/ffmpeg-web-custom-smoke/web_runtime_smoke.mjs" http://127.0.0.1:8080/ wasm_override
+        run: node "$RUNNER_TEMP/ffmpeg-web-custom-smoke/web_runtime_smoke.mjs" http://127.0.0.1:8080/ wasm
 
       - name: Stop custom Flutter Web server
         if: always()

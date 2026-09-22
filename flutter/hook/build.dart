@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
-import 'package:data_assets/data_assets.dart';
 import 'package:hooks/hooks.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
@@ -21,9 +20,6 @@ const String version = "0.11.2";
 const String _extractMarkerFileName = '.extract_complete';
 const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
-const String _defaultWebAssetRoot = 'wasm';
-const String _customWebAssetRoot = 'wasm_override';
-const String _customWebAssetManifest = 'ffmpegkit_wasm_manifest.json';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
@@ -36,7 +32,7 @@ void main(List<String> args) async {
     // Flutter web builds do not expose a CodeAsset target. Emit the Wasm
     // runtime as package data instead.
     if (!input.config.buildCodeAssets) {
-      await _buildWebDataAssets(input, output);
+      await _buildWebAssets(input, output);
       return;
     }
     final packageName = input.packageName;
@@ -70,133 +66,149 @@ void main(List<String> args) async {
   });
 }
 
-Future<void> _buildWebDataAssets(
+Future<void> _buildWebAssets(
   BuildInput input,
   BuildOutputBuilder output,
 ) async {
   final configResult = _loadConfig(input, output);
   validateWebBundleSelection(configResult.config);
-  if (isDefaultWebRuntime(configResult.config)) {
-    _log(
-      'Using the ordinary package Web assets under $_defaultWebAssetRoot/ '
-      'for the default base/small/LGPL runtime.',
-    );
-    return;
-  }
-  if (!input.config.buildDataAssets) {
-    throw _exception(
-      'Custom or non-default Flutter Web Wasm configuration '
-      '(${configDiagnosticSummary(configResult.config)}) requires Dart '
-      'DataAssets. This Flutter toolchain supplied buildDataAssets: false. '
-      'Use a toolchain that exposes and enables Dart DataAssets, or remove '
-      'the Web/Wasm override and use the default package runtime.',
-    );
-  }
+
   final source = await _resolveWebArtifact(
     configResult,
     input,
     output.dependencies.add,
   );
-  final extractedDir = source.searchRoot;
-
-  final runtimeDir = selectWebRuntimeDirectory(extractedDir);
+  final runtimeDir = selectWebRuntimeDirectory(source.searchRoot);
   if (runtimeDir == null) {
     throw _exception(
       'WASM bundle must contain exactly one directory with both '
-      'ffmpegkit.mjs and ffmpegkit.wasm under ${extractedDir.path}',
+      'ffmpegkit.mjs and ffmpegkit.wasm under ${source.searchRoot.path}',
     );
   }
+
   for (final dependency in source.dependencies) {
     output.dependencies.add(dependency);
   }
 
-  final packageName = input.packageName;
-  const requiredRuntimeFiles = {'ffmpegkit.mjs', 'ffmpegkit.wasm'};
-  final runtimeFilesByName = {
-    for (final name in requiredRuntimeFiles)
-      name: File(p.join(runtimeDir.path, name)),
-  };
+  final packageRoot = p.normalize(input.packageRoot.toFilePath());
+  final stagingBaseDirs = resolveWebStagingBaseDirs(
+    packageName: input.packageName,
+    packageRoot: packageRoot,
+    packageConfig: Platform.packageConfig,
+    configBaseDir: configResult.configBaseDir,
+    outputFile: input.outputFile.toFilePath(),
+    log: _log,
+  );
 
-  for (final name in requiredRuntimeFiles) {
-    final file = runtimeFilesByName[name]!;
-    output.assets.data.add(
-      DataAsset(
-        package: packageName,
-        name: p.posix.join(_customWebAssetRoot, name),
-        file: file.uri,
-      ),
-    );
-  }
   final bridgeSource = File(
     p.fromUri(input.packageRoot.resolve('web/ffmpegkit_bridge.mjs')),
   );
-  if (!bridgeSource.existsSync()) {
-    throw _exception('Missing web runtime bridge: ${bridgeSource.path}');
-  }
   final callbackRuntimeSource = File(
     p.fromUri(input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs')),
   );
-  if (!callbackRuntimeSource.existsSync()) {
-    throw _exception(
-      'Missing web callback runtime: ${callbackRuntimeSource.path}',
-    );
-  }
   final loaderSource = File(
     p.fromUri(input.packageRoot.resolve('web/ffmpegkit_loader.mjs')),
   );
-  if (!loaderSource.existsSync()) {
-    throw _exception('Missing web Wasm loader: ${loaderSource.path}');
+
+  final runtimeFiles = <String, File>{
+    'ffmpegkit.mjs': File(p.join(runtimeDir.path, 'ffmpegkit.mjs')),
+    'ffmpegkit.wasm': File(p.join(runtimeDir.path, 'ffmpegkit.wasm')),
+    'ffmpegkit_bridge.mjs': bridgeSource,
+    'ffmpegkit_callback_runtime.mjs': callbackRuntimeSource,
+    'ffmpegkit_loader.mjs': loaderSource,
+  };
+
+  for (final entry in runtimeFiles.entries) {
+    if (!entry.value.existsSync()) {
+      throw _exception(
+        'Missing Web runtime file ${entry.key}: ${entry.value.path}',
+      );
+    }
   }
-  final manifestSource = File(
-    p.fromUri(input.packageRoot.resolve('web/$_customWebAssetManifest')),
-  );
-  if (!manifestSource.existsSync()) {
-    throw _exception(
-      'Missing custom Web Wasm asset manifest: ${manifestSource.path}',
-    );
-  }
-  output.dependencies.add(manifestSource.uri);
+
   output.dependencies.add(bridgeSource.uri);
   output.dependencies.add(callbackRuntimeSource.uri);
   output.dependencies.add(loaderSource.uri);
-  const bridgeFileName = 'ffmpegkit_bridge.mjs';
-  const callbackRuntimeFileName = 'ffmpegkit_callback_runtime.mjs';
-  const loaderFileName = 'ffmpegkit_loader.mjs';
-  final bridgeName = p.posix.join(_customWebAssetRoot, bridgeFileName);
-  final callbackRuntimeName = p.posix.join(
-    _customWebAssetRoot,
-    callbackRuntimeFileName,
+
+  await stageWebRuntimeFiles(
+    files: runtimeFiles,
+    stagingBaseDirs: stagingBaseDirs,
+    packageName: input.packageName,
   );
-  final loaderName = p.posix.join(_customWebAssetRoot, loaderFileName);
-  output.assets.data.add(
-    DataAsset(package: packageName, name: bridgeName, file: bridgeSource.uri),
-  );
-  output.assets.data.add(
-    DataAsset(
-      package: packageName,
-      name: callbackRuntimeName,
-      file: callbackRuntimeSource.uri,
-    ),
-  );
-  output.assets.data.add(
-    DataAsset(package: packageName, name: loaderName, file: loaderSource.uri),
-  );
-  output.assets.data.add(
-    DataAsset(
-      package: packageName,
-      name: p.posix.join(_customWebAssetRoot, _customWebAssetManifest),
-      file: manifestSource.uri,
-    ),
-  );
+
   _log(
-    'Emitted ffmpegkit.mjs, ffmpegkit.wasm, loader, bridge, and callback runtime '
-    'plus the runtime manifest for $packageName as Flutter Web DataAssets '
-    'under $_customWebAssetRoot/',
+    'Staged selected Flutter Web runtime '
+    '(${configDiagnosticSummary(configResult.config)}) for ${input.packageName} '
+    'under assets/packages/${input.packageName}/wasm/ in '
+    '${stagingBaseDirs.join(', ')}. Dart DataAssets are not required.',
   );
 }
 
+@visibleForTesting
+List<Directory> webRuntimeStagingDirectories({
+  required String stagingBaseDir,
+  required String packageName,
+}) => <Directory>[
+  Directory(
+    p.join(
+      stagingBaseDir,
+      'build',
+      'web',
+      'assets',
+      'packages',
+      packageName,
+      'wasm',
+    ),
+  ),
+  Directory(
+    p.join(
+      stagingBaseDir,
+      'web',
+      'assets',
+      'packages',
+      packageName,
+      'wasm',
+    ),
+  ),
+];
+
+@visibleForTesting
+Future<void> stageWebRuntimeFiles({
+  required Map<String, File> files,
+  required Iterable<String> stagingBaseDirs,
+  required String packageName,
+}) async {
+  final sourceHashes = <String, String?>{};
+  for (final entry in files.entries) {
+    if (!entry.value.existsSync()) {
+      throw _exception(
+        'Missing Web runtime file ${entry.key}: ${entry.value.path}',
+      );
+    }
+    sourceHashes[entry.key] = await _computeFileSha256(entry.value);
+  }
+
+  for (final stagingBaseDir in stagingBaseDirs) {
+    for (final webAssetDir in webRuntimeStagingDirectories(
+      stagingBaseDir: stagingBaseDir,
+      packageName: packageName,
+    )) {
+      webAssetDir.createSync(recursive: true);
+      for (final entry in files.entries) {
+        final destination = File(p.join(webAssetDir.path, entry.key));
+        final destinationHash = destination.existsSync()
+            ? await _computeFileSha256(destination)
+            : null;
+        if (destinationHash != sourceHashes[entry.key]) {
+          entry.value.copySync(destination.path);
+        }
+      }
+    }
+  }
+}
+
 /// Rejects the known-invalid automatic Web debug artifact before any
-/// DataAsset fallback, download, cache, or extraction work can begin.
+/// download, cache, extraction, or staging work can begin.
 @visibleForTesting
 void validateWebBundleSelection(dynamic config) {
   final type = config['type']?.toString() ?? 'base';
@@ -209,15 +221,6 @@ void validateWebBundleSelection(dynamic config) {
       'containing one coherent ffmpegkit.mjs + ffmpegkit.wasm pair.',
     );
   }
-}
-
-@visibleForTesting
-bool isDefaultWebRuntime(dynamic config) {
-  final type = config['type']?.toString() ?? 'base';
-  final gpl = config['gpl'] == true;
-  final small = config['small'] == true;
-  final override = config['web']?.toString() ?? config['wasm']?.toString();
-  return type == 'base' && !gpl && small && override == null;
 }
 
 @visibleForTesting

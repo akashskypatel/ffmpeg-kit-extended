@@ -2,13 +2,11 @@ import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 
-import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 
 import '../../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import 'retryable_initialization.dart';
 import 'web_asset_paths.dart';
-import 'web_runtime_selection.dart';
 
 /// Loads the Emscripten module and connects ffigen_js to that module instance.
 final class WasmLoader {
@@ -16,8 +14,6 @@ final class WasmLoader {
 
   static final instance = WasmLoader._();
   static const assetRoot = WebAssetPaths.defaultAssetRoot;
-  static const overrideAssetRoot = WebAssetPaths.overrideAssetRoot;
-  static const overrideManifest = WebAssetPaths.overrideManifest;
 
   final _initialization = RetryableInitialization<JSObject>();
 
@@ -44,7 +40,7 @@ final class WasmLoader {
   }
 
   Future<JSObject> _loadModule() async {
-    final selectedAssetRoot = await _selectAssetRoot();
+    const selectedAssetRoot = assetRoot;
     final existing = globalContext.getProperty<JSAny?>(
       'ffmpegKitExtendedModuleFactory'.toJS,
     );
@@ -80,24 +76,6 @@ final class WasmLoader {
     }
     final promise = result as JSPromise<JSObject>;
     return promise.toDart;
-  }
-
-  Future<String> _selectAssetRoot() async {
-    final manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
-    final selection = selectWebRuntime(manifest.listAssets());
-    if (selection == WebRuntimeSelection.packagedDefault) {
-      return assetRoot;
-    }
-
-    final manifestSource = await rootBundle.loadString(
-      WebAssetPaths.overrideManifestKey,
-    );
-    try {
-      validateCustomWebRuntimeManifest(manifestSource);
-    } on FormatException catch (error) {
-      throw StateError(error.message);
-    }
-    return overrideAssetRoot;
   }
 
   void requireInitialized() {

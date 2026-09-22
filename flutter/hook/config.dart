@@ -131,6 +131,91 @@ bool isUriLikeOverride(String value) {
   return RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:').hasMatch(value);
 }
 
+String resolveStagingBaseDir({
+  required String outputFile,
+  required String fallbackBaseDir,
+}) {
+  var current = Directory(outputFile).parent;
+  while (true) {
+    if (p.basename(current.path) == '.dart_tool') {
+      return p.normalize(current.parent.path);
+    }
+    final parent = current.parent;
+    if (p.equals(parent.path, current.path)) break;
+    current = parent;
+  }
+  return p.normalize(fallbackBaseDir);
+}
+
+/// Resolves consuming Flutter Web app roots for direct build-hook staging.
+///
+/// App-scoped configuration resolves only to that app. Shared workspace
+/// configuration fans out to package-graph roots that depend on this package
+/// and expose a Flutter web directory. The Hook output path remains the
+/// standalone fallback.
+List<String> resolveWebStagingBaseDirs({
+  required String packageName,
+  required String packageRoot,
+  required String? packageConfig,
+  required String configBaseDir,
+  required String outputFile,
+  required void Function(String message) log,
+}) {
+  final normalizedPackageRoot = p.normalize(packageRoot);
+  final normalizedConfigBaseDir = p.normalize(configBaseDir);
+
+  bool isWebAppRoot(String path) {
+    final normalized = p.normalize(path);
+    return !p.equals(normalized, normalizedPackageRoot) &&
+        File(p.join(normalized, 'pubspec.yaml')).existsSync() &&
+        Directory(p.join(normalized, 'web')).existsSync();
+  }
+
+  if (isWebAppRoot(normalizedConfigBaseDir)) {
+    return <String>[normalizedConfigBaseDir];
+  }
+
+  final roots = <String>{};
+  if (packageConfig != null) {
+    final packageConfigUri = Uri.parse(packageConfig);
+    final packageGraph = _readPackageGraph(
+      packageConfigUri.resolve('package_graph.json'),
+      log,
+      _ignoreDependency,
+    );
+    if (packageGraph != null) {
+      final dependentRootNames =
+          packageGraph.dependentRootNames(packageName).toSet();
+      for (final package in _readPackageEntries(packageConfigUri, log)) {
+        if (dependentRootNames.contains(package.name) &&
+            isWebAppRoot(package.root)) {
+          roots.add(p.normalize(package.root));
+        }
+      }
+    }
+  }
+
+  final outputRoot = resolveStagingBaseDir(
+    outputFile: outputFile,
+    fallbackBaseDir: normalizedConfigBaseDir,
+  );
+  if (isWebAppRoot(outputRoot)) {
+    roots.add(p.normalize(outputRoot));
+  }
+
+  if (roots.isEmpty) {
+    throw ConfigResolutionException(
+      'Unable to determine the consuming Flutter Web app root for FFmpegKit '
+      'runtime staging. Define hooks.user_defines.ffmpeg_kit_extended_flutter '
+      'in the app package, or ensure the workspace package graph identifies a '
+      'Web app that depends on $packageName.',
+    );
+  }
+
+  final sorted = roots.toList()..sort();
+  return sorted;
+}
+
 typedef PubspecReader = PubspecData? Function(File file);
 
 class ConfigResolutionException implements Exception {
