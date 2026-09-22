@@ -32,6 +32,8 @@ import 'session.dart';
 import 'session_queue_manager.dart';
 import 'signal.dart';
 
+enum _ExpectedSessionKind { any, ffmpeg, ffprobe, ffplay, mediaInformation }
+
 /// The main entry point for the FFmpegKit Extended plugin.
 ///
 /// All methods are static.  Use this class to create and manage FFmpeg
@@ -335,19 +337,28 @@ class FFmpegKitExtended {
   /// Returns all FFmpeg sessions in native-layer history.
   static List<FFmpegSession> getFFmpegSessions() {
     requireInitialized();
-    return _wrapSessions<FFmpegSession>(ffmpegKitBackend.getFFmpegSessions());
+    return _wrapSessions<FFmpegSession>(
+      ffmpegKitBackend.getFFmpegSessions(),
+      expectedKind: _ExpectedSessionKind.ffmpeg,
+    );
   }
 
   /// Returns all FFprobe sessions in native-layer history.
   static List<FFprobeSession> getFFprobeSessions() {
     requireInitialized();
-    return _wrapSessions<FFprobeSession>(ffmpegKitBackend.getFFprobeSessions());
+    return _wrapSessions<FFprobeSession>(
+      ffmpegKitBackend.getFFprobeSessions(),
+      expectedKind: _ExpectedSessionKind.ffprobe,
+    );
   }
 
   /// Returns all FFplay sessions in native-layer history.
   static List<FFplaySession> getFFplaySessions() {
     requireInitialized();
-    return _wrapSessions<FFplaySession>(ffmpegKitBackend.getFFplaySessions());
+    return _wrapSessions<FFplaySession>(
+      ffmpegKitBackend.getFFplaySessions(),
+      expectedKind: _ExpectedSessionKind.ffplay,
+    );
   }
 
   /// Returns all MediaInformation sessions in native-layer history.
@@ -355,6 +366,7 @@ class FFmpegKitExtended {
     requireInitialized();
     return _wrapSessions<MediaInformationSession>(
       ffmpegKitBackend.getMediaInformationSessions(),
+      expectedKind: _ExpectedSessionKind.mediaInformation,
     );
   }
 
@@ -380,21 +392,30 @@ class FFmpegKitExtended {
   static FFmpegSession? getLastFFmpegSession() {
     requireInitialized();
     final handle = ffmpegKitBackend.getLastFFmpegSession();
-    return handle == null ? null : _wrapSession(handle) as FFmpegSession?;
+    return handle == null
+        ? null
+        : _wrapTypedSession(handle, _ExpectedSessionKind.ffmpeg)
+            as FFmpegSession?;
   }
 
   /// Returns the most recently created [FFprobeSession], or `null`.
   static FFprobeSession? getLastFFprobeSession() {
     requireInitialized();
     final handle = ffmpegKitBackend.getLastFFprobeSession();
-    return handle == null ? null : _wrapSession(handle) as FFprobeSession?;
+    return handle == null
+        ? null
+        : _wrapTypedSession(handle, _ExpectedSessionKind.ffprobe)
+            as FFprobeSession?;
   }
 
   /// Returns the most recently created [FFplaySession], or `null`.
   static FFplaySession? getLastFFplaySession() {
     requireInitialized();
     final handle = ffmpegKitBackend.getLastFFplaySession();
-    return handle == null ? null : _wrapSession(handle) as FFplaySession?;
+    return handle == null
+        ? null
+        : _wrapTypedSession(handle, _ExpectedSessionKind.ffplay)
+            as FFplaySession?;
   }
 
   /// Returns the most recently created [MediaInformationSession], or `null`.
@@ -403,7 +424,8 @@ class FFmpegKitExtended {
     final handle = ffmpegKitBackend.getLastMediaInformationSession();
     return handle == null
         ? null
-        : _wrapSession(handle) as MediaInformationSession?;
+        : _wrapTypedSession(handle, _ExpectedSessionKind.mediaInformation)
+            as MediaInformationSession?;
   }
 
   /// Returns the most recently completed session, or `null`.
@@ -754,12 +776,18 @@ class FFmpegKitExtended {
     }
   }
 
-  static List<T> _wrapSessions<T extends Session>(List<SessionHandle> handles) {
+  static List<T> _wrapSessions<T extends Session>(
+    List<SessionHandle> handles, {
+    _ExpectedSessionKind expectedKind = _ExpectedSessionKind.any,
+  }) {
     final sessions = <T>[];
     for (var index = 0; index < handles.length; index++) {
       try {
+        if (expectedKind != _ExpectedSessionKind.any) {
+          _validateSessionKind(handles[index], expectedKind);
+        }
         final session = _wrapSession(handles[index]);
-        if (session is T) sessions.add(session);
+        sessions.add(session as T);
       } catch (error, stackTrace) {
         for (
           var remaining = index + 1;
@@ -772,6 +800,80 @@ class FFmpegKitExtended {
       }
     }
     return sessions;
+  }
+
+  static Session? _wrapTypedSession(
+    SessionHandle handle,
+    _ExpectedSessionKind expectedKind,
+  ) {
+    _validateSessionKind(handle, expectedKind);
+    return _wrapSession(handle);
+  }
+
+  /// Validates a typed-history token before any wrapper can adopt ownership.
+  ///
+  /// A typed native getter is still treated as untrusted because its result can
+  /// be stale or can be supplied by a backend with inconsistent type flags.
+  /// Mismatched tokens are released here, before [_wrapSession] can reuse an
+  /// existing Dart object or transfer the token into a new wrapper.
+  static void _validateSessionKind(
+    SessionHandle handle,
+    _ExpectedSessionKind expectedKind,
+  ) {
+    _ExpectedSessionKind actualKind;
+    try {
+      actualKind = _classifySessionKind(handle);
+    } catch (error, stackTrace) {
+      _releaseUntransferredHandle(handle);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+
+    if (actualKind == expectedKind) return;
+
+    late final int sessionId;
+    try {
+      sessionId = ffmpegKitBackend.getSessionId(handle);
+    } catch (error, stackTrace) {
+      _releaseUntransferredHandle(handle);
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    _releaseUntransferredHandle(handle);
+    throw StateError(
+      'Typed session history returned session $sessionId as '
+      '${_sessionKindName(expectedKind)}, but native flags classify it as '
+      '${_sessionKindName(actualKind)}; refusing to adopt its handle.',
+    );
+  }
+
+  static _ExpectedSessionKind _classifySessionKind(SessionHandle handle) {
+    if (ffmpegKitBackend.isMediaInformationSession(handle)) {
+      return _ExpectedSessionKind.mediaInformation;
+    }
+    if (ffmpegKitBackend.isFFmpegSession(handle)) {
+      return _ExpectedSessionKind.ffmpeg;
+    }
+    if (ffmpegKitBackend.isFFprobeSession(handle)) {
+      return _ExpectedSessionKind.ffprobe;
+    }
+    if (ffmpegKitBackend.isFFplaySession(handle)) {
+      return _ExpectedSessionKind.ffplay;
+    }
+    return _ExpectedSessionKind.any;
+  }
+
+  static String _sessionKindName(_ExpectedSessionKind kind) {
+    switch (kind) {
+      case _ExpectedSessionKind.any:
+        return 'unknown';
+      case _ExpectedSessionKind.ffmpeg:
+        return 'FFmpeg';
+      case _ExpectedSessionKind.ffprobe:
+        return 'plain FFprobe';
+      case _ExpectedSessionKind.ffplay:
+        return 'FFplay';
+      case _ExpectedSessionKind.mediaInformation:
+        return 'MediaInformation';
+    }
   }
 
   static void _releaseUntransferredHandle(SessionHandle handle) {
