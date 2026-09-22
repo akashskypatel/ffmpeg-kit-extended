@@ -41,7 +41,7 @@
 | **R23-G61** | Flutter v2 direct log path | **Blocked after implementation — `740033d` pushed to `origin/dev-wasm`; exact custom Web/Wasm runtime verification is blocked by the Flutter 3.47 DataAssets limitation (`buildDataAssets: false`), with no workaround added** |
 | **R23-G62** | React Native v2 direct log path | **Complete — `727d732` pushed to `origin/dev-wasm`; local native/Web gates passed; packed-Web fixture remains blocked by Windows temp-path access** |
 | **R23-G63** | Completion/final-log exact-once semantics | **Complete — `9e5d05a45ff006dae54b67454fb27347e8cdf0c0` pushed to `origin/dev-wasm`** |
-| **R23-G64** | Redirection authority | **Pending — ordered after R23-G63** |
+| **R23-G64** | Redirection authority | **Complete — `fd23bff4898914e7bc382258d7522da52eb0b8b4` pushed to `origin/dev-wasm`** |
 | **R23-G65** | Docs/compatibility/benchmark report | **Pending — ordered after R23-G64** |
 | **R23-G66** | Cross-platform exact-SHA closeout and source snapshot | **Pending — ordered after R23-G65** |
 | **G21** | Published runtime contract / official-runtime integrity | **Deferred / unchanged** |
@@ -102,6 +102,17 @@
 - React Native focused/full evidence: `npm run check` passed **150/150**, including the direct-log order, one bounded terminal history read, getter-error-first, Codegen, and ownership cases; lint retained only the pre-existing unnecessary-escape warning in `tests/arguments.test.js`.
 - Consumer/build evidence: elevated Android `:app:assembleDebug --no-daemon --stacktrace` passed for `arm64-v8a`, `armeabi-v7a`, and `x86_64`; standalone Android Codegen completed; elevated Windows Codegen/MSBuild completed through `FFmpegKitExtended.dll` and the example executable. Local headless `npm run test:web` passed all WebAssembly controls; isolated-cache `npm run test:pack-types` and `npm run test:pack-web` both passed.
 - Tracker transition: complete after `9e5d05a45ff006dae54b67454fb27347e8cdf0c0` (`fix(review23): reconcile React Native terminal logs`) was pushed to `origin/dev-wasm`.
+
+### R23-G64 — Complete — 2026-09-22
+
+- Finding owned: callback-demand installation could be mistaken for permission to re-enable FFmpeg core log/stat redirection, while completion transport must remain independent of optional log/stat delivery.
+- Contract proven: `disableRedirection()` remains the native capture/forwarding authority; `enableRedirection()` is called only by the explicit public API. Installing or removing Flutter/RN callback bridges does not call either redirection toggle, and internal completion still settles while core redirection is disabled.
+- Native authority: FFK23-N5 already verified that global callback registration does not enable redirection at the frozen native ABI SHA `196567dae7fd1509c33bf32081f8237596ac8e5b`; no native source changed for G64.
+- Flutter evidence: added real native high-level integration coverage in `flutter/test/api_test.dart`. Elevated analytics-disabled `flutter test --no-pub test/api_test.dart --plain-name Redirection` passed **3/3** (including the existing low-level redirection test); disabled redirection completed with **0 log callbacks / 0 statistics callbacks**, and explicit enable delivered log callbacks. Elevated `dart --disable-analytics analyze` passed with no issues; the focused v2/demand suite passed **16/16**.
+- React Native evidence: the Wasm ownership fixture now models explicit redirection state and counts toggle calls. Focused ownership/Codegen tests passed **49/49**; the disabled-redirection case settled completion with zero log/statistics delivery and zero implicit enable calls, while the explicit-enable case delivered the direct event. Full `npm run check` passed **152/152**, with only the pre-existing unnecessary-escape lint warning.
+- Semantics kept distinct: `disableRedirection()` controls native capture/forwarding; removing callbacks or listeners controls wrapper consumer demand. Neither operation is treated as the other.
+- Files changed: `flutter/test/api_test.dart` and `react-native/tests/wasm-session-ownership.test.js`; no SDK/toolchain or product workaround was added.
+- Tracker transition: complete after `fd23bff4898914e7bc382258d7522da52eb0b8b4` (`test(review23): prove redirection authority`) was pushed to `origin/dev-wasm`.
 
 ## Review 22 Tracker — Flutter production-readiness residuals — 2026-09-21
 
