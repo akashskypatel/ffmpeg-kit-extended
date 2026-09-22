@@ -159,6 +159,7 @@ List<String> resolveWebStagingBaseDirs({
   required String? packageConfig,
   required String configBaseDir,
   required String outputFile,
+  required void Function(Uri uri) addDependency,
   required void Function(String message) log,
 }) {
   final normalizedPackageRoot = p.normalize(packageRoot);
@@ -178,10 +179,11 @@ List<String> resolveWebStagingBaseDirs({
   final roots = <String>{};
   if (packageConfig != null) {
     final packageConfigUri = Uri.parse(packageConfig);
+    addDependency(packageConfigUri);
     final packageGraph = _readPackageGraph(
       packageConfigUri.resolve('package_graph.json'),
       log,
-      _ignoreDependency,
+      addDependency,
     );
     if (packageGraph != null) {
       final dependentRootNames =

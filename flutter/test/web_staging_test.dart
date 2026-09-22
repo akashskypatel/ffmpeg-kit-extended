@@ -73,6 +73,7 @@ void main() {
       packageConfig: null,
       configBaseDir: app.path,
       outputFile: p.join(app.path, '.dart_tool', 'hooks', 'output.json'),
+      addDependency: (_) {},
       log: (_) {},
     );
 
@@ -129,6 +130,7 @@ void main() {
       packageConfig: packageConfig.uri.toString(),
       configBaseDir: workspace.path,
       outputFile: p.join(dartTool.path, 'hooks_runner', 'output.json'),
+      addDependency: (_) {},
       log: (_) {},
     );
 

@@ -97,6 +97,7 @@ Future<void> _buildWebAssets(
     packageConfig: Platform.packageConfig,
     configBaseDir: configResult.configBaseDir,
     outputFile: input.outputFile.toFilePath(),
+    addDependency: output.dependencies.add,
     log: _log,
   );
 
