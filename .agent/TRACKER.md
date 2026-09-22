@@ -5,6 +5,8 @@
 - User directive: the Dart DataAssets requirement is a hard production blocker and is not an acceptable Flutter Web delivery architecture.
 - Last functional pre-DataAsset staging baseline: `55592c3387fc92fba157b71815cc50a43c1cf219` (Review 16 G15). The rollback restores that staging model without reverting later lifecycle, native-artifact, Review 23 callback, or React Native work.
 - Implementation commit: `b470f2a1162d0ab8a8867b7236974f9c407930c3` (`fix(flutter): remove DataAsset Web runtime requirement`).
+- Documentation/contract reconciliation: `c126c1cdfa38ea7afe3255f605f597acaa4071f6`.
+- Final product-source SHA for this rollback: `7e5163e24c8882f8c9f238f9b58b8b08d31469fd` (`fix(flutter): track workspace staging inputs`). This follow-up makes `.dart_tool/package_config.json` and `package_graph.json` explicit Hook dependencies for shared-workspace staging resolution.
 - Current invariant: the build hook resolves every default/custom Web selection, requires one coherent `ffmpegkit.mjs` + `ffmpegkit.wasm` pair, and stages that pair plus the current loader/callback support modules under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`.
 - Stable-toolchain contract: default bundles, non-default bundle choices, local archive/directory overrides, and HTTP(S) overrides must work on Flutter 3.47 without Dart DataAssets.
 - Workspace contract: app-scoped configuration stages only into that app; shared workspace configuration resolves package-graph roots that depend on `ffmpeg_kit_extended_flutter` and stages only into their Web app roots.
