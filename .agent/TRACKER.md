@@ -4,10 +4,10 @@
 
 - Plan: [review-24-luna-production-readiness-plan.md](./review-24-luna-production-readiness-plan.md)
 - Scope: native FFmpegKit C/C++ ABI and gtests/Wasm gtests first, exact native freeze, then Flutter and React Native migration, publication, platform regression, and exact-SHA closeout.
-- Wrapper source authority at preparation: `HEAD == origin/dev-wasm == c875edd8149aaadd779d2df3e5aa7067255df21a`; product files are clean and only this tracker has a pre-existing working-tree edit.
+- Wrapper source authority at the current N8 handoff: `HEAD == origin/dev-wasm == 45dfdbf33efcbd702d70d38ac6fce1d8fc48cebf`; the implementation commit is pushed and the product worktree was clean before this tracker update.
 - DataAsset rollback authority: `7e5163e24c8882f8c9f238f9b58b8b08d31469fd`; implementation `b470f2a1162d0ab8a8867b7236974f9c407930c3`; documentation reconciliation `c126c1cdfa38ea7afe3255f605f597acaa4071f6`.
-- Builder source authority at preparation: `HEAD == origin/dev == fc35587142a7c2a9356f3850c956bd1b17037d38`; this is the workflow-only post-Review-23 advancement. The frozen Review 23 native ABI content remains `196567dae7fd1509c33bf32081f8237596ac8e5b`, and the root `libs/libffmpegkit` gitlink points to that SHA.
-- Published runtime authority still points at `0.11.2`; native release family target is `f9e5689cea5794f25bb392aed7182268f55678fb`, Wasm target is `3b3ccfc74f71ee783b66b818663484bab5f35946`, and both predate the frozen structured ABI.
+- Builder source authority at the current N8 handoff: `HEAD == origin/dev == a0b9c93630b95ec301d992e1e1c79ce408f3932c`; the root `libs/libffmpegkit` gitlink points to that SHA. The local release bundles used for wrapper validation were built from the ABI-equivalent `d654d59979c4fa8adc1a3deec0a3c2e8736b1697` source before the test-only version-unpin cleanup at `a0b9c936`.
+- Published runtime authority still points at the older `0.11.2` release family and predates the structured ABI. This implementation deliberately has no source-level expected-binary-version constant or runtime comparison: the native ABI and Dart/JS bridges are explicitly paired, while `flutter/hook/build.dart` and `react-native/scripts/resolve-ffmpeg-kit-config.js` remain the only version-aware build/resolver authorities.
 - Accepted exception remains only `ffigen_js: ^0.0.16-pre`; it must not be broadened to runtime, sanitizer, browser, packaging, or staging failures.
 - **Plan numbering reconciliation:** the goal table and section headings define `FFK24-N9` as TLS, `FFK24-N10` as FrameData/TSAN, and `FFK24-N11` as UBSAN. The B4/B5/B6 blocker-owner labels are offset in the plan; this tracker follows the goal/section definitions and records the discrepancy for auditability.
 
@@ -15,16 +15,16 @@
 | --- | --- | --- |
 | **R24-G67** | Freeze source authority and reconcile blockers | **Complete — wrapper snapshot `35766299689`; builder snapshot `35746267948`; exact sources verified** |
 | **FFK24-N7** | Optimize and unify non-recursive CMake dependency resolution without semantic drift | **Complete — native commits `e9de4755a` + `13f45218f` + `e43b51eeb`; runner/configure evidence recorded** |
-| **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **In progress — explicit ABI amendment** |
-| **FFK24-N9** | Replace remote TLS sanitizer failures with deterministic verified-TLS fixture | **Open** |
-| **FFK24-N10** | Resolve the FFmpeg `FrameData` TSAN publication/lifetime race | **Open — investigation required** |
+| **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **Complete with user-directed version-policy amendment — native `a0b9c936`; wrapper `45dfdbf`** |
+| **FFK24-N9** | Replace remote TLS sanitizer failures with deterministic verified-TLS fixture | **Blocked — user explicitly authorized bypass of the known FFmpeg 9.0 hard-TLS defect; no workaround added** |
+| **FFK24-N10** | Resolve the FFmpeg `FrameData` TSAN publication/lifetime race | **Blocked — affected native callback suite still times out; no suppression or scenario weakening added** |
 | **FFK24-N11** | Resolve/classify GCC 14/libstdc++ UBSAN vptr diagnostics | **Open — investigation required** |
-| **FFK24-N12** | Freeze clean native handoff after N7–N11 | **Blocked by N7–N11** |
-| **R24-G68** | Validate DataAsset rollback on stable Flutter 3.47 | **Pending implementation validation** |
-| **R24-G69** | Reopen/close G21 with a newly published current-ABI runtime | **Reopened — blocked by native freeze** |
-| **R24-G70** | Prove current-ABI Flutter Web structured direct-log delivery and A/B/C counters | **Pending current-ABI runtime** |
+| **FFK24-N12** | Freeze clean native handoff after N7–N11 | **Blocked by N9–N11 and the affected-suite timeout** |
+| **R24-G68** | Validate DataAsset rollback on stable Flutter 3.47 | **Partial — local current-ABI build/browser evidence passed; stable rollback evidence remains pending** |
+| **R24-G69** | Reopen/close G21 with a newly published current-ABI runtime | **Blocked — no current-ABI runtime has been published; local bundles only** |
+| **R24-G70** | Prove current-ABI Flutter Web structured direct-log delivery and A/B/C counters | **Blocked — Flutter local smoke passed; React Native local FFmpeg action timed out** |
 | **R24-G71** | Cross-platform regression against one published Review 24 runtime | **Blocked by G69–G70** |
-| **R24-G72** | Documentation, exact-SHA workflow, and source-snapshot closeout | **Blocked by prior goals** |
+| **R24-G72** | Documentation, exact-SHA workflow, and source-snapshot closeout | **Blocked by N9–N12 and G69–G71** |
 
 ### Review 24 blocker ledger
 
@@ -33,20 +33,32 @@
 | **B0** Linux-local CMake resolver slowdown | **Resolved by N7; full-suite execution remains a later N12 gate** | **FFK24-N7 complete** — cached, direct-only archive resolution unified across platform branches |
 | **B1** DataAsset rollback evidence | Implementation exists; exact stable Flutter 3.47 evidence missing | **R24-G68** — must pass, not be accepted as a limitation |
 | **B2** Review 23 custom Web structured-log evidence | Historical fixture uses old-signature runtime | **R24-G68 + R24-G70** — replace with genuine current-ABI runtime evidence |
-| **B3** Published 0.11.2 runtime mismatch | Current production blocker | **R24-G69** — publish an immutable runtime from the frozen Review 24 builder SHA |
-| **B3A** Dual global-log ABI | Explicitly superseded Review 23 compatibility design | **FFK24-N8** — one structured setter in place; `_v2` and fallback removed |
-| **B4** Remote TLS failures | Current sanitizer failures; verification must remain enabled | **FFK24-N9** — deterministic test-owned HTTPS fixture and explicit CA |
-| **B5** FrameData TSAN race | Current unresolved native race | **FFK24-N10** — ownership/lifetime fix, no suppression or scenario weakening |
+| **B3** Published 0.11.2 runtime mismatch | Current publication blocker; not enforced by a source version constant | **R24-G69** — publish an immutable current-ABI runtime from a clean native handoff |
+| **B3A** Dual global-log ABI | Resolved in the in-place paired ABI | **FFK24-N8 complete** — one structured setter in place; `_v2`, marker, fallback, and runtime-version check removed |
+| **B4** Remote TLS failures | Known FFmpeg 9.0 hard-TLS defect; user explicitly bypassed/authorized ignoring it | **FFK24-N9 blocked** — document the defect; do not add a fixture or workaround |
+| **B5** FrameData TSAN race / callback-suite hang | Current unresolved native execution blocker | **FFK24-N10 blocked** — affected suite timed out at `CallbackTest.GlobalCallbacks`; no suppression or scenario weakening |
 | **B6** GCC/shared UBSAN vptr diagnostics | Unclassified sanitizer output | **FFK24-N11** — GCC/Clang × shared/static discriminator matrix |
-| **B7** Flutter test-runner browser limitation | Known test-runner limitation, not a product blocker | Use stable `flutter build web --wasm` + real server/browser smoke; no product workaround |
+| **B7** Workflow/headless browser limitation | User-authorized local bypass; not a product workaround | Run Flutter/RN browser gates locally with a real headless browser; do not move the gate to hosted workflow execution |
+
+### FFK24-N8 — In-place structured callback ABI and local-runtime validation — complete with amendment
+
+- Native authority is [`a0b9c936`](https://github.com/akashskypatel/ffmpeg-kit-builders/commit/a0b9c93630b95ec301d992e1e1c79ce408f3932c) on `origin/dev`; the root gitlink is exact at that SHA. The native implementation has one five-argument structured callback setter (`session_id`, `sequence`, `level`, owned message, `user_data`). The obsolete callback-ABI marker, `_v2` symbol/type, and runtime compatibility function are absent from tracked native, Flutter, and React Native source.
+- The wrapper implementation is [`45dfdbf`](https://github.com/akashskypatel/ffmpeg-kit-extended/commit/45dfdbf33efcbd702d70d38ac6fce1d8fc48cebf), pushed to `origin/dev-wasm`. Generated native/JS bindings were regenerated with elevated analytics-disabled commands: `dart --disable-analytics run ffigen --config ffigen_native.yaml` and `dart --disable-analytics run ffigen_js --config ffigen_js.yaml`; both exited `0`. The known `Unable to parse Macros` warning remains and is not treated as a product failure.
+- The user-directed version policy is recorded here as an amendment: no source-level `0.11.2`/expected-runtime constant or runtime comparison remains. Only `flutter/hook/build.dart` and `react-native/scripts/resolve-ffmpeg-kit-config.js` retain version-aware build/resolver metadata. The old published runtime therefore remains a publication blocker, not a reason to add a second ABI or hard-coded compatibility gate.
+- Native `TEST.md` evidence: the documented Linux test runner `sudo ./runner.sh --host=linux --arch=x86_64 --enable-base --gpl --kit --build-deps --no-bundle --test=thread --build-debug --skip -y` exited `0` and built `ffmpegkit_tests`; the documented `cmake --build "$FFMPEG_KIT_SOURCE/build" --target ffmpegkit_tests -j2` rerun exited `0`. Focused `Review24NativeCallbackAbiTest.*` passed **6/6**, including the runtime-version API test without a source literal. The affected callback suite timed out after 120 seconds at `CallbackTest.GlobalCallbacks`; this is recorded as the N10/native handoff blocker and no workaround was added.
+- Native tracked-source scans found no `0.11.2`, `review24-global-log-v1`, `enable_log_callback_v2`, `GlobalLogCallbackV2`, or runtime-compatibility symbol outside the two explicitly allowed resolver/build-hook authorities. Existing unrelated builder modifications were preserved.
+- Flutter evidence used only local WSL-built artifacts: elevated `flutter analyze lib test/api_test.dart test/structured_log_event_test.dart` passed with no issues; the focused root package suite passed **33/33** using the local WSL Windows bundle and emitted no remote artifact URL; `flutter build web --wasm --release` passed; and local headless browser smoke reported `crossOriginIsolated: true`, complete document state, local Wasm asset requests, and no page/console errors. The root package `ffmpeg_kit_extended_config` block is intentionally commented out; uncomment it for package-level plugin tests so the same local WSL overrides are used.
+- React Native evidence used the local resolver overrides: `npm run test:compile`, `npm run typecheck`, `npm run lint -- --no-cache`, `node --test tests/wasm-backend-memory.test.js` (**31/31**), and `clang++ -std=c++17 -fsyntax-only cpp/FFmpegKitDynamicApi.cpp -Icpp` passed. Local `npm run test:web` initialized and loaded the local Wasm runtime, but the FFmpeg action timed out after 120 seconds; generated staging was removed and no workaround was implemented. This keeps R24-G70 blocked.
+- Local bundle paths used for the wrapper checks were the WSL release zips under `prebuilt/wasm-wasm32/releases`, `prebuilt/linux-x86_64/releases`, and `prebuilt/windows-x86_64/releases`; no published runtime was resolved. The artifacts were produced before the test-only native source cleanup at `a0b9c936`, which did not change the ABI or release binary content.
+- Transition: FFK24-N8 is complete for the in-place ABI migration and paired local wrapper validation. N9 is user-bypassed/blocked by the known TLS defect; N10 is blocked by the native callback-suite timeout; N11 remains open for UBSAN classification; N12 and publication/browser closeout remain blocked.
 
 ### R24-G67 — Source authority and blocker inventory — complete
 
 - Wrapper preparation commit: `d6ae83eb65509c4857a79fcc3ffa3c286a97fffe`, with `HEAD == origin/dev-wasm` and a clean product worktree. The root `libs/libffmpegkit` gitlink remains `196567dae7fd1509c33bf32081f8237596ac8e5b`.
 - Wrapper source snapshot [35766299689](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35766299689) completed successfully with event/head/snapshot SHA `d6ae83eb65509c4857a79fcc3ffa3c286a97fffe`. Download [review24-g67-wrapper-d6ae83e-35766299689](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35766299689/artifacts/10712197786), artifact ID `10712197786`, upload digest `sha256:626f67c2d850f0208d4b4e6d638ea33c4bec7075aae527f8d2f2dfacce3b4516`, archive SHA-256 `7c6969c88c621da7e939e1740a7d4284bcbf4661e4b07cf5c0222da5d25e1d05`, metadata **1,036 files / 41,453,314 bytes**, `include_submodules=true`, `include_lfs=false`. The downloaded archive hash matched the declared checksum and metadata.
 - Builder source authority: `HEAD == origin/dev == fc35587142a7c2a9356f3850c956bd1b17037d38`, clean; native ABI content remains pinned by the root gitlink to `196567dae`. Builder snapshot [35746267948](https://github.com/akashskypatel/ffmpeg-kit-builders/actions/runs/35746267948) completed successfully at exact source `fc35587142a7c2a9356f3850c956bd1b17037d38`. Download [ffmpeg-kit-builders-source-fc3558714-35746267948](https://github.com/akashskypatel/ffmpeg-kit-builders/actions/runs/35746267948/artifacts/10702284165), artifact ID `10702284165`, archive SHA-256 `a0e74c97039c84ac8ecaa6524afa9f08f5605e9a4bafaecf3cae9ab87b0df663`, metadata **424 files / 10,342,490 bytes**, `include_submodules=true`, `include_lfs=false`.
-- Current blocker inventory is recorded above: B0 is resolved by N7; B3/B3A/B4/B5/B6 are active remediation work; B1/B2 require current-ABI stable Flutter evidence; B7 is a known test-runner limitation and not a product blocker. The only accepted production exception is `ffigen_js: ^0.0.16-pre`.
-- Tracker transition: R24-G67 complete; FFK24-N7 complete; FFK24-N8 is now in progress.
+- The preparation-time blocker inventory above is superseded by the current ledger and FFK24-N8 transition section: B3A is resolved, B4 is user-bypassed/blocked, B5 remains blocked by the callback-suite timeout, and B7 is handled by the user-authorized local browser gate. The only accepted production exception remains `ffigen_js: ^0.0.16-pre`.
+- Historical transition: R24-G67 complete; FFK24-N7 complete. Current transition is recorded under FFK24-N8 below.
 
 ### FFK24-N7 — Linux-local CMake dependency-resolution performance — complete
 
@@ -55,7 +67,7 @@
 - Evidence ledger: [review24-linux-cmake-linking-performance.md](./review24-linux-cmake-linking-performance.md). The pre-change approved runner command configured in `130.8s` and completed in `143.79s`; after N7 it configured in `9.9s` and completed in `22.50s`, both with exit status `0`.
 - Focused CMake fixture passed for multiple pkg-config roots, nested decoys, direct hits/misses, `-lfoo`, explicit nested-directory lookup, Windows `.lib`/`.dll`, MinGW `.dll.a`/`.dll`, macOS `.a`/`.dylib`, and shared-to-static replacement. The approved Linux release runner was rerun after the follow-ups with `Configuring done (0.3s)`, full elapsed `14s`, and exit status `0`; no recursive lookup symbols remain. The exact documented Linux gtest runner previously built `ffmpegkit_tests` successfully.
 - Full `ffmpegkit_tests` execution remains an explicit N12 test gate: it stopped at the pre-existing `FFmpegKitTest.GenerateTestVideoFile` with the tagged process at 0% CPU and no child encoder; the exact process tree was terminated. No toolchain or product workaround was added.
-- Transition: N7 is closed on resolver correctness/performance evidence; N8 structured ABI cutover is in progress.
+- Transition: N7 is closed on resolver correctness/performance evidence; N8 structured ABI cutover is complete with its version-policy amendment.
 
 ### Hard order
 
