@@ -13,10 +13,30 @@ import {
   SessionCancelledException,
   SessionQueueManager,
 } from './session-queue-manager';
+import {
+  callbackDemandAuthority,
+  type CallbackDemandHooks,
+  type CallbackDemandKind,
+  type CallbackDemandLease,
+} from './callback-demand';
 
 const NativeFFmpegKitExtended = getBackend();
 
 const DEFAULT_POLL_INTERVAL_MS = 50;
+
+type CallbackDemandProviders = {
+  log: () => boolean;
+  statistics?: () => boolean;
+};
+
+type MonitorOptions<T extends Session> = {
+  completeCallback?: (session: T) => void;
+  getLogCallback: () => ((log: Log, session: T) => void) | undefined;
+  getStatisticsCallback?: () =>
+    | ((statistics: Statistics, session: T) => void)
+    | undefined;
+  pollIntervalMs?: number;
+};
 
 /**
  * Base wrapper for one native FFmpegKit session.
@@ -37,6 +57,12 @@ export abstract class Session {
   private cancelled = false;
   private nativeCancellationDispatched = false;
   private submitted = false;
+  private callbackDemandActive = false;
+  private callbackDemandProviders?: CallbackDemandProviders;
+  private readonly callbackDemandLeases = new Map<
+    CallbackDemandKind,
+    CallbackDemandLease
+  >();
 
   protected constructor(sessionId: number, command: string, type: SessionType) {
     this.sessionId = sessionId;
@@ -212,11 +238,106 @@ export abstract class Session {
     this.nativeCancellationDispatched = true;
   }
 
+  /**
+   * Runs one submitted execution with mandatory completion demand and optional
+   * log/statistics demand. The execution error always wins over bridge cleanup
+   * errors, while a cleanup error remains observable when execution succeeds.
+   */
+  protected async runWithCallbackDemand<T>(
+    providers: CallbackDemandProviders,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    this.callbackDemandProviders = providers;
+    this.callbackDemandActive = true;
+
+    let result!: T;
+    let primaryErrorSet = false;
+    let primaryError: unknown;
+    try {
+      this.acquireCallbackDemand('completion');
+      this.refreshCallbackDemand();
+      result = await operation();
+    } catch (error) {
+      primaryErrorSet = true;
+      primaryError = error;
+    }
+
+    const cleanupError = this.releaseAllCallbackDemand();
+    this.callbackDemandActive = false;
+    this.callbackDemandProviders = undefined;
+
+    if (primaryErrorSet) throw primaryError;
+    if (cleanupError !== undefined) throw cleanupError;
+    return result;
+  }
+
+  /** Reconciles optional leases with the currently visible callback sinks. */
+  protected refreshCallbackDemand(): void {
+    if (!this.callbackDemandActive || !this.callbackDemandProviders) return;
+    this.syncCallbackDemand('log', this.callbackDemandProviders.log());
+    this.syncCallbackDemand(
+      'statistics',
+      this.callbackDemandProviders.statistics?.() ?? false,
+    );
+  }
+
+  private syncCallbackDemand(kind: 'log' | 'statistics', needed: boolean): void {
+    const existing = this.callbackDemandLeases.get(kind);
+    if (needed) {
+      if (!existing) this.acquireCallbackDemand(kind);
+      return;
+    }
+    if (!existing) return;
+    this.callbackDemandLeases.delete(kind);
+    existing.release();
+  }
+
+  private acquireCallbackDemand(kind: CallbackDemandKind): void {
+    if (this.callbackDemandLeases.has(kind)) return;
+    this.callbackDemandLeases.set(
+      kind,
+      callbackDemandAuthority.acquire(kind, this.callbackDemandHooks(kind)),
+    );
+  }
+
+  private callbackDemandHooks(kind: CallbackDemandKind): CallbackDemandHooks {
+    switch (kind) {
+      case 'completion':
+        return {
+          install: () => NativeFFmpegKitExtended.installCompletionBridge?.(),
+          uninstall: () => NativeFFmpegKitExtended.uninstallCompletionBridge?.(),
+        };
+      case 'log':
+        return {
+          install: () => NativeFFmpegKitExtended.installLogBridge?.(),
+          uninstall: () => NativeFFmpegKitExtended.uninstallLogBridge?.(),
+        };
+      case 'statistics':
+        return {
+          install: () => NativeFFmpegKitExtended.installStatisticsBridge?.(),
+          uninstall: () => NativeFFmpegKitExtended.uninstallStatisticsBridge?.(),
+        };
+    }
+  }
+
+  private releaseAllCallbackDemand(): unknown {
+    let firstError: unknown;
+    for (const kind of [...this.callbackDemandLeases.keys()].reverse()) {
+      const lease = this.callbackDemandLeases.get(kind);
+      this.callbackDemandLeases.delete(kind);
+      if (!lease) continue;
+      try {
+        lease.release();
+      } catch (error) {
+        if (firstError === undefined) firstError = error;
+      }
+    }
+    return firstError;
+  }
+
   protected async monitor<T extends Session>(
     self: T,
-    options: ExecuteOptions<T> & {
-      statisticsCallback?: (statistics: Statistics, session: T) => void;
-    },
+    options: MonitorOptions<T>,
   ): Promise<T> {
     const pollIntervalMs = Math.max(
       10,
@@ -250,15 +371,20 @@ export abstract class Session {
     for (;;) {
       if (!monitorFailed) {
         try {
-          const logs = parseJsonArray<Log>(
-            NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
-          );
-          for (const entry of logs) {
-            invokeCallback(() => options.logCallback?.(entry, self));
+          this.refreshCallbackDemand();
+          const logCallback = options.getLogCallback();
+          if (logCallback) {
+            const logs = parseJsonArray<Log>(
+              NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+            );
+            for (const entry of logs) {
+              invokeCallback(() => logCallback(entry, self));
+            }
+            logsProcessed += logs.length;
           }
-          logsProcessed += logs.length;
 
-          if (options.statisticsCallback) {
+          const statisticsCallback = options.getStatisticsCallback?.();
+          if (statisticsCallback) {
             const statistics = parseJsonArray<Statistics>(
               NativeFFmpegKitExtended.getStatisticsJson(
                 this.sessionId,
@@ -266,7 +392,7 @@ export abstract class Session {
               ),
             );
             for (const entry of statistics) {
-              invokeCallback(() => options.statisticsCallback?.(entry, self));
+              invokeCallback(() => statisticsCallback(entry, self));
             }
             statisticsProcessed += statistics.length;
           }
@@ -313,13 +439,17 @@ export abstract class Session {
         try {
           if (!monitorFailed) {
             try {
-              // Once terminal state is observed, all final callback-buffer
-              // reads and completion delivery are covered by ownership cleanup.
-              const finalLogs = parseJsonArray<Log>(
-                NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
-              );
-              for (const entry of finalLogs) {
-                invokeCallback(() => options.logCallback?.(entry, self));
+              this.refreshCallbackDemand();
+              const logCallback = options.getLogCallback();
+              if (logCallback) {
+                // Once terminal state is observed, all final callback-buffer
+                // reads and completion delivery are covered by ownership cleanup.
+                const finalLogs = parseJsonArray<Log>(
+                  NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+                );
+                for (const entry of finalLogs) {
+                  invokeCallback(() => logCallback(entry, self));
+                }
               }
             } catch (error) {
               monitorFailed = true;
@@ -327,7 +457,8 @@ export abstract class Session {
             }
           }
 
-          if (!monitorFailed && options.statisticsCallback) {
+          const statisticsCallback = options.getStatisticsCallback?.();
+          if (!monitorFailed && statisticsCallback) {
             try {
               const finalStatistics = parseJsonArray<Statistics>(
                 NativeFFmpegKitExtended.getStatisticsJson(
@@ -336,7 +467,7 @@ export abstract class Session {
                 ),
               );
               for (const entry of finalStatistics) {
-                invokeCallback(() => options.statisticsCallback?.(entry, self));
+                invokeCallback(() => statisticsCallback(entry, self));
               }
             } catch (error) {
               monitorFailed = true;
@@ -436,11 +567,13 @@ export class FFmpegSession extends Session {
   /** Sets the default callback for newly buffered log entries. */
   setLogCallback(callback?: (log: Log, session: FFmpegSession) => void): void {
     this.logCallback = callback;
+    this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
   removeLogCallback(): void {
     this.logCallback = undefined;
+    this.refreshCallbackDemand();
   }
 
   /** Sets the default callback for FFmpeg progress/statistics updates. */
@@ -448,11 +581,13 @@ export class FFmpegSession extends Session {
     callback?: (statistics: Statistics, session: FFmpegSession) => void,
   ): void {
     this.statisticsCallback = callback;
+    this.refreshCallbackDemand();
   }
 
   /** Removes the stored statistics callback. */
   removeStatisticsCallback(): void {
     this.statisticsCallback = undefined;
+    this.refreshCallbackDemand();
   }
 
   /**
@@ -463,16 +598,26 @@ export class FFmpegSession extends Session {
    * for another execution.
    */
   executeAsync(options: FFmpegExecuteOptions<FFmpegSession> = {}): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
-      this.startNativeExecution(0);
-      return this.monitor(this, {
-        completeCallback: options.completeCallback ?? this.completeCallback,
-        logCallback: options.logCallback ?? this.logCallback,
-        statisticsCallback:
-          options.statisticsCallback ?? this.statisticsCallback,
-        pollIntervalMs: options.pollIntervalMs,
-      }) as Promise<this>;
-    }, () => this.releaseOwnedHandle()));
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
+      this,
+      () => this.runWithCallbackDemand(
+        {
+          log: () => Boolean(options.logCallback ?? this.logCallback),
+          statistics: () => Boolean(options.statisticsCallback ?? this.statisticsCallback),
+        },
+        async () => {
+          this.startNativeExecution(0);
+          return this.monitor(this, {
+            completeCallback: options.completeCallback ?? this.completeCallback,
+            getLogCallback: () => options.logCallback ?? this.logCallback,
+            getStatisticsCallback: () =>
+              options.statisticsCallback ?? this.statisticsCallback,
+            pollIntervalMs: options.pollIntervalMs,
+          });
+        },
+      ),
+      () => this.releaseOwnedHandle(),
+    ));
   }
 }
 
@@ -498,11 +643,13 @@ export class FFprobeSession extends Session {
   /** Sets the default log callback. */
   setLogCallback(callback?: (log: Log, session: FFprobeSession) => void): void {
     this.logCallback = callback;
+    this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
   removeLogCallback(): void {
     this.logCallback = undefined;
+    this.refreshCallbackDemand();
   }
 
   /**
@@ -512,14 +659,21 @@ export class FFprobeSession extends Session {
    * for another execution.
    */
   executeAsync(options: ExecuteOptions<FFprobeSession> = {}): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
-      this.startNativeExecution(0);
-      return this.monitor(this, {
-        completeCallback: options.completeCallback ?? this.completeCallback,
-        logCallback: options.logCallback ?? this.logCallback,
-        pollIntervalMs: options.pollIntervalMs,
-      }) as Promise<this>;
-    }, () => this.releaseOwnedHandle()));
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
+      this,
+      () => this.runWithCallbackDemand(
+        {log: () => Boolean(options.logCallback ?? this.logCallback)},
+        async () => {
+          this.startNativeExecution(0);
+          return this.monitor(this, {
+            completeCallback: options.completeCallback ?? this.completeCallback,
+            getLogCallback: () => options.logCallback ?? this.logCallback,
+            pollIntervalMs: options.pollIntervalMs,
+          });
+        },
+      ),
+      () => this.releaseOwnedHandle(),
+    ));
   }
 }
 
@@ -554,11 +708,13 @@ export class MediaInformationSession extends Session {
     callback?: (log: Log, session: MediaInformationSession) => void,
   ): void {
     this.logCallback = callback;
+    this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
   removeLogCallback(): void {
     this.logCallback = undefined;
+    this.refreshCallbackDemand();
   }
 
   /** Sets the native probe timeout in milliseconds before execution. */
@@ -575,14 +731,21 @@ export class MediaInformationSession extends Session {
   executeAsync(
     options: ExecuteOptions<MediaInformationSession> = {},
   ): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
-      this.startNativeExecution(this.timeoutMs);
-      return this.monitor(this, {
-        completeCallback: options.completeCallback ?? this.completeCallback,
-        logCallback: options.logCallback ?? this.logCallback,
-        pollIntervalMs: options.pollIntervalMs,
-      }) as Promise<this>;
-    }, () => this.releaseOwnedHandle()));
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
+      this,
+      () => this.runWithCallbackDemand(
+        {log: () => Boolean(options.logCallback ?? this.logCallback)},
+        async () => {
+          this.startNativeExecution(this.timeoutMs);
+          return this.monitor(this, {
+            completeCallback: options.completeCallback ?? this.completeCallback,
+            getLogCallback: () => options.logCallback ?? this.logCallback,
+            pollIntervalMs: options.pollIntervalMs,
+          });
+        },
+      ),
+      () => this.releaseOwnedHandle(),
+    ));
   }
 
   /**
@@ -626,11 +789,13 @@ export class FFplaySession extends Session {
   /** Sets the default playback log callback. */
   setLogCallback(callback?: (log: Log, session: FFplaySession) => void): void {
     this.logCallback = callback;
+    this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
   removeLogCallback(): void {
     this.logCallback = undefined;
+    this.refreshCallbackDemand();
   }
 
   /** Sets the native playback timeout in milliseconds before execution. */
@@ -645,14 +810,21 @@ export class FFplaySession extends Session {
    * for another execution.
    */
   executeAsync(options: ExecuteOptions<FFplaySession> = {}): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(this, async () => {
-      this.startNativeExecution(this.timeoutMs);
-      return this.monitor(this, {
-        completeCallback: options.completeCallback ?? this.completeCallback,
-        logCallback: options.logCallback ?? this.logCallback,
-        pollIntervalMs: options.pollIntervalMs,
-      }) as Promise<this>;
-    }, () => this.releaseOwnedHandle()));
+    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
+      this,
+      () => this.runWithCallbackDemand(
+        {log: () => Boolean(options.logCallback ?? this.logCallback)},
+        async () => {
+          this.startNativeExecution(this.timeoutMs);
+          return this.monitor(this, {
+            completeCallback: options.completeCallback ?? this.completeCallback,
+            getLogCallback: () => options.logCallback ?? this.logCallback,
+            pollIntervalMs: options.pollIntervalMs,
+          });
+        },
+      ),
+      () => this.releaseOwnedHandle(),
+    ));
   }
 
   /** Starts native playback for this session. */

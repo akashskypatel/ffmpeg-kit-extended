@@ -99,7 +99,7 @@ void main() {
       },
     );
 
-    expect(() => first.release(), throwsA(isA<StateError>()));
+    expect(first.release, throwsA(isA<StateError>()));
     expect(manager.bridgeLeaseCount(CallbackBridgeKind.ffmpegCompletion), 0);
     expect(
       manager.isBridgeActive(CallbackBridgeKind.ffmpegCompletion),

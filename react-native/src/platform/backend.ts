@@ -42,6 +42,13 @@ export interface FFmpegKitBackend {
   createMediaInformationSession(command: string): number;
   createMediaInformationSessionFromPath(path: string): number;
   executeSessionAsync(sessionId: number, timeoutMs: number): void;
+  /** Internal callback-demand seams; direct v2 transports may implement them. */
+  installCompletionBridge?(): void;
+  uninstallCompletionBridge?(): void;
+  installLogBridge?(): void;
+  uninstallLogBridge?(): void;
+  installStatisticsBridge?(): void;
+  uninstallStatisticsBridge?(): void;
   cancelSession(sessionId: number): void;
   /** Optional lightweight state read used by the Web monitor. */
   getSessionState?(sessionId: number): number;

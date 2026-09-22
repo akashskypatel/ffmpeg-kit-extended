@@ -23,6 +23,8 @@ let stateError;
 let startError;
 let logReads = 0;
 let statisticsReads = 0;
+const bridgeInstalls = {completion: 0, log: 0, statistics: 0};
+const bridgeUninstalls = {completion: 0, log: 0, statistics: 0};
 let preTerminalLogsError;
 let preTerminalStatisticsError;
 let finalLogsError;
@@ -48,6 +50,12 @@ setBackend({
     if (finalStatisticsError && statisticsReads === 2) throw finalStatisticsError;
     return JSON.stringify(fromIndex === 0 ? statisticsEntries : []);
   },
+  installCompletionBridge: () => { bridgeInstalls.completion += 1; },
+  uninstallCompletionBridge: () => { bridgeUninstalls.completion += 1; },
+  installLogBridge: () => { bridgeInstalls.log += 1; },
+  uninstallLogBridge: () => { bridgeUninstalls.log += 1; },
+  installStatisticsBridge: () => { bridgeInstalls.statistics += 1; },
+  uninstallStatisticsBridge: () => { bridgeUninstalls.statistics += 1; },
   getSessionState: () => {
     if (stateError) throw stateError;
     return sessionState;
@@ -84,6 +92,12 @@ beforeEach(() => {
   startError = undefined;
   logReads = 0;
   statisticsReads = 0;
+  bridgeInstalls.completion = 0;
+  bridgeInstalls.log = 0;
+  bridgeInstalls.statistics = 0;
+  bridgeUninstalls.completion = 0;
+  bridgeUninstalls.log = 0;
+  bridgeUninstalls.statistics = 0;
   preTerminalLogsError = undefined;
   preTerminalStatisticsError = undefined;
   finalLogsError = undefined;
@@ -389,6 +403,39 @@ test('active cancelled session keeps its handle until terminal state', async () 
   await execution;
   assert.deepEqual(releases, [10]);
   assert.equal(registry.size, 0);
+});
+
+test('no optional consumers skip log/statistics traffic but keep completion demand', async () => {
+  registry.retain(4096, 26);
+  await new FFmpegSession(26, '-version').executeAsync({pollIntervalMs: 10});
+
+  assert.equal(logReads, 0);
+  assert.equal(statisticsReads, 0);
+  assert.deepEqual(bridgeInstalls, {completion: 1, log: 0, statistics: 0});
+  assert.deepEqual(bridgeUninstalls, {completion: 1, log: 0, statistics: 0});
+  assert.deepEqual(releases, [26]);
+  assert.equal(registry.size, 0);
+});
+
+test('removing the last session log sink releases optional demand immediately', async () => {
+  sessionState = 1;
+  logEntries = [{sessionId: 27, level: 32, message: 'remove-me'}];
+  registry.retain(5120, 27);
+  const session = new FFmpegSession(27, '-version');
+  let callbacks = 0;
+  session.setLogCallback(() => {
+    callbacks += 1;
+    session.removeLogCallback();
+    sessionState = 2;
+  });
+
+  await session.executeAsync({pollIntervalMs: 10});
+
+  assert.equal(callbacks, 1);
+  assert.equal(logReads, 1);
+  assert.equal(bridgeInstalls.log, 1);
+  assert.equal(bridgeUninstalls.log, 1);
+  assert.deepEqual(releases, [27]);
 });
 
 test('throwing log callback still releases the handle after terminal state', async () => {
@@ -727,7 +774,10 @@ test('final log retrieval failure releases the handle exactly once', async () =>
   finalLogsError = error;
   registry.retain(10240, 16);
 
-  const execution = new FFmpegSession(16, '-version').executeAsync({pollIntervalMs: 10});
+  const execution = new FFmpegSession(16, '-version').executeAsync({
+    logCallback: () => {},
+    pollIntervalMs: 10,
+  });
 
   await assert.rejects(execution, reason => reason === error);
   await manager.waitForAll();
