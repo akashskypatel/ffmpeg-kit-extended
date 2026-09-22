@@ -2,17 +2,22 @@
 
 ## Scope
 
-FFK24-N7 targets the Linux-local dependency resolver in
-`FFmpegKit/cmake/FfmpegKitLinkingHelpers.cmake`. The change is Linux-only:
+FFK24-N7 targets the dependency resolver in
+`FFmpegKit/cmake/FfmpegKitLinkingHelpers.cmake`. The initial performance fix
+was Linux-focused; the follow-up below unifies the lookup path for all native
+platform branches:
 
 - pkg-config-derived search directories are cached for the configure invocation;
-- Linux archive lookup uses one sorted recursive archive index per search root,
-  including cached negative results, so repeated misses do not rescan the tree;
-- Linux project-static resolution searches only the dependency and FFmpeg
-  project roots. This avoids scanning unrelated system/pkg-config roots whose
-  results would be rejected by `resolve_project_static_library` anyway;
-- the existing Emscripten short-circuit and non-Linux recursive lookup path are
-  retained.
+- static archive lookup uses cached direct-entry candidates for every platform;
+  it never recursively scans a search root;
+- project-static resolution routes through the same direct-only search path on
+  Linux, Emscripten, Windows, macOS, and other native branches;
+- Windows prefers `.lib` candidates while MinGW and Unix-like targets use `.a`,
+  and the existing `.dll`, `.dylib`, `.tbd`, and versioned `.so` conversions
+  remain platform-specific;
+- nested archives are resolved only when their containing directory is
+  explicitly supplied by the caller. This removes the cross-platform recursive
+  lookup ambiguity rather than widening search scope.
 
 ## Baseline authority
 
@@ -56,10 +61,41 @@ command configured in `9.9s` and completed in `22.50s` after N7, exit status
 `0`, a reduction of about 84% in total elapsed time and about 92% in the CMake
 configure phase relative to the captured pathological baseline.
 
+## Cross-platform non-recursive follow-up
+
+Native follow-up commit
+`13f45218fc562c9cf4f90da38da479874df8b404` replaces both the Linux recursive
+archive index and the non-Linux recursive glob with one cached direct-entry
+resolver. It also adds `.lib` basename/candidate handling and corrects Windows
+`.dll`/`.lib` and macOS `.a`/`.dylib` conversion coverage without changing the
+Linux `.so` or Apple `.tbd` rules.
+
+Follow-up commit
+`e43b51eebe2f42fac658a0dbbc3ee3e47dd55c2f` preserves the MinGW
+`.dll.a` import-library-to-`.dll` path and adds a focused regression case.
+
+The focused CMake fixture passed with the following cases:
+
+- nested-only archives are rejected unless the nested directory is explicitly
+  supplied;
+- direct pkg-config roots, direct project archives, and cached misses resolve;
+- simulated MSVC `.lib`/`.dll` and macOS `.a`/`.dylib` conversions pass;
+- `GLOB_RECURSE`, the old archive-index helper, and its recursive call sites are
+  absent from `FfmpegKitLinkingHelpers.cmake`.
+
+The exact approved Linux runner was rerun after the follow-up and completed with
+exit status `0`; CMake reported `Configuring done (0.4s)` and the full runner
+elapsed time was `13s`. The existing `distclean`/`uninstall` no-rule and license
+touch warnings remained non-fatal. Windows/macOS builder runners were not
+available in the ManyLinux environment, so their suffix behavior is covered by
+the focused CMake platform simulations and remains subject to their native CI
+builds.
+
 ## Resolver fixture and build evidence
 
 - `FFmpegKit/tests/cmake/linking_helpers_test.cmake` covers two pkg-config
-  roots, nested decoys, direct archives, `-lfoo`, a cached miss, and
+  roots, nested decoys, direct archives, `-lfoo`, cached misses, explicit
+  nested-directory lookup, Windows `.lib`/`.dll`, macOS `.a`/`.dylib`, and
   shared-to-static project replacement.
 - Project CTest registration passed: `ffmpegkit_cmake_linking_helpers`, **1/1**.
 - The exact documented Linux gtest runner command from `TEST.md` completed with
@@ -84,5 +120,9 @@ touch warnings while returning success. No `configure_static_linking` unresolved
 entry warnings were emitted; the four “No static replacement found” messages
 are the expected preserved system shared-runtime decisions.
 
-Native implementation commit: `e9de4755a66d437cd2d070fbec2f81a9783e03aa`,
-pushed to `ffmpeg-kit-builders` `origin/dev`.
+Native implementation commits: `e9de4755a66d437cd2d070fbec2f81a9783e03aa`
+(Linux performance fix),
+`13f45218fc562c9cf4f90da38da479874df8b404` (cross-platform non-recursive
+follow-up), and
+`e43b51eebe2f42fac658a0dbbc3ee3e47dd55c2f` (MinGW import-library follow-up),
+all pushed to `ffmpeg-kit-builders` `origin/dev`.

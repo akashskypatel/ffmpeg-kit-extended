@@ -14,7 +14,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R24-G67** | Freeze source authority and reconcile blockers | **Complete — wrapper snapshot `35766299689`; builder snapshot `35746267948`; exact sources verified** |
-| **FFK24-N7** | Optimize Linux-local CMake dependency resolution without semantic drift | **Complete — native commit `e9de4755a`; runner/configure evidence recorded** |
+| **FFK24-N7** | Optimize and unify non-recursive CMake dependency resolution without semantic drift | **Complete — native commits `e9de4755a` + `13f45218f` + `e43b51eeb`; runner/configure evidence recorded** |
 | **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **In progress — explicit ABI amendment** |
 | **FFK24-N9** | Replace remote TLS sanitizer failures with deterministic verified-TLS fixture | **Open** |
 | **FFK24-N10** | Resolve the FFmpeg `FrameData` TSAN publication/lifetime race | **Open — investigation required** |
@@ -30,7 +30,7 @@
 
 | Blocker | Current classification | Owner / disposition |
 | --- | --- | --- |
-| **B0** Linux-local CMake resolver slowdown | **Resolved by N7; full-suite execution remains a later N12 gate** | **FFK24-N7 complete** — cached Linux archive resolution and project-scoped lookup |
+| **B0** Linux-local CMake resolver slowdown | **Resolved by N7; full-suite execution remains a later N12 gate** | **FFK24-N7 complete** — cached, direct-only archive resolution unified across platform branches |
 | **B1** DataAsset rollback evidence | Implementation exists; exact stable Flutter 3.47 evidence missing | **R24-G68** — must pass, not be accepted as a limitation |
 | **B2** Review 23 custom Web structured-log evidence | Historical fixture uses old-signature runtime | **R24-G68 + R24-G70** — replace with genuine current-ABI runtime evidence |
 | **B3** Published 0.11.2 runtime mismatch | Current production blocker | **R24-G69** — publish an immutable runtime from the frozen Review 24 builder SHA |
@@ -50,10 +50,10 @@
 
 ### FFK24-N7 — Linux-local CMake dependency-resolution performance — complete
 
-- Native builder commit [`e9de4755a66d437cd2d070fbec2f81a9783e03aa`](https://github.com/akashskypatel/ffmpeg-kit-builders/commit/e9de4755a66d437cd2d070fbec2f81a9783e03aa) is pushed to `origin/dev`.
-- The implementation caches pkg-config directory expansion, indexes Linux static archives once per search root with cached hits/misses, and limits Linux project-static lookup to the dependency/FFmpeg project roots. The Emscripten short-circuit and non-Linux recursive lookup path remain unchanged.
+- Native builder commit [`e9de4755a66d437cd2d070fbec2f81a9783e03aa`](https://github.com/akashskypatel/ffmpeg-kit-builders/commit/e9de4755a66d437cd2d070fbec2f81a9783e03aa) is pushed to `origin/dev`, with cross-platform follow-up [`13f45218fc562c9cf4f90da38da479874df8b404`](https://github.com/akashskypatel/ffmpeg-kit-builders/commit/13f45218fc562c9cf4f90da38da479874df8b404) and MinGW follow-up [`e43b51eebe2f42fac658a0dbbc3ee3e47dd55c2f`](https://github.com/akashskypatel/ffmpeg-kit-builders/commit/e43b51eebe2f42fac658a0dbbc3ee3e47dd55c2f) also pushed.
+- The resolver now caches pkg-config directory expansion and direct archive hits/misses for every platform. Linux, Emscripten, Windows, macOS, and other native branches use the same non-recursive direct-entry lookup; `.lib` versus `.a` candidates and `.dll`, `.dylib`, `.tbd`, and versioned `.so` conversions remain platform-specific. Nested archives require an explicitly supplied containing directory.
 - Evidence ledger: [review24-linux-cmake-linking-performance.md](./review24-linux-cmake-linking-performance.md). The pre-change approved runner command configured in `130.8s` and completed in `143.79s`; after N7 it configured in `9.9s` and completed in `22.50s`, both with exit status `0`.
-- Focused fixture/CTest passed **1/1** for multiple pkg-config roots, nested decoys, direct hits/misses, `-lfoo`, and shared-to-static replacement. The exact documented Linux gtest runner built `ffmpegkit_tests` successfully.
+- Focused CMake fixture passed for multiple pkg-config roots, nested decoys, direct hits/misses, `-lfoo`, explicit nested-directory lookup, Windows `.lib`/`.dll`, MinGW `.dll.a`/`.dll`, macOS `.a`/`.dylib`, and shared-to-static replacement. The approved Linux release runner was rerun after the follow-ups with `Configuring done (0.3s)`, full elapsed `14s`, and exit status `0`; no recursive lookup symbols remain. The exact documented Linux gtest runner previously built `ffmpegkit_tests` successfully.
 - Full `ffmpegkit_tests` execution remains an explicit N12 test gate: it stopped at the pre-existing `FFmpegKitTest.GenerateTestVideoFile` with the tagged process at 0% CPU and no child encoder; the exact process tree was terminated. No toolchain or product workaround was added.
 - Transition: N7 is closed on resolver correctness/performance evidence; N8 structured ABI cutover is in progress.
 
