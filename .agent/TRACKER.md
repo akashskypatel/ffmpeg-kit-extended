@@ -1,20 +1,53 @@
 # Tracker
 
-## Post-Review 23 production rollback — Flutter Web runtime delivery — 2026-09-22
+## Review 24 Tracker — Luna production-readiness remediation — 2026-09-22
 
-- User directive: the Dart DataAssets requirement is a hard production blocker and is not an acceptable Flutter Web delivery architecture.
-- Last functional pre-DataAsset staging baseline: `55592c3387fc92fba157b71815cc50a43c1cf219` (Review 16 G15). The rollback restores that staging model without reverting later lifecycle, native-artifact, Review 23 callback, or React Native work.
-- Implementation commit: `b470f2a1162d0ab8a8867b7236974f9c407930c3` (`fix(flutter): remove DataAsset Web runtime requirement`).
-- Documentation/contract reconciliation: `c126c1cdfa38ea7afe3255f605f597acaa4071f6`.
-- Final product-source SHA for this rollback: `7e5163e24c8882f8c9f238f9b58b8b08d31469fd` (`fix(flutter): track workspace staging inputs`). This follow-up makes `.dart_tool/package_config.json` and `package_graph.json` explicit Hook dependencies for shared-workspace staging resolution.
-- Current invariant: the build hook resolves every default/custom Web selection, requires one coherent `ffmpegkit.mjs` + `ffmpegkit.wasm` pair, and stages that pair plus the current loader/callback support modules under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`.
-- Stable-toolchain contract: default bundles, non-default bundle choices, local archive/directory overrides, and HTTP(S) overrides must work on Flutter 3.47 without Dart DataAssets.
-- Workspace contract: app-scoped configuration stages only into that app; shared workspace configuration resolves package-graph roots that depend on `ffmpeg_kit_extended_flutter` and stages only into their Web app roots.
-- Removed current delivery authorities: `data_assets` direct dependency, `wasm_override/` runtime selector/manifest, custom-runtime `buildDataAssets` gate, and Flutter-master-only custom smoke requirement.
-- Preserved: `hooks.user_defines` precedence, bounded legacy configuration fallback, package-graph workspace filtering, local/HTTP(S) override semantics, URL-derived cache freshness, coherent runtime-pair validation, implicit Web debug rejection, native architecture/artifact hardening, Review 23 ABI-v2 callbacks, `ffigen_js: ^0.0.16-pre`, and deferred G21.
-- The prior Review 23 G61/G65/G66 DataAssets statements below remain historical evidence and are superseded for current production architecture by this section.
-- Validation status at this tracker update: implementation is committed; the modified workflow now defines the custom Web browser gate on stable Flutter 3.47 without DataAssets. No workflow result is claimed here until that exact-SHA gate is executed.
+- Plan: [review-24-luna-production-readiness-plan.md](./review-24-luna-production-readiness-plan.md)
+- Scope: native FFmpegKit C/C++ ABI and gtests/Wasm gtests first, exact native freeze, then Flutter and React Native migration, publication, platform regression, and exact-SHA closeout.
+- Wrapper source authority at preparation: `HEAD == origin/dev-wasm == c875edd8149aaadd779d2df3e5aa7067255df21a`; product files are clean and only this tracker has a pre-existing working-tree edit.
+- DataAsset rollback authority: `7e5163e24c8882f8c9f238f9b58b8b08d31469fd`; implementation `b470f2a1162d0ab8a8867b7236974f9c407930c3`; documentation reconciliation `c126c1cdfa38ea7afe3255f605f597acaa4071f6`.
+- Builder source authority at preparation: `HEAD == origin/dev == fc35587142a7c2a9356f3850c956bd1b17037d38`; this is the workflow-only post-Review-23 advancement. The frozen Review 23 native ABI content remains `196567dae7fd1509c33bf32081f8237596ac8e5b`, and the root `libs/libffmpegkit` gitlink points to that SHA.
+- Published runtime authority still points at `0.11.2`; native release family target is `f9e5689cea5794f25bb392aed7182268f55678fb`, Wasm target is `3b3ccfc74f71ee783b66b818663484bab5f35946`, and both predate the frozen structured ABI.
+- Accepted exception remains only `ffigen_js: ^0.0.16-pre`; it must not be broadened to runtime, sanitizer, browser, packaging, or staging failures.
+- **Plan numbering reconciliation:** the goal table and section headings define `FFK24-N9` as TLS, `FFK24-N10` as FrameData/TSAN, and `FFK24-N11` as UBSAN. The B4/B5/B6 blocker-owner labels are offset in the plan; this tracker follows the goal/section definitions and records the discrepancy for auditability.
 
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R24-G67** | Freeze source authority and reconcile blockers | **In progress — tracker preparation recorded; exact wrapper/builder snapshot evidence pending** |
+| **FFK24-N7** | Optimize Linux-local CMake dependency resolution without semantic drift | **Open — first native goal** |
+| **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **Open — explicit ABI amendment** |
+| **FFK24-N9** | Replace remote TLS sanitizer failures with deterministic verified-TLS fixture | **Open** |
+| **FFK24-N10** | Resolve the FFmpeg `FrameData` TSAN publication/lifetime race | **Open — investigation required** |
+| **FFK24-N11** | Resolve/classify GCC 14/libstdc++ UBSAN vptr diagnostics | **Open — investigation required** |
+| **FFK24-N12** | Freeze clean native handoff after N7–N11 | **Blocked by N7–N11** |
+| **R24-G68** | Validate DataAsset rollback on stable Flutter 3.47 | **Pending implementation validation** |
+| **R24-G69** | Reopen/close G21 with a newly published current-ABI runtime | **Reopened — blocked by native freeze** |
+| **R24-G70** | Prove current-ABI Flutter Web structured direct-log delivery and A/B/C counters | **Pending current-ABI runtime** |
+| **R24-G71** | Cross-platform regression against one published Review 24 runtime | **Blocked by G69–G70** |
+| **R24-G72** | Documentation, exact-SHA workflow, and source-snapshot closeout | **Blocked by prior goals** |
+
+### Review 24 blocker ledger
+
+| Blocker | Current classification | Owner / disposition |
+| --- | --- | --- |
+| **B0** Linux-local CMake resolver slowdown | Current native performance/correctness issue | **FFK24-N7** — optimize repeated scans/cache misses and prove resolution parity |
+| **B1** DataAsset rollback evidence | Implementation exists; exact stable Flutter 3.47 evidence missing | **R24-G68** — must pass, not be accepted as a limitation |
+| **B2** Review 23 custom Web structured-log evidence | Historical fixture uses old-signature runtime | **R24-G68 + R24-G70** — replace with genuine current-ABI runtime evidence |
+| **B3** Published 0.11.2 runtime mismatch | Current production blocker | **R24-G69** — publish an immutable runtime from the frozen Review 24 builder SHA |
+| **B3A** Dual global-log ABI | Explicitly superseded Review 23 compatibility design | **FFK24-N8** — one structured setter in place; `_v2` and fallback removed |
+| **B4** Remote TLS failures | Current sanitizer failures; verification must remain enabled | **FFK24-N9** — deterministic test-owned HTTPS fixture and explicit CA |
+| **B5** FrameData TSAN race | Current unresolved native race | **FFK24-N10** — ownership/lifetime fix, no suppression or scenario weakening |
+| **B6** GCC/shared UBSAN vptr diagnostics | Unclassified sanitizer output | **FFK24-N11** — GCC/Clang × shared/static discriminator matrix |
+| **B7** Flutter test-runner browser limitation | Known test-runner limitation, not a product blocker | Use stable `flutter build web --wasm` + real server/browser smoke; no product workaround |
+
+### Hard order
+
+```text
+R24-G67 -> FFK24-N7 -> FFK24-N8 -> FFK24-N9 -> FFK24-N10 -> FFK24-N11
+  -> FFK24-N12 -> R24-G68 -> R24-G69 -> R24-G70 -> R24-G71 -> R24-G72
+```
+
+No ABI source change begins until N7 closes. N12 cannot close until N7–N11 have explicit, evidenced dispositions.
 
 ## Review 23 Tracker — cross-platform callback transport/performance — 2026-09-21
 
