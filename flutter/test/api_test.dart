@@ -3447,6 +3447,50 @@ void main() {
     }
 
     test(
+      'disableRedirection keeps completion functional without log or statistics callbacks',
+      () async {
+        var completionCount = 0;
+        var logCount = 0;
+        var statisticsCount = 0;
+        FFmpegSession? session;
+
+        FFmpegKitConfig.disableRedirection();
+        try {
+          session = await FFmpegSession.executeCommandAsync(
+            '-hide_banner -loglevel info -f lavfi -i testsrc=duration=1:size=16x16:rate=5 -f null -',
+            completeCallback: (_) => completionCount++,
+            logCallback: (_) => logCount++,
+            statisticsCallback: (_) => statisticsCount++,
+          ).timeout(timeout);
+
+          expect(completionCount, equals(1));
+          expect(logCount, equals(0));
+          expect(statisticsCount, equals(0));
+        } finally {
+          session?.dispose();
+          FFmpegKitConfig.enableRedirection();
+        }
+      },
+    );
+
+    test('enableRedirection delivers direct log callbacks to a consumer', () async {
+      var logCount = 0;
+      FFmpegSession? session;
+
+      FFmpegKitConfig.enableRedirection();
+      try {
+        session = await FFmpegSession.executeCommandAsync(
+          '-hide_banner -loglevel info -f lavfi -i testsrc=duration=1:size=16x16:rate=5 -f null -',
+          logCallback: (_) => logCount++,
+        ).timeout(timeout);
+
+        expect(logCount, greaterThan(0));
+      } finally {
+        session?.dispose();
+      }
+    });
+
+    test(
       'FFmpeg executeAsync settles when the local callback throws',
       () async {
         var callbackCount = 0;

@@ -24,6 +24,9 @@ let startError;
 let logReads = 0;
 let logCountReads = 0;
 let sessionLogCount = 0;
+let redirectionEnabled = true;
+let redirectionEnableCalls = 0;
+let redirectionDisableCalls = 0;
 let statisticsReads = 0;
 const bridgeInstalls = {completion: 0, log: 0, statistics: 0};
 const bridgeUninstalls = {completion: 0, log: 0, statistics: 0};
@@ -41,20 +44,24 @@ setBackend({
   executeSessionAsync: () => {
     if (startError) throw startError;
     executionStarts += 1;
-    for (const event of directLogEvents) logEventHandler?.(event);
+    if (redirectionEnabled) {
+      for (const event of directLogEvents) logEventHandler?.(event);
+    }
   },
   getLogsJson: (_sessionId, fromIndex) => {
     logReads += 1;
+    if (!redirectionEnabled) return JSON.stringify([]);
     if (preTerminalLogsError && logReads === 1) throw preTerminalLogsError;
     if (finalLogsError && logReads === 2) throw finalLogsError;
     return JSON.stringify(logReads === 1 && fromIndex === 0 ? logEntries : finalLogEntries);
   },
   getLogsCount: () => {
     logCountReads += 1;
-    return sessionLogCount;
+    return redirectionEnabled ? sessionLogCount : 0;
   },
   getStatisticsJson: (_sessionId, fromIndex) => {
     statisticsReads += 1;
+    if (!redirectionEnabled) return JSON.stringify([]);
     if (preTerminalStatisticsError && statisticsReads === 1) {
       throw preTerminalStatisticsError;
     }
@@ -82,6 +89,14 @@ setBackend({
   },
   installStatisticsBridge: () => { bridgeInstalls.statistics += 1; },
   uninstallStatisticsBridge: () => { bridgeUninstalls.statistics += 1; },
+  enableRedirection: () => {
+    redirectionEnableCalls += 1;
+    redirectionEnabled = true;
+  },
+  disableRedirection: () => {
+    redirectionDisableCalls += 1;
+    redirectionEnabled = false;
+  },
   getSessionState: () => {
     if (stateError) throw stateError;
     return sessionState;
@@ -102,6 +117,7 @@ setBackend({
 });
 
 const {FFmpegSession} = require('../.test-dist/session.js');
+const {FFmpegKitExtended} = require('../.test-dist/ffmpeg-kit-extended.js');
 const manager = SessionQueueManager.shared;
 
 beforeEach(() => {
@@ -119,6 +135,9 @@ beforeEach(() => {
   logReads = 0;
   logCountReads = 0;
   sessionLogCount = 0;
+  redirectionEnabled = true;
+  redirectionEnableCalls = 0;
+  redirectionDisableCalls = 0;
   statisticsReads = 0;
   bridgeInstalls.completion = 0;
   bridgeInstalls.log = 0;
@@ -467,6 +486,59 @@ test('removing the last session log sink releases optional demand immediately', 
   assert.equal(bridgeInstalls.log, 1);
   assert.equal(bridgeUninstalls.log, 1);
   assert.deepEqual(releases, [27]);
+});
+
+test('disabled redirection preserves completion without log or statistics delivery', async () => {
+  useDirectLogBridge = true;
+  sessionState = 1;
+  sessionLogCount = 1;
+  directLogEvents = [{sessionId: 29, sequence: 0, level: 32, message: 'hidden'}];
+  statisticsEntries = [{time: 1}];
+  registry.retain(17920, 29);
+  const logs = [];
+  const statistics = [];
+
+  FFmpegKitExtended.disableRedirection();
+  try {
+    const execution = new FFmpegSession(29, '-version').executeAsync({
+      logCallback: log => logs.push(log),
+      statisticsCallback: value => statistics.push(value),
+      pollIntervalMs: 10,
+    });
+
+    await new Promise(resolve => setTimeout(resolve, 0));
+    sessionState = 2;
+    await execution;
+
+    assert.deepEqual(logs, []);
+    assert.deepEqual(statistics, []);
+    assert.equal(redirectionDisableCalls, 1);
+    assert.equal(redirectionEnableCalls, 0);
+  } finally {
+    FFmpegKitExtended.enableRedirection();
+  }
+});
+
+test('explicitly enabled redirection delivers direct logs without wrapper reconfiguration', async () => {
+  useDirectLogBridge = true;
+  sessionState = 1;
+  directLogEvents = [{sessionId: 32, sequence: 0, level: 32, message: 'visible'}];
+  registry.retain(18432, 32);
+  const logs = [];
+
+  FFmpegKitExtended.enableRedirection();
+  const execution = new FFmpegSession(32, '-version').executeAsync({
+    logCallback: log => logs.push(log),
+    pollIntervalMs: 10,
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
+  await execution;
+
+  assert.deepEqual(logs, [{sessionId: 32, level: 32, message: 'visible'}]);
+  assert.equal(redirectionEnableCalls, 1);
+  assert.equal(redirectionDisableCalls, 0);
 });
 
 test('direct v2 logs preserve sequence order without live history reads', async () => {
