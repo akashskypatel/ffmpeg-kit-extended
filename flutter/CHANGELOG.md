@@ -2,11 +2,16 @@
 
 ## Version 1.0.0
 
+- Remove the Dart DataAssets requirement from Flutter Web runtime delivery. The
+  build hook again stages the selected default or custom runtime directly into
+  the consuming Web app at the canonical package asset URL, including workspace
+  app resolution, local archive/directory overrides, HTTP(S) overrides, cache
+  freshness, and coherent runtime-pair validation on stable Flutter 3.47.
 - Document ABI-v2 direct log events, demand-driven callback activation,
   completion independence, authoritative redirection control, bounded terminal
-  history reconciliation, owned message lifetime, and the custom Web/Wasm
-  DataAssets capability boundary. The `ffigen_js: ^0.0.16-pre` dependency
-  remains intentional because no stable release exists.
+  history reconciliation, and owned message lifetime. The
+  `ffigen_js: ^0.0.16-pre` dependency remains intentional because no stable
+  release exists.
 - Added WebAssembly wasm32 support
 - Make synchronous FFmpeg, FFprobe, FFplay, and media-information execution
   return only after native work, terminal callbacks, and cleanup complete;

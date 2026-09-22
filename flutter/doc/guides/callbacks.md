@@ -46,9 +46,9 @@ The bridge copies accepted messages into Dart-owned values and frees native
 payload memory internally. Direct events are ordered and deduplicated by the
 native sequence. At completion, the wrapper reads the retained count once and
 fetches only a missing range when a direct event was late. Custom Web/Wasm
-runtime selection requires Dart DataAssets; the stable Flutter 3.47 default
-runtime remains supported, but custom selection is rejected when DataAssets are
-unavailable. The package intentionally requires `ffigen_js: ^0.0.16-pre`.
+runtime selection uses the same build-hook staging path as the default runtime;
+stable Flutter 3.47 supports custom selection without Dart DataAssets. The
+build hook preserves the configured local/remote runtime and coherent-pair validation. The package intentionally requires `ffigen_js: ^0.0.16-pre`.
 
 ## Callback Types
 

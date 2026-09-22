@@ -140,9 +140,9 @@ Flutter Web uses the same public API and shared session implementation as native
      # ios: "https://path/to/bundle.xcframework.zip"
    ```
 
-   **Note**: Native libraries are automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). The default Web runtime is already packaged under `assets/packages/ffmpeg_kit_extended_flutter/assets/wasm/`. A `wasm` or `web` override, or any non-default Web selection, uses DataAssets under `wasm_override/` and therefore requires a toolchain that exposes Dart DataAssets. No manual configuration script is required.
+   **Note**: Native libraries and the selected Web/Wasm runtime are resolved during the build process using [Dart Hooks](https://dart.dev/tools/hooks). Web builds stage the selected runtime at `assets/packages/ffmpeg_kit_extended_flutter/wasm/` in the consuming app. Default bundles, non-default bundle selections, and explicit `web`/`wasm` overrides all use this stable build-hook staging path; Dart DataAssets are not required. No manual configuration script is required.
 
-   **Dart Pub Workspaces**: Put the official `hooks.user_defines.ffmpeg_kit_extended_flutter` map in the workspace-root `pubspec.yaml`; do not rely on an app-member `hooks.user_defines` map unless the Flutter integration proves that placement is forwarded to dependency hooks. When no official userDefines are supplied, the legacy resolver considers the package-config root and in-root package entries, accepting configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root pubspec. If multiple dependent workspace roots could supply package-specific legacy configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Legacy relative local override paths resolve from the pubspec that defines them and are dependency-tracked. Flutter Web uses the workspace-root configuration as the canonical source; the hook does not guess a consuming app or write runtime files into an app's `web/` or `build/web/` directories.
+   **Dart Pub Workspaces**: Put the official `hooks.user_defines.ffmpeg_kit_extended_flutter` map in the workspace-root `pubspec.yaml`; do not rely on an app-member `hooks.user_defines` map unless the Flutter integration proves that placement is forwarded to dependency hooks. When no official userDefines are supplied, the legacy resolver considers the package-config root and in-root package entries, accepting configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root pubspec. If multiple dependent workspace roots could supply package-specific legacy configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Legacy relative local override paths resolve from the pubspec that defines them and are dependency-tracked. Flutter Web keeps the same configuration precedence. App-scoped configuration stages only into that app; shared workspace-root configuration resolves package-graph roots that depend on `ffmpeg_kit_extended_flutter` and stages into those Web apps deterministically.
 
    For example, in the workspace root:
 
@@ -243,7 +243,7 @@ flutter build web --wasm
 ```
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The default base/small/LGPL runtime is delivered from the package's ordinary `wasm/` assets, so stable Flutter 3.47 can run `flutter build web --wasm` and `flutter run --wasm` without Dart DataAssets. For a custom or non-default Web selection, the build hook downloads and verifies the configured `wasm32` bundle, then emits the Wasm runtime, loader, callback bridge, callback runtime, and manifest as DataAssets under `wasm_override/`. Such selections require a Flutter toolchain with Dart DataAssets and are rejected clearly when the feature is unavailable. The hook does not write generated files into the consuming app's `web/` or `build/web/` directories. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
+On every Flutter Web build, the hook resolves the configured `wasm32` runtime, verifies official/downloaded artifacts as applicable, requires one coherent `ffmpegkit.mjs` + `ffmpegkit.wasm` pair, and stages that pair together with the loader, callback bridge, and callback runtime under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`. The same path is used for the default runtime, non-default bundle selections, local archive/directory overrides, and HTTP(S) overrides on stable Flutter 3.47; Dart DataAssets are not required. The hook stages into both the consuming app's source `web/` tree (for `flutter run`) and generated `build/web/` tree, updating files only when content changes. Threaded Wasm bundles require cross-origin isolation. Serve the application with these HTTP response headers:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin
@@ -463,9 +463,9 @@ installing a wrapper callback bridge does not implicitly re-enable redirection.
 
 The wrapper copies each accepted native message into its managed value and
 releases the native payload internally. No borrowed native pointer is exposed
-to Dart. Custom Web/Wasm runtimes require the Dart DataAssets capability; the
-stable Flutter 3.47 toolchain supports the packaged default runtime but rejects
-custom runtime selection when that capability is unavailable.
+to Dart. Custom Web/Wasm runtimes use the same stable build-hook staging path
+as the default runtime, so stable Flutter 3.47 supports custom selection without
+Dart DataAssets.
 
 ### 3.4 Session Management
 

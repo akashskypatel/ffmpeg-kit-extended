@@ -58,7 +58,7 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     names the requested architecture and supported set. The hook never maps an
     unsupported request to a different architecture.
 
-    **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. Flutter Web uses the workspace-root `hooks.user_defines` map as the canonical configuration source; the hook emits package runtime files as DataAssets and does not write into an app's `web/` or `build/web/` directories.
+    **Dart Pub Workspaces**: The package-config root `pubspec.yaml` takes priority. Otherwise, the build hook considers in-root package entries and accepts configuration only from package-graph roots with a normal dependency path to `ffmpeg_kit_extended_flutter`; arbitrary nested local/path packages and dev-only dependency paths are ignored. If a configured package candidate exists but `.dart_tool/package_graph.json` is unavailable, rerun `flutter pub get` or define the configuration in the root `pubspec.yaml`. If multiple dependent workspace roots could supply package-specific configuration, the build fails rather than guessing. If no applicable configuration remains, the default base LGPL small bundle is used. Dev-only dependencies are not used to choose an app configuration because Dart Hooks do not expose the active workspace package/build dependency mode to dependency hooks. Relative local override paths resolve from the pubspec that defines them, and referenced files are tracked by the Dart build hook so same-path content changes are picked up without `flutter clean`. Flutter Web keeps the same configuration precedence. App-scoped `hooks.user_defines` stage only into that app; shared workspace-root configuration resolves dependent Web app roots from the package graph before staging the selected runtime.
 
     For example, in the workspace root:
 
@@ -160,14 +160,13 @@ Cross-Origin-Embedder-Policy: require-corp
 
 Check `window.crossOriginIsolated` in the browser; it must be `true` for threaded Wasm execution.
 
-The default base/small/LGPL Web runtime is delivered as ordinary package assets
-under `assets/packages/ffmpeg_kit_extended_flutter/assets/wasm/`, so stable Flutter
-3.47 can build and run it without Dart DataAssets. Custom Web/Wasm overrides
-and non-default Web selections require Dart DataAssets; the hook emits their
-Wasm files, loader, callback bridge, callback runtime, and manifest under
-`wasm_override/`, and rejects them clearly when the feature is unavailable.
-No generated runtime files are copied into the consuming app's source `web/`
-tree or `build/web/` output directory.
+The build hook resolves the selected Web runtime for every configuration and
+stages `ffmpegkit.mjs`, `ffmpegkit.wasm`, the loader, callback bridge, and
+callback runtime under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`.
+The same stable Flutter 3.47 path handles the default bundle, non-default bundle
+selections, local archive/directory overrides, and HTTP(S) overrides; Dart
+DataAssets are not required. Runtime files are staged into the consuming app's
+source `web/` tree for development and `build/web/` for built output.
 
 Custom Web/Wasm ZIPs or directories must contain exactly one coherent runtime
 directory containing both `ffmpegkit.mjs` and `ffmpegkit.wasm`. The hook rejects

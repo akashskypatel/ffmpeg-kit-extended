@@ -29,8 +29,8 @@ late final Architecture targetArch;
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    // Flutter web builds do not expose a CodeAsset target. Emit the Wasm
-    // runtime as package data instead.
+    // Flutter Web builds do not expose a CodeAsset target. Resolve the
+    // selected Wasm runtime and stage it into the consuming Web app instead.
     if (!input.config.buildCodeAssets) {
       await _buildWebAssets(input, output);
       return;

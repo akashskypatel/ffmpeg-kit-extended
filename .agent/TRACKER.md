@@ -1,5 +1,19 @@
 # Tracker
 
+## Post-Review 23 production rollback — Flutter Web runtime delivery — 2026-09-22
+
+- User directive: the Dart DataAssets requirement is a hard production blocker and is not an acceptable Flutter Web delivery architecture.
+- Last functional pre-DataAsset staging baseline: `55592c3387fc92fba157b71815cc50a43c1cf219` (Review 16 G15). The rollback restores that staging model without reverting later lifecycle, native-artifact, Review 23 callback, or React Native work.
+- Implementation commit: `b470f2a1162d0ab8a8867b7236974f9c407930c3` (`fix(flutter): remove DataAsset Web runtime requirement`).
+- Current invariant: the build hook resolves every default/custom Web selection, requires one coherent `ffmpegkit.mjs` + `ffmpegkit.wasm` pair, and stages that pair plus the current loader/callback support modules under `assets/packages/ffmpeg_kit_extended_flutter/wasm/`.
+- Stable-toolchain contract: default bundles, non-default bundle choices, local archive/directory overrides, and HTTP(S) overrides must work on Flutter 3.47 without Dart DataAssets.
+- Workspace contract: app-scoped configuration stages only into that app; shared workspace configuration resolves package-graph roots that depend on `ffmpeg_kit_extended_flutter` and stages only into their Web app roots.
+- Removed current delivery authorities: `data_assets` direct dependency, `wasm_override/` runtime selector/manifest, custom-runtime `buildDataAssets` gate, and Flutter-master-only custom smoke requirement.
+- Preserved: `hooks.user_defines` precedence, bounded legacy configuration fallback, package-graph workspace filtering, local/HTTP(S) override semantics, URL-derived cache freshness, coherent runtime-pair validation, implicit Web debug rejection, native architecture/artifact hardening, Review 23 ABI-v2 callbacks, `ffigen_js: ^0.0.16-pre`, and deferred G21.
+- The prior Review 23 G61/G65/G66 DataAssets statements below remain historical evidence and are superseded for current production architecture by this section.
+- Validation status at this tracker update: implementation is committed; the modified workflow now defines the custom Web browser gate on stable Flutter 3.47 without DataAssets. No workflow result is claimed here until that exact-SHA gate is executed.
+
+
 ## Review 23 Tracker — cross-platform callback transport/performance — 2026-09-21
 
 - Native plan: [ffmpegkit-review-23-native-callback-plan.md](./ffmpegkit-review-23-native-callback-plan.md).

@@ -2,6 +2,15 @@
 
 Date: 2026-09-22
 
+## Superseding production-delivery note
+
+The DataAssets limitation recorded in the original Review 23 Flutter Web evidence
+is historical as of `b470f2a1162d0ab8a8867b7236974f9c407930c3`. The production
+build hook now stages the selected default or custom Web runtime directly into
+the consuming app on stable Flutter 3.47; Dart DataAssets are no longer required.
+The A/B/C rows below remain the original Review 23 counter evidence until the
+new stable custom-runtime browser gate is rerun at the rollback SHA.
+
 This report records the A/B/C callback-transport oracle required by Review 23.
 It describes observed test counters, not a cross-device throughput benchmark.
 The exact native ABI authority for all wrapper rows is
@@ -113,6 +122,6 @@ filters or workaround code.
   `disableRedirection()` remains authoritative.
 - Accepted native messages are copied and freed internally; no dangling pointer
   is exposed to Flutter, React Native, Dart, or JavaScript.
-- Custom Flutter Web/Wasm runtime selection requires Dart DataAssets.
+- The original Review 23 DataAssets requirement is superseded by direct build-hook staging at `b470f2a1162d0ab8a8867b7236974f9c407930c3`; default and custom Web/Wasm selections no longer require DataAssets.
 - `ffigen_js: ^0.0.16-pre` is intentionally retained because no stable release
   exists.

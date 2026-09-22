@@ -23,7 +23,7 @@ The main shared layer is under `lib/src/`: `session.dart`, the FFmpeg/FFprobe/FF
 
 Native-only code lives under `lib/src/platform/native/` and includes `backend_native.dart`, `callback_bridge_native.dart`, `session_finalizer_native.dart`, the native loader, native FFplay surfaces, and `generated/ffmpeg_kit_bindings_native.dart`. It loads the native code asset, converts Dart strings and argument arrays to native memory, invokes the C wrapper, routes callbacks, and releases native handles.
 
-Web-only code lives under `lib/src/platform/web/` and `lib/src/web/`. `backend_web.dart` invokes `generated/ffmpeg_kit_bindings_web.dart` through `wasm_loader.dart`; `wasm_memory.dart` reads and writes the Emscripten heap; `callback_bridge_web.dart` adapts Web events; and `web/ffplay_surface_web.dart` renders copied RGBA frames. The default `assets/wasm/` package assets provide the ordinary Web runtime. For custom/non-default selections, `web/ffmpegkit_bridge.mjs` and its support modules are emitted beside the selected Wasm pair as `wasm_override/` DataAssets by `hook/build.dart`.
+Web-only code lives under `lib/src/platform/web/` and `lib/src/web/`. `backend_web.dart` invokes `generated/ffmpeg_kit_bindings_web.dart` through `wasm_loader.dart`; `wasm_memory.dart` reads and writes the Emscripten heap; `callback_bridge_web.dart` adapts Web events; and `web/ffplay_surface_web.dart` renders copied RGBA frames. `hook/build.dart` resolves the selected default or custom Wasm pair and stages it with `web/ffmpegkit_bridge.mjs` and its support modules at the canonical `assets/packages/ffmpeg_kit_extended_flutter/wasm/` browser root.
 
 Conditional exports are concentrated in the platform barrels (`ffmpeg_kit_extended_flutter_native.dart` and `ffplay_surface.dart`). Shared session/business logic must not import `dart:ffi`, `package:ffi`, JS interop, generated platform bindings, or platform surface implementations.
 
@@ -45,11 +45,11 @@ analyzer, package tests, and Web Wasm/browser verification.
 
 ## Initialization and execution
 
-Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization probes for the custom `wasm_override/` manifest and otherwise loads the ordinary package `wasm/` asset pair, then exposes the generated module to the Web backend. Successful initialization is idempotent, concurrent calls share one attempt, and a failed Web attempt can be retried. Calls made before initialization are rejected by the backend contract.
+Applications call `await FFmpegKitExtended.initialize()` once after `WidgetsFlutterBinding.ensureInitialized()` and before creating sessions. Backend selection is compile-time conditional. Native initialization loads the code asset and installs native callback/finalizer support. Web initialization loads the build-hook-selected runtime from the single canonical `wasm/` asset root, then exposes the generated module to the Web backend. Successful initialization is idempotent, concurrent calls share one attempt, and a failed Web attempt can be retried. Calls made before initialization are rejected by the backend contract.
 
 Note that the WebAssembly bundle has pthread support by default. For a `non-pthread` build, a custom build of the WebAssembly dependencies and bundle is required using <https://github.com/akashskypatel/ffmpeg-kit-builders>.
 
-The default build uses the pinned ordinary package assets. For custom/non-default Web selections, the build hook resolves the configured bundle, verifies its SHA-256, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm`, and emits the runtime and bridge files plus a manifest as Flutter DataAssets under `wasm_override/`. Those selections require a toolchain with Dart DataAssets. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
+For every Web selection, the build hook resolves the configured bundle, verifies official/downloaded artifacts as applicable, requires both `ffmpegkit.mjs` and `ffmpegkit.wasm` in one coherent runtime directory, and stages the runtime plus bridge/support files into the consuming app's source and build Web trees. Default, non-default, local, and HTTP(S) override selections all use this path on stable Flutter 3.47 without Dart DataAssets. The Web build must use `flutter build web --wasm`. Pthread-enabled bundles require the deployed document to be cross-origin isolated:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin
@@ -85,12 +85,10 @@ the wrapper explicitly falls back to indexed history polling. Messages are
 copied into managed objects and native payload memory is released inside the
 bridge; callers never receive a borrowed pointer.
 
-Custom or non-default Web/Wasm runtime selection requires Dart DataAssets. The
-packaged default runtime remains usable on stable Flutter 3.47, but a stable
-toolchain that reports `buildDataAssets: false` cannot verify a custom v2
-bundle. This is a toolchain capability boundary, not a product workaround
-target. The package intentionally keeps `ffigen_js: ^0.0.16-pre` because no
-stable release exists.
+Custom or non-default Web/Wasm runtime selection uses the same direct staging
+path as the default runtime and is supported on stable Flutter 3.47 without
+Dart DataAssets. The package intentionally keeps `ffigen_js: ^0.0.16-pre`
+because no stable release exists.
 
 ## Handles, finalizers, and memory
 
@@ -140,7 +138,7 @@ browser gate.
 
 - Web deployment must serve the document and pthread assets with `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp` when using pthread-enabled bundles; verify `window.crossOriginIsolated` at runtime.
 - Web completion, log, and statistics delivery uses generated callback pointers. The bridge requires a bundle with a usable Wasm function table and a browser deployment that supports the bundle's pthread configuration.
-- The hook’s Web asset staging is DataAsset-only; it does not copy runtime files into a consuming app's source `web/` or generated `build/web/` directories.
+- The hook directly stages the selected Web runtime into the consuming app's source `web/` and generated `build/web/` trees at the canonical package URL; Dart DataAssets are not a runtime-delivery prerequisite.
 - ABI-v2 direct log delivery is demand-driven and history-free during steady state; native history remains the public inspection and bounded terminal-reconciliation fallback.
 - `disableRedirection()` is authoritative. Installing a Flutter callback bridge does not implicitly enable native redirection, and completion remains independent of optional log/statistics consumers.
 - Native and Web generated bindings are build contracts. Regenerate both after wrapper-header changes and verify native and Wasm builds.
