@@ -51,6 +51,8 @@ export interface Spec extends TurboModule {
 
   /** Session snapshots and buffered callback payloads are serialized as JSON. */
   getSessionJson(sessionId: Double): string;
+  /** Returns the retained native log count for terminal reconciliation. */
+  getLogsCount(sessionId: Double): Double;
   releaseSessionHandle(sessionId: Double): void;
   getSessionsJson(kind: string): string;
   getLastSessionJson(kind: string): string;

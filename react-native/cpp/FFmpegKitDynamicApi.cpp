@@ -526,6 +526,14 @@ std::string getSessionJson(double sessionId) {
   return sessionJson(guard.handle);
 }
 
+double getLogsCount(double sessionId) {
+  ensureInitialized();
+  HandleGuard guard = acquireSession(toId(sessionId));
+  if (guard.handle == nullptr) return 0;
+  using Fn = std::int64_t (*)(Handle);
+  return static_cast<double>(resolve<Fn>("ffmpeg_kit_session_get_logs_count")(guard.handle));
+}
+
 void releaseSessionHandle(double sessionId) {
   ensureInitialized();
   releaseRetainedSession(toId(sessionId));

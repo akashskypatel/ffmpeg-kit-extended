@@ -104,8 +104,10 @@ test('Windows native module exposes the structured v2 log event bridge', () => {
   assert.match(header, /REACT_TURBO_MODULE\(FFmpegKitExtended\)/);
   assert.match(header, /REACT_EVENT\(onLogEvent\)/);
   assert.match(header, /std::function<void\(LogEvent\)> onLogEvent/);
+  assert.match(header, /REACT_SYNC_METHOD\(getLogsCount\)/);
   assert.match(header, /REACT_METHOD\(installLogBridge\)/);
   assert.match(header, /REACT_METHOD\(uninstallLogBridge\)/);
+  assert.match(implementation, /double FFmpegKitExtended::getLogsCount\(/);
   assert.match(implementation, /api::enableLogCallbackV2\(&handleLogEvent, state\.get\(\)\)/);
   assert.match(implementation, /api::enableLogCallbackV2\(nullptr, nullptr\)/);
   assert.match(implementation, /class OwnedLogMessage/);
@@ -116,6 +118,7 @@ test('Windows native module exposes the structured v2 log event bridge', () => {
 test('v2 log bridge keeps native and Web event ownership explicit', () => {
   const nativeSpec = read('src/NativeFFmpegKitExtended.ts');
   const nativeApi = read('cpp/FFmpegKitDynamicApi.h');
+  const nativeApiImplementation = read('cpp/FFmpegKitDynamicApi.cpp');
   const nativeImpl = read('cpp/FFmpegKitExtendedImpl.cpp');
   const webBackend = read('src/platform/backend.web.ts');
   const wasmLoader = read('src/platform/web/wasm-loader.ts');
@@ -124,17 +127,20 @@ test('v2 log bridge keeps native and Web event ownership explicit', () => {
   assert.match(nativeSpec, /readonly onLogEvent: EventEmitter<LogEvent>/);
   assert.match(nativeSpec, /installLogBridge\(\): void/);
   assert.match(nativeSpec, /uninstallLogBridge\(\): void/);
+  assert.match(nativeSpec, /getLogsCount\(sessionId: Double\): Double/);
   assert.match(nativeApi, /std::int64_t sessionId/);
   assert.match(nativeApi, /std::int64_t sequence/);
   assert.match(nativeApi, /std::int32_t level/);
   assert.match(nativeApi, /char \*ownedMessage/);
   assert.match(nativeApi, /void \*userData/);
   assert.match(nativeApi, /releaseOwnedLogMessage/);
+  assert.match(nativeApiImplementation, /ffmpeg_kit_session_get_logs_count/);
   assert.match(nativeImpl, /std::string message = owned\.value/);
   assert.match(nativeImpl, /api::releaseOwnedLogMessage\(value\)/);
   assert.match(nativeImpl, /emitOnLogEvent\(/);
   assert.match(webBackend, /addFunction\(this\.handleWasmLogEvent, 'vjjipp'\)/);
   assert.match(webBackend, /this\.call\('ffmpeg_kit_free'\)\(pointer\)/);
+  assert.match(webBackend, /getLogsCount\(sessionId: number\)/);
   assert.match(wasmLoader, /addFunction\?/);
   assert.match(wasmLoader, /removeFunction\?/);
   assert.match(session, /!directLogEvents/);

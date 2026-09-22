@@ -382,6 +382,67 @@ export abstract class Session {
       logEventSubscription = undefined;
       subscription?.remove();
     };
+    const drainDirectLogEvents = (
+      callback: ((log: Log, session: T) => void) | undefined,
+      invoke: (callback: (() => void) | undefined) => void,
+    ): void => {
+      if (!callback) {
+        this.pendingDirectLogEvents.clear();
+        return;
+      }
+      for (;;) {
+        const next = this.pendingDirectLogEvents.get(this.nextExpectedLogSequence);
+        if (!next) break;
+        this.pendingDirectLogEvents.delete(this.nextExpectedLogSequence);
+        this.nextExpectedLogSequence += 1;
+        logsProcessed = Math.max(
+          logsProcessed,
+          this.nextExpectedLogSequence,
+        );
+        invoke(() => callback(next, self));
+      }
+    };
+    const reconcileDirectLogEvents = (): void => {
+      const callback = options.getLogCallback();
+      if (!callback) {
+        this.pendingDirectLogEvents.clear();
+        return;
+      }
+
+      // The count is the terminal reconciliation authority. Steady-state
+      // direct delivery never reads indexed history; only a terminal gap
+      // causes the bounded missing range to be fetched.
+      const count = NativeFFmpegKitExtended.getLogsCount
+        ? Math.max(0, Math.trunc(NativeFFmpegKitExtended.getLogsCount(this.sessionId)))
+        : parseRequiredJson<SessionSnapshot>(
+            NativeFFmpegKitExtended.getSessionJson(this.sessionId),
+            `Session ${this.sessionId} no longer exists`,
+          ).logsCount;
+      if (count > this.nextExpectedLogSequence) {
+        const missing = parseJsonArray<Log>(
+          NativeFFmpegKitExtended.getLogsJson(
+            this.sessionId,
+            this.nextExpectedLogSequence,
+          ),
+        );
+        for (const entry of missing) {
+          const sequence = this.nextExpectedLogSequence;
+          const direct = this.pendingDirectLogEvents.get(sequence);
+          this.pendingDirectLogEvents.delete(sequence);
+          this.nextExpectedLogSequence += 1;
+          logsProcessed = Math.max(
+            logsProcessed,
+            this.nextExpectedLogSequence,
+          );
+          invokeCallback(() => callback(direct ?? entry, self));
+        }
+      }
+      drainDirectLogEvents(callback, invokeCallback);
+      // A retained-history gap that cannot be recovered at terminal state is
+      // intentionally dropped; exposing later direct events out of order is
+      // less correct than ending with the last contiguous prefix.
+      this.pendingDirectLogEvents.clear();
+    };
     if (directLogEvents) {
       logEventSubscription = subscribeLogEvents(this.sessionId, event => {
         if (event.sessionId !== this.sessionId) return;
@@ -400,13 +461,7 @@ export abstract class Session {
           level: event.level,
           message: event.message,
         });
-        for (;;) {
-          const next = this.pendingDirectLogEvents.get(this.nextExpectedLogSequence);
-          if (!next) break;
-          this.pendingDirectLogEvents.delete(this.nextExpectedLogSequence);
-          this.nextExpectedLogSequence += 1;
-          invokeCallback(() => callback(next, self));
-        }
+        drainDirectLogEvents(callback, invokeCallback);
       });
     }
 
@@ -502,7 +557,9 @@ export abstract class Session {
             try {
               this.refreshCallbackDemand();
               const logCallback = options.getLogCallback();
-              if (logCallback && !directLogEvents) {
+              if (directLogEvents) {
+                reconcileDirectLogEvents();
+              } else if (logCallback) {
                 // Once terminal state is observed, all final callback-buffer
                 // reads and completion delivery are covered by ownership cleanup.
                 const finalLogs = parseJsonArray<Log>(

@@ -22,6 +22,8 @@ let sessionState = 2;
 let stateError;
 let startError;
 let logReads = 0;
+let logCountReads = 0;
+let sessionLogCount = 0;
 let statisticsReads = 0;
 const bridgeInstalls = {completion: 0, log: 0, statistics: 0};
 const bridgeUninstalls = {completion: 0, log: 0, statistics: 0};
@@ -46,6 +48,10 @@ setBackend({
     if (preTerminalLogsError && logReads === 1) throw preTerminalLogsError;
     if (finalLogsError && logReads === 2) throw finalLogsError;
     return JSON.stringify(logReads === 1 && fromIndex === 0 ? logEntries : finalLogEntries);
+  },
+  getLogsCount: () => {
+    logCountReads += 1;
+    return sessionLogCount;
   },
   getStatisticsJson: (_sessionId, fromIndex) => {
     statisticsReads += 1;
@@ -111,6 +117,8 @@ beforeEach(() => {
   stateError = undefined;
   startError = undefined;
   logReads = 0;
+  logCountReads = 0;
+  sessionLogCount = 0;
   statisticsReads = 0;
   bridgeInstalls.completion = 0;
   bridgeInstalls.log = 0;
@@ -464,6 +472,7 @@ test('removing the last session log sink releases optional demand immediately', 
 test('direct v2 logs preserve sequence order without live history reads', async () => {
   useDirectLogBridge = true;
   sessionState = 1;
+  sessionLogCount = 2;
   directLogEvents = [
     {sessionId: 28, sequence: 1, level: 33, message: 'second'},
     {sessionId: 28, sequence: 0, level: 32, message: 'first'},
@@ -486,8 +495,63 @@ test('direct v2 logs preserve sequence order without live history reads', async 
 
   sessionState = 2;
   await execution;
+  assert.equal(logCountReads, 1);
   assert.equal(bridgeUninstalls.log, 1);
   assert.deepEqual(releases, [28]);
+});
+
+test('terminal reconciliation recovers a direct-log gap with one bounded history read', async () => {
+  useDirectLogBridge = true;
+  sessionState = 1;
+  sessionLogCount = 3;
+  directLogEvents = [{sessionId: 30, sequence: 2, level: 34, message: 'third'}];
+  finalLogEntries = [
+    {sessionId: 30, level: 32, message: 'first'},
+    {sessionId: 30, level: 33, message: 'second'},
+    {sessionId: 30, level: 34, message: 'third'},
+  ];
+  logEntries = finalLogEntries;
+  registry.retain(19456, 30);
+  const received = [];
+  const execution = new FFmpegSession(30, '-version').executeAsync({
+    logCallback: log => received.push(log),
+    pollIntervalMs: 10,
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
+  await execution;
+
+  assert.deepEqual(received, [
+    {sessionId: 30, level: 32, message: 'first'},
+    {sessionId: 30, level: 33, message: 'second'},
+    {sessionId: 30, level: 34, message: 'third'},
+  ]);
+  assert.equal(logCountReads, 1);
+  assert.equal(logReads, 1);
+  assert.deepEqual(releases, [30]);
+});
+
+test('terminal reconciliation preserves a getter error as the first failure', async () => {
+  useDirectLogBridge = true;
+  sessionState = 1;
+  sessionLogCount = 1;
+  const reconciliationError = new Error('terminal log count failed');
+  const originalGetLogsCount = getBackend().getLogsCount;
+  getBackend().getLogsCount = () => {
+    throw reconciliationError;
+  };
+  registry.retain(19968, 31);
+  const execution = new FFmpegSession(31, '-version').executeAsync({
+    logCallback: () => {},
+    pollIntervalMs: 10,
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
+  await assert.rejects(execution, error => error === reconciliationError);
+  getBackend().getLogsCount = originalGetLogsCount;
+  assert.deepEqual(releases, [31]);
 });
 
 test('direct v2 callback failure keeps the existing first-error policy', async () => {

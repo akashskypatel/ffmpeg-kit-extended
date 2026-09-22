@@ -65,6 +65,8 @@ export interface FFmpegKitBackend {
   /** Structured v2 log events; buffered polling is the compatibility fallback. */
   onLogEvent?(handler: LogEventHandler): LogEventSubscription;
   isDirectLogBridgeActive?(): boolean;
+  /** Reads the retained native log count once for terminal reconciliation. */
+  getLogsCount?(sessionId: number): number;
   installStatisticsBridge?(): void;
   uninstallStatisticsBridge?(): void;
   cancelSession(sessionId: number): void;

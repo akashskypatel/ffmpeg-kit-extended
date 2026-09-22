@@ -88,6 +88,9 @@ struct FFmpegKitExtended {
   REACT_SYNC_METHOD(getSessionJson)
   std::string getSessionJson(double sessionId) noexcept;
 
+  REACT_SYNC_METHOD(getLogsCount)
+  double getLogsCount(double sessionId) noexcept;
+
   REACT_METHOD(releaseSessionHandle)
   void releaseSessionHandle(double sessionId) noexcept;
 

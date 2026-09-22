@@ -413,6 +413,12 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     return this.withSession(sessionId, pointer => JSON.stringify(this.snapshot(pointer)));
   }
 
+  getLogsCount(sessionId: number): number {
+    return this.withSession(sessionId, pointer =>
+      numberResult(this.call('ffmpeg_kit_session_get_logs_count')(pointer)),
+    );
+  }
+
   releaseSessionHandle(sessionId: number): void {
     const pointer = this.sessions.get(sessionId);
     if (!pointer) return;
