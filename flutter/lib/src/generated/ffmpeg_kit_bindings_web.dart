@@ -1384,18 +1384,12 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param log_cb the log callback
   /// @param user_data the user data
-  /// @note The caller owns user_data and must keep it valid until all callbacks
-  /// for this session have completed. The callback does not transfer ownership.
+  /// The callback receives the stable session ID, per-session sequence, exact
+  /// log level, and an owned message payload. The callback must release each
+  /// non-null payload exactly once with ffmpeg_kit_free(). Native releases a
+  /// payload when dispatch is rejected before callback invocation.
   external void _ffmpeg_kit_config_enable_log_callback(
     FFmpegKitGlobalLogCallback log_cb,
-    Pointer<Void> user_data,
-  );
-
-  /// Enables the owned v2 global log callback.
-  /// The callback must call ffmpeg_kit_free() exactly once for every non-null
-  /// payload. A null native message is delivered as nullptr.
-  external void _ffmpeg_kit_config_enable_log_callback_v2(
-    FFmpegKitGlobalLogCallbackV2 log_cb,
     Pointer<Void> user_data,
   );
 
@@ -4073,8 +4067,10 @@ void ffmpeg_kit_clear_sessions() {
 ///
 /// @param log_cb the log callback
 /// @param user_data the user data
-/// @note The caller owns user_data and must keep it valid until all callbacks
-/// for this session have completed. The callback does not transfer ownership.
+/// The callback receives the stable session ID, per-session sequence, exact
+/// log level, and an owned message payload. The callback must release each
+/// non-null payload exactly once with ffmpeg_kit_free(). Native releases a
+/// payload when dispatch is rejected before callback invocation.
 void ffmpeg_kit_config_enable_log_callback(
   DartFFmpegKitGlobalLogCallback log_cb,
   Pointer<Void> user_data,
@@ -4082,21 +4078,6 @@ void ffmpeg_kit_config_enable_log_callback(
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_log_callback(
         log_cb as Pointer<NativeFunction<FFmpegKitGlobalLogCallbackFunction>>,
-        user_data,
-      );
-  return result;
-}
-
-/// Enables the owned v2 global log callback.
-/// The callback must call ffmpeg_kit_free() exactly once for every non-null
-/// payload. A null native message is delivered as nullptr.
-void ffmpeg_kit_config_enable_log_callback_v2(
-  DartFFmpegKitGlobalLogCallbackV2 log_cb,
-  Pointer<Void> user_data,
-) {
-  final result = GeneratedBindings.instance
-      ._ffmpeg_kit_config_enable_log_callback_v2(
-        log_cb as Pointer<NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>,
         user_data,
       );
   return result;
@@ -5132,6 +5113,11 @@ typedef DartChapterHandle = Pointer<Void>;
 
 /// Global callback types. These callbacks identify sessions with their stable
 /// session IDs instead of passing IDs through opaque pointer values.
+/// /
+/// /**
+/// Owned global log callback. Native allocates a payload for non-null
+/// messages and transfers ownership after accepted invocation. The callback
+/// must release each non-null payload exactly once with ffmpeg_kit_free().
 typedef FFmpegKitGlobalLogCallback =
     Pointer<NativeFunction<FFmpegKitGlobalLogCallbackFunction>>;
 typedef DartFFmpegKitGlobalLogCallback =
@@ -5139,32 +5125,12 @@ typedef DartFFmpegKitGlobalLogCallback =
 typedef FFmpegKitGlobalLogCallbackFunction =
     void Function(
       JSBigInt session_id,
-      Pointer<Char> log,
-      Pointer<Void> user_data,
-    );
-typedef DartFFmpegKitGlobalLogCallbackFunction =
-    void Function(
-      BigInt session_id,
-      Pointer<Char> log,
-      Pointer<Void> user_data,
-    );
-
-/// Owned global log callback. Native allocates a payload for non-null
-/// messages and transfers ownership after accepted invocation. The callback
-/// must release the payload exactly once with ffmpeg_kit_free().
-typedef FFmpegKitGlobalLogCallbackV2 =
-    Pointer<NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>;
-typedef DartFFmpegKitGlobalLogCallbackV2 =
-    Pointer<NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>;
-typedef FFmpegKitGlobalLogCallbackV2Function =
-    void Function(
-      JSBigInt session_id,
       JSBigInt sequence,
       int level,
       Pointer<Char> owned_message,
       Pointer<Void> user_data,
     );
-typedef DartFFmpegKitGlobalLogCallbackV2Function =
+typedef DartFFmpegKitGlobalLogCallbackFunction =
     void Function(
       BigInt session_id,
       BigInt sequence,

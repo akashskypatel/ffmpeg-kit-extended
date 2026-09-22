@@ -202,24 +202,15 @@ external void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 ///
 /// @param log_cb the log callback
 /// @param user_data the user data
-/// @note The caller owns user_data and must keep it valid until all callbacks
-/// for this session have completed. The callback does not transfer ownership.
+/// The callback receives the stable session ID, per-session sequence, exact
+/// log level, and an owned message payload. The callback must release each
+/// non-null payload exactly once with ffmpeg_kit_free(). Native releases a
+/// payload when dispatch is rejected before callback invocation.
 @ffi.Native<
   ffi.Void Function(FFmpegKitGlobalLogCallback, ffi.Pointer<ffi.Void>)
 >()
 external void ffmpeg_kit_config_enable_log_callback(
   FFmpegKitGlobalLogCallback log_cb,
-  ffi.Pointer<ffi.Void> user_data,
-);
-
-/// Enables the owned v2 global log callback.
-/// The callback must call ffmpeg_kit_free() exactly once for every non-null
-/// payload. A null native message is delivered as nullptr.
-@ffi.Native<
-  ffi.Void Function(FFmpegKitGlobalLogCallbackV2, ffi.Pointer<ffi.Void>)
->()
-external void ffmpeg_kit_config_enable_log_callback_v2(
-  FFmpegKitGlobalLogCallbackV2 log_cb,
   ffi.Pointer<ffi.Void> user_data,
 );
 
@@ -2387,27 +2378,14 @@ typedef DartFFmpegKitGlobalCompleteCallbackFunction =
 
 /// Global callback types. These callbacks identify sessions with their stable
 /// session IDs instead of passing IDs through opaque pointer values.
+/// /
+/// /**
+/// Owned global log callback. Native allocates a payload for non-null
+/// messages and transfers ownership after accepted invocation. The callback
+/// must release each non-null payload exactly once with ffmpeg_kit_free().
 typedef FFmpegKitGlobalLogCallback =
     ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalLogCallbackFunction>>;
 typedef FFmpegKitGlobalLogCallbackFunction =
-    ffi.Void Function(
-      ffi.Int64 session_id,
-      ffi.Pointer<ffi.Char> log,
-      ffi.Pointer<ffi.Void> user_data,
-    );
-typedef DartFFmpegKitGlobalLogCallbackFunction =
-    void Function(
-      int session_id,
-      ffi.Pointer<ffi.Char> log,
-      ffi.Pointer<ffi.Void> user_data,
-    );
-
-/// Owned global log callback. Native allocates a payload for non-null
-/// messages and transfers ownership after accepted invocation. The callback
-/// must release the payload exactly once with ffmpeg_kit_free().
-typedef FFmpegKitGlobalLogCallbackV2 =
-    ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>;
-typedef FFmpegKitGlobalLogCallbackV2Function =
     ffi.Void Function(
       ffi.Int64 session_id,
       ffi.Int64 sequence,
@@ -2415,7 +2393,7 @@ typedef FFmpegKitGlobalLogCallbackV2Function =
       ffi.Pointer<ffi.Char> owned_message,
       ffi.Pointer<ffi.Void> user_data,
     );
-typedef DartFFmpegKitGlobalLogCallbackV2Function =
+typedef DartFFmpegKitGlobalLogCallbackFunction =
     void Function(
       int session_id,
       int sequence,
@@ -2780,6 +2758,8 @@ typedef int_least8_t = ffi.SignedChar;
 typedef Dartint_least8_t = int;
 typedef intmax_t = ffi.LongLong;
 typedef Dartintmax_t = int;
+typedef max_align_t = ffi.Double;
+typedef Dartmax_align_t = double;
 typedef ptrdiff_t = ffi.LongLong;
 typedef Dartptrdiff_t = int;
 typedef uint_fast16_t = ffi.UnsignedInt;

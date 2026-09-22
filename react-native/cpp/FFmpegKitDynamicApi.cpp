@@ -510,10 +510,10 @@ void cancelSession(double sessionId) {
   resolve<Fn>("ffmpeg_kit_cancel_session")(toId(sessionId));
 }
 
-void enableLogCallbackV2(LogCallbackV2 callback, void *userData) {
+void enableLogCallback(LogCallback callback, void *userData) {
   ensureInitialized();
-  using Fn = void (*)(LogCallbackV2, void *);
-  resolve<Fn>("ffmpeg_kit_config_enable_log_callback_v2")(callback, userData);
+  using Fn = void (*)(LogCallback, void *);
+  resolve<Fn>("ffmpeg_kit_config_enable_log_callback")(callback, userData);
 }
 
 void releaseOwnedLogMessage(char *message) {

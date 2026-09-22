@@ -410,7 +410,7 @@ class CallbackManager {
     sessionForId(sessionId)?.onLogsDispatched([Log(sessionId, level, message)]);
   }
 
-  /// Dispatches one already-decoded v2 log event with sequence authority.
+  /// Dispatches one already-decoded structured log event with sequence authority.
   void dispatchDirectLog({
     required int sessionId,
     required int sequence,

@@ -57,9 +57,7 @@ final class WasmLoader {
       script.addEventListener(
         'error',
         ((web.Event _) => loaded.completeError(
-          StateError(
-            'Unable to load $selectedAssetRoot/ffmpegkit_bridge.mjs',
-          ),
+          StateError('Unable to load $selectedAssetRoot/ffmpegkit_bridge.mjs'),
         )).toJS,
         web.AddEventListenerOptions(once: true),
       );

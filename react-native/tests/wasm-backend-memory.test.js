@@ -63,7 +63,7 @@ test('Web backend registration selects the browser backend without native import
   assert.strictEqual(getBackend(), webBackend);
 });
 
-test('Web backend emits the frozen v2 log shape and frees owned memory once', () => {
+test('Web backend emits the frozen structured log shape and frees owned memory once', () => {
   const events = [];
   const freeCalls = [];
   const removedPointers = [];
@@ -77,7 +77,7 @@ test('Web backend emits the frozen v2 log shape and frees owned memory once', ()
       return 55;
     },
     removeFunction: pointer => removedPointers.push(pointer),
-    ffmpeg_kit_config_enable_log_callback_v2: (pointer, userData) => {
+    ffmpeg_kit_config_enable_log_callback: (pointer, userData) => {
       registrations.push([pointer, userData]);
     },
     UTF8ToString: pointer => {
@@ -112,10 +112,14 @@ test('Web backend emits the frozen v2 log shape and frees owned memory once', ()
   assert.deepEqual(removedPointers, [55]);
 });
 
-test('Web backend keeps the compatibility path when the v2 export is unavailable', () => {
-  const backend = new WebFFmpegKitBackend(undefined, {});
-  backend.installLogBridge();
-  assert.equal(backend.isDirectLogBridgeActive(), false);
+test('Web backend rejects a missing structured log export without fallback', () => {
+  const backend = new WebFFmpegKitBackend(undefined, {
+    addFunction: () => 55,
+  });
+  assert.throws(
+    () => backend.installLogBridge(),
+    /ffmpeg_kit_config_enable_log_callback/,
+  );
   backend.uninstallLogBridge();
 });
 

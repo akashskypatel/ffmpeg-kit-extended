@@ -144,7 +144,7 @@ FFmpegKitExtended::~FFmpegKitExtended() noexcept {
   if (!state) return;
 
   try {
-    api::enableLogCallbackV2(nullptr, nullptr);
+    api::enableLogCallback(nullptr, nullptr);
   } catch (...) {
     // Destruction cannot report an error. Retain the callback state even when
     // the runtime DLL is already unavailable so an in-flight callback cannot
@@ -216,7 +216,7 @@ void FFmpegKitExtended::installLogBridge() noexcept {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->emit = onLogEvent;
     }
-    api::enableLogCallbackV2(&handleLogEvent, state.get());
+    api::enableLogCallback(&handleLogEvent, state.get());
     activeLogBridge_ = std::move(state);
   });
 }
@@ -226,7 +226,7 @@ void FFmpegKitExtended::uninstallLogBridge() noexcept {
     auto state = std::move(activeLogBridge_);
     if (!state) return;
 
-    api::enableLogCallbackV2(nullptr, nullptr);
+    api::enableLogCallback(nullptr, nullptr);
     {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->emit = {};

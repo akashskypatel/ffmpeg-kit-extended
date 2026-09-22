@@ -624,29 +624,33 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   /**
-   * Installs the same owned v2 Wasm ABI used by the native bridge. If the
-   * additive export or Emscripten function table is unavailable, monitoring
-   * deliberately remains on the existing buffered compatibility path.
+   * Installs the same owned structured Wasm ABI used by the native bridge.
    */
   installLogBridge(): void {
     if (this.directLogBridgeInstalled || this.logCallbackPointer !== undefined) return;
     const module = this.module();
     const addFunction = module.addFunction;
-    const enable = module.ffmpeg_kit_config_enable_log_callback_v2 ??
-      module._ffmpeg_kit_config_enable_log_callback_v2;
-    if (typeof addFunction !== 'function' || typeof enable !== 'function') return;
+    if (typeof addFunction !== 'function') {
+      throw new Error('Wasm function table is unavailable for the structured log callback.');
+    }
+    const enable = module.ffmpeg_kit_config_enable_log_callback ??
+      module._ffmpeg_kit_config_enable_log_callback;
+    if (typeof enable !== 'function') {
+      throw new Error('Wasm export is unavailable: ffmpeg_kit_config_enable_log_callback');
+    }
 
     const pointer = addFunction(this.handleWasmLogEvent, 'vjjipp');
     try {
       (enable as WasmFunction)(pointer, 0);
       this.logCallbackPointer = pointer;
       this.directLogBridgeInstalled = true;
-    } catch {
+    } catch (error) {
       try {
         module.removeFunction?.(pointer);
       } catch {
-        // Preserve the explicit v1 fallback when function-table cleanup fails.
+        // Preserve the registration error when function-table cleanup fails.
       }
+      throw error;
     }
   }
 
@@ -658,9 +662,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
     let primaryError: unknown;
     try {
-      const disable = this.module().ffmpeg_kit_config_enable_log_callback_v2 ??
-        this.module()._ffmpeg_kit_config_enable_log_callback_v2;
-      if (typeof disable === 'function') (disable as WasmFunction)(0, 0);
+      this.call('ffmpeg_kit_config_enable_log_callback')(0, 0);
     } catch (error) {
       primaryError = error;
     }

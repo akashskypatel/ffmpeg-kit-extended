@@ -12,6 +12,10 @@ headers:
 
 compiler-opts:
   - '-I../libs/libffmpegkit/FFmpegKit/src'
+  # Keep the installed MinGW clang builtin and runtime headers visible to
+  # libclang when ffigen runs on Windows.
+  - '-isystem'
+  - 'C:\msys64\mingw64\lib\clang\22\include'
   # Set the macro to empty so Clang ignores the __declspec parts
   - '-DFFMPEG_KIT_C_EXPORT=' 
   # Tell Clang NOT to error out on macro redefinitions

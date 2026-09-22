@@ -141,9 +141,9 @@ abstract class Session {
   /// Sequence of the next native log event that has not been delivered.
   ///
   /// Native insertion order, rather than callback arrival order, is the
-  /// authority for direct v2 log delivery. The legacy history cursor above
-  /// remains for ABI-v1 reconciliation and advances with this sequence when a
-  /// direct event is accepted.
+  /// authority for structured log delivery. The history cursor above remains
+  /// for bounded reconciliation and advances with this sequence when a direct
+  /// event is accepted.
   int nextExpectedLogSequence = 0;
 
   // ---- Cancellation -------------------------------------------------------
@@ -875,7 +875,7 @@ abstract class Session {
     onLogsDispatched(List<Log>.unmodifiable(batch));
   }
 
-  /// Dispatches one v2 log event in native insertion order.
+  /// Dispatches one structured log event in native insertion order.
   ///
   /// Contiguous events never read session history. A gap first reconciles the
   /// buffered history; the direct event is then delivered only if that

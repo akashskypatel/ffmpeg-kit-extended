@@ -6,11 +6,11 @@
 
 namespace ffmpegkit::bridge {
 
-using LogCallbackV2 = void (*)(std::int64_t sessionId,
-                                std::int64_t sequence,
-                                std::int32_t level,
-                                char *ownedMessage,
-                                void *userData);
+using LogCallback = void (*)(std::int64_t sessionId,
+                             std::int64_t sequence,
+                             std::int32_t level,
+                             char *ownedMessage,
+                             void *userData);
 
 void initialize();
 std::string getBuildStamp();
@@ -25,9 +25,9 @@ double createMediaInformationSessionFromPath(const std::string &path);
 void executeSessionAsync(double sessionId, double timeoutMs);
 void cancelSession(double sessionId);
 
-/** Installs the frozen owned v2 callback at the native module boundary. */
-void enableLogCallbackV2(LogCallbackV2 callback, void *userData);
-/** Frees one owned v2 callback message exactly once. */
+/** Installs the frozen structured callback at the native module boundary. */
+void enableLogCallback(LogCallback callback, void *userData);
+/** Frees one owned callback message exactly once. */
 void releaseOwnedLogMessage(char *message);
 
 std::string getSessionJson(double sessionId);

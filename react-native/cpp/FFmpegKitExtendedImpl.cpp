@@ -84,7 +84,7 @@ FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl() {
   if (state == nullptr) return;
 
   try {
-    api::enableLogCallbackV2(nullptr, nullptr);
+    api::enableLogCallback(nullptr, nullptr);
   } catch (...) {
     // Destruction must not throw through the TurboModule lifetime boundary.
   }
@@ -126,7 +126,7 @@ void FFmpegKitExtendedImpl::installLogBridge(jsi::Runtime &) {
   }
 
   try {
-    api::enableLogCallbackV2(&handleLogEvent, state.get());
+    api::enableLogCallback(&handleLogEvent, state.get());
     activeLogBridge_ = std::move(state);
   } catch (...) {
     retireLogBridge(state);
@@ -140,7 +140,7 @@ void FFmpegKitExtendedImpl::uninstallLogBridge(jsi::Runtime &) {
 
   retireLogBridge(state);
   try {
-    api::enableLogCallbackV2(nullptr, nullptr);
+    api::enableLogCallback(nullptr, nullptr);
   } catch (...) {
     throw;
   }

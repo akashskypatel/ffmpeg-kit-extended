@@ -57,7 +57,13 @@ typedef NativeStatisticsCallback =
       Pointer<Void> userData,
     );
 typedef NativeGlobalLogCallback =
-    Void Function(Int64 sessionId, Pointer<Char> log, Pointer<Void> userData);
+    Void Function(
+      Int64 sessionId,
+      Int64 sequence,
+      Int32 level,
+      Pointer<Char> ownedMessage,
+      Pointer<Void> userData,
+    );
 typedef NativeGlobalCompleteCallback =
     Void Function(Int64 sessionId, Pointer<Void> userData);
 typedef NativeGlobalStatisticsCallback =
@@ -2986,10 +2992,15 @@ void main() {
         // Setup Global Callbacks
         final logCb = NativeCallable<NativeGlobalLogCallback>.listener((
           int sessionId,
-          Pointer<Char> log,
+          int sequence,
+          int level,
+          Pointer<Char> ownedMessage,
           Pointer<Void> userData,
         ) {
           capturer.logCalled = true;
+          if (ownedMessage.address != 0) {
+            ffmpeg.ffmpeg_kit_free(ownedMessage.cast());
+          }
         });
         final statsCb =
             NativeCallable<NativeGlobalStatisticsCallback>.listener((
@@ -3473,22 +3484,25 @@ void main() {
       },
     );
 
-    test('enableRedirection delivers direct log callbacks to a consumer', () async {
-      var logCount = 0;
-      FFmpegSession? session;
+    test(
+      'enableRedirection delivers direct log callbacks to a consumer',
+      () async {
+        var logCount = 0;
+        FFmpegSession? session;
 
-      FFmpegKitConfig.enableRedirection();
-      try {
-        session = await FFmpegSession.executeCommandAsync(
-          '-hide_banner -loglevel info -f lavfi -i testsrc=duration=1:size=16x16:rate=5 -f null -',
-          logCallback: (_) => logCount++,
-        ).timeout(timeout);
+        FFmpegKitConfig.enableRedirection();
+        try {
+          session = await FFmpegSession.executeCommandAsync(
+            '-hide_banner -loglevel info -f lavfi -i testsrc=duration=1:size=16x16:rate=5 -f null -',
+            logCallback: (_) => logCount++,
+          ).timeout(timeout);
 
-        expect(logCount, greaterThan(0));
-      } finally {
-        session?.dispose();
-      }
-    });
+          expect(logCount, greaterThan(0));
+        } finally {
+          session?.dispose();
+        }
+      },
+    );
 
     test(
       'FFmpeg executeAsync settles when the local callback throws',

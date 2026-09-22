@@ -55,7 +55,7 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       _addStatus('FFMPEG_OK');
       if (logCount == 0 || firstLogLevel < 0 || firstLogMessage.isEmpty) {
         throw StateError(
-          'No non-empty v2-compatible log callback was observed '
+          'No non-empty structured log callback was observed '
           '(count=$logCount, level=$firstLogLevel).',
         );
       }

@@ -95,7 +95,7 @@ test('Windows keeps consumer build-time Windows Codegen configuration', () => {
   assert.equal(windows.namespace, 'FFmpegKitExtendedCodegen');
 });
 
-test('Windows native module exposes the structured v2 log event bridge', () => {
+test('Windows native module exposes the structured log event bridge', () => {
   const header = read('windows/FFmpegKitExtended/FFmpegKitExtended.h');
   const implementation = read('windows/FFmpegKitExtended/FFmpegKitExtended.cpp');
 
@@ -108,14 +108,14 @@ test('Windows native module exposes the structured v2 log event bridge', () => {
   assert.match(header, /REACT_METHOD\(installLogBridge\)/);
   assert.match(header, /REACT_METHOD\(uninstallLogBridge\)/);
   assert.match(implementation, /double FFmpegKitExtended::getLogsCount\(/);
-  assert.match(implementation, /api::enableLogCallbackV2\(&handleLogEvent, state\.get\(\)\)/);
-  assert.match(implementation, /api::enableLogCallbackV2\(nullptr, nullptr\)/);
+  assert.match(implementation, /api::enableLogCallback\(&handleLogEvent, state\.get\(\)\)/);
+  assert.match(implementation, /api::enableLogCallback\(nullptr, nullptr\)/);
   assert.match(implementation, /class OwnedLogMessage/);
   assert.match(implementation, /api::releaseOwnedLogMessage\(value\)/);
   assert.match(implementation, /std::move\(message\)/);
 });
 
-test('v2 log bridge keeps native and Web event ownership explicit', () => {
+test('structured log bridge keeps native and Web event ownership explicit', () => {
   const nativeSpec = read('src/NativeFFmpegKitExtended.ts');
   const nativeApi = read('cpp/FFmpegKitDynamicApi.h');
   const nativeApiImplementation = read('cpp/FFmpegKitDynamicApi.cpp');

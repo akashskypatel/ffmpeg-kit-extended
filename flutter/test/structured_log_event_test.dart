@@ -37,7 +37,7 @@ void main() {
 
   tearDown(manager.ffmpegSessions.clear);
 
-  group('v2 sequence-aware log delivery', () {
+  group('structured sequence-aware log delivery', () {
     test('delivers a contiguous event without reading session history', () {
       final session = _RecordingFFmpegSession(1);
       manager.registerFFmpegSession(session);

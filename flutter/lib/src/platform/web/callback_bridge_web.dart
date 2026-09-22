@@ -12,21 +12,14 @@ void _onFFmpegComplete(JSBigInt sessionId, int userData) {
   });
 }
 
-void _onFFmpegLog(JSBigInt sessionId, int logPointer, int userData) {
-  if (logPointer == 0) return;
-  _dispatch('FFmpeg log', () {
-    CallbackManager().dispatchPendingLogs(sessionId.toDart.toInt());
-  });
-}
-
-void _onFFmpegLogV2(
+void _onFFmpegLog(
   JSBigInt sessionId,
   JSBigInt sequence,
   int level,
   bindings.Pointer<bindings.Char> ownedMessage,
   bindings.Pointer<bindings.Void> userData,
 ) {
-  _dispatch('FFmpeg v2 log', () {
+  _dispatch('FFmpeg structured log', () {
     consumeOwnedLogEvent<bindings.Pointer<bindings.Char>>(
       payload: ownedMessage,
       isNull: ownedMessage.address == 0,
@@ -116,14 +109,10 @@ final class WebCallbackBridge {
   bindings.DartFFmpegKitGlobalCompleteCallback? _ffmpegComplete;
   bindings.DartFFprobeKitGlobalCompleteCallback? _ffprobeComplete;
   bindings.DartFFmpegKitGlobalLogCallback? _log;
-  bindings.DartFFmpegKitGlobalLogCallbackV2? _logV2;
   bindings.DartFFmpegKitGlobalStatisticsCallback? _statistics;
   bindings.DartFFplayKitGlobalCompleteCallback? _ffplayComplete;
   bindings.DartMediaInformationSessionGlobalCompleteCallback?
   _mediaInformationComplete;
-
-  bool _v2LogUnavailable = false;
-  bool _v2LogInstalled = false;
 
   bindings.DartFFmpegKitGlobalCompleteCallback get ffmpegComplete {
     _checkActive();
@@ -150,16 +139,6 @@ final class WebCallbackBridge {
     return _log ??= bindings
         .addFunction<bindings.DartFFmpegKitGlobalLogCallbackFunction>(
           _onFFmpegLog.toJS,
-          'vjpp',
-        )
-        .cast();
-  }
-
-  bindings.DartFFmpegKitGlobalLogCallbackV2 get logV2 {
-    _checkActive();
-    return _logV2 ??= bindings
-        .addFunction<bindings.DartFFmpegKitGlobalLogCallbackV2Function>(
-          _onFFmpegLogV2.toJS,
           'vjjipp',
         )
         .cast();
@@ -195,51 +174,17 @@ final class WebCallbackBridge {
         .cast();
   }
 
-  /// Installs v2 direct log delivery and falls back to v1 polling when the
-  /// loaded Wasm runtime does not expose the additive symbol.
+  /// Installs the pinned structured global log callback.
   void configureLogCallback() {
-    if (!_v2LogUnavailable) {
-      try {
-        bindings.ffmpeg_kit_config_enable_log_callback_v2(
-          logV2,
-          nullPointer,
-        );
-        _v2LogInstalled = true;
-        return;
-      } catch (error, stackTrace) {
-        _v2LogUnavailable = true;
-        developer.log(
-          'Web v2 log callback unavailable; falling back to v1 polling',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
-    }
     bindings.ffmpeg_kit_config_enable_log_callback(log, nullPointer);
-    _v2LogInstalled = false;
   }
 
-  /// Removes whichever log ABI was selected by [configureLogCallback].
+  /// Removes the structured global log callback.
   void disableLogCallback() {
-    if (_v2LogInstalled) {
-      try {
-        bindings.ffmpeg_kit_config_enable_log_callback_v2(
-          nullPointer.cast(),
-          nullPointer,
-        );
-      } catch (error, stackTrace) {
-        developer.log(
-          'Web v2 log callback uninstall failed',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
-    }
     bindings.ffmpeg_kit_config_enable_log_callback(
       nullPointer.cast(),
       nullPointer,
     );
-    _v2LogInstalled = false;
   }
 
   void _checkActive() {
