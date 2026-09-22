@@ -39,10 +39,10 @@
 | **FFK23-N6** | Run native/Wasm/sanitizer/build gates and freeze native handoff | **Complete with documented residual diagnostics — `196567dae` pushed to origin/dev; TSAN/UBSAN findings are not goal blockers** |
 | **R23-G60** | Demand-driven callback activation | **Complete — `e19baa3` pushed to origin/dev-wasm; local Flutter/RN/browser gates passed; native handoff `196567dae`** |
 | **R23-G61** | Flutter v2 direct log path | **Blocked after implementation — `740033d` pushed to `origin/dev-wasm`; exact custom Web/Wasm runtime verification is blocked by the Flutter 3.47 DataAssets limitation (`buildDataAssets: false`), with no workaround added** |
-| **R23-G62** | React Native v2 direct log path | **Complete — `727d732` pushed to `origin/dev-wasm`; local native/Web gates passed; packed-Web fixture remains blocked by Windows temp-path access** |
+| **R23-G62** | React Native v2 direct log path | **Complete — `727d732` pushed to `origin/dev-wasm`; local native/Web gates passed; the historical packed-Web temp-path failure was cleared by the isolated-cache rerun recorded under G63** |
 | **R23-G63** | Completion/final-log exact-once semantics | **Complete — `9e5d05a45ff006dae54b67454fb27347e8cdf0c0` pushed to `origin/dev-wasm`** |
 | **R23-G64** | Redirection authority | **Complete — `fd23bff4898914e7bc382258d7522da52eb0b8b4` pushed to `origin/dev-wasm`** |
-| **R23-G65** | Docs/compatibility/benchmark report | **Pending — ordered after R23-G64** |
+| **R23-G65** | Docs/compatibility/benchmark report | **Complete — `dfb0b1e` pushed to `origin/dev-wasm`; custom Flutter v2 browser evidence remains blocked by the documented DataAssets capability** |
 | **R23-G66** | Cross-platform exact-SHA closeout and source snapshot | **Pending — ordered after R23-G65** |
 | **G21** | Published runtime contract / official-runtime integrity | **Deferred / unchanged** |
 
@@ -113,6 +113,20 @@
 - Semantics kept distinct: `disableRedirection()` controls native capture/forwarding; removing callbacks or listeners controls wrapper consumer demand. Neither operation is treated as the other.
 - Files changed: `flutter/test/api_test.dart` and `react-native/tests/wasm-session-ownership.test.js`; no SDK/toolchain or product workaround was added.
 - Tracker transition: complete after `fd23bff4898914e7bc382258d7522da52eb0b8b4` (`test(review23): prove redirection authority`) was pushed to `origin/dev-wasm`.
+
+### R23-G65 — Complete — 2026-09-22
+
+- Finding owned: the ABI-v2 callback transport, compatibility fallback, redirection authority, and local browser-validation boundary were implemented but were not described consistently across the Flutter and React Native API/readme/test documentation.
+- Contract recorded: ABI-v2 direct log events carry session ID, native sequence, level, and copied message; steady-state live delivery does not poll complete history; native history remains available for public getters and bounded terminal reconciliation; callback activation is demand-driven; completion is independent of optional log/statistics consumers; `disableRedirection()` remains authoritative; owned messages are copied and released internally; custom Flutter Web/Wasm runtime selection requires Dart DataAssets; `ffigen_js: ^0.0.16-pre` remains intentional.
+- Flutter documentation changed: `flutter/README.md`, `flutter/doc/architecture.md`, `flutter/doc/guides/callbacks.md`, `flutter/doc/api/sessions.md`, `flutter/doc/guides/session-queue-management.md`, `flutter/CHANGELOG.md`, and public Dartdocs in `flutter/lib/src/ffmpeg_kit_config.dart`, `flutter/lib/src/ffmpeg_kit_extended.dart`, and `flutter/lib/src/callback_manager.dart`.
+- React Native documentation changed: `react-native/README.md`, `react-native/TEST.md`, `react-native/CHANGELOG.md`, and public bridge/session/backend JSDoc in `react-native/src/NativeFFmpegKitExtended.ts`, `react-native/src/ffmpeg-kit-config.ts`, `react-native/src/platform/backend.ts`, and `react-native/src/session.ts`.
+- Performance/compatibility artifact: [Review 23 performance and compatibility report](./review23-performance-report.md). It records A/B/C per Flutter native, Flutter Web, React Native native, and React Native Web, including direct/history/count counters, delivered/duplicate/missing outcomes, ownership instrumentation boundaries, observed gate wall times, native sanitizer cross-checks, and the explicit custom-v2 browser limitation.
+- Fresh Flutter evidence: elevated `flutter config --no-analytics` and `dart --disable-analytics --version` completed; elevated `dart --disable-analytics analyze` passed with `No issues found!`; focused v2/demand tests passed **16/16**; native redirection tests passed **3/3**. Combined focused test wall time was **12.14 s**. The stable Flutter 3.47 custom-runtime browser gate remains blocked by `buildDataAssets: false`; no SDK/toolchain or product workaround was added.
+- Fresh React Native evidence: `npm run check` passed **152/152** in **5.453 s** with only the pre-existing `no-useless-escape` warning; local headless `npm run test:web` passed initialization, FFmpeg, FFprobe, media-info, and FFplay controls in **6.438 s**. The generated `react-native/example/public` directory was removed after the gate; no test server/browser child remained.
+- Counter authority: Flutter v2 tests prove contiguous direct delivery with zero history reads, one bounded terminal reconciliation read, ordered gap recovery, duplicate suppression, and payload release. React Native fixtures prove zero optional A-path reads, zero steady-state indexed reads, one terminal count read, one bounded gap read, ordering, duplicate suppression, redirection authority, and completion independence. Wrapper fixtures do not invent allocator totals; native/Wasm ownership tests remain the alloc/free oracle.
+- Native ABI authority remained the exact frozen SHA `196567dae7fd1509c33bf32081f8237596ac8e5b`; no native source changed for G65. `ffigen_js: ^0.0.16-pre` and deferred G21 remain unchanged.
+- Coverage caveat: codebase-memory coverage was checked for the operated wrapper source paths; all returned `no_recorded_issue`, but Flutter files were `metadata_changed` and React Native backend paths were `not_tracked`, so direct source reads were authoritative.
+- Tracker transition: complete after `dfb0b1e` (`docs(review23): document callback compatibility and counters`) was pushed to `origin/dev-wasm`; G66 is the next and only open Review 23 goal.
 
 ## Review 22 Tracker — Flutter production-readiness residuals — 2026-09-21
 
