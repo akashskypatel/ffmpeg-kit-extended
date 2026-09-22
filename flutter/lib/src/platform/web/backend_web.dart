@@ -197,11 +197,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
-  void enableFFmpegLogCallback() =>
-      bindings.ffmpeg_kit_config_enable_log_callback(
-        webCallbackBridge.log,
-        webCallbackBridge.nullPointer,
-      );
+  void enableFFmpegLogCallback() => webCallbackBridge.configureLogCallback();
 
   @override
   void configureFFprobeCallbacks() =>
@@ -218,11 +214,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       );
 
   @override
-  void enableFFprobeLogCallback() =>
-      bindings.ffmpeg_kit_config_enable_log_callback(
-        webCallbackBridge.log,
-        webCallbackBridge.nullPointer,
-      );
+  void enableFFprobeLogCallback() => webCallbackBridge.configureLogCallback();
 
   @override
   void executeFFmpegSession(SessionHandle handle) {
@@ -815,7 +807,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   void clearSessions() => bindings.ffmpeg_kit_clear_sessions();
 
   @override
-  void configureLogCallback() => enableFFmpegLogCallback();
+  void configureLogCallback() => webCallbackBridge.configureLogCallback();
 
   @override
   void configureStatisticsCallback() =>
@@ -853,10 +845,7 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       );
 
   @override
-  void disableLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
-    webCallbackBridge.nullPointer.cast(),
-    webCallbackBridge.nullPointer,
-  );
+  void disableLogCallback() => webCallbackBridge.disableLogCallback();
 
   @override
   void disableStatisticsCallback() =>

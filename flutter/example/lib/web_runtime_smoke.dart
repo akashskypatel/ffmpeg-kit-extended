@@ -27,10 +27,19 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
   }
 
   Future<void> _runSmoke() async {
+    var logCount = 0;
+    var firstLogLevel = -1;
+    var firstLogMessage = '';
     try {
       await FFmpegKitExtended.initialize();
       await FFmpegKitExtended.initialize();
       _addStatus('INITIALIZED');
+
+      FFmpegKitConfig.enableLogCallback((log) {
+        logCount++;
+        firstLogLevel = log.level;
+        firstLogMessage = log.message;
+      });
 
       final ffmpegSession = await FFmpegKit.executeAsync(
         '-hide_banner -nostdin -f lavfi -i '
@@ -44,6 +53,13 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
         );
       }
       _addStatus('FFMPEG_OK');
+      if (logCount == 0 || firstLogLevel < 0 || firstLogMessage.isEmpty) {
+        throw StateError(
+          'No non-empty v2-compatible log callback was observed '
+          '(count=$logCount, level=$firstLogLevel).',
+        );
+      }
+      _addStatus('LOG_OK');
 
       final ffprobeSession = await FFprobeKit.executeAsync('-version');
       if (!ReturnCode.isSuccess(ffprobeSession.getReturnCode())) {
@@ -69,6 +85,12 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       _addStatus('PASS');
     } catch (error) {
       _addStatus('FAIL: $error');
+    } finally {
+      try {
+        FFmpegKitConfig.enableLogCallback(null);
+      } catch (_) {
+        // Initialization failures have no callback bridge to uninstall.
+      }
     }
   }
 

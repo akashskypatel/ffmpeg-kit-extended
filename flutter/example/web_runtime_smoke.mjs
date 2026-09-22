@@ -44,6 +44,7 @@ try {
   assert.match(status, /STARTING/);
   assert.match(status, /INITIALIZED/);
   assert.match(status, /FFMPEG_OK/);
+  assert.match(status, /LOG_OK/);
   assert.match(status, /FFPROBE_OK/);
   assert.match(status, /MEDIA_INFO_OK/);
   assert.match(status, /PASS/);

@@ -138,6 +138,14 @@ abstract class Session {
   /// and never deliver the same entry twice.
   int logsProcessed = 0;
 
+  /// Sequence of the next native log event that has not been delivered.
+  ///
+  /// Native insertion order, rather than callback arrival order, is the
+  /// authority for direct v2 log delivery. The legacy history cursor above
+  /// remains for ABI-v1 reconciliation and advances with this sequence when a
+  /// direct event is accepted.
+  int nextExpectedLogSequence = 0;
+
   // ---- Cancellation -------------------------------------------------------
 
   bool _isCancelled = false;
@@ -861,7 +869,48 @@ abstract class Session {
       batch.add(Log(sessionId, getLogLevelAt(i), getLogAt(i)));
     }
     logsProcessed = count;
+    if (nextExpectedLogSequence < count) {
+      nextExpectedLogSequence = count;
+    }
     onLogsDispatched(List<Log>.unmodifiable(batch));
+  }
+
+  /// Dispatches one v2 log event in native insertion order.
+  ///
+  /// Contiguous events never read session history. A gap first reconciles the
+  /// buffered history; the direct event is then delivered only if that
+  /// reconciliation did not already include it. Older or already reconciled
+  /// sequences are duplicates and are ignored.
+  void dispatchDirectLogEvent({
+    required int sequence,
+    required int level,
+    required String? message,
+  }) {
+    if (sequence < nextExpectedLogSequence) {
+      return;
+    }
+
+    if (sequence > nextExpectedLogSequence) {
+      dispatchPendingLogs();
+      if (sequence < nextExpectedLogSequence) {
+        return;
+      }
+      // A direct callback cannot make an unresolved gap safe to deliver. Keep
+      // the cursor unchanged so a later completion/history flush can reconcile
+      // the missing entries without exposing out-of-order logs.
+      if (sequence > nextExpectedLogSequence) {
+        return;
+      }
+    }
+
+    nextExpectedLogSequence = sequence + 1;
+    if (logsProcessed < nextExpectedLogSequence) {
+      logsProcessed = nextExpectedLogSequence;
+    }
+    if (message == null || message.isEmpty) {
+      return;
+    }
+    onLogsDispatched(<Log>[Log(sessionId, level, message)]);
   }
 
   /// Called after [dispatchPendingLogs] drains a batch from the native buffer.

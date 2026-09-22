@@ -160,8 +160,8 @@ external void ffmpeg_kit_config_enable_debug_log(ffi.Pointer<ffi.Void> session);
 ///
 /// @param complete_cb the FFmpeg session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFmpegKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -174,8 +174,8 @@ external void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
 ///
 /// @param complete_cb the FFplay session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFplayKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -188,8 +188,8 @@ external void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
 ///
 /// @param complete_cb the FFprobe session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFprobeKitGlobalCompleteCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -202,8 +202,8 @@ external void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 ///
 /// @param log_cb the log callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(FFmpegKitGlobalLogCallback, ffi.Pointer<ffi.Void>)
 >()
@@ -212,12 +212,23 @@ external void ffmpeg_kit_config_enable_log_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
+/// Enables the owned v2 global log callback.
+/// The callback must call ffmpeg_kit_free() exactly once for every non-null
+/// payload. A null native message is delivered as nullptr.
+@ffi.Native<
+  ffi.Void Function(FFmpegKitGlobalLogCallbackV2, ffi.Pointer<ffi.Void>)
+>()
+external void ffmpeg_kit_config_enable_log_callback_v2(
+  FFmpegKitGlobalLogCallbackV2 log_cb,
+  ffi.Pointer<ffi.Void> user_data,
+);
+
 /// Enables the media information session complete callback.
 ///
 /// @param complete_cb the media information session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   ffi.Void Function(
     MediaInformationSessionGlobalCompleteCallback,
@@ -527,8 +538,8 @@ external FFmpegSessionHandle ffmpeg_kit_execute(ffi.Pointer<ffi.Char> command);
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFmpeg session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   FFmpegSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -552,8 +563,8 @@ external FFmpegSessionHandle ffmpeg_kit_execute_async(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFmpeg session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   FFmpegSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -949,7 +960,7 @@ external int ffmpeg_kit_session_get_statistics_count(
 );
 
 /// Sets the complete callback, log callback, statistics callback, and user data
-/// for all FFmpeg sessions.
+/// for the specified FFmpeg session.
 ///
 /// @param complete_cb the callback to be called when the FFmpeg session is
 /// completed
@@ -973,7 +984,7 @@ external void ffmpeg_kit_set_callbacks(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback for all FFmpeg sessions.
+/// Sets the complete callback for the specified FFmpeg session.
 ///
 /// @param complete_cb the callback to be called when the FFmpeg session is
 /// completed
@@ -991,7 +1002,7 @@ external void ffmpeg_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the log callback for all FFmpeg sessions.
+/// Sets the log callback for the specified FFmpeg session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -1014,7 +1025,7 @@ external void ffmpeg_kit_set_log_callback(
 @ffi.Native<ffi.Void Function(ffi.Int64)>()
 external void ffmpeg_kit_set_session_history_size(int size);
 
-/// Sets the statistics callback for all FFmpeg sessions.
+/// Sets the statistics callback for the specified FFmpeg session.
 ///
 /// @param stats_cb the callback to be called when statistics are generated
 /// @param user_data the user data to be passed to the callback
@@ -1238,8 +1249,8 @@ external FFplaySessionHandle ffplay_kit_execute(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFplay session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   FFplaySessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -1312,8 +1323,11 @@ external void ffplay_kit_pause();
 /// Registers a global frame-ready callback for native desktop video output
 /// (Linux/Windows).
 ///
+/// This function is a no-op on WebAssembly. WebAssembly callers must use
+/// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
 /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
-/// On Android this is a no-op; video output is delivered to the ANativeWindow.
+/// On Android this is also a no-op; video output is delivered to the
+/// ANativeWindow.
 ///
 /// Dart FFI usage:
 /// ffplay_kit_register_frame_callback(Pointer.fromFunction(myCallback),
@@ -1489,8 +1503,7 @@ external void ffplay_kit_session_stop(FFplaySessionHandle session);
 @ffi.Native<ffi.Void Function(ffi.Int64)>()
 external void ffplay_kit_set_android_surface_ptr(int native_window_ptr);
 
-/// Sets the complete callback, log callback, and user data for all FFplay
-/// sessions.
+/// Sets the complete callback, log callback, and user data for the specified FFplay session.
 ///
 /// @param complete_cb the callback to be called when the FFplay session is
 /// completed
@@ -1511,7 +1524,7 @@ external void ffplay_kit_set_callbacks(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback for all FFplay sessions.
+/// Sets the complete callback for the specified FFplay session.
 ///
 /// @param complete_cb the callback to be called when the FFplay session is
 /// completed
@@ -1529,7 +1542,7 @@ external void ffplay_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the log callback for all FFplay sessions.
+/// Sets the log callback for the specified FFplay session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -1566,9 +1579,9 @@ external void ffplay_kit_start();
 @ffi.Native<ffi.Void Function()>()
 external void ffplay_kit_stop();
 
-/// Clears the global frame callback, stopping desktop pixel delivery.
+/// Clears the global native-desktop frame callback.
 /// Equivalent to ffplay_kit_register_frame_callback(NULL, NULL).
-/// On Android this is a no-op.
+/// On WebAssembly and Android this is a no-op.
 @ffi.Native<ffi.Void Function()>()
 external void ffplay_kit_unregister_frame_callback();
 
@@ -1675,8 +1688,8 @@ external FFprobeSessionHandle ffprobe_kit_execute(
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFprobe session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   FFprobeSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -1718,8 +1731,8 @@ external MediaInformationSessionHandle ffprobe_kit_get_media_information(
 /// session is completed
 /// @param user_data the user data to be passed to the callback
 /// @return the media information session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 @ffi.Native<
   MediaInformationSessionHandle Function(
     ffi.Pointer<ffi.Char>,
@@ -1751,8 +1764,7 @@ external void ffprobe_kit_session_execute(FFprobeSessionHandle session);
 @ffi.Native<ffi.Void Function(FFprobeSessionHandle)>()
 external void ffprobe_kit_session_execute_async(FFprobeSessionHandle session);
 
-/// Sets the complete callback, log callback, and user data for all FFprobe
-/// sessions.
+/// Sets the complete callback, log callback, and user data for the specified FFprobe session.
 ///
 /// @param complete_cb the callback to be called when the FFprobe session is
 /// completed
@@ -1773,7 +1785,7 @@ external void ffprobe_kit_set_callbacks(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback for all FFprobe sessions.
+/// Sets the complete callback for the specified FFprobe session.
 ///
 /// @param complete_cb the callback to be called when the FFprobe session is
 /// completed
@@ -1791,7 +1803,7 @@ external void ffprobe_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the log callback for all FFprobe sessions.
+/// Sets the log callback for the specified FFprobe session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -2008,8 +2020,7 @@ external ffi.Pointer<ffi.Char> media_information_get_tags_json(
 external ffi.Pointer<MediaInformationSessionHandle>
 media_information_kit_list_sessions();
 
-/// Sets the complete callback, log callback, and user data for all
-/// MediaInformation sessions.
+/// Sets the complete callback, log callback, and user data for the specified MediaInformation session.
 ///
 /// @param complete_cb the callback to be called when the MediaInformation
 /// session is completed
@@ -2030,7 +2041,7 @@ external void media_information_kit_set_callbacks(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the complete callback for all MediaInformation sessions.
+/// Sets the complete callback for the specified MediaInformation session.
 ///
 /// @param complete_cb the callback to be called when the MediaInformation
 /// session is completed
@@ -2048,7 +2059,7 @@ external void media_information_kit_set_complete_callback(
   ffi.Pointer<ffi.Void> user_data,
 );
 
-/// Sets the log callback for all MediaInformation sessions.
+/// Sets the log callback for the specified MediaInformation session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -2360,6 +2371,13 @@ typedef FFmpegKitCompleteCallbackFunction =
     );
 typedef DartFFmpegKitCompleteCallbackFunction =
     void Function(FFmpegSessionHandle session, ffi.Pointer<ffi.Void> user_data);
+
+/// Callback delivery model:
+///
+/// Per-session callbacks receive the opaque handle supplied to the session API
+/// unchanged. Global callbacks receive the session's stable numeric ID. On
+/// WebAssembly, callback invocation is marshalled to the main runtime thread;
+/// callers must keep user_data valid until the session callbacks complete.
 typedef FFmpegKitGlobalCompleteCallback =
     ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalCompleteCallbackFunction>>;
 typedef FFmpegKitGlobalCompleteCallbackFunction =
@@ -2381,6 +2399,28 @@ typedef DartFFmpegKitGlobalLogCallbackFunction =
     void Function(
       int session_id,
       ffi.Pointer<ffi.Char> log,
+      ffi.Pointer<ffi.Void> user_data,
+    );
+
+/// Owned global log callback. Native allocates a payload for non-null
+/// messages and transfers ownership after accepted invocation. The callback
+/// must release the payload exactly once with ffmpeg_kit_free().
+typedef FFmpegKitGlobalLogCallbackV2 =
+    ffi.Pointer<ffi.NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>;
+typedef FFmpegKitGlobalLogCallbackV2Function =
+    ffi.Void Function(
+      ffi.Int64 session_id,
+      ffi.Int64 sequence,
+      ffi.Int32 level,
+      ffi.Pointer<ffi.Char> owned_message,
+      ffi.Pointer<ffi.Void> user_data,
+    );
+typedef DartFFmpegKitGlobalLogCallbackV2Function =
+    void Function(
+      int session_id,
+      int sequence,
+      int level,
+      ffi.Pointer<ffi.Char> owned_message,
       ffi.Pointer<ffi.Void> user_data,
     );
 typedef FFmpegKitGlobalStatisticsCallback =
@@ -2602,6 +2642,9 @@ typedef DartFFplayKitCompleteCallbackFunction =
     void Function(FFplaySessionHandle session, ffi.Pointer<ffi.Void> user_data);
 
 /// Frame-ready callback type for native desktop video output.
+///
+/// This callback is unsupported on WebAssembly. WebAssembly callers must use
+/// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible

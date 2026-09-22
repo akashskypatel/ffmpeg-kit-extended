@@ -221,10 +221,7 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   void enableFFmpegLogCallback() {
-    bindings.ffmpeg_kit_config_enable_log_callback(
-      nativeFFmpegLog.nativeFunction,
-      nullptr,
-    );
+    configureNativeLogCallback();
   }
 
   @override
@@ -246,10 +243,7 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
 
   @override
   void enableFFprobeLogCallback() {
-    bindings.ffmpeg_kit_config_enable_log_callback(
-      nativeFFmpegLog.nativeFunction,
-      nullptr,
-    );
+    configureNativeLogCallback();
   }
 
   @override
@@ -829,10 +823,7 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
   void clearSessions() => bindings.ffmpeg_kit_clear_sessions();
 
   @override
-  void configureLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
-    nativeFFmpegLog.nativeFunction,
-    nullptr,
-  );
+  void configureLogCallback() => configureNativeLogCallback();
 
   @override
   void configureStatisticsCallback() =>
@@ -870,8 +861,7 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
       );
 
   @override
-  void disableLogCallback() =>
-      bindings.ffmpeg_kit_config_enable_log_callback(nullptr, nullptr);
+  void disableLogCallback() => disableNativeLogCallback();
 
   @override
   void disableStatisticsCallback() =>

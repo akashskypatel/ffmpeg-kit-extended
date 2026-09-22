@@ -48,8 +48,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// completed
   /// @param user_data the user data to be passed to the callback
   /// @return the FFmpeg session handle
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external FFmpegSessionHandle _ffmpeg_kit_execute_async(
     Pointer<Char> command,
     FFmpegKitCompleteCallback complete_cb,
@@ -66,8 +66,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param user_data the user data to be passed to the callback
   /// @param waitTimeout the timeout in milliseconds
   /// @return the FFmpeg session handle
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external FFmpegSessionHandle _ffmpeg_kit_execute_async_full(
     Pointer<Char> command,
     FFmpegKitCompleteCallback complete_cb,
@@ -153,7 +153,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param message the message to emit
   external void _ffmpeg_kit_test_emit_unattributed_log(Pointer<Char> message);
 
-  /// Sets the log callback for all FFmpeg sessions.
+  /// Sets the log callback for the specified FFmpeg session.
   ///
   /// @param log_cb the callback to be called when a log is generated
   /// @param user_data the user data to be passed to the callback
@@ -163,7 +163,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the statistics callback for all FFmpeg sessions.
+  /// Sets the statistics callback for the specified FFmpeg session.
   ///
   /// @param stats_cb the callback to be called when statistics are generated
   /// @param user_data the user data to be passed to the callback
@@ -173,7 +173,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback for all FFmpeg sessions.
+  /// Sets the complete callback for the specified FFmpeg session.
   ///
   /// @param complete_cb the callback to be called when the FFmpeg session is
   /// completed
@@ -185,7 +185,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   );
 
   /// Sets the complete callback, log callback, statistics callback, and user data
-  /// for all FFmpeg sessions.
+  /// for the specified FFmpeg session.
   ///
   /// @param complete_cb the callback to be called when the FFmpeg session is
   /// completed
@@ -228,8 +228,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// completed
   /// @param user_data the user data to be passed to the callback
   /// @return the FFprobe session handle
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external FFprobeSessionHandle _ffprobe_kit_execute_async(
     Pointer<Char> command,
     FFprobeKitCompleteCallback complete_cb,
@@ -299,7 +299,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param handle the session handle to close
   external void _ffprobe_kit_close_session(FFprobeSessionHandle handle);
 
-  /// Sets the log callback for all FFprobe sessions.
+  /// Sets the log callback for the specified FFprobe session.
   ///
   /// @param log_cb the callback to be called when a log is generated
   /// @param user_data the user data to be passed to the callback
@@ -309,7 +309,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback for all FFprobe sessions.
+  /// Sets the complete callback for the specified FFprobe session.
   ///
   /// @param complete_cb the callback to be called when the FFprobe session is
   /// completed
@@ -320,8 +320,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback, log callback, and user data for all FFprobe
-  /// sessions.
+  /// Sets the complete callback, log callback, and user data for the specified FFprobe session.
   ///
   /// @param complete_cb the callback to be called when the FFprobe session is
   /// completed
@@ -361,8 +360,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// session is completed
   /// @param user_data the user data to be passed to the callback
   /// @return the media information session handle
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external MediaInformationSessionHandle
   _ffprobe_kit_get_media_information_async(
     Pointer<Char> path,
@@ -388,8 +387,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param user_data the user data to be passed to the callback
   /// @param waitTimeout the timeout in milliseconds
   /// @return the FFplay session handle
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external FFplaySessionHandle _ffplay_kit_execute_async(
     Pointer<Char> command,
     FFplayKitCompleteCallback complete_cb,
@@ -451,7 +450,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// @param handle the session handle to close
   external void _ffplay_kit_close_session(FFplaySessionHandle handle);
 
-  /// Sets the log callback for all FFplay sessions.
+  /// Sets the log callback for the specified FFplay session.
   ///
   /// @param log_cb the callback to be called when a log is generated
   /// @param user_data the user data to be passed to the callback
@@ -461,7 +460,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback for all FFplay sessions.
+  /// Sets the complete callback for the specified FFplay session.
   ///
   /// @param complete_cb the callback to be called when the FFplay session is
   /// completed
@@ -472,8 +471,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback, log callback, and user data for all FFplay
-  /// sessions.
+  /// Sets the complete callback, log callback, and user data for the specified FFplay session.
   ///
   /// @param complete_cb the callback to be called when the FFplay session is
   /// completed
@@ -693,7 +691,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   /// Registers a global frame-ready callback for native desktop video output
   /// (Linux/Windows).
   ///
-  /// This function is a no-op on WebAssembly. Use
+  /// This function is a no-op on WebAssembly. WebAssembly callers must use
   /// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
   /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
   /// On Android this is also a no-op; video output is delivered to the
@@ -966,7 +964,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the log callback for all MediaInformation sessions.
+  /// Sets the log callback for the specified MediaInformation session.
   ///
   /// @param log_cb the callback to be called when a log is generated
   /// @param user_data the user data to be passed to the callback
@@ -976,7 +974,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback for all MediaInformation sessions.
+  /// Sets the complete callback for the specified MediaInformation session.
   ///
   /// @param complete_cb the callback to be called when the MediaInformation
   /// session is completed
@@ -987,8 +985,7 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
     Pointer<Void> user_data,
   );
 
-  /// Sets the complete callback, log callback, and user data for all
-  /// MediaInformation sessions.
+  /// Sets the complete callback, log callback, and user data for the specified MediaInformation session.
   ///
   /// @param complete_cb the callback to be called when the MediaInformation
   /// session is completed
@@ -1387,10 +1384,18 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param log_cb the log callback
   /// @param user_data the user data
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_log_callback(
     FFmpegKitGlobalLogCallback log_cb,
+    Pointer<Void> user_data,
+  );
+
+  /// Enables the owned v2 global log callback.
+  /// The callback must call ffmpeg_kit_free() exactly once for every non-null
+  /// payload. A null native message is delivered as nullptr.
+  external void _ffmpeg_kit_config_enable_log_callback_v2(
+    FFmpegKitGlobalLogCallbackV2 log_cb,
     Pointer<Void> user_data,
   );
 
@@ -1407,8 +1412,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the FFmpeg session complete callback
   /// @param user_data the user data
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
     FFmpegKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
@@ -1418,8 +1423,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the FFprobe session complete callback
   /// @param user_data the user data
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
     FFprobeKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
@@ -1429,8 +1434,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the FFplay session complete callback
   /// @param user_data the user data
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external void _ffmpeg_kit_config_enable_ffplay_session_complete_callback(
     FFplayKitGlobalCompleteCallback complete_cb,
     Pointer<Void> user_data,
@@ -1440,8 +1445,8 @@ extension type GeneratedBindings(NativeLibrary _) implements JSObject {
   ///
   /// @param complete_cb the media information session complete callback
   /// @param user_data the user data
-  /// @note The caller owns the user data and must keep it valid until callback
-  /// delivery completes. The callback does not transfer ownership.
+  /// @note The caller owns user_data and must keep it valid until all callbacks
+  /// for this session have completed. The callback does not transfer ownership.
   external void
   _ffmpeg_kit_config_enable_media_information_session_complete_callback(
     MediaInformationSessionGlobalCompleteCallback complete_cb,
@@ -1885,8 +1890,8 @@ DartFFmpegSessionHandle ffmpeg_kit_execute(Pointer<Char> command) {
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFmpeg session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 DartFFmpegSessionHandle ffmpeg_kit_execute_async(
   Pointer<Char> command,
   DartFFmpegKitCompleteCallback complete_cb,
@@ -1910,8 +1915,8 @@ DartFFmpegSessionHandle ffmpeg_kit_execute_async(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFmpeg session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 DartFFmpegSessionHandle ffmpeg_kit_execute_async_full(
   Pointer<Char> command,
   DartFFmpegKitCompleteCallback complete_cb,
@@ -2056,7 +2061,7 @@ void ffmpeg_kit_test_emit_unattributed_log(Pointer<Char> message) {
   return result;
 }
 
-/// Sets the log callback for all FFmpeg sessions.
+/// Sets the log callback for the specified FFmpeg session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -2073,7 +2078,7 @@ void ffmpeg_kit_set_log_callback(
   return result;
 }
 
-/// Sets the statistics callback for all FFmpeg sessions.
+/// Sets the statistics callback for the specified FFmpeg session.
 ///
 /// @param stats_cb the callback to be called when statistics are generated
 /// @param user_data the user data to be passed to the callback
@@ -2090,7 +2095,7 @@ void ffmpeg_kit_set_statistics_callback(
   return result;
 }
 
-/// Sets the complete callback for all FFmpeg sessions.
+/// Sets the complete callback for the specified FFmpeg session.
 ///
 /// @param complete_cb the callback to be called when the FFmpeg session is
 /// completed
@@ -2109,7 +2114,7 @@ void ffmpeg_kit_set_complete_callback(
 }
 
 /// Sets the complete callback, log callback, statistics callback, and user data
-/// for all FFmpeg sessions.
+/// for the specified FFmpeg session.
 ///
 /// @param complete_cb the callback to be called when the FFmpeg session is
 /// completed
@@ -2179,8 +2184,8 @@ DartFFprobeSessionHandle ffprobe_kit_execute(Pointer<Char> command) {
 /// completed
 /// @param user_data the user data to be passed to the callback
 /// @return the FFprobe session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 DartFFprobeSessionHandle ffprobe_kit_execute_async(
   Pointer<Char> command,
   DartFFprobeKitCompleteCallback complete_cb,
@@ -2297,7 +2302,7 @@ void ffprobe_kit_close_session(DartFFprobeSessionHandle handle) {
   return result;
 }
 
-/// Sets the log callback for all FFprobe sessions.
+/// Sets the log callback for the specified FFprobe session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -2314,7 +2319,7 @@ void ffprobe_kit_set_log_callback(
   return result;
 }
 
-/// Sets the complete callback for all FFprobe sessions.
+/// Sets the complete callback for the specified FFprobe session.
 ///
 /// @param complete_cb the callback to be called when the FFprobe session is
 /// completed
@@ -2332,8 +2337,7 @@ void ffprobe_kit_set_complete_callback(
   return result;
 }
 
-/// Sets the complete callback, log callback, and user data for all FFprobe
-/// sessions.
+/// Sets the complete callback, log callback, and user data for the specified FFprobe session.
 ///
 /// @param complete_cb the callback to be called when the FFprobe session is
 /// completed
@@ -2394,8 +2398,8 @@ DartMediaInformationSessionHandle ffprobe_kit_get_media_information(
 /// session is completed
 /// @param user_data the user data to be passed to the callback
 /// @return the media information session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 DartMediaInformationSessionHandle ffprobe_kit_get_media_information_async(
   Pointer<Char> path,
   DartMediaInformationSessionCompleteCallback complete_cb,
@@ -2437,8 +2441,8 @@ DartFFplaySessionHandle ffplay_kit_execute(
 /// @param user_data the user data to be passed to the callback
 /// @param waitTimeout the timeout in milliseconds
 /// @return the FFplay session handle
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 DartFFplaySessionHandle ffplay_kit_execute_async(
   Pointer<Char> command,
   DartFFplayKitCompleteCallback complete_cb,
@@ -2538,7 +2542,7 @@ void ffplay_kit_close_session(DartFFplaySessionHandle handle) {
   return result;
 }
 
-/// Sets the log callback for all FFplay sessions.
+/// Sets the log callback for the specified FFplay session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -2555,7 +2559,7 @@ void ffplay_kit_set_log_callback(
   return result;
 }
 
-/// Sets the complete callback for all FFplay sessions.
+/// Sets the complete callback for the specified FFplay session.
 ///
 /// @param complete_cb the callback to be called when the FFplay session is
 /// completed
@@ -2573,8 +2577,7 @@ void ffplay_kit_set_complete_callback(
   return result;
 }
 
-/// Sets the complete callback, log callback, and user data for all FFplay
-/// sessions.
+/// Sets the complete callback, log callback, and user data for the specified FFplay session.
 ///
 /// @param complete_cb the callback to be called when the FFplay session is
 /// completed
@@ -2936,7 +2939,7 @@ void ffplay_kit_clear_android_surface() {
 /// Registers a global frame-ready callback for native desktop video output
 /// (Linux/Windows).
 ///
-/// This function is a no-op on WebAssembly. Use
+/// This function is a no-op on WebAssembly. WebAssembly callers must use
 /// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
 /// Must be called before ffplay_kit_session_execute() / ffplay_kit_execute().
 /// On Android this is also a no-op; video output is delivered to the
@@ -3389,7 +3392,7 @@ media_information_create_session_with_callbacks(
   return DartMediaInformationSessionHandle(result);
 }
 
-/// Sets the log callback for all MediaInformation sessions.
+/// Sets the log callback for the specified MediaInformation session.
 ///
 /// @param log_cb the callback to be called when a log is generated
 /// @param user_data the user data to be passed to the callback
@@ -3407,7 +3410,7 @@ void media_information_kit_set_log_callback(
   return result;
 }
 
-/// Sets the complete callback for all MediaInformation sessions.
+/// Sets the complete callback for the specified MediaInformation session.
 ///
 /// @param complete_cb the callback to be called when the MediaInformation
 /// session is completed
@@ -3429,8 +3432,7 @@ void media_information_kit_set_complete_callback(
   return result;
 }
 
-/// Sets the complete callback, log callback, and user data for all
-/// MediaInformation sessions.
+/// Sets the complete callback, log callback, and user data for the specified MediaInformation session.
 ///
 /// @param complete_cb the callback to be called when the MediaInformation
 /// session is completed
@@ -4071,8 +4073,8 @@ void ffmpeg_kit_clear_sessions() {
 ///
 /// @param log_cb the log callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_log_callback(
   DartFFmpegKitGlobalLogCallback log_cb,
   Pointer<Void> user_data,
@@ -4080,6 +4082,21 @@ void ffmpeg_kit_config_enable_log_callback(
   final result = GeneratedBindings.instance
       ._ffmpeg_kit_config_enable_log_callback(
         log_cb as Pointer<NativeFunction<FFmpegKitGlobalLogCallbackFunction>>,
+        user_data,
+      );
+  return result;
+}
+
+/// Enables the owned v2 global log callback.
+/// The callback must call ffmpeg_kit_free() exactly once for every non-null
+/// payload. A null native message is delivered as nullptr.
+void ffmpeg_kit_config_enable_log_callback_v2(
+  DartFFmpegKitGlobalLogCallbackV2 log_cb,
+  Pointer<Void> user_data,
+) {
+  final result = GeneratedBindings.instance
+      ._ffmpeg_kit_config_enable_log_callback_v2(
+        log_cb as Pointer<NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>,
         user_data,
       );
   return result;
@@ -4108,8 +4125,8 @@ void ffmpeg_kit_config_enable_statistics_callback(
 ///
 /// @param complete_cb the FFmpeg session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
   DartFFmpegKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -4127,8 +4144,8 @@ void ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
 ///
 /// @param complete_cb the FFprobe session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
   DartFFprobeKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -4148,8 +4165,8 @@ void ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
 ///
 /// @param complete_cb the FFplay session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
   DartFFplayKitGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -4167,8 +4184,8 @@ void ffmpeg_kit_config_enable_ffplay_session_complete_callback(
 ///
 /// @param complete_cb the media information session complete callback
 /// @param user_data the user data
-/// @note The caller owns the user data and must keep it valid until callback
-/// delivery completes. The callback does not transfer ownership.
+/// @note The caller owns user_data and must keep it valid until all callbacks
+/// for this session have completed. The callback does not transfer ownership.
 void ffmpeg_kit_config_enable_media_information_session_complete_callback(
   DartMediaInformationSessionGlobalCompleteCallback complete_cb,
   Pointer<Void> user_data,
@@ -5053,8 +5070,8 @@ typedef DartFFplayKitCompleteCallbackFunction =
 
 /// Frame-ready callback type for native desktop video output.
 ///
-/// Unsupported on WebAssembly. WebAssembly callers must use the pull frame
-/// API instead.
+/// This callback is unsupported on WebAssembly. WebAssembly callers must use
+/// ffplay_kit_get_frame_buffer_size() and ffplay_kit_copy_frame() instead.
 ///
 /// Fired inside ffplay_step() on every rendered video frame.
 /// Pixel format: RGBA8888 — bytes [R][G][B][A] on little-endian, compatible
@@ -5131,6 +5148,30 @@ typedef DartFFmpegKitGlobalLogCallbackFunction =
       Pointer<Char> log,
       Pointer<Void> user_data,
     );
+
+/// Owned global log callback. Native allocates a payload for non-null
+/// messages and transfers ownership after accepted invocation. The callback
+/// must release the payload exactly once with ffmpeg_kit_free().
+typedef FFmpegKitGlobalLogCallbackV2 =
+    Pointer<NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>;
+typedef DartFFmpegKitGlobalLogCallbackV2 =
+    Pointer<NativeFunction<FFmpegKitGlobalLogCallbackV2Function>>;
+typedef FFmpegKitGlobalLogCallbackV2Function =
+    void Function(
+      JSBigInt session_id,
+      JSBigInt sequence,
+      int level,
+      Pointer<Char> owned_message,
+      Pointer<Void> user_data,
+    );
+typedef DartFFmpegKitGlobalLogCallbackV2Function =
+    void Function(
+      BigInt session_id,
+      BigInt sequence,
+      int level,
+      Pointer<Char> owned_message,
+      Pointer<Void> user_data,
+    );
 typedef FFmpegKitGlobalStatisticsCallback =
     Pointer<NativeFunction<FFmpegKitGlobalStatisticsCallbackFunction>>;
 typedef DartFFmpegKitGlobalStatisticsCallback =
@@ -5165,6 +5206,13 @@ typedef DartFFmpegKitGlobalStatisticsCallbackFunction =
       BigInt dropFrames,
       Pointer<Void> user_data,
     );
+
+/// Callback delivery model:
+///
+/// Per-session callbacks receive the opaque handle supplied to the session API
+/// unchanged. Global callbacks receive the session's stable numeric ID. On
+/// WebAssembly, callback invocation is marshalled to the main runtime thread;
+/// callers must keep user_data valid until the session callbacks complete.
 typedef FFmpegKitGlobalCompleteCallback =
     Pointer<NativeFunction<FFmpegKitGlobalCompleteCallbackFunction>>;
 typedef DartFFmpegKitGlobalCompleteCallback =
