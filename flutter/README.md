@@ -261,25 +261,40 @@ all target platforms. Use the platform-specific build or run command—for
 example, `flutter build web --wasm` and a served Web application for Web asset
 validation.
 
+Wasm browser behavior is validated by serving the built Web output and running
+the browser smoke checks locally. The hosted workflow runner does not provide
+the headful/headless browser environment required by these checks, so a
+workflow build or compile result is not a browser-runtime result. Do not add a
+SDK/toolchain workaround for this limitation; record the limitation and keep
+the goal blocked when the required local tool is unavailable.
+
+The package intentionally keeps `ffigen_js: ^0.0.16-pre` because no stable
+release is available. A publication dry-run warning caused solely by that
+direct prerelease dependency is the accepted release exception; do not replace
+the dependency or invent a toolchain workaround to silence it.
+
 ### 2.1 Platform specific configuration
 
-1. **iOS and iOS Simulator** - Your app's Podfile will need to be updated to add post-install hooks to exclude building for architectures that aren't supported Add the following to your Podfile:
+1. **iOS and iOS Simulator** - If a downstream CocoaPods target requests an
+   architecture absent from the selected artifact, add a targeted post-install
+   exclusion. Do not use exclusions to substitute for a missing XCFramework
+   slice or to blanket-disable supported simulator/device architectures:
 
     ```ruby
     post_install do |installer|
       installer.pods_project.targets.each do |target|
         flutter_additional_ios_build_settings(target)
         target.build_configurations.each do |config|
-          config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386 x86_64'
-          config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'i386 x86_64'
+           # Example only: exclude i386 when that legacy architecture is the
+           # actual unsupported target. Keep x86_64/arm64 when provided.
+           config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
         end
       end
 
       installer.generated_projects.each do |project|
         project.targets.each do |target|
           target.build_configurations.each do |config|
-            config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386 x86_64'
-            config.build_settings['EXCLUDED_ARCHS[sdk=iphoneos*]'] = 'i386 x86_64'
+             config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
             config.build_settings['ONLY_ACTIVE_ARCH'] = 'YES'
           end
         end
@@ -561,7 +576,7 @@ final session = await FFplayKit.executeAsync('-i video.mp4');
 final width = session.getVideoWidth();
 final height = session.getVideoHeight();
 
-// Real-time streams
+// Real-time streams; listeners may be attached before or after startup.
 session.positionStream.listen((pos) => print('Position: ${pos}s'));
 session.videoSizeStream.listen((size) => print('Size: ${size}'));
 

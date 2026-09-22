@@ -31,8 +31,9 @@ import 'platform/backend_selector.dart';
 ///
 /// ### Lifecycle
 /// 1. Construct via [FFmpegSession.new] (or [create]) to allocate the native
-///    session object. Sessions are registered with [CallbackManager] lazily
-///    when a callback, log listener, or execution is attached.
+///    session object. Callback values and log listeners on a Created session
+///    are retained without a [CallbackManager] root; routing is registered
+///    when execution is submitted or a restored session is verified running.
 /// 2. Call [execute] / [executeCommand] for a blocking result, or
 ///    [executeAsync] / [executeCommandAsync] to submit work to the managed
 ///    asynchronous queue.
@@ -111,10 +112,10 @@ class FFmpegSession extends Session {
 
   /// Creates a new [FFmpegSession] for [command].
   ///
-  /// The session is registered with [CallbackManager] when a callback or log
-  /// listener is supplied, and otherwise on first execution or log-listener
-  /// attachment. Registration is removed when execution completes or when all
-  /// per-session callbacks and listeners are cleared.
+  /// Callback values are retained on a Created session without a
+  /// [CallbackManager] root. Registration begins on execution submission, or
+  /// when a restored session is verified running, and is removed when
+  /// execution completes or all per-session callbacks and listeners clear.
   ///
   /// - [completeCallback]: Invoked once when execution finishes.
   /// - [logCallback]: Invoked for each buffered log line during execution.

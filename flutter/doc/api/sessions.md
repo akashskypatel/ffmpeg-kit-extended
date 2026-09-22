@@ -46,6 +46,13 @@ All session types provide the following methods:
 - `getDuration()`: Returns total execution time in milliseconds.
 - `cancel()`: Terminates the session if it is currently running.
 
+Cancellation is not limited to the `Running` state: a Created or queued
+session records cancellation and is removed before native startup when
+possible. A running session additionally receives the native cancellation
+request. `dispose()` is the deterministic handle-release operation; it is
+distinct from `FFplayKit.close()`, which stops and clears the current global
+FFplay session.
+
 ## Session Identification
 
 You can identify the specific type of a session using these methods:
@@ -87,11 +94,34 @@ An `FFplaySession` represents a playback instance.
 - **Playback Control**: While `FFplayKit` provides global controls, individual `FFplaySession` objects also expose methods for `pause()`, `resume()`, and `stop()`.
 - **Playback Stats**: Monitor current playback position and duration.
 - **Async startup handoff**: `FFplaySession.executeAsync()` completes after the
-  native execution has started. Playback remains queue-owned until its
-  completion callback and cleanup finish.
+  terminal playback Future and cleanup finish. `FFplayKit.executeAsync()` is
+  the high-level startup-handoff API: it completes after native execution has
+  started, while global ownership remains until the terminal Future settles.
 - **Callback routing lifetime**: Removing the last log listener unregisters an
   idle session, but callback routing remains registered while a submitted
-  execution is pending.
+  execution is pending. A newly Created session retains callback values without
+  becoming a callback-manager root; restored history sessions are routed only
+  after a successful state read reports `Running`.
+- **Telemetry streams**: `positionStream` and `videoSizeStream` start polling
+  only while they have listeners and playback is active. They may be
+  subscribed before or after startup. Cancelling the last subscription stops
+  polling without closing the reusable controller; terminal cleanup closes the
+  streams, and a later video-size subscription receives a fresh current-size
+  emission.
+
+## History and typed lookups
+
+`FFmpegKitExtended.getSessions()` wraps the native history handles by their
+reported type. The typed getters validate the raw native type before a Dart
+wrapper can adopt ownership. `MediaInformationSession` is intentionally
+distinct from a plain `FFprobeSession`, so a typed FFprobe lookup rejects a
+media-information handle instead of silently filtering or mis-casting it.
+
+If a history handle cannot be classified or does not match the requested typed
+getter, the handle is released exactly once and a descriptive `StateError` is
+reported. Existing live callback-manager objects are reused only after this
+validation; the duplicate raw token is released without disposing the live
+object.
 
 ## Return Codes
 

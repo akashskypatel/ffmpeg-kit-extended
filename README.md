@@ -26,7 +26,9 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
   - **Android**: Full video playback support with native surface rendering.
     - **x86**: `x86` architecture is not supported due to its legacy status.
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
-    - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
+    - **iOS**: Supports physical devices and simulators. Simulator `x86_64` is
+      conditional on the selected artifact containing that slice; do not
+      blanket-exclude it when the slice is available.
   - **Linux**: Full video playback support with `OpenGL` integration.
     - **arm64**: `arm64` architecture currently not supported, coming soon!
   - **Flutter Web**: FFmpeg, FFprobe, and FFplay run from the staged `wasm32` bundle. FFplay renders RGBA frames through the unified Flutter surface API.
@@ -47,7 +49,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 | Platform                 | Status       | Flutter               | React-native         | Architecture         | Minimum Requirements |
 | ------------------------ | ------------ | --------------------- | -------------------- | -------------------- | -------------------- |
 | Android (and Android TV) | ✅ Supported | ✅ Supported          | ✅ Supported         | armv7, arm64, x86_64 | API 26+              |
-| iOS (and Simulator)      | ✅ Supported | ✅ Supported          | ✅ Supported         | arm64                | iOS 13+              |
+| iOS (and Simulator)      | ✅ Supported | ✅ Supported          | ✅ Supported         | arm64; x86_64 when present | iOS 13+          |
 | tvOS (and Simulator)     | ✅ Supported | ❌ Not Supported      | ✅ Supported         | arm64                | tvOS 13+             |
 | macOS                    | ✅ Supported | ✅ Supported          | ✅ Supported         | arm64, x86_64        | macOS 13+            |
 | Linux                    | ✅ Supported | ✅ Supported          | ❌ Not Supported     | x86_64               | glibc 2.28+          |
@@ -68,6 +70,9 @@ Cross-Origin-Embedder-Policy: require-corp
 ```
 
 Verify `window.crossOriginIsolated === true` in the browser. See the [Flutter architecture and maintenance handoff](flutter/doc/architecture.md) for platform boundaries, initialization, callback routing, memory ownership, and Web limitations.
+
+Wasm browser-runtime checks are performed locally against the served Web output;
+a workflow compile/build result does not replace a local browser smoke check.
 
 You will have to update your app's minimum requirements on your own to match the requirements above.
 

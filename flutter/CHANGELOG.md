@@ -23,6 +23,18 @@
 - Make `FFplayKit.executeAsync` resolve at native startup handoff while keeping
   global ownership until playback settles; unsupported build-hook target OSes
   now fail closed with an explicit diagnostic.
+- Make Created-session callback sinks retain values without creating callback
+  manager roots; register pending executions and restored-running sessions only
+  after the relevant lifecycle evidence is available, with rollback on state
+  read failure.
+- Validate typed history handles before Dart ownership transfer, distinguish
+  plain FFprobe from MediaInformation, and release mismatched tokens exactly
+  once while preserving existing live wrappers.
+- Make FFplay startup and terminal failures share one Future observer, and make
+  position/video-size polling listener-owned and reusable across subscriptions.
+- Document direct versus high-level FFplay Future semantics, cancellation and
+  disposal boundaries, local Wasm browser validation, and conditional Apple
+  simulator architecture guidance.
 - Select Apple XCFramework slices by platform, simulator/device variant, and requested architecture; verify framework and companion binary architectures before emission and fail clearly when a simulator slice is unavailable.
 - Surface build-hook configuration, artifact, cache, slice, and architecture decisions in diagnostics; document Hooks runner lock ownership and recovery guidance.
 - Fix Dart Hook configuration resolution in Pub Workspaces with root precedence, normal dependency-graph filtering, deterministic ambiguity handling, and explicit default fallback.
