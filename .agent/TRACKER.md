@@ -13,7 +13,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R24-G67** | Freeze source authority and reconcile blockers | **In progress — tracker preparation recorded; exact wrapper/builder snapshot evidence pending** |
+| **R24-G67** | Freeze source authority and reconcile blockers | **Complete — wrapper snapshot `35766299689`; builder snapshot `35746267948`; exact sources verified** |
 | **FFK24-N7** | Optimize Linux-local CMake dependency resolution without semantic drift | **Open — first native goal** |
 | **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **Open — explicit ABI amendment** |
 | **FFK24-N9** | Replace remote TLS sanitizer failures with deterministic verified-TLS fixture | **Open** |
@@ -39,6 +39,14 @@
 | **B5** FrameData TSAN race | Current unresolved native race | **FFK24-N10** — ownership/lifetime fix, no suppression or scenario weakening |
 | **B6** GCC/shared UBSAN vptr diagnostics | Unclassified sanitizer output | **FFK24-N11** — GCC/Clang × shared/static discriminator matrix |
 | **B7** Flutter test-runner browser limitation | Known test-runner limitation, not a product blocker | Use stable `flutter build web --wasm` + real server/browser smoke; no product workaround |
+
+### R24-G67 — Source authority and blocker inventory — complete
+
+- Wrapper preparation commit: `d6ae83eb65509c4857a79fcc3ffa3c286a97fffe`, with `HEAD == origin/dev-wasm` and a clean product worktree. The root `libs/libffmpegkit` gitlink remains `196567dae7fd1509c33bf32081f8237596ac8e5b`.
+- Wrapper source snapshot [35766299689](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35766299689) completed successfully with event/head/snapshot SHA `d6ae83eb65509c4857a79fcc3ffa3c286a97fffe`. Download [review24-g67-wrapper-d6ae83e-35766299689](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35766299689/artifacts/10712197786), artifact ID `10712197786`, upload digest `sha256:626f67c2d850f0208d4b4e6d638ea33c4bec7075aae527f8d2f2dfacce3b4516`, archive SHA-256 `7c6969c88c621da7e939e1740a7d4284bcbf4661e4b07cf5c0222da5d25e1d05`, metadata **1,036 files / 41,453,314 bytes**, `include_submodules=true`, `include_lfs=false`. The downloaded archive hash matched the declared checksum and metadata.
+- Builder source authority: `HEAD == origin/dev == fc35587142a7c2a9356f3850c956bd1b17037d38`, clean; native ABI content remains pinned by the root gitlink to `196567dae`. Builder snapshot [35746267948](https://github.com/akashskypatel/ffmpeg-kit-builders/actions/runs/35746267948) completed successfully at exact source `fc35587142a7c2a9356f3850c956bd1b17037d38`. Download [ffmpeg-kit-builders-source-fc3558714-35746267948](https://github.com/akashskypatel/ffmpeg-kit-builders/actions/runs/35746267948/artifacts/10702284165), artifact ID `10702284165`, archive SHA-256 `a0e74c97039c84ac8ecaa6524afa9f08f5605e9a4bafaecf3cae9ab87b0df663`, metadata **424 files / 10,342,490 bytes**, `include_submodules=true`, `include_lfs=false`.
+- Current blocker inventory is recorded above: B0/B3/B3A/B4/B5/B6 are active remediation work; B1/B2 require current-ABI stable Flutter evidence; B7 is a known test-runner limitation and not a product blocker. The only accepted production exception is `ffigen_js: ^0.0.16-pre`.
+- Tracker transition: R24-G67 complete; native implementation begins with FFK24-N7.
 
 ### Hard order
 
