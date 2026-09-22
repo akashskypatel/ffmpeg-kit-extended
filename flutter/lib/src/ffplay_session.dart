@@ -47,10 +47,10 @@ class FFplaySession extends Session {
 
   int _timeout;
 
-  StreamController<double> _positionController =
-      StreamController<double>.broadcast();
+  StreamController<double>? _positionController;
   Timer? _positionTimer;
   Timer? _positionSyncTimer;
+  bool _telemetryExecutionActive = false;
   double _syncedPos = 0.0;
   double _cachedDuration = 0.0;
   bool _locallyPlaying = false;
@@ -83,9 +83,10 @@ class FFplaySession extends Session {
   // by the sync timer resetting _positionStopwatch.
   final Stopwatch _emitStopwatch = Stopwatch();
 
-  StreamController<(int, int)> _videoSizeController =
-      StreamController<(int, int)>.broadcast();
+  StreamController<(int, int)>? _videoSizeController;
   Timer? _videoSizeTimer;
+  int _lastVideoWidth = 0;
+  int _lastVideoHeight = 0;
   Future<void>? _executionFutureForTracking;
 
   // ---------------------------------------------------------------------------
@@ -548,6 +549,7 @@ class FFplaySession extends Session {
       } catch (error, stackTrace) {
         recordCleanupFailure(error, stackTrace);
       } finally {
+        _telemetryExecutionActive = false;
         _stopPositionStream();
         _stopVideoSizeStream();
         markExecutionSettled();
@@ -806,15 +808,54 @@ class FFplaySession extends Session {
   // ---------------------------------------------------------------------------
 
   /// Stream of playback positions in seconds, polled every 200 ms by default.
-  /// Subscribe before calling [executeAsync]. Stream emits positions at
-  /// configured interval and closes automatically when playback ends.
-  Stream<double> get positionStream => _positionController.stream;
+  /// Timers run only while this stream has a listener and playback is active;
+  /// the stream closes automatically when playback ends.
+  Stream<double> get positionStream {
+    final controller = _positionController;
+    if (controller == null || controller.isClosed) {
+      _positionController = _createPositionController();
+    }
+    return _positionController!.stream;
+  }
 
   /// Stream of `(width, height)` video dimension records, polled every 500 ms.
   /// Emits new value only when dimensions change (e.g., when first frame
   /// is decoded and video size becomes known). Closes when playback ends.
-  /// Subscribe before calling [executeAsync] to receive initial dimensions.
-  Stream<(int, int)> get videoSizeStream => _videoSizeController.stream;
+  /// Subscriptions may be attached before or after startup; each new listener
+  /// receives the current dimensions on the next listener-owned poll.
+  Stream<(int, int)> get videoSizeStream {
+    final controller = _videoSizeController;
+    if (controller == null || controller.isClosed) {
+      _videoSizeController = _createVideoSizeController();
+    }
+    return _videoSizeController!.stream;
+  }
+
+  StreamController<double> _createPositionController() {
+    return StreamController<double>.broadcast(
+      onListen: () {
+        if (_telemetryExecutionActive) _startPositionStream();
+      },
+      onCancel: () {
+        if (!(_positionController?.hasListener ?? false)) {
+          _stopPositionTimers();
+        }
+      },
+    );
+  }
+
+  StreamController<(int, int)> _createVideoSizeController() {
+    return StreamController<(int, int)>.broadcast(
+      onListen: () {
+        if (_telemetryExecutionActive) _startVideoSizeStream();
+      },
+      onCancel: () {
+        if (!(_videoSizeController?.hasListener ?? false)) {
+          _stopVideoSizeTimer();
+        }
+      },
+    );
+  }
 
   // ---------------------------------------------------------------------------
   // Private implementation
@@ -843,6 +884,7 @@ class FFplaySession extends Session {
             try {
               _unregister();
             } finally {
+              _telemetryExecutionActive = false;
               _stopPositionStream();
               _stopVideoSizeStream();
             }
@@ -867,6 +909,7 @@ class FFplaySession extends Session {
         );
       } finally {
         _completeCallback = userCompleteCallback;
+        _telemetryExecutionActive = false;
         try {
           _closeLogStreams();
         } finally {
@@ -894,6 +937,7 @@ class FFplaySession extends Session {
       ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
       // Start polling only after the native session is executing so timers
       // never fire against a not-yet-started session during queue delays.
+      _telemetryExecutionActive = true;
       _startPositionStream();
       _startVideoSizeStream();
       if (!startup.isCompleted) startup.complete();
@@ -905,6 +949,7 @@ class FFplaySession extends Session {
       );
       clearExecutionErrorHandler();
       _completeCallback = userCompleteCallback;
+      _telemetryExecutionActive = false;
       _closeLogStreams();
       _unregister();
       _stopPositionStream();
@@ -1005,6 +1050,7 @@ class FFplaySession extends Session {
   void onDispose() {
     _completeCallback = null;
     _logCallback = null;
+    _telemetryExecutionActive = false;
     _stopPositionStream();
     _stopVideoSizeStream();
     _closeLogStreams();
@@ -1013,6 +1059,7 @@ class FFplaySession extends Session {
 
   @override
   void onCancelledBeforeStart() {
+    _telemetryExecutionActive = false;
     _stopPositionStream();
     _stopVideoSizeStream();
     _closeLogStreams();
@@ -1050,11 +1097,15 @@ class FFplaySession extends Session {
   /// the interval up by [_emitStepMs]; five consecutive on-time fires step it
   /// back down, with hysteresis to prevent thrashing.
   void _startPositionStream({int syncMs = 200}) {
+    final controller = _positionController;
+    if (!_telemetryExecutionActive ||
+        controller == null ||
+        controller.isClosed ||
+        !controller.hasListener) {
+      return;
+    }
     _positionTimer?.cancel();
     _positionSyncTimer?.cancel();
-    if (_positionController.isClosed) {
-      _positionController = StreamController<double>.broadcast();
-    }
 
     // Initial ground truth.  Guard NaN in case the native context isn't ready
     // yet (e.g., called before the first frame is decoded).  A NaN here would
@@ -1103,6 +1154,10 @@ class FFplaySession extends Session {
 
     // Periodic native sync — corrects drift at low, fixed overhead.
     _positionSyncTimer = Timer.periodic(Duration(milliseconds: syncMs), (_) {
+      if (!_telemetryExecutionActive || !controller.hasListener) {
+        _stopPositionTimers();
+        return;
+      }
       final prevPos = _syncedPos;
       final prevPlaying = _locallyPlaying;
       double newPos;
@@ -1158,9 +1213,20 @@ class FFplaySession extends Session {
 
     // Adaptive recursive emit timer.
     void scheduleEmit() {
+      if (!_telemetryExecutionActive ||
+          controller.isClosed ||
+          !controller.hasListener) {
+        _stopPositionTimers();
+        return;
+      }
       _emitStopwatch.reset();
       _positionTimer = Timer(Duration(milliseconds: _currentEmitMs), () {
-        if (_positionController.isClosed) return;
+        if (!_telemetryExecutionActive ||
+            controller.isClosed ||
+            !controller.hasListener) {
+          _stopPositionTimers();
+          return;
+        }
 
         // Measure lateness against _emitStopwatch, which is independent of
         // the sync timer and only reset at the start of each emit tick.
@@ -1214,7 +1280,7 @@ class FFplaySession extends Session {
         );
         _lastEmittedPos = pos;
 
-        _positionController.add(pos);
+        controller.add(pos);
 
         scheduleEmit();
       });
@@ -1223,26 +1289,44 @@ class FFplaySession extends Session {
     scheduleEmit();
   }
 
-  /// Cancels both timers and closes [positionStream].
-  void _stopPositionStream() {
+  /// Cancels position timers while keeping the controller reusable.
+  void _stopPositionTimers() {
     _positionTimer?.cancel();
     _positionTimer = null;
     _positionSyncTimer?.cancel();
     _positionSyncTimer = null;
     _positionStopwatch.stop();
     _emitStopwatch.stop();
-    if (!_positionController.isClosed) _positionController.close();
+  }
+
+  /// Cancels position timers and closes [positionStream] at terminal cleanup.
+  void _stopPositionStream() {
+    _stopPositionTimers();
+    final controller = _positionController;
+    if (controller != null && !controller.isClosed) controller.close();
   }
 
   /// Starts polling [getVideoWidth]/[getVideoHeight] every 500 ms and pushes
   /// `(width, height)` onto [videoSizeStream] whenever dimensions change.
   void _startVideoSizeStream({int intervalMs = 500}) {
-    _videoSizeTimer?.cancel();
-    if (_videoSizeController.isClosed) {
-      _videoSizeController = StreamController<(int, int)>.broadcast();
+    final controller = _videoSizeController;
+    if (!_telemetryExecutionActive ||
+        controller == null ||
+        controller.isClosed ||
+        !controller.hasListener) {
+      return;
     }
-    int lastW = 0, lastH = 0;
-    _videoSizeTimer = Timer.periodic(Duration(milliseconds: intervalMs), (_) {
+    _videoSizeTimer?.cancel();
+    _lastVideoWidth = 0;
+    _lastVideoHeight = 0;
+
+    void pollVideoSize() {
+      if (!_telemetryExecutionActive ||
+          controller.isClosed ||
+          !controller.hasListener) {
+        _stopVideoSizeTimer();
+        return;
+      }
       int w;
       int h;
       try {
@@ -1256,18 +1340,41 @@ class FFplaySession extends Session {
         );
         return;
       }
-      if ((w != lastW || h != lastH) && w > 0 && h > 0) {
-        lastW = w;
-        lastH = h;
-        if (!_videoSizeController.isClosed) _videoSizeController.add((w, h));
+      if ((w != _lastVideoWidth || h != _lastVideoHeight) &&
+          w > 0 &&
+          h > 0) {
+        _lastVideoWidth = w;
+        _lastVideoHeight = h;
+        controller.add((w, h));
       }
-    });
+    }
+
+    // Poll once on each listener-owned start so a late subscriber receives the
+    // current dimensions even when they were already emitted to an earlier
+    // subscriber.
+    pollVideoSize();
+    if (!_telemetryExecutionActive ||
+        controller.isClosed ||
+        !controller.hasListener) {
+      return;
+    }
+    _videoSizeTimer = Timer.periodic(
+      Duration(milliseconds: intervalMs),
+      (_) => pollVideoSize(),
+    );
   }
 
-  /// Cancels video-size polling timer and closes [videoSizeStream].
-  void _stopVideoSizeStream() {
+  /// Cancels video-size polling while keeping the controller reusable.
+  void _stopVideoSizeTimer() {
     _videoSizeTimer?.cancel();
     _videoSizeTimer = null;
-    if (!_videoSizeController.isClosed) _videoSizeController.close();
+  }
+
+  /// Cancels video-size polling and closes [videoSizeStream] at terminal
+  /// cleanup.
+  void _stopVideoSizeStream() {
+    _stopVideoSizeTimer();
+    final controller = _videoSizeController;
+    if (controller != null && !controller.isClosed) controller.close();
   }
 }

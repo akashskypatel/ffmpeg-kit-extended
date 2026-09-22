@@ -132,6 +132,19 @@ void main() {
     expect(FFplayKit.currentSession, isNull);
   });
 
+  test('telemetry stream controllers remain reusable after last listener ends', () async {
+    final session = _FakeFFplaySession(SessionState.created);
+    final firstPosition = session.positionStream.listen((_) {});
+    final firstVideoSize = session.videoSizeStream.listen((_) {});
+    await firstPosition.cancel();
+    await firstVideoSize.cancel();
+
+    final secondPosition = session.positionStream.listen((_) {});
+    final secondVideoSize = session.videoSizeStream.listen((_) {});
+    await secondPosition.cancel();
+    await secondVideoSize.cancel();
+  });
+
   test(
     'start submits Created once, resumes paused Running, and ignores terminal',
     () async {
