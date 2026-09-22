@@ -147,6 +147,7 @@ abstract class Session {
   /// expose sessions that are already running or terminal, but those objects
   /// are read-only observations and cannot be submitted again.
   bool _submitted = false;
+  bool _restoredFromHandle = false;
   bool _executionStarted = false;
   bool _nativeCancellationDispatched = false;
   bool _cancellationMonitorActive = false;
@@ -286,6 +287,32 @@ abstract class Session {
   @protected
   bool get hasPendingExecutionRouting => _submitted && !_executionSettled;
 
+  /// Whether this object was restored around an already-owned native handle.
+  ///
+  /// Restored wrappers are allowed to attach callback routing only after the
+  /// native state proves that the underlying session is still running.
+  @protected
+  bool get isRestoredSession => _restoredFromHandle;
+
+  /// Registers a callback sink only when it can own live delivery.
+  ///
+  /// Newly-created sessions remain inert until execution is submitted. A
+  /// restored session must first read native state and is routed only while
+  /// that state is running. The state read intentionally propagates failures so
+  /// callers can roll back the sink mutation without leaving a map root.
+  @protected
+  void ensureRoutingForSinkDemand(void Function() register) {
+    if (isDisposed) return;
+    if (hasPendingExecutionRouting) {
+      register();
+      return;
+    }
+    if (!isRestoredSession) return;
+    if (executionStateForSubmission() == SessionState.running) {
+      register();
+    }
+  }
+
   /// Claims the single completion-callback dispatch for this session.
   ///
   /// Native callback bridges and synchronous wrappers can observe the same
@@ -354,12 +381,14 @@ abstract class Session {
     SessionHandle ownedHandle, {
     required int Function(SessionHandle) readSessionId,
     void Function()? onBeforeCommit,
+    bool restoredSession = false,
   }) {
     try {
       handle = ownedHandle;
       sessionId = readSessionId(ownedHandle);
       onBeforeCommit?.call();
       registerFinalizer();
+      _restoredFromHandle = restoredSession;
     } catch (error, stackTrace) {
       try {
         releaseHandle(ownedHandle);

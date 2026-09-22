@@ -120,6 +120,7 @@ class FFplaySession extends Session {
       adoptOwnedHandle(
         ownedHandle,
         readSessionId: ffmpegKitBackend.getSessionId,
+        restoredSession: true,
       );
     } catch (e, st) {
       log(
@@ -159,7 +160,7 @@ class FFplaySession extends Session {
     _completeCallback = completeCallback;
 
     if (completeCallback != null) {
-      _ensureRegistered();
+      _ensureRegisteredForSinkDemand();
     }
   }
 
@@ -186,7 +187,7 @@ class FFplaySession extends Session {
 
     _completeCallback = completeCallback;
     if (completeCallback != null) {
-      _ensureRegistered();
+      _ensureRegisteredForSinkDemand();
     }
   }
 
@@ -256,7 +257,7 @@ class FFplaySession extends Session {
     final controller = _logBatchStreamController ??=
         StreamController<List<Log>>.broadcast(
           onListen: () {
-            _ensureRegistered();
+            _ensureRegisteredForSinkDemand();
             dispatchPendingLogs();
           },
           onCancel: _unregisterIfIdle,
@@ -270,21 +271,33 @@ class FFplaySession extends Session {
 
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFplaySessionCompleteCallback? completeCallback) {
+    final previous = _completeCallback;
     _completeCallback = completeCallback;
     if (completeCallback == null) {
       _unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        _ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _completeCallback = previous;
+        rethrow;
+      }
     }
   }
 
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
+    final previous = _logCallback;
     _logCallback = logCallback;
     if (logCallback == null) {
       _unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        _ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _logCallback = previous;
+        rethrow;
+      }
     }
   }
 
@@ -923,6 +936,11 @@ class FFplaySession extends Session {
     if (_registered) return;
     CallbackManager().registerFFplaySession(this);
     _registered = true;
+  }
+
+  void _ensureRegisteredForSinkDemand() {
+    if (isDisposed || _registered) return;
+    ensureRoutingForSinkDemand(_ensureRegistered);
   }
 
   @override

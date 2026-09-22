@@ -87,7 +87,7 @@ class FFprobeSession extends Session {
 
     _completeCallback = completeCallback;
     if (completeCallback != null) {
-      ensureRegistered();
+      ensureRegisteredForSinkDemand();
     }
   }
 
@@ -100,7 +100,11 @@ class FFprobeSession extends Session {
         ? handle
         : SessionHandle(handle);
     this.command = command;
-    adoptOwnedHandle(ownedHandle, readSessionId: ffmpegKitBackend.getSessionId);
+    adoptOwnedHandle(
+      ownedHandle,
+      readSessionId: ffmpegKitBackend.getSessionId,
+      restoredSession: true,
+    );
   }
 
   /// Internal constructor used exclusively by [MediaInformationSession].
@@ -134,7 +138,7 @@ class FFprobeSession extends Session {
     final controller = _logBatchStreamController ??=
         StreamController<List<Log>>.broadcast(
           onListen: () {
-            _ensureRegistered();
+            ensureRegisteredForSinkDemand();
             dispatchPendingLogs();
           },
           onCancel: unregisterIfIdle,
@@ -148,21 +152,33 @@ class FFprobeSession extends Session {
 
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFprobeSessionCompleteCallback? completeCallback) {
+    final previous = _completeCallback;
     _completeCallback = completeCallback;
     if (completeCallback == null) {
       unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _completeCallback = previous;
+        rethrow;
+      }
     }
   }
 
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
+    final previous = _logCallback;
     _logCallback = logCallback;
     if (logCallback == null) {
       unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _logCallback = previous;
+        rethrow;
+      }
     }
   }
 
@@ -420,6 +436,14 @@ class FFprobeSession extends Session {
     if (_registered) return;
     CallbackManager().registerFFprobeSession(this);
     _registered = true;
+  }
+
+  /// Registers a sink only for a pending local execution or a restored session
+  /// whose native state is currently running.
+  @protected
+  void ensureRegisteredForSinkDemand() {
+    if (isDisposed || _registered) return;
+    ensureRoutingForSinkDemand(ensureRegistered);
   }
 
   /// Backwards-compatible alias used throughout this file.

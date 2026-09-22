@@ -46,13 +46,9 @@ class FFplayKit {
     FFplaySessionCompleteCallback? onComplete,
     callback_manager.FFmpegLogCallback? onLog,
   }) async {
-    void wrappedCallback(FFplaySession session) {
-      onComplete?.call(session);
-    }
-
     _activeFFplaySession = FFplaySession.createGlobal(
       command,
-      completeCallback: wrappedCallback,
+      completeCallback: onComplete,
     );
     if (onLog != null) {
       _activeFFplaySession!.setLogCallback(onLog);
@@ -69,13 +65,9 @@ class FFplayKit {
     FFplaySessionCompleteCallback? onComplete,
     callback_manager.FFmpegLogCallback? onLog,
   }) async {
-    void wrappedCallback(FFplaySession session) {
-      onComplete?.call(session);
-    }
-
     _activeFFplaySession = FFplaySession.createGlobal(
       command,
-      completeCallback: wrappedCallback,
+      completeCallback: onComplete,
     );
     if (onLog != null) {
       _activeFFplaySession!.setLogCallback(onLog);
@@ -89,13 +81,9 @@ class FFplayKit {
     FFplaySessionCompleteCallback? onComplete,
     callback_manager.FFmpegLogCallback? onLog,
   }) async {
-    void wrappedCallback(FFplaySession session) {
-      onComplete?.call(session);
-    }
-
     _activeFFplaySession = FFplaySession.createGlobalFromArguments(
       arguments,
-      completeCallback: wrappedCallback,
+      completeCallback: onComplete,
     );
     if (onLog != null) {
       _activeFFplaySession!.setLogCallback(onLog);

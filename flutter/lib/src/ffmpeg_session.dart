@@ -96,6 +96,7 @@ class FFmpegSession extends Session {
     adoptOwnedHandle(
       handle,
       readSessionId: ffmpegKitBackend.getSessionId,
+      restoredSession: true,
       onBeforeCommit: () {
         expectedDurationMs = _deriveExpectedTranscodingDurationMs(
           FFmpegKitExtended.parseArguments(command),
@@ -151,7 +152,7 @@ class FFmpegSession extends Session {
     if (completeCallback != null ||
         logCallback != null ||
         statisticsCallback != null) {
-      _ensureRegistered();
+      _ensureRegisteredForSinkDemand();
     }
   }
 
@@ -183,7 +184,7 @@ class FFmpegSession extends Session {
     if (completeCallback != null ||
         logCallback != null ||
         statisticsCallback != null) {
-      _ensureRegistered();
+      _ensureRegisteredForSinkDemand();
     }
   }
 
@@ -242,7 +243,7 @@ class FFmpegSession extends Session {
     final controller = _logBatchStreamController ??=
         StreamController<List<Log>>.broadcast(
           onListen: () {
-            _ensureRegistered();
+            _ensureRegisteredForSinkDemand();
             dispatchPendingLogs();
           },
           onCancel: _unregisterIfIdle,
@@ -284,11 +285,17 @@ class FFmpegSession extends Session {
   /// If the session is already registered the callback reference is updated
   /// in-place (no new registration entry is created).
   void setCompleteCallback(FFmpegSessionCompleteCallback? completeCallback) {
+    final previous = _completeCallback;
     _completeCallback = completeCallback;
     if (completeCallback == null) {
       _unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        _ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _completeCallback = previous;
+        rethrow;
+      }
     }
   }
 
@@ -303,11 +310,17 @@ class FFmpegSession extends Session {
 
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
+    final previous = _logCallback;
     _logCallback = logCallback;
     if (logCallback == null) {
       _unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        _ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _logCallback = previous;
+        rethrow;
+      }
     }
   }
 
@@ -319,11 +332,17 @@ class FFmpegSession extends Session {
 
   /// Sets or replaces the statistics callback.
   void setStatisticsCallback(FFmpegStatisticsCallback? statisticsCallback) {
+    final previous = _statisticsCallback;
     _statisticsCallback = statisticsCallback;
     if (statisticsCallback == null) {
       _unregisterIfIdle();
     } else {
-      _ensureRegistered();
+      try {
+        _ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _statisticsCallback = previous;
+        rethrow;
+      }
     }
   }
 
@@ -671,6 +690,11 @@ class FFmpegSession extends Session {
     if (_registered) return;
     CallbackManager().registerFFmpegSession(this);
     _registered = true;
+  }
+
+  void _ensureRegisteredForSinkDemand() {
+    if (isDisposed || _registered) return;
+    ensureRoutingForSinkDemand(_ensureRegistered);
   }
 
   /// Unregisters this session from [CallbackManager].

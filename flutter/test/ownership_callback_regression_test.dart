@@ -92,6 +92,9 @@ class _CleanupFailingSession extends _ReleasableSession {
 }
 
 class _NoopFFmpegSession extends FFmpegSession {
+  SessionState restoredState = SessionState.created;
+  bool throwOnStateRead = false;
+
   _NoopFFmpegSession(int sessionId)
     : super.test(sessionId: sessionId, register: false);
 
@@ -99,42 +102,87 @@ class _NoopFFmpegSession extends FFmpegSession {
   void dispatchPendingLogs() {}
 
   @override
-  SessionState executionStateForSubmission() => SessionState.created;
+  SessionState executionStateForSubmission() {
+    if (throwOnStateRead) throw StateError('state read failed');
+    return restoredState;
+  }
 
   void submitForTest() => claimExecutionSubmission();
 
   void settleForTest() => markExecutionSettled();
+
+  void restoreForTest(SessionState state) {
+    restoredState = state;
+    adoptOwnedHandle(
+      const SessionHandle(Object()),
+      readSessionId: (_) => sessionId,
+      restoredSession: true,
+    );
+  }
 }
 
 class _NoopFFprobeSession extends FFprobeSession {
+  SessionState restoredState = SessionState.created;
+  bool throwOnStateRead = false;
+
   _NoopFFprobeSession(int sessionId) : super.test(sessionId: sessionId);
 
   @override
   void dispatchPendingLogs() {}
 
   @override
-  SessionState executionStateForSubmission() => SessionState.created;
+  SessionState executionStateForSubmission() {
+    if (throwOnStateRead) throw StateError('state read failed');
+    return restoredState;
+  }
 
   void submitForTest() => claimExecutionSubmission();
 
   void settleForTest() => markExecutionSettled();
+
+  void restoreForTest(SessionState state) {
+    restoredState = state;
+    adoptOwnedHandle(
+      const SessionHandle(Object()),
+      readSessionId: (_) => sessionId,
+      restoredSession: true,
+    );
+  }
 }
 
 class _NoopFFplaySession extends FFplaySession {
+  SessionState restoredState = SessionState.created;
+  bool throwOnStateRead = false;
+
   _NoopFFplaySession(int sessionId) : super.test(sessionId: sessionId);
 
   @override
   void dispatchPendingLogs() {}
 
   @override
-  SessionState executionStateForSubmission() => SessionState.created;
+  SessionState executionStateForSubmission() {
+    if (throwOnStateRead) throw StateError('state read failed');
+    return restoredState;
+  }
 
   void submitForTest() => claimExecutionSubmission();
 
   void settleForTest() => markExecutionSettled();
+
+  void restoreForTest(SessionState state) {
+    restoredState = state;
+    adoptOwnedHandle(
+      const SessionHandle(Object()),
+      readSessionId: (_) => sessionId,
+      restoredSession: true,
+    );
+  }
 }
 
 class _NoopMediaInformationSession extends MediaInformationSession {
+  SessionState restoredState = SessionState.created;
+  bool throwOnStateRead = false;
+
   _NoopMediaInformationSession(int sessionId)
     : super.test(sessionId: sessionId);
 
@@ -142,11 +190,23 @@ class _NoopMediaInformationSession extends MediaInformationSession {
   void dispatchPendingLogs() {}
 
   @override
-  SessionState executionStateForSubmission() => SessionState.created;
+  SessionState executionStateForSubmission() {
+    if (throwOnStateRead) throw StateError('state read failed');
+    return restoredState;
+  }
 
   void submitForTest() => claimExecutionSubmission();
 
   void settleForTest() => markExecutionSettled();
+
+  void restoreForTest(SessionState state) {
+    restoredState = state;
+    adoptOwnedHandle(
+      const SessionHandle(Object()),
+      readSessionId: (_) => sessionId,
+      restoredSession: true,
+    );
+  }
 }
 
 void main() {
@@ -415,7 +475,7 @@ void main() {
       expect(manager.ffprobeSessions, isNot(contains(303)));
     });
 
-    test('callbacks register the owning session', () {
+    test('Created callbacks retain values without a callback-manager root', () {
       final ffmpeg = _NoopFFmpegSession(310);
       final ffprobe = _NoopFFprobeSession(311);
       final ffplay = _NoopFFplaySession(312);
@@ -425,6 +485,25 @@ void main() {
       ffprobe.setCompleteCallback((_) {});
       ffplay.setCompleteCallback((_) {});
       mediaInfo.setMediaInfoCompleteCallback((_) {});
+
+      expect(ffmpeg.completeCallback, isNotNull);
+      expect(ffprobe.completeCallback, isNotNull);
+      expect(ffplay.completeCallback, isNotNull);
+      expect(mediaInfo.mediaInfoCompleteCallback, isNotNull);
+      expect(manager.ffmpegSessions, isNot(contains(310)));
+      expect(manager.ffprobeSessions, isNot(contains(311)));
+      expect(manager.ffplaySessions, isNot(contains(312)));
+      expect(manager.mediaInformationSessions, isNot(contains(313)));
+      expect(manager.ffprobeSessions, isNot(contains(313)));
+
+      ffmpeg.submitForTest();
+      ffprobe.submitForTest();
+      ffplay.submitForTest();
+      mediaInfo.submitForTest();
+      ffmpeg.setCompleteCallback(ffmpeg.completeCallback);
+      ffprobe.setCompleteCallback(ffprobe.completeCallback);
+      ffplay.setCompleteCallback(ffplay.completeCallback);
+      mediaInfo.setMediaInfoCompleteCallback(mediaInfo.mediaInfoCompleteCallback);
 
       expect(manager.ffmpegSessions, contains(310));
       expect(manager.ffprobeSessions, contains(311));
@@ -455,6 +534,43 @@ void main() {
       expect(manager.ffprobeSessions, isNot(contains(323)));
     });
 
+    test('restored routing is state-aware and rolls back failed reads', () {
+      final ffmpeg = _NoopFFmpegSession(325);
+      final ffprobe = _NoopFFprobeSession(326);
+      final ffplay = _NoopFFplaySession(327);
+      final mediaInfo = _NoopMediaInformationSession(328);
+
+      ffmpeg.restoreForTest(SessionState.running);
+      ffprobe.restoreForTest(SessionState.running);
+      ffplay.restoreForTest(SessionState.running);
+      mediaInfo.restoreForTest(SessionState.running);
+      ffmpeg.setCompleteCallback((_) {});
+      ffprobe.setCompleteCallback((_) {});
+      ffplay.setCompleteCallback((_) {});
+      mediaInfo.setMediaInfoCompleteCallback((_) {});
+
+      expect(manager.ffmpegSessions, contains(325));
+      expect(manager.ffprobeSessions, contains(326));
+      expect(manager.ffplaySessions, contains(327));
+      expect(manager.mediaInformationSessions, contains(328));
+      expect(manager.ffprobeSessions, contains(328));
+
+      final terminal = _NoopFFmpegSession(329);
+      terminal.restoreForTest(SessionState.completed);
+      terminal.setCompleteCallback((_) {});
+      expect(manager.ffmpegSessions, isNot(contains(329)));
+
+      final failedRead = _NoopFFmpegSession(330);
+      failedRead.restoreForTest(SessionState.running);
+      failedRead.throwOnStateRead = true;
+      expect(
+        () => failedRead.setCompleteCallback((_) {}),
+        throwsA(isA<StateError>()),
+      );
+      expect(failedRead.completeCallback, isNull);
+      expect(manager.ffmpegSessions, isNot(contains(330)));
+    });
+
     test('clearing the last callback unregisters each session', () {
       final ffmpeg = _NoopFFmpegSession(330);
       final ffprobe = _NoopFFprobeSession(331);
@@ -478,7 +594,7 @@ void main() {
       expect(manager.ffprobeSessions, isNot(contains(333)));
     });
 
-    test('log stream listeners register before the first drain', () async {
+    test('Created log listeners do not retain sessions before execution', () async {
       final ffmpeg = _NoopFFmpegSession(340);
       final ffprobe = _NoopFFprobeSession(341);
       final ffplay = _NoopFFplaySession(342);
@@ -491,6 +607,21 @@ void main() {
         mediaInfo.logBatchStream.listen((_) {}),
       ];
 
+      expect(manager.ffmpegSessions, isNot(contains(340)));
+      expect(manager.ffprobeSessions, isNot(contains(341)));
+      expect(manager.ffplaySessions, isNot(contains(342)));
+      expect(manager.mediaInformationSessions, isNot(contains(343)));
+      expect(manager.ffprobeSessions, isNot(contains(343)));
+
+      ffmpeg.submitForTest();
+      ffprobe.submitForTest();
+      ffplay.submitForTest();
+      mediaInfo.submitForTest();
+      ffmpeg.setCompleteCallback((_) {});
+      ffprobe.setCompleteCallback((_) {});
+      ffplay.setCompleteCallback((_) {});
+      mediaInfo.setMediaInfoCompleteCallback((_) {});
+
       expect(manager.ffmpegSessions, contains(340));
       expect(manager.ffprobeSessions, contains(341));
       expect(manager.ffplaySessions, contains(342));
@@ -500,6 +631,16 @@ void main() {
       await Future.wait(
         subscriptions.map((subscription) => subscription.cancel()),
       );
+
+      expect(manager.ffmpegSessions, contains(340));
+      expect(manager.ffprobeSessions, contains(341));
+      expect(manager.ffplaySessions, contains(342));
+      expect(manager.mediaInformationSessions, contains(343));
+      expect(manager.ffprobeSessions, contains(343));
+      ffmpeg.removeCompleteCallback();
+      ffprobe.removeCompleteCallback();
+      ffplay.removeCompleteCallback();
+      mediaInfo.removeMediaInfoCompleteCallback();
 
       expect(manager.ffmpegSessions, isNot(contains(340)));
       expect(manager.ffprobeSessions, isNot(contains(341)));

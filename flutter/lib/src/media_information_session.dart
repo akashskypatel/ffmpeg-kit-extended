@@ -101,11 +101,17 @@ class MediaInformationSession extends FFprobeSession {
   void setMediaInfoCompleteCallback(
     MediaInformationSessionCompleteCallback? cb,
   ) {
+    final previous = _mediaInfoCompleteCallback;
     _mediaInfoCompleteCallback = cb;
     if (cb == null) {
       unregisterIfIdle();
     } else {
-      ensureRegistered();
+      try {
+        ensureRegisteredForSinkDemand();
+      } catch (_) {
+        _mediaInfoCompleteCallback = previous;
+        rethrow;
+      }
     }
   }
 
@@ -191,7 +197,7 @@ class MediaInformationSession extends FFprobeSession {
 
     _mediaInfoCompleteCallback = completeCallback;
     if (completeCallback != null) {
-      ensureRegistered();
+      ensureRegisteredForSinkDemand();
     }
   }
 
@@ -234,7 +240,7 @@ class MediaInformationSession extends FFprobeSession {
     }
     _mediaInfoCompleteCallback = completeCallback;
     if (completeCallback != null) {
-      ensureRegistered();
+      ensureRegisteredForSinkDemand();
     }
   }
 
@@ -252,6 +258,7 @@ class MediaInformationSession extends FFprobeSession {
       adoptOwnedHandle(
         ownedHandle,
         readSessionId: ffmpegKitBackend.getSessionId,
+        restoredSession: true,
       );
     } catch (e, st) {
       log(
