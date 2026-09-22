@@ -369,6 +369,18 @@ abstract interface class FFmpegKitBackend {
 
   void configureMediaInformationSessionCompleteCallback();
 
+  void disableLogCallback();
+
+  void disableStatisticsCallback();
+
+  void disableFFmpegSessionCompleteCallback();
+
+  void disableFFprobeSessionCompleteCallback();
+
+  void disableFFplaySessionCompleteCallback();
+
+  void disableMediaInformationSessionCompleteCallback();
+
   String? registerNewFFmpegPipe();
 
   void closeFFmpegPipe(String pipePath);

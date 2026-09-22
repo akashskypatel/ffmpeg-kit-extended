@@ -553,8 +553,14 @@ class MediaInformationSession extends FFprobeSession {
   @override
   @protected
   void configureSynchronousNativeCallbacks() {
-    ffmpegKitBackend.configureMediaInformationSessionCompleteCallback();
+    // Synchronous completion is dispatched by the blocking return path and
+    // does not need a process-global native completion callback.
   }
+
+  @override
+  @protected
+  CallbackBridgeKind get completionBridgeKind =>
+      CallbackBridgeKind.mediaInformationCompletion;
 
   /// Invokes the blocking media-information backend operation.
   @override
@@ -584,7 +590,11 @@ class MediaInformationSession extends FFprobeSession {
           try {
             closeLogStreams();
           } finally {
-            unregister();
+            try {
+              unregister();
+            } finally {
+              releaseAllBridgeLeases();
+            }
           }
         },
       );
@@ -597,7 +607,7 @@ class MediaInformationSession extends FFprobeSession {
       clearExecutionErrorHandler();
 
       try {
-        dispatchPendingLogs();
+        if (hasLogDemand) dispatchPendingLogs();
       } catch (e, st) {
         log(
           'MediaInformationSession: error flushing logs for session $sessionId',
@@ -615,6 +625,7 @@ class MediaInformationSession extends FFprobeSession {
           try {
             unregister();
           } finally {
+            releaseAllBridgeLeases();
             CallbackManager().invokeSafely(
               'Media-information completion callback',
               sessionId,
@@ -629,9 +640,7 @@ class MediaInformationSession extends FFprobeSession {
     };
 
     try {
-      enableNativeLogCallback();
-      // Register the global native callback for media information completion.
-      ffmpegKitBackend.configureMediaInformationCallbacks();
+      acquireExecutionBridgeLeases();
       ffmpegKitBackend.executeMediaInformationSessionAsync(handle, _timeout);
     } catch (e, st) {
       log(
@@ -643,7 +652,11 @@ class MediaInformationSession extends FFprobeSession {
       clearExecutionErrorHandler();
       _mediaInfoCompleteCallback = userCb;
       closeLogStreams();
-      unregister();
+      try {
+        unregister();
+      } finally {
+        releaseAllBridgeLeases();
+      }
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }

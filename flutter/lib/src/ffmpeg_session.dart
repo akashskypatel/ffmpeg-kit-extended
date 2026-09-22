@@ -245,9 +245,13 @@ class FFmpegSession extends Session {
         StreamController<List<Log>>.broadcast(
           onListen: () {
             _ensureRegisteredForSinkDemand();
+            _syncLogBridgeLease();
             dispatchPendingLogs();
           },
-          onCancel: _unregisterIfIdle,
+          onCancel: () {
+            _syncLogBridgeLease();
+            _unregisterIfIdle();
+          },
         );
     return controller.stream;
   }
@@ -314,10 +318,12 @@ class FFmpegSession extends Session {
     final previous = _logCallback;
     _logCallback = logCallback;
     if (logCallback == null) {
+      _syncLogBridgeLease();
       _unregisterIfIdle();
     } else {
       try {
         _ensureRegisteredForSinkDemand();
+        _syncLogBridgeLease();
       } catch (_) {
         _logCallback = previous;
         rethrow;
@@ -328,6 +334,7 @@ class FFmpegSession extends Session {
   /// Clears the log callback.
   void removeLogCallback() {
     _logCallback = null;
+    _syncLogBridgeLease();
     _unregisterIfIdle();
   }
 
@@ -336,10 +343,12 @@ class FFmpegSession extends Session {
     final previous = _statisticsCallback;
     _statisticsCallback = statisticsCallback;
     if (statisticsCallback == null) {
+      _syncStatisticsBridgeLease();
       _unregisterIfIdle();
     } else {
       try {
         _ensureRegisteredForSinkDemand();
+        _syncStatisticsBridgeLease();
       } catch (_) {
         _statisticsCallback = previous;
         rethrow;
@@ -350,6 +359,7 @@ class FFmpegSession extends Session {
   /// Clears the statistics callback.
   void removeStatisticsCallback() {
     _statisticsCallback = null;
+    _syncStatisticsBridgeLease();
     _unregisterIfIdle();
   }
 
@@ -384,12 +394,12 @@ class FFmpegSession extends Session {
     }
 
     try {
-      enableNativeLogCallback();
+      _acquireOptionalBridgeLeases();
       configureSynchronousNativeCallbacks();
       // Mark the handoff immediately before the blocking native call.
       markExecutionStarted();
       executeSynchronously();
-      dispatchPendingLogs();
+      if (_hasLogDemand) dispatchPendingLogs();
       CallbackManager().dispatchFFmpegComplete(sessionId);
     } catch (error, stackTrace) {
       primaryError = error;
@@ -410,6 +420,7 @@ class FFmpegSession extends Session {
       } catch (error, stackTrace) {
         recordCleanupFailure(error, stackTrace);
       } finally {
+        releaseAllBridgeLeases();
         markExecutionSettled();
       }
     }
@@ -533,7 +544,11 @@ class FFmpegSession extends Session {
           try {
             _closeLogStreams();
           } finally {
-            _unregister();
+            try {
+              _unregister();
+            } finally {
+              releaseAllBridgeLeases();
+            }
           }
         },
       );
@@ -546,7 +561,7 @@ class FFmpegSession extends Session {
       clearExecutionErrorHandler();
 
       try {
-        dispatchPendingLogs();
+        if (_hasLogDemand) dispatchPendingLogs();
       } catch (e, st) {
         log(
           'FFmpegSession: error flushing logs for session $sessionId',
@@ -564,6 +579,7 @@ class FFmpegSession extends Session {
           try {
             _unregister();
           } finally {
+            releaseAllBridgeLeases();
             CallbackManager().invokeSafely(
               'FFmpeg completion callback',
               sessionId,
@@ -578,10 +594,9 @@ class FFmpegSession extends Session {
     };
 
     try {
-      enableNativeLogCallback();
+      _acquireExecutionBridgeLeases();
       // Enable the global native completion and statistics callbacks so the C
       // layer can post events back to Dart. These calls are idempotent.
-      ffmpegKitBackend.configureFFmpegCallbacks();
       ffmpegKitBackend.executeFFmpegSessionAsync(handle);
     } catch (e, st) {
       log(
@@ -592,7 +607,11 @@ class FFmpegSession extends Session {
       clearExecutionErrorHandler();
       _completeCallback = userCompleteCallback;
       _closeLogStreams();
-      _unregister();
+      try {
+        _unregister();
+      } finally {
+        releaseAllBridgeLeases();
+      }
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
     }
@@ -635,8 +654,12 @@ class FFmpegSession extends Session {
   /// Configures native completion and statistics callbacks for sync execution.
   @protected
   void configureSynchronousNativeCallbacks() {
-    ffmpegKitBackend.configureFFmpegSessionCompleteCallback();
-    ffmpegKitBackend.configureStatisticsCallback();
+    if (_hasStatisticsDemand) {
+      // The statistics bridge is acquired before the native call. This method
+      // remains as the synchronous configuration seam used by subclasses and
+      // tests, but it no longer installs an unnecessary completion bridge.
+      assert(CallbackManager().isBridgeActive(CallbackBridgeKind.statistics));
+    }
   }
 
   /// Invokes the blocking FFmpeg backend operation.
@@ -656,6 +679,60 @@ class FFmpegSession extends Session {
         stackTrace: st,
       );
       rethrow;
+    }
+  }
+
+  bool get _hasLocalLogDemand =>
+      _logCallback != null || (_logBatchStreamController?.hasListener ?? false);
+
+  bool get _hasLogDemand =>
+      _hasLocalLogDemand || CallbackManager().globalLogCallback != null;
+
+  bool get _hasStatisticsDemand =>
+      _statisticsCallback != null ||
+      CallbackManager().globalStatisticsCallback != null;
+
+  void _acquireOptionalBridgeLeases() {
+    if (_hasLocalLogDemand) {
+      acquireBridgeLease(
+        CallbackBridgeKind.log,
+        install: ffmpegKitBackend.configureLogCallback,
+        uninstall: ffmpegKitBackend.disableLogCallback,
+      );
+    }
+    if (_statisticsCallback != null) {
+      acquireBridgeLease(
+        CallbackBridgeKind.statistics,
+        install: ffmpegKitBackend.configureStatisticsCallback,
+        uninstall: ffmpegKitBackend.disableStatisticsCallback,
+      );
+    }
+  }
+
+  void _acquireExecutionBridgeLeases() {
+    _acquireOptionalBridgeLeases();
+    acquireBridgeLease(
+      CallbackBridgeKind.ffmpegCompletion,
+      install: ffmpegKitBackend.configureFFmpegSessionCompleteCallback,
+      uninstall: ffmpegKitBackend.disableFFmpegSessionCompleteCallback,
+    );
+  }
+
+  void _syncLogBridgeLease() {
+    if (_hasLocalLogDemand && hasExecutionStarted && !hasExecutionSettled) {
+      _acquireOptionalBridgeLeases();
+    } else if (!_hasLocalLogDemand) {
+      releaseBridgeLease(CallbackBridgeKind.log);
+    }
+  }
+
+  void _syncStatisticsBridgeLease() {
+    if (_statisticsCallback != null &&
+        hasExecutionStarted &&
+        !hasExecutionSettled) {
+      _acquireOptionalBridgeLeases();
+    } else if (_statisticsCallback == null) {
+      releaseBridgeLease(CallbackBridgeKind.statistics);
     }
   }
 

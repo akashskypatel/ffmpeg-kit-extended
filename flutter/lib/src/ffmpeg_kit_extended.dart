@@ -395,7 +395,7 @@ class FFmpegKitExtended {
     return handle == null
         ? null
         : _wrapTypedSession(handle, _ExpectedSessionKind.ffmpeg)
-            as FFmpegSession?;
+              as FFmpegSession?;
   }
 
   /// Returns the most recently created [FFprobeSession], or `null`.
@@ -405,7 +405,7 @@ class FFmpegKitExtended {
     return handle == null
         ? null
         : _wrapTypedSession(handle, _ExpectedSessionKind.ffprobe)
-            as FFprobeSession?;
+              as FFprobeSession?;
   }
 
   /// Returns the most recently created [FFplaySession], or `null`.
@@ -415,7 +415,7 @@ class FFmpegKitExtended {
     return handle == null
         ? null
         : _wrapTypedSession(handle, _ExpectedSessionKind.ffplay)
-            as FFplaySession?;
+              as FFplaySession?;
   }
 
   /// Returns the most recently created [MediaInformationSession], or `null`.
@@ -425,7 +425,7 @@ class FFmpegKitExtended {
     return handle == null
         ? null
         : _wrapTypedSession(handle, _ExpectedSessionKind.mediaInformation)
-            as MediaInformationSession?;
+              as MediaInformationSession?;
   }
 
   /// Returns the most recently completed session, or `null`.
@@ -466,8 +466,11 @@ class FFmpegKitExtended {
   ]) {
     requireInitialized();
     try {
-      callback_manager.CallbackManager().globalLogCallback = logCallback;
-      ffmpegKitBackend.configureLogCallback();
+      callback_manager.CallbackManager().setGlobalLogCallback(
+        logCallback,
+        install: ffmpegKitBackend.configureLogCallback,
+        uninstall: ffmpegKitBackend.disableLogCallback,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_log_callback",
@@ -485,9 +488,11 @@ class FFmpegKitExtended {
   ]) {
     requireInitialized();
     try {
-      callback_manager.CallbackManager().globalStatisticsCallback =
-          statisticsCallback;
-      ffmpegKitBackend.configureStatisticsCallback();
+      callback_manager.CallbackManager().setGlobalStatisticsCallback(
+        statisticsCallback,
+        install: ffmpegKitBackend.configureStatisticsCallback,
+        uninstall: ffmpegKitBackend.disableStatisticsCallback,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_statistics_callback",
@@ -504,9 +509,11 @@ class FFmpegKitExtended {
   ]) {
     requireInitialized();
     try {
-      callback_manager.CallbackManager().globalFFmpegSessionCompleteCallback =
-          completeCallback;
-      ffmpegKitBackend.configureFFmpegSessionCompleteCallback();
+      callback_manager.CallbackManager().setGlobalFFmpegSessionCompleteCallback(
+        completeCallback,
+        install: ffmpegKitBackend.configureFFmpegSessionCompleteCallback,
+        uninstall: ffmpegKitBackend.disableFFmpegSessionCompleteCallback,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_ffmpeg_session_complete_callback",
@@ -523,9 +530,12 @@ class FFmpegKitExtended {
   ]) {
     requireInitialized();
     try {
-      callback_manager.CallbackManager().globalFFprobeSessionCompleteCallback =
-          completeCallback;
-      ffmpegKitBackend.configureFFprobeSessionCompleteCallback();
+      callback_manager.CallbackManager()
+          .setGlobalFFprobeSessionCompleteCallback(
+            completeCallback,
+            install: ffmpegKitBackend.configureFFprobeSessionCompleteCallback,
+            uninstall: ffmpegKitBackend.disableFFprobeSessionCompleteCallback,
+          );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_ffprobe_session_complete_callback",
@@ -542,9 +552,11 @@ class FFmpegKitExtended {
   ]) {
     requireInitialized();
     try {
-      callback_manager.CallbackManager().globalFFplaySessionCompleteCallback =
-          completeCallback;
-      ffmpegKitBackend.configureFFplaySessionCompleteCallback();
+      callback_manager.CallbackManager().setGlobalFFplaySessionCompleteCallback(
+        completeCallback,
+        install: ffmpegKitBackend.configureFFplaySessionCompleteCallback,
+        uninstall: ffmpegKitBackend.disableFFplaySessionCompleteCallback,
+      );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_ffplay_session_complete_callback",
@@ -563,9 +575,13 @@ class FFmpegKitExtended {
     requireInitialized();
     try {
       callback_manager.CallbackManager()
-              .globalMediaInformationSessionCompleteCallback =
-          completeCallback;
-      ffmpegKitBackend.configureMediaInformationSessionCompleteCallback();
+          .setGlobalMediaInformationSessionCompleteCallback(
+            completeCallback,
+            install: ffmpegKitBackend
+                .configureMediaInformationSessionCompleteCallback,
+            uninstall:
+                ffmpegKitBackend.disableMediaInformationSessionCompleteCallback,
+          );
     } catch (e, stack) {
       log(
         "FFmpegKitExtended: Failed to call native function ffmpeg_kit_config_enable_media_information_session_complete_callback",

@@ -259,9 +259,13 @@ class FFplaySession extends Session {
         StreamController<List<Log>>.broadcast(
           onListen: () {
             _ensureRegisteredForSinkDemand();
+            _syncLogBridgeLease();
             dispatchPendingLogs();
           },
-          onCancel: _unregisterIfIdle,
+          onCancel: () {
+            _syncLogBridgeLease();
+            _unregisterIfIdle();
+          },
         );
     return controller.stream;
   }
@@ -291,10 +295,12 @@ class FFplaySession extends Session {
     final previous = _logCallback;
     _logCallback = logCallback;
     if (logCallback == null) {
+      _syncLogBridgeLease();
       _unregisterIfIdle();
     } else {
       try {
         _ensureRegisteredForSinkDemand();
+        _syncLogBridgeLease();
       } catch (_) {
         _logCallback = previous;
         rethrow;
@@ -312,6 +318,7 @@ class FFplaySession extends Session {
   /// Clears the log callback.
   void removeLogCallback() {
     _logCallback = null;
+    _syncLogBridgeLease();
     _unregisterIfIdle();
   }
 
@@ -524,11 +531,10 @@ class FFplaySession extends Session {
     }
 
     try {
-      enableNativeLogCallback();
-      configureSynchronousNativeCallbacks();
+      _acquireOptionalBridgeLeases();
       markExecutionStarted();
       executeSynchronously();
-      dispatchPendingLogs();
+      if (_hasLogDemand) dispatchPendingLogs();
       CallbackManager().dispatchFFplayComplete(sessionId);
     } catch (error, stackTrace) {
       primaryError = error;
@@ -549,6 +555,7 @@ class FFplaySession extends Session {
       } catch (error, stackTrace) {
         recordCleanupFailure(error, stackTrace);
       } finally {
+        releaseAllBridgeLeases();
         _telemetryExecutionActive = false;
         _stopPositionStream();
         _stopVideoSizeStream();
@@ -833,26 +840,26 @@ class FFplaySession extends Session {
 
   StreamController<double> _createPositionController() =>
       StreamController<double>.broadcast(
-      onListen: () {
-        if (_telemetryExecutionActive) _startPositionStream();
-      },
-      onCancel: () {
-        if (!(_positionController?.hasListener ?? false)) {
-          _stopPositionTimers();
-        }
-      },
+        onListen: () {
+          if (_telemetryExecutionActive) _startPositionStream();
+        },
+        onCancel: () {
+          if (!(_positionController?.hasListener ?? false)) {
+            _stopPositionTimers();
+          }
+        },
       );
 
   StreamController<(int, int)> _createVideoSizeController() =>
       StreamController<(int, int)>.broadcast(
-      onListen: () {
-        if (_telemetryExecutionActive) _startVideoSizeStream();
-      },
-      onCancel: () {
-        if (!(_videoSizeController?.hasListener ?? false)) {
-          _stopVideoSizeTimer();
-        }
-      },
+        onListen: () {
+          if (_telemetryExecutionActive) _startVideoSizeStream();
+        },
+        onCancel: () {
+          if (!(_videoSizeController?.hasListener ?? false)) {
+            _stopVideoSizeTimer();
+          }
+        },
       );
 
   // ---------------------------------------------------------------------------
@@ -882,6 +889,7 @@ class FFplaySession extends Session {
             try {
               _unregister();
             } finally {
+              releaseAllBridgeLeases();
               _telemetryExecutionActive = false;
               _stopPositionStream();
               _stopVideoSizeStream();
@@ -898,7 +906,7 @@ class FFplaySession extends Session {
       clearExecutionErrorHandler();
 
       try {
-        dispatchPendingLogs();
+        if (_hasLogDemand) dispatchPendingLogs();
       } catch (e, st) {
         log(
           'FFplaySession: error flushing logs for session $sessionId',
@@ -914,6 +922,7 @@ class FFplaySession extends Session {
           try {
             _unregister();
           } finally {
+            releaseAllBridgeLeases();
             _stopPositionStream();
             _stopVideoSizeStream();
             CallbackManager().invokeSafely(
@@ -930,8 +939,7 @@ class FFplaySession extends Session {
     };
 
     try {
-      enableNativeLogCallback();
-      ffmpegKitBackend.configureFFplaySessionCompleteCallback();
+      _acquireExecutionBridgeLeases();
       ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
       // Start polling only after the native session is executing so timers
       // never fire against a not-yet-started session during queue delays.
@@ -949,7 +957,11 @@ class FFplaySession extends Session {
       _completeCallback = userCompleteCallback;
       _telemetryExecutionActive = false;
       _closeLogStreams();
-      _unregister();
+      try {
+        _unregister();
+      } finally {
+        releaseAllBridgeLeases();
+      }
       _stopPositionStream();
       _stopVideoSizeStream();
       if (!startup.isCompleted) startup.completeError(e, st);
@@ -1014,7 +1026,8 @@ class FFplaySession extends Session {
   /// Configures the native FFplay completion callback for sync execution.
   @protected
   void configureSynchronousNativeCallbacks() {
-    ffmpegKitBackend.configureFFplaySessionCompleteCallback();
+    // Synchronous completion is dispatched by the blocking return path and
+    // does not need a process-global native completion callback.
   }
 
   /// Invokes the blocking FFplay backend operation.
@@ -1034,6 +1047,39 @@ class FFplaySession extends Session {
         stackTrace: st,
       );
       rethrow;
+    }
+  }
+
+  bool get _hasLocalLogDemand =>
+      _logCallback != null || (_logBatchStreamController?.hasListener ?? false);
+
+  bool get _hasLogDemand =>
+      _hasLocalLogDemand || CallbackManager().globalLogCallback != null;
+
+  void _acquireOptionalBridgeLeases() {
+    if (_hasLocalLogDemand) {
+      acquireBridgeLease(
+        CallbackBridgeKind.log,
+        install: ffmpegKitBackend.configureLogCallback,
+        uninstall: ffmpegKitBackend.disableLogCallback,
+      );
+    }
+  }
+
+  void _acquireExecutionBridgeLeases() {
+    _acquireOptionalBridgeLeases();
+    acquireBridgeLease(
+      CallbackBridgeKind.ffplayCompletion,
+      install: ffmpegKitBackend.configureFFplaySessionCompleteCallback,
+      uninstall: ffmpegKitBackend.disableFFplaySessionCompleteCallback,
+    );
+  }
+
+  void _syncLogBridgeLease() {
+    if (_hasLocalLogDemand && hasExecutionStarted && !hasExecutionSettled) {
+      _acquireOptionalBridgeLeases();
+    } else if (!_hasLocalLogDemand) {
+      releaseBridgeLease(CallbackBridgeKind.log);
     }
   }
 
@@ -1338,9 +1384,7 @@ class FFplaySession extends Session {
         );
         return;
       }
-      if ((w != _lastVideoWidth || h != _lastVideoHeight) &&
-          w > 0 &&
-          h > 0) {
+      if ((w != _lastVideoWidth || h != _lastVideoHeight) && w > 0 && h > 0) {
         _lastVideoWidth = w;
         _lastVideoHeight = h;
         controller.add((w, h));

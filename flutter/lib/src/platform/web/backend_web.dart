@@ -232,7 +232,11 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
     // the statistics buffer before the shared session code dispatches the
     // completion callback, matching native's callback-before-completion order.
     final sessionId = getSessionId(handle);
-    _dispatchStatistics(handle, sessionId, 0);
+    final session = CallbackManager().ffmpegSessions[sessionId];
+    if (CallbackManager().globalStatisticsCallback != null ||
+        session?.statisticsCallback != null) {
+      _dispatchStatistics(handle, sessionId, 0);
+    }
   }
 
   @override
@@ -845,6 +849,47 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   void configureMediaInformationSessionCompleteCallback() => bindings
       .ffmpeg_kit_config_enable_media_information_session_complete_callback(
         webCallbackBridge.mediaInformationComplete,
+        webCallbackBridge.nullPointer,
+      );
+
+  @override
+  void disableLogCallback() => bindings.ffmpeg_kit_config_enable_log_callback(
+    webCallbackBridge.nullPointer.cast(),
+    webCallbackBridge.nullPointer,
+  );
+
+  @override
+  void disableStatisticsCallback() =>
+      bindings.ffmpeg_kit_config_enable_statistics_callback(
+        webCallbackBridge.nullPointer.cast(),
+        webCallbackBridge.nullPointer,
+      );
+
+  @override
+  void disableFFmpegSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+        webCallbackBridge.nullPointer.cast(),
+        webCallbackBridge.nullPointer,
+      );
+
+  @override
+  void disableFFprobeSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+        webCallbackBridge.nullPointer.cast(),
+        webCallbackBridge.nullPointer,
+      );
+
+  @override
+  void disableFFplaySessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+        webCallbackBridge.nullPointer.cast(),
+        webCallbackBridge.nullPointer,
+      );
+
+  @override
+  void disableMediaInformationSessionCompleteCallback() => bindings
+      .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+        webCallbackBridge.nullPointer.cast(),
         webCallbackBridge.nullPointer,
       );
 

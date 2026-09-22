@@ -163,7 +163,9 @@ void main() {
 
     session.execute();
 
-    expect(session.events, ['initialized', 'log', 'configure', 'execute']);
+    // No log sink is attached, so the optional process-global log bridge is
+    // intentionally not installed for this synchronous execution.
+    expect(session.events, ['initialized', 'configure', 'execute']);
     expect(session.state, SessionState.completed);
     expect(session.started, isTrue);
     expect(session.settled, isTrue);

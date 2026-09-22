@@ -870,6 +870,42 @@ final class NativeFFmpegKitBackend implements FFmpegKitBackend {
       );
 
   @override
+  void disableLogCallback() =>
+      bindings.ffmpeg_kit_config_enable_log_callback(nullptr, nullptr);
+
+  @override
+  void disableStatisticsCallback() =>
+      bindings.ffmpeg_kit_config_enable_statistics_callback(nullptr, nullptr);
+
+  @override
+  void disableFFmpegSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffmpeg_session_complete_callback(
+        nullptr,
+        nullptr,
+      );
+
+  @override
+  void disableFFprobeSessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffprobe_session_complete_callback(
+        nullptr,
+        nullptr,
+      );
+
+  @override
+  void disableFFplaySessionCompleteCallback() =>
+      bindings.ffmpeg_kit_config_enable_ffplay_session_complete_callback(
+        nullptr,
+        nullptr,
+      );
+
+  @override
+  void disableMediaInformationSessionCompleteCallback() => bindings
+      .ffmpeg_kit_config_enable_media_information_session_complete_callback(
+        nullptr,
+        nullptr,
+      );
+
+  @override
   String? registerNewFFmpegPipe() =>
       _stringAndFree(bindings.ffmpeg_kit_config_register_new_ffmpeg_pipe());
 

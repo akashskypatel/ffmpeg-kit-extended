@@ -29,6 +29,7 @@ import '../ffmpeg_kit_extended_flutter.dart'
         FFprobeSession,
         MediaInformationSession,
         FFmpegKitExtended;
+import 'callback_manager.dart';
 import 'log.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
@@ -168,6 +169,7 @@ abstract class Session {
   final Completer<void> _executionSettlement = Completer<void>();
   final Set<Completer<void>> _executionCompleters = <Completer<void>>{};
   SessionExecutionErrorCallback? _executionErrorCallback;
+  final Map<CallbackBridgeKind, CallbackBridgeLease> _bridgeLeases = {};
 
   /// Standard constructor — [registerFinalizer] will attach the native
   /// finalizer after [handle] is assigned.
@@ -234,6 +236,7 @@ abstract class Session {
           try {
             onDispose();
           } finally {
+            releaseAllBridgeLeases();
             for (final completer in _executionCompleters) {
               if (!completer.isCompleted) completer.complete();
             }
@@ -286,6 +289,50 @@ abstract class Session {
   /// callback map until that execution settles.
   @protected
   bool get hasPendingExecutionRouting => _submitted && !_executionSettled;
+
+  /// Acquires a process-global callback bridge on behalf of this session.
+  ///
+  /// The lease is intentionally owned by the session rather than by a
+  /// concrete platform backend so native and Wasm implementations share the
+  /// same demand/refcount semantics.
+  @protected
+  void acquireBridgeLease(
+    CallbackBridgeKind kind, {
+    required void Function() install,
+    required void Function() uninstall,
+  }) {
+    if (_bridgeLeases.containsKey(kind)) return;
+    _bridgeLeases[kind] = CallbackManager().acquireBridge(
+      kind,
+      install: install,
+      uninstall: uninstall,
+    );
+  }
+
+  /// Releases one session-owned bridge lease without allowing cleanup failure
+  /// to replace the execution's primary error.
+  @protected
+  void releaseBridgeLease(CallbackBridgeKind kind) {
+    final lease = _bridgeLeases.remove(kind);
+    if (lease == null) return;
+    try {
+      lease.release();
+    } catch (error, stackTrace) {
+      log(
+        'Session: callback bridge cleanup failed for $kind',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  /// Releases all callback bridges owned by this session.
+  @protected
+  void releaseAllBridgeLeases() {
+    for (final kind in _bridgeLeases.keys.toList()) {
+      releaseBridgeLease(kind);
+    }
+  }
 
   /// Whether this object was restored around an already-owned native handle.
   ///
@@ -357,7 +404,11 @@ abstract class Session {
   void _cleanupCancelledBeforeStart() {
     if (_cancelledBeforeStartCleaned) return;
     _cancelledBeforeStartCleaned = true;
-    onCancelledBeforeStart();
+    try {
+      onCancelledBeforeStart();
+    } finally {
+      releaseAllBridgeLeases();
+    }
   }
 
   /// Releases the platform handle owned by this session.
