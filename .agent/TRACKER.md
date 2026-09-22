@@ -14,8 +14,8 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R24-G67** | Freeze source authority and reconcile blockers | **Complete — wrapper snapshot `35766299689`; builder snapshot `35746267948`; exact sources verified** |
-| **FFK24-N7** | Optimize Linux-local CMake dependency resolution without semantic drift | **Open — first native goal** |
-| **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **Open — explicit ABI amendment** |
+| **FFK24-N7** | Optimize Linux-local CMake dependency resolution without semantic drift | **Complete — native commit `e9de4755a`; runner/configure evidence recorded** |
+| **FFK24-N8** | Cut over to one structured global-log ABI and remove `_v2` | **In progress — explicit ABI amendment** |
 | **FFK24-N9** | Replace remote TLS sanitizer failures with deterministic verified-TLS fixture | **Open** |
 | **FFK24-N10** | Resolve the FFmpeg `FrameData` TSAN publication/lifetime race | **Open — investigation required** |
 | **FFK24-N11** | Resolve/classify GCC 14/libstdc++ UBSAN vptr diagnostics | **Open — investigation required** |
@@ -30,7 +30,7 @@
 
 | Blocker | Current classification | Owner / disposition |
 | --- | --- | --- |
-| **B0** Linux-local CMake resolver slowdown | Current native performance/correctness issue | **FFK24-N7** — optimize repeated scans/cache misses and prove resolution parity |
+| **B0** Linux-local CMake resolver slowdown | **Resolved by N7; full-suite execution remains a later N12 gate** | **FFK24-N7 complete** — cached Linux archive resolution and project-scoped lookup |
 | **B1** DataAsset rollback evidence | Implementation exists; exact stable Flutter 3.47 evidence missing | **R24-G68** — must pass, not be accepted as a limitation |
 | **B2** Review 23 custom Web structured-log evidence | Historical fixture uses old-signature runtime | **R24-G68 + R24-G70** — replace with genuine current-ABI runtime evidence |
 | **B3** Published 0.11.2 runtime mismatch | Current production blocker | **R24-G69** — publish an immutable runtime from the frozen Review 24 builder SHA |
@@ -45,8 +45,17 @@
 - Wrapper preparation commit: `d6ae83eb65509c4857a79fcc3ffa3c286a97fffe`, with `HEAD == origin/dev-wasm` and a clean product worktree. The root `libs/libffmpegkit` gitlink remains `196567dae7fd1509c33bf32081f8237596ac8e5b`.
 - Wrapper source snapshot [35766299689](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35766299689) completed successfully with event/head/snapshot SHA `d6ae83eb65509c4857a79fcc3ffa3c286a97fffe`. Download [review24-g67-wrapper-d6ae83e-35766299689](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35766299689/artifacts/10712197786), artifact ID `10712197786`, upload digest `sha256:626f67c2d850f0208d4b4e6d638ea33c4bec7075aae527f8d2f2dfacce3b4516`, archive SHA-256 `7c6969c88c621da7e939e1740a7d4284bcbf4661e4b07cf5c0222da5d25e1d05`, metadata **1,036 files / 41,453,314 bytes**, `include_submodules=true`, `include_lfs=false`. The downloaded archive hash matched the declared checksum and metadata.
 - Builder source authority: `HEAD == origin/dev == fc35587142a7c2a9356f3850c956bd1b17037d38`, clean; native ABI content remains pinned by the root gitlink to `196567dae`. Builder snapshot [35746267948](https://github.com/akashskypatel/ffmpeg-kit-builders/actions/runs/35746267948) completed successfully at exact source `fc35587142a7c2a9356f3850c956bd1b17037d38`. Download [ffmpeg-kit-builders-source-fc3558714-35746267948](https://github.com/akashskypatel/ffmpeg-kit-builders/actions/runs/35746267948/artifacts/10702284165), artifact ID `10702284165`, archive SHA-256 `a0e74c97039c84ac8ecaa6524afa9f08f5605e9a4bafaecf3cae9ab87b0df663`, metadata **424 files / 10,342,490 bytes**, `include_submodules=true`, `include_lfs=false`.
-- Current blocker inventory is recorded above: B0/B3/B3A/B4/B5/B6 are active remediation work; B1/B2 require current-ABI stable Flutter evidence; B7 is a known test-runner limitation and not a product blocker. The only accepted production exception is `ffigen_js: ^0.0.16-pre`.
-- Tracker transition: R24-G67 complete; native implementation begins with FFK24-N7.
+- Current blocker inventory is recorded above: B0 is resolved by N7; B3/B3A/B4/B5/B6 are active remediation work; B1/B2 require current-ABI stable Flutter evidence; B7 is a known test-runner limitation and not a product blocker. The only accepted production exception is `ffigen_js: ^0.0.16-pre`.
+- Tracker transition: R24-G67 complete; FFK24-N7 complete; FFK24-N8 is now in progress.
+
+### FFK24-N7 — Linux-local CMake dependency-resolution performance — complete
+
+- Native builder commit [`e9de4755a66d437cd2d070fbec2f81a9783e03aa`](https://github.com/akashskypatel/ffmpeg-kit-builders/commit/e9de4755a66d437cd2d070fbec2f81a9783e03aa) is pushed to `origin/dev`.
+- The implementation caches pkg-config directory expansion, indexes Linux static archives once per search root with cached hits/misses, and limits Linux project-static lookup to the dependency/FFmpeg project roots. The Emscripten short-circuit and non-Linux recursive lookup path remain unchanged.
+- Evidence ledger: [review24-linux-cmake-linking-performance.md](./review24-linux-cmake-linking-performance.md). The pre-change approved runner command configured in `130.8s` and completed in `143.79s`; after N7 it configured in `9.9s` and completed in `22.50s`, both with exit status `0`.
+- Focused fixture/CTest passed **1/1** for multiple pkg-config roots, nested decoys, direct hits/misses, `-lfoo`, and shared-to-static replacement. The exact documented Linux gtest runner built `ffmpegkit_tests` successfully.
+- Full `ffmpegkit_tests` execution remains an explicit N12 test gate: it stopped at the pre-existing `FFmpegKitTest.GenerateTestVideoFile` with the tagged process at 0% CPU and no child encoder; the exact process tree was terminated. No toolchain or product workaround was added.
+- Transition: N7 is closed on resolver correctness/performance evidence; N8 structured ABI cutover is in progress.
 
 ### Hard order
 
@@ -55,7 +64,7 @@ R24-G67 -> FFK24-N7 -> FFK24-N8 -> FFK24-N9 -> FFK24-N10 -> FFK24-N11
   -> FFK24-N12 -> R24-G68 -> R24-G69 -> R24-G70 -> R24-G71 -> R24-G72
 ```
 
-No ABI source change begins until N7 closes. N12 cannot close until N7–N11 have explicit, evidenced dispositions.
+N7 is closed. N12 cannot close until N7–N11 have explicit, evidenced dispositions and the native full-suite gate is rerun without an unexplained execution blocker.
 
 ## Review 23 Tracker — cross-platform callback transport/performance — 2026-09-21
 
