@@ -9,10 +9,29 @@
 
 namespace facebook::react {
 
+// RN 0.81 Codegen emits the event-object converter beside the generated
+// struct, but does not register it with the generic bridging trait used by
+// emitOnLogEvent. Register the generated converter at this module boundary so
+// the consumer-owned Codegen header remains the source of the event shape.
+template <typename P0, typename P1, typename P2, typename P3>
+struct Bridging<NativeFFmpegKitExtendedLogEvent<P0, P1, P2, P3>>
+    : NativeFFmpegKitExtendedLogEventBridging<
+          NativeFFmpegKitExtendedLogEvent<P0, P1, P2, P3>> {};
+
+struct LogBridgeState;
+
 class FFmpegKitExtendedImpl
-    : public NativeFFmpegKitExtendedCxxSpec<FFmpegKitExtendedImpl> {
+    : public NativeFFmpegKitExtendedCxxSpec<FFmpegKitExtendedImpl>,
+      public std::enable_shared_from_this<FFmpegKitExtendedImpl> {
  public:
   explicit FFmpegKitExtendedImpl(std::shared_ptr<CallInvoker> jsInvoker);
+  ~FFmpegKitExtendedImpl();
+
+  /** Emits one copied v2 event on the React Native JS event emitter. */
+  void emitLogEvent(double sessionId,
+                    double sequence,
+                    std::int32_t level,
+                    std::string message);
 
   void initialize(jsi::Runtime &rt);
   std::string getBuildStamp(jsi::Runtime &rt);
@@ -26,6 +45,8 @@ class FFmpegKitExtendedImpl
   double createMediaInformationSessionFromPath(jsi::Runtime &rt, std::string path);
   void executeSessionAsync(jsi::Runtime &rt, double sessionId, double timeoutMs);
   void cancelSession(jsi::Runtime &rt, double sessionId);
+  void installLogBridge(jsi::Runtime &rt);
+  void uninstallLogBridge(jsi::Runtime &rt);
 
   std::string getSessionJson(jsi::Runtime &rt, double sessionId);
   void releaseSessionHandle(jsi::Runtime &rt, double sessionId);
@@ -93,6 +114,10 @@ class FFmpegKitExtendedImpl
   bool isDebugLogEnabled(jsi::Runtime &rt, double sessionId);
   std::string getDebugLog(jsi::Runtime &rt, double sessionId);
   void clearDebugLog(jsi::Runtime &rt, double sessionId);
+
+ private:
+  std::shared_ptr<CallInvoker> jsInvoker_;
+  std::shared_ptr<LogBridgeState> activeLogBridge_;
 };
 
 } // namespace facebook::react

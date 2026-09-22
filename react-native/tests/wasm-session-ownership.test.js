@@ -31,10 +31,15 @@ let finalLogsError;
 let finalStatisticsError;
 let releaseError;
 let cancelError;
+let useDirectLogBridge = false;
+let directLogBridgeActive = false;
+let logEventHandler;
+let directLogEvents = [];
 setBackend({
   executeSessionAsync: () => {
     if (startError) throw startError;
     executionStarts += 1;
+    for (const event of directLogEvents) logEventHandler?.(event);
   },
   getLogsJson: (_sessionId, fromIndex) => {
     logReads += 1;
@@ -52,8 +57,23 @@ setBackend({
   },
   installCompletionBridge: () => { bridgeInstalls.completion += 1; },
   uninstallCompletionBridge: () => { bridgeUninstalls.completion += 1; },
-  installLogBridge: () => { bridgeInstalls.log += 1; },
-  uninstallLogBridge: () => { bridgeUninstalls.log += 1; },
+  installLogBridge: () => {
+    bridgeInstalls.log += 1;
+    directLogBridgeActive = useDirectLogBridge;
+  },
+  uninstallLogBridge: () => {
+    bridgeUninstalls.log += 1;
+    directLogBridgeActive = false;
+  },
+  isDirectLogBridgeActive: () => directLogBridgeActive,
+  onLogEvent: handler => {
+    logEventHandler = handler;
+    return {
+      // The router keeps one process-wide backend subscription; individual
+      // session removals are handled by the router rather than this fixture.
+      remove: () => {},
+    };
+  },
   installStatisticsBridge: () => { bridgeInstalls.statistics += 1; },
   uninstallStatisticsBridge: () => { bridgeUninstalls.statistics += 1; },
   getSessionState: () => {
@@ -104,6 +124,9 @@ beforeEach(() => {
   finalStatisticsError = undefined;
   releaseError = undefined;
   cancelError = undefined;
+  useDirectLogBridge = false;
+  directLogBridgeActive = false;
+  directLogEvents = [];
 });
 
 afterEach(async () => {
@@ -436,6 +459,57 @@ test('removing the last session log sink releases optional demand immediately', 
   assert.equal(bridgeInstalls.log, 1);
   assert.equal(bridgeUninstalls.log, 1);
   assert.deepEqual(releases, [27]);
+});
+
+test('direct v2 logs preserve sequence order without live history reads', async () => {
+  useDirectLogBridge = true;
+  sessionState = 1;
+  directLogEvents = [
+    {sessionId: 28, sequence: 1, level: 33, message: 'second'},
+    {sessionId: 28, sequence: 0, level: 32, message: 'first'},
+    {sessionId: 28, sequence: 0, level: 34, message: 'duplicate'},
+  ];
+  registry.retain(17408, 28);
+  const received = [];
+  const execution = new FFmpegSession(28, '-version').executeAsync({
+    logCallback: log => received.push(log),
+    pollIntervalMs: 10,
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(received, [
+    {sessionId: 28, level: 32, message: 'first'},
+    {sessionId: 28, level: 33, message: 'second'},
+  ]);
+  assert.equal(logReads, 0);
+  assert.equal(bridgeInstalls.log, 1);
+
+  sessionState = 2;
+  await execution;
+  assert.equal(bridgeUninstalls.log, 1);
+  assert.deepEqual(releases, [28]);
+});
+
+test('direct v2 callback failure keeps the existing first-error policy', async () => {
+  useDirectLogBridge = true;
+  sessionState = 1;
+  const callbackError = new Error('direct callback failed');
+  directLogEvents = [{sessionId: 29, sequence: 0, level: 32, message: 'throws'}];
+  registry.retain(18432, 29);
+
+  const execution = new FFmpegSession(29, '-version').executeAsync({
+    logCallback: () => {
+      throw callbackError;
+    },
+    pollIntervalMs: 10,
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(logReads, 0);
+  sessionState = 2;
+  await assert.rejects(execution, error => error === callbackError);
+  assert.deepEqual(releases, [29]);
+  assert.equal(bridgeUninstalls.log, 1);
 });
 
 test('throwing log callback still releases the handle after terminal state', async () => {

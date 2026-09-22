@@ -12,11 +12,97 @@
 #include "FFmpegKitDynamicApi.h"
 
 #include <exception>
+#include <mutex>
+#include <vector>
 #include <string>
 #include <utility>
 
 namespace winrt::FFmpegKitExtended {
+using LogEvent = FFmpegKitExtendedCodegen::FFmpegKitExtendedSpec_LogEvent;
+namespace api = ffmpegkit::bridge;
+
+struct LogBridgeState {
+  std::mutex mutex;
+  std::function<void(LogEvent)> emit;
+};
+
 namespace {
+
+std::mutex retiredLogBridgeStatesMutex;
+std::vector<std::shared_ptr<LogBridgeState>> retiredLogBridgeStates;
+
+void retainLogBridgeState(std::shared_ptr<LogBridgeState> state) noexcept {
+  if (!state) return;
+  std::lock_guard<std::mutex> lock(retiredLogBridgeStatesMutex);
+  retiredLogBridgeStates.push_back(std::move(state));
+}
+
+class OwnedLogMessage final {
+ public:
+  explicit OwnedLogMessage(char *value) noexcept : value_(value) {}
+  OwnedLogMessage(const OwnedLogMessage &) = delete;
+  OwnedLogMessage &operator=(const OwnedLogMessage &) = delete;
+
+  ~OwnedLogMessage() noexcept { release(); }
+
+  std::string copy() const { return value_ ? std::string(value_) : std::string{}; }
+
+  void release() noexcept {
+    char *value = value_;
+    value_ = nullptr;
+    if (!value) return;
+    try {
+      api::releaseOwnedLogMessage(value);
+    } catch (...) {
+      // The native callback must not throw across the frozen ABI boundary.
+    }
+  }
+
+ private:
+  char *value_;
+};
+
+void handleLogEvent(
+    std::int64_t sessionId,
+    std::int64_t sequence,
+    std::int32_t level,
+    char *ownedMessage,
+    void *userData) noexcept {
+  OwnedLogMessage owned{ownedMessage};
+  std::string message;
+  try {
+    // Copy the native-owned payload before releasing it. The EventEmitter then
+    // serializes the copied std::string asynchronously on the JS invoker.
+    message = owned.copy();
+  } catch (...) {
+    return;
+  }
+  owned.release();
+
+  auto *state = static_cast<LogBridgeState *>(userData);
+  if (!state) return;
+
+  std::function<void(LogEvent)> emit;
+  try {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    emit = state->emit;
+  } catch (...) {
+    return;
+  }
+  if (!emit) return;
+
+  try {
+    emit(LogEvent{
+        static_cast<double>(sessionId),
+        static_cast<double>(sequence),
+        static_cast<int>(level),
+        std::move(message),
+    });
+  } catch (...) {
+    // JS callback failures are handled by the wrapper's first-error policy;
+    // never propagate them back through the native callback ABI.
+  }
+}
 
 [[noreturn]] void failFast(const char *method, const char *message) noexcept {
   std::string text = "FFmpegKitExtended Windows native call failed in ";
@@ -53,7 +139,23 @@ Result invoke(const char *method, Fn &&fn) noexcept {
 
 } // namespace
 
-namespace api = ffmpegkit::bridge;
+FFmpegKitExtended::~FFmpegKitExtended() noexcept {
+  auto state = std::move(activeLogBridge_);
+  if (!state) return;
+
+  try {
+    api::enableLogCallbackV2(nullptr, nullptr);
+  } catch (...) {
+    // Destruction cannot report an error. Retain the callback state even when
+    // the runtime DLL is already unavailable so an in-flight callback cannot
+    // observe freed user data.
+  }
+  {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    state->emit = {};
+  }
+  retainLogBridgeState(std::move(state));
+}
 
 void FFmpegKitExtended::initialize() noexcept {
   invokeVoid("initialize", [&] { api::initialize(); });
@@ -103,6 +205,34 @@ void FFmpegKitExtended::executeSessionAsync(double sessionId, double timeoutMs) 
 
 void FFmpegKitExtended::cancelSession(double sessionId) noexcept {
   invokeVoid("cancelSession", [&] { api::cancelSession(sessionId); });
+}
+
+void FFmpegKitExtended::installLogBridge() noexcept {
+  invokeVoid("installLogBridge", [&] {
+    if (activeLogBridge_) return;
+
+    auto state = std::make_shared<LogBridgeState>();
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->emit = onLogEvent;
+    }
+    api::enableLogCallbackV2(&handleLogEvent, state.get());
+    activeLogBridge_ = std::move(state);
+  });
+}
+
+void FFmpegKitExtended::uninstallLogBridge() noexcept {
+  invokeVoid("uninstallLogBridge", [&] {
+    auto state = std::move(activeLogBridge_);
+    if (!state) return;
+
+    api::enableLogCallbackV2(nullptr, nullptr);
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->emit = {};
+    }
+    retainLogBridgeState(std::move(state));
+  });
 }
 
 std::string FFmpegKitExtended::getSessionJson(double sessionId) noexcept {

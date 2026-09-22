@@ -19,6 +19,8 @@ import {
   type CallbackDemandKind,
   type CallbackDemandLease,
 } from './callback-demand';
+import {subscribeLogEvents} from './platform/log-event-router';
+import type {LogEventSubscription} from './platform/backend';
 
 const NativeFFmpegKitExtended = getBackend();
 
@@ -36,6 +38,7 @@ type MonitorOptions<T extends Session> = {
     | ((statistics: Statistics, session: T) => void)
     | undefined;
   pollIntervalMs?: number;
+  start?: () => void;
 };
 
 /**
@@ -63,6 +66,8 @@ export abstract class Session {
     CallbackDemandKind,
     CallbackDemandLease
   >();
+  private nextExpectedLogSequence = 0;
+  private readonly pendingDirectLogEvents = new Map<number, Log>();
 
   protected constructor(sessionId: number, command: string, type: SessionType) {
     this.sessionId = sessionId;
@@ -365,6 +370,57 @@ export abstract class Session {
       }
     };
 
+    this.nextExpectedLogSequence = 0;
+    this.pendingDirectLogEvents.clear();
+    const directLogEvents = Boolean(
+      options.getLogCallback() &&
+      NativeFFmpegKitExtended.isDirectLogBridgeActive?.(),
+    );
+    let logEventSubscription: LogEventSubscription | undefined;
+    const removeLogEventSubscription = (): void => {
+      const subscription = logEventSubscription;
+      logEventSubscription = undefined;
+      subscription?.remove();
+    };
+    if (directLogEvents) {
+      logEventSubscription = subscribeLogEvents(this.sessionId, event => {
+        if (event.sessionId !== this.sessionId) return;
+        if (event.sequence < this.nextExpectedLogSequence) return;
+        if (this.pendingDirectLogEvents.has(event.sequence)) return;
+
+        const callback = options.getLogCallback();
+        if (!callback) {
+          this.pendingDirectLogEvents.clear();
+          this.nextExpectedLogSequence = event.sequence + 1;
+          return;
+        }
+
+        this.pendingDirectLogEvents.set(event.sequence, {
+          sessionId: event.sessionId,
+          level: event.level,
+          message: event.message,
+        });
+        for (;;) {
+          const next = this.pendingDirectLogEvents.get(this.nextExpectedLogSequence);
+          if (!next) break;
+          this.pendingDirectLogEvents.delete(this.nextExpectedLogSequence);
+          this.nextExpectedLogSequence += 1;
+          invokeCallback(() => callback(next, self));
+        }
+      });
+    }
+
+    try {
+      options.start?.();
+    } catch (error) {
+      try {
+        removeLogEventSubscription();
+      } catch {
+        // Preserve the native start failure as the primary error.
+      }
+      throw error;
+    }
+
     // Before terminal state is known, retain ownership and drain through state
     // reads if callback-buffer access fails. Terminal finalization remains the
     // only safe point for releasing the native handle.
@@ -373,7 +429,7 @@ export abstract class Session {
         try {
           this.refreshCallbackDemand();
           const logCallback = options.getLogCallback();
-          if (logCallback) {
+          if (logCallback && !directLogEvents) {
             const logs = parseJsonArray<Log>(
               NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
             );
@@ -411,6 +467,11 @@ export abstract class Session {
         // release the owning handle to abandon/cancel the unmonitorable run.
         recordError(error);
         try {
+          removeLogEventSubscription();
+        } catch {
+          // Preserve the state-read failure as the primary error.
+        }
+        try {
           this.releaseOwnedHandle();
         } catch {
           // Preserve the state-read failure as the primary error.
@@ -441,7 +502,7 @@ export abstract class Session {
             try {
               this.refreshCallbackDemand();
               const logCallback = options.getLogCallback();
-              if (logCallback) {
+              if (logCallback && !directLogEvents) {
                 // Once terminal state is observed, all final callback-buffer
                 // reads and completion delivery are covered by ownership cleanup.
                 const finalLogs = parseJsonArray<Log>(
@@ -490,6 +551,12 @@ export abstract class Session {
           terminalErrorSet = true;
           terminalError = error;
         } finally {
+          try {
+            removeLogEventSubscription();
+          } catch (error) {
+            releaseErrorSet = true;
+            releaseError = error;
+          }
           // Native C API session handles are owning. Keep the original handle
           // alive for the whole execution, then release it after every
           // terminal-state finalization exit.
@@ -606,8 +673,8 @@ export class FFmpegSession extends Session {
           statistics: () => Boolean(options.statisticsCallback ?? this.statisticsCallback),
         },
         async () => {
-          this.startNativeExecution(0);
           return this.monitor(this, {
+            start: () => this.startNativeExecution(0),
             completeCallback: options.completeCallback ?? this.completeCallback,
             getLogCallback: () => options.logCallback ?? this.logCallback,
             getStatisticsCallback: () =>
@@ -664,8 +731,8 @@ export class FFprobeSession extends Session {
       () => this.runWithCallbackDemand(
         {log: () => Boolean(options.logCallback ?? this.logCallback)},
         async () => {
-          this.startNativeExecution(0);
           return this.monitor(this, {
+            start: () => this.startNativeExecution(0),
             completeCallback: options.completeCallback ?? this.completeCallback,
             getLogCallback: () => options.logCallback ?? this.logCallback,
             pollIntervalMs: options.pollIntervalMs,
@@ -736,8 +803,8 @@ export class MediaInformationSession extends Session {
       () => this.runWithCallbackDemand(
         {log: () => Boolean(options.logCallback ?? this.logCallback)},
         async () => {
-          this.startNativeExecution(this.timeoutMs);
           return this.monitor(this, {
+            start: () => this.startNativeExecution(this.timeoutMs),
             completeCallback: options.completeCallback ?? this.completeCallback,
             getLogCallback: () => options.logCallback ?? this.logCallback,
             pollIntervalMs: options.pollIntervalMs,
@@ -815,8 +882,8 @@ export class FFplaySession extends Session {
       () => this.runWithCallbackDemand(
         {log: () => Boolean(options.logCallback ?? this.logCallback)},
         async () => {
-          this.startNativeExecution(this.timeoutMs);
           return this.monitor(this, {
+            start: () => this.startNativeExecution(this.timeoutMs),
             completeCallback: options.completeCallback ?? this.completeCallback,
             getLogCallback: () => options.logCallback ?? this.logCallback,
             pollIntervalMs: options.pollIntervalMs,

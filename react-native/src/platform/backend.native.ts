@@ -6,6 +6,10 @@ export const nativeBackend: FFmpegKitBackend = {
   initialize: async () => {
     NativeFFmpegKitExtended.initialize();
   },
+  isDirectLogBridgeActive: () =>
+    typeof NativeFFmpegKitExtended.installLogBridge === 'function' &&
+    typeof NativeFFmpegKitExtended.uninstallLogBridge === 'function' &&
+    typeof NativeFFmpegKitExtended.onLogEvent === 'function',
   getFrameBufferSize: () => 0,
   copyFrame: () => ({width: 0, height: 0, linesize: 0, generation: 0, copied: false}),
   getMediaInformationData: sessionId => {

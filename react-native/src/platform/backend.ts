@@ -19,6 +19,21 @@ export interface FFmpegKitInitializeOptions {
   assetBaseUrl?: string;
 }
 
+/** One owned-v2 log event after its native message has become a JS string. */
+export interface LogEvent {
+  sessionId: number;
+  sequence: number;
+  level: number;
+  message: string;
+}
+
+/** Subscription returned by the native TurboModule or Web event bridge. */
+export interface LogEventSubscription {
+  remove(): void;
+}
+
+export type LogEventHandler = (event: LogEvent) => void;
+
 export interface FFplayFrameMetadata {
   width: number;
   height: number;
@@ -47,6 +62,9 @@ export interface FFmpegKitBackend {
   uninstallCompletionBridge?(): void;
   installLogBridge?(): void;
   uninstallLogBridge?(): void;
+  /** Structured v2 log events; buffered polling is the compatibility fallback. */
+  onLogEvent?(handler: LogEventHandler): LogEventSubscription;
+  isDirectLogBridgeActive?(): boolean;
   installStatisticsBridge?(): void;
   uninstallStatisticsBridge?(): void;
   cancelSession(sessionId: number): void;

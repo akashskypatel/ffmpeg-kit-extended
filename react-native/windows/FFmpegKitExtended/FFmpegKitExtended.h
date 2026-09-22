@@ -11,14 +11,19 @@
 #include "pch.h"
 #include "resource.h"
 
+#include "codegen/NativeFFmpegKitExtendedDataTypes.g.h"
 #include "codegen/NativeFFmpegKitExtendedSpec.g.h"
 #include "NativeModules.h"
 
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace winrt::FFmpegKitExtended {
+
+struct LogBridgeState;
 
 /**
  * Codegen-backed Windows native module.
@@ -27,9 +32,17 @@ namespace winrt::FFmpegKitExtended {
  * data crosses as JSON. The TypeScript layer converts those values into typed
  * sessions and releases owning native handles after terminal callback delivery.
  */
-REACT_MODULE(FFmpegKitExtended)
+REACT_TURBO_MODULE(FFmpegKitExtended)
 struct FFmpegKitExtended {
   using ModuleSpec = FFmpegKitExtendedCodegen::FFmpegKitExtendedSpec;
+  using LogEvent = FFmpegKitExtendedCodegen::FFmpegKitExtendedSpec_LogEvent;
+
+  ~FFmpegKitExtended() noexcept;
+
+  // The v2 event is a TurboModule EventEmitter. Its payload is the same
+  // structured scalar shape used by Android Cxx and the Web Wasm bridge.
+  REACT_EVENT(onLogEvent)
+  std::function<void(LogEvent)> onLogEvent;
 
   // Native bundle lifecycle and diagnostics.
   REACT_METHOD(initialize)
@@ -65,6 +78,12 @@ struct FFmpegKitExtended {
 
   REACT_METHOD(cancelSession)
   void cancelSession(double sessionId) noexcept;
+
+  REACT_METHOD(installLogBridge)
+  void installLogBridge() noexcept;
+
+  REACT_METHOD(uninstallLogBridge)
+  void uninstallLogBridge() noexcept;
 
   REACT_SYNC_METHOD(getSessionJson)
   std::string getSessionJson(double sessionId) noexcept;
@@ -252,6 +271,11 @@ struct FFmpegKitExtended {
 
   REACT_METHOD(clearDebugLog)
   void clearDebugLog(double sessionId) noexcept;
+
+ private:
+  // Kept alive after unregistering because the frozen native callback may be
+  // completing concurrently with the module teardown.
+  std::shared_ptr<LogBridgeState> activeLogBridge_;
 };
 
 } // namespace winrt::FFmpegKitExtended

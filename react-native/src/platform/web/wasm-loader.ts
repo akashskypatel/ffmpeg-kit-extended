@@ -6,6 +6,9 @@ export interface WasmModule {
   UTF8ToString(pointer: number): string;
   stringToUTF8(value: string, pointer: number, maxBytes: number): void;
   lengthBytesUTF8(value: string): number;
+  /** Emscripten function-table ownership used by the v2 callback bridge. */
+  addFunction?(callback: (...args: unknown[]) => unknown, signature: string): number;
+  removeFunction?(pointer: number): void;
   [name: string]: unknown;
 }
 

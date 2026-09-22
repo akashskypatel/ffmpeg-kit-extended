@@ -63,6 +63,62 @@ test('Web backend registration selects the browser backend without native import
   assert.strictEqual(getBackend(), webBackend);
 });
 
+test('Web backend emits the frozen v2 log shape and frees owned memory once', () => {
+  const events = [];
+  const freeCalls = [];
+  const removedPointers = [];
+  const registrations = [];
+  let callback;
+  let callbackSignature;
+  const module = {
+    addFunction: (value, signature) => {
+      callback = value;
+      callbackSignature = signature;
+      return 55;
+    },
+    removeFunction: pointer => removedPointers.push(pointer),
+    ffmpeg_kit_config_enable_log_callback_v2: (pointer, userData) => {
+      registrations.push([pointer, userData]);
+    },
+    UTF8ToString: pointer => {
+      assert.equal(pointer, 128);
+      return 'direct wasm log';
+    },
+    ffmpeg_kit_free: pointer => freeCalls.push(pointer),
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+  const subscription = backend.onLogEvent(event => events.push(event));
+
+  backend.installLogBridge();
+  assert.equal(backend.isDirectLogBridgeActive(), true);
+  assert.equal(callbackSignature, 'vjjipp');
+  assert.equal(typeof callback, 'function');
+  callback(42n, 7n, 32, 128, 0);
+
+  assert.deepEqual(events, [{
+    sessionId: 42,
+    sequence: 7,
+    level: 32,
+    message: 'direct wasm log',
+  }]);
+  assert.deepEqual(freeCalls, [128]);
+  assert.deepEqual(registrations, [[55, 0]]);
+
+  subscription.remove();
+  subscription.remove();
+  backend.uninstallLogBridge();
+  assert.equal(backend.isDirectLogBridgeActive(), false);
+  assert.deepEqual(registrations, [[55, 0], [0, 0]]);
+  assert.deepEqual(removedPointers, [55]);
+});
+
+test('Web backend keeps the compatibility path when the v2 export is unavailable', () => {
+  const backend = new WebFFmpegKitBackend(undefined, {});
+  backend.installLogBridge();
+  assert.equal(backend.isDirectLogBridgeActive(), false);
+  backend.uninstallLogBridge();
+});
+
 test('Web backend reads session state without full snapshot getters', () => {
   const calls = [];
   const module = {

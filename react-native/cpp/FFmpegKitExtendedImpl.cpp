@@ -1,11 +1,94 @@
 #include "FFmpegKitExtendedImpl.h"
 #include "FFmpegKitDynamicApi.h"
 
+#include <mutex>
+#include <utility>
+#include <vector>
+
 namespace facebook::react {
 namespace api = ffmpegkit::bridge;
 
+struct LogBridgeState {
+  std::mutex mutex;
+  std::weak_ptr<FFmpegKitExtendedImpl> owner;
+  std::shared_ptr<CallInvoker> jsInvoker;
+};
+
+namespace {
+
+std::mutex logBridgeStatesMutex;
+std::vector<std::shared_ptr<LogBridgeState>> logBridgeStates;
+
+struct OwnedLogMessage {
+  char *value;
+
+  ~OwnedLogMessage() noexcept {
+    if (value == nullptr) return;
+    try {
+      api::releaseOwnedLogMessage(value);
+    } catch (...) {
+      // The native payload has one release obligation. There is no safe
+      // recovery path if the dynamically loaded allocator is already gone.
+    }
+  }
+};
+
+void handleLogEvent(std::int64_t sessionId,
+                    std::int64_t sequence,
+                    std::int32_t level,
+                    char *ownedMessage,
+                    void *userData) noexcept {
+  OwnedLogMessage owned{ownedMessage};
+
+  try {
+    auto *state = static_cast<LogBridgeState *>(userData);
+    if (state == nullptr || state->jsInvoker == nullptr) return;
+
+    std::shared_ptr<FFmpegKitExtendedImpl> owner;
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      owner = state->owner.lock();
+    }
+    if (owner == nullptr) return;
+
+    std::string message = owned.value == nullptr ? std::string{} : std::string{owned.value};
+    state->jsInvoker->invokeAsync(
+        [owner = std::move(owner), sessionId, sequence, level,
+         message = std::move(message)](jsi::Runtime &) mutable {
+          owner->emitLogEvent(static_cast<double>(sessionId),
+                              static_cast<double>(sequence),
+                              level,
+                              std::move(message));
+        });
+  } catch (...) {
+    // The callback is invoked by native worker threads. Never allow a JS or
+    // allocation failure to cross the ABI boundary; OwnedLogMessage still
+    // releases the payload exactly once.
+  }
+}
+
+void retireLogBridge(const std::shared_ptr<LogBridgeState> &state) noexcept {
+  if (state == nullptr) return;
+  std::lock_guard<std::mutex> lock(state->mutex);
+  state->owner.reset();
+}
+
+} // namespace
+
 FFmpegKitExtendedImpl::FFmpegKitExtendedImpl(std::shared_ptr<CallInvoker> jsInvoker)
-    : NativeFFmpegKitExtendedCxxSpec(std::move(jsInvoker)) {}
+    : NativeFFmpegKitExtendedCxxSpec(jsInvoker), jsInvoker_(std::move(jsInvoker)) {}
+
+FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl() {
+  const auto state = std::move(activeLogBridge_);
+  retireLogBridge(state);
+  if (state == nullptr) return;
+
+  try {
+    api::enableLogCallbackV2(nullptr, nullptr);
+  } catch (...) {
+    // Destruction must not throw through the TurboModule lifetime boundary.
+  }
+}
 
 void FFmpegKitExtendedImpl::initialize(jsi::Runtime &) { api::initialize(); }
 std::string FFmpegKitExtendedImpl::getBuildStamp(jsi::Runtime &) { return api::getBuildStamp(); }
@@ -19,6 +102,49 @@ double FFmpegKitExtendedImpl::createMediaInformationSession(jsi::Runtime &, std:
 double FFmpegKitExtendedImpl::createMediaInformationSessionFromPath(jsi::Runtime &, std::string path) { return api::createMediaInformationSessionFromPath(path); }
 void FFmpegKitExtendedImpl::executeSessionAsync(jsi::Runtime &, double sessionId, double timeoutMs) { api::executeSessionAsync(sessionId, timeoutMs); }
 void FFmpegKitExtendedImpl::cancelSession(jsi::Runtime &, double sessionId) { api::cancelSession(sessionId); }
+
+void FFmpegKitExtendedImpl::emitLogEvent(double sessionId,
+                                         double sequence,
+                                         std::int32_t level,
+                                         std::string message) {
+  emitOnLogEvent(NativeFFmpegKitExtendedLogEvent<double, double, int, std::string>{
+      sessionId, sequence, level, std::move(message)});
+}
+
+void FFmpegKitExtendedImpl::installLogBridge(jsi::Runtime &) {
+  if (activeLogBridge_ != nullptr) return;
+
+  auto state = std::make_shared<LogBridgeState>();
+  {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    state->owner = shared_from_this();
+    state->jsInvoker = jsInvoker_;
+  }
+  {
+    std::lock_guard<std::mutex> lock(logBridgeStatesMutex);
+    logBridgeStates.push_back(state);
+  }
+
+  try {
+    api::enableLogCallbackV2(&handleLogEvent, state.get());
+    activeLogBridge_ = std::move(state);
+  } catch (...) {
+    retireLogBridge(state);
+    throw;
+  }
+}
+
+void FFmpegKitExtendedImpl::uninstallLogBridge(jsi::Runtime &) {
+  const auto state = std::move(activeLogBridge_);
+  if (state == nullptr) return;
+
+  retireLogBridge(state);
+  try {
+    api::enableLogCallbackV2(nullptr, nullptr);
+  } catch (...) {
+    throw;
+  }
+}
 
 std::string FFmpegKitExtendedImpl::getSessionJson(jsi::Runtime &, double sessionId) { return api::getSessionJson(sessionId); }
 void FFmpegKitExtendedImpl::releaseSessionHandle(jsi::Runtime &, double sessionId) { api::releaseSessionHandle(sessionId); }

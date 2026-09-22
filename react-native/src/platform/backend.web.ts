@@ -3,6 +3,9 @@ import type {
   FFmpegKitBackend,
   FFmpegKitInitializeOptions,
   FFplayFrameCopyResult,
+  LogEvent,
+  LogEventHandler,
+  LogEventSubscription,
   StatisticsSnapshot,
 } from './backend';
 import {WasmSessionRegistry} from './web/session-registry';
@@ -44,6 +47,35 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private readonly moduleOverride?: WasmModule;
   private initializeOptions?: FFmpegKitInitializeOptions;
   private frameMetadataScratch?: {module: WasmModule; pointer: number};
+  private readonly logEventHandlers = new Set<LogEventHandler>();
+  private logCallbackPointer?: number;
+  private directLogBridgeInstalled = false;
+
+  private readonly handleWasmLogEvent = (...args: unknown[]): void => {
+    const [sessionId, sequence, level, ownedMessage] = args;
+    const pointer = numberResult(ownedMessage);
+    let message = '';
+    try {
+      if (pointer) message = this.module().UTF8ToString(pointer);
+    } finally {
+      if (pointer) this.call('ffmpeg_kit_free')(pointer);
+    }
+
+    const event: LogEvent = {
+      sessionId: numberResult(sessionId),
+      sequence: numberResult(sequence),
+      level: numberResult(level),
+      message,
+    };
+    for (const handler of [...this.logEventHandlers]) {
+      try {
+        handler(event);
+      } catch {
+        // The Session monitor owns callback-error authority. Never allow a
+        // user handler exception to cross back through an Emscripten callback.
+      }
+    }
+  };
 
   constructor(options?: FFmpegKitInitializeOptions, moduleOverride?: WasmModule) {
     this.initializeOptions = options;
@@ -570,6 +602,72 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       generation: Number(new BigUint64Array(module.HEAPU8.buffer, generation, 1)[0]),
       copied: result === 1,
     };
+  }
+
+  /** Subscribes to structured v2 events before the next native execution. */
+  onLogEvent(handler: LogEventHandler): LogEventSubscription {
+    this.logEventHandlers.add(handler);
+    let removed = false;
+    return {
+      remove: () => {
+        if (removed) return;
+        removed = true;
+        this.logEventHandlers.delete(handler);
+      },
+    };
+  }
+
+  /**
+   * Installs the same owned v2 Wasm ABI used by the native bridge. If the
+   * additive export or Emscripten function table is unavailable, monitoring
+   * deliberately remains on the existing buffered compatibility path.
+   */
+  installLogBridge(): void {
+    if (this.directLogBridgeInstalled || this.logCallbackPointer !== undefined) return;
+    const module = this.module();
+    const addFunction = module.addFunction;
+    const enable = module.ffmpeg_kit_config_enable_log_callback_v2 ??
+      module._ffmpeg_kit_config_enable_log_callback_v2;
+    if (typeof addFunction !== 'function' || typeof enable !== 'function') return;
+
+    const pointer = addFunction(this.handleWasmLogEvent, 'vjjipp');
+    try {
+      (enable as WasmFunction)(pointer, 0);
+      this.logCallbackPointer = pointer;
+      this.directLogBridgeInstalled = true;
+    } catch {
+      try {
+        module.removeFunction?.(pointer);
+      } catch {
+        // Preserve the explicit v1 fallback when function-table cleanup fails.
+      }
+    }
+  }
+
+  uninstallLogBridge(): void {
+    const pointer = this.logCallbackPointer;
+    this.logCallbackPointer = undefined;
+    this.directLogBridgeInstalled = false;
+    if (pointer === undefined) return;
+
+    let primaryError: unknown;
+    try {
+      const disable = this.module().ffmpeg_kit_config_enable_log_callback_v2 ??
+        this.module()._ffmpeg_kit_config_enable_log_callback_v2;
+      if (typeof disable === 'function') (disable as WasmFunction)(0, 0);
+    } catch (error) {
+      primaryError = error;
+    }
+    try {
+      this.module().removeFunction?.(pointer);
+    } catch (error) {
+      if (primaryError === undefined) primaryError = error;
+    }
+    if (primaryError !== undefined) throw primaryError;
+  }
+
+  isDirectLogBridgeActive(): boolean {
+    return this.directLogBridgeInstalled;
   }
 
   enableRedirection(): void { this.call('ffmpeg_kit_config_enable_redirection')(); }

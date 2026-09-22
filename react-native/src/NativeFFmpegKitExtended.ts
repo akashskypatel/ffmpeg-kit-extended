@@ -10,7 +10,19 @@
  */
 import type {TurboModule} from 'react-native';
 import {TurboModuleRegistry} from 'react-native';
-import type {Double, Int32} from 'react-native/Libraries/Types/CodegenTypes';
+import type {
+  Double,
+  EventEmitter,
+  Int32,
+} from 'react-native/Libraries/Types/CodegenTypes';
+
+/** Structured v2 log payload emitted after the native message is copied. */
+export type LogEvent = {
+  sessionId: Double;
+  sequence: Double;
+  level: Int32;
+  message: string;
+};
 
 /** Native Codegen surface. Prefer the public wrappers unless integrating a framework. */
 export interface Spec extends TurboModule {
@@ -31,6 +43,11 @@ export interface Spec extends TurboModule {
   createMediaInformationSessionFromPath(path: string): Double;
   executeSessionAsync(sessionId: Double, timeoutMs: Double): void;
   cancelSession(sessionId: Double): void;
+
+  /** Process-wide structured v2 log stream. */
+  readonly onLogEvent: EventEmitter<LogEvent>;
+  installLogBridge(): void;
+  uninstallLogBridge(): void;
 
   /** Session snapshots and buffered callback payloads are serialized as JSON. */
   getSessionJson(sessionId: Double): string;
