@@ -1,4 +1,4 @@
-name: review16_custom_web_workspace
+name: custom_web_runtime_workspace
 publish_to: none
 
 environment:

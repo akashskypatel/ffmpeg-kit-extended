@@ -122,6 +122,47 @@ void main() {
     );
   });
 
+  test('local-only validation rejects defaults and remote overrides', () {
+    expect(
+      () => validateLocalArtifactSelection(
+        platformName: 'Web',
+        overrideValue: null,
+        localOnly: true,
+      ),
+      throwsA(
+        predicate<Exception>(
+          (error) => error.toString().contains(
+            'requires an explicit local bundle override',
+          ),
+        ),
+      ),
+    );
+    expect(
+      () => validateLocalArtifactSelection(
+        platformName: 'Web',
+        overrideValue: 'https://example.test/runtime.zip',
+        localOnly: true,
+      ),
+      throwsA(
+        predicate<Exception>(
+          (error) =>
+              error.toString().contains('rejects remote bundle overrides'),
+        ),
+      ),
+    );
+  });
+
+  test('local-only validation accepts a local filesystem override', () {
+    expect(
+      () => validateLocalArtifactSelection(
+        platformName: 'Windows',
+        overrideValue: r'\\wsl.localhost\ManyLinux\bundle.zip',
+        localOnly: true,
+      ),
+      returnsNormally,
+    );
+  });
+
   test('uses the full URL for remote cache identity', () {
     final cacheDir = Directory(p.join(tempRoot.path, 'cache'));
     final first = Uri.parse('https://one.example/bundle.zip');

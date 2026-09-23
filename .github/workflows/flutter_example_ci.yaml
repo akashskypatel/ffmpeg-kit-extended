@@ -336,11 +336,11 @@ jobs:
         run: flutter config --no-analytics
 
       - name: Get custom fixture dependencies
-        working-directory: flutter/test/fixtures/review16_custom_web_workspace
+        working-directory: flutter/test/fixtures/custom_web_workspace
         run: flutter pub get
 
       - name: Build custom Web Wasm fixture without DataAssets
-        working-directory: flutter/test/fixtures/review16_custom_web_workspace/apps/app
+        working-directory: flutter/test/fixtures/custom_web_workspace/apps/app
         run: flutter build web --wasm --no-pub
 
       - name: Install headless browser
@@ -354,13 +354,13 @@ jobs:
           cp "$GITHUB_WORKSPACE/flutter/example/web_runtime_smoke.mjs" "$smoke_dir/web_runtime_smoke.mjs"
 
       - name: Start custom Flutter Web Wasm static server
-        working-directory: flutter/test/fixtures/review16_custom_web_workspace/apps/app
+        working-directory: flutter/test/fixtures/custom_web_workspace/apps/app
         run: |
           set -euo pipefail
           smoke_log="$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.log"
           smoke_pid="$RUNNER_TEMP/ffmpeg-web-custom-smoke/flutter-run.pid"
           node "$GITHUB_WORKSPACE/flutter/example/web_static_server.mjs" \
-            "$GITHUB_WORKSPACE/flutter/test/fixtures/review16_custom_web_workspace/apps/app/build/web" \
+            "$GITHUB_WORKSPACE/flutter/test/fixtures/custom_web_workspace/apps/app/build/web" \
             8080 >"$smoke_log" 2>&1 &
           echo $! >"$smoke_pid"
           for attempt in $(seq 1 180); do

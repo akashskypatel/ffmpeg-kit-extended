@@ -45,10 +45,10 @@ hooks:
     ffmpeg_kit_extended_flutter:
       type: "base"
       gpl: false
-      small: true
-      # Review 24 local-only test inputs. These are produced by the elevated
-      # WSL runner from the FFmpegKit builder dev checkout; no published
-      # No published binary is valid for the in-place structured callback ABI.
+      small: false
+      # Local-only test inputs produced by the elevated WSL runner from the
+      # FFmpegKit builder dev checkout; no published binary is valid for the
+      # in-place structured callback ABI.
       wasm: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
       web: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
       windows: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\windows-x86_64\releases\bundle-base-windows-x86_64-shared-lgpl.zip'

@@ -20,9 +20,17 @@ const String version = "0.11.2";
 const String _extractMarkerFileName = '.extract_complete';
 const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
+const String localArtifactOnlyEnvironmentVariable =
+    'FFMPEG_KIT_EXTENDED_LOCAL_ONLY';
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
+
+@visibleForTesting
+bool isLocalArtifactOnlyEnabled([Map<String, String>? environment]) =>
+    (environment ?? Platform.environment)[localArtifactOnlyEnvironmentVariable]
+        ?.toLowerCase() ==
+    'true';
 
 late final OS targetOS;
 late final Architecture targetArch;
@@ -162,14 +170,7 @@ List<Directory> webRuntimeStagingDirectories({
     ),
   ),
   Directory(
-    p.join(
-      stagingBaseDir,
-      'web',
-      'assets',
-      'packages',
-      packageName,
-      'wasm',
-    ),
+    p.join(stagingBaseDir, 'web', 'assets', 'packages', packageName, 'wasm'),
   ),
 ];
 
@@ -300,6 +301,11 @@ Future<WebRuntimeSource> _resolveWebArtifact(
     p.fromUri(input.outputDirectoryShared.resolve('ffmpeg_kit_cache/wasm/')),
   )..createSync(recursive: true);
   final overrideUrl = config['web']?.toString() ?? config['wasm']?.toString();
+  validateLocalArtifactSelection(
+    platformName: 'Web',
+    overrideValue: overrideUrl,
+    localOnly: isLocalArtifactOnlyEnabled(),
+  );
 
   String filename;
   String url;
@@ -593,6 +599,11 @@ Future<FFmpegArtifact?> _resolveArtifact(
   _log('Bundle: ${configDiagnosticSummary(config)}');
   final platformName = targetOS.name; // Use .name for stable keys
   final overrideUrl = config[platformName]?.toString();
+  validateLocalArtifactSelection(
+    platformName: platformName,
+    overrideValue: overrideUrl,
+    localOnly: isLocalArtifactOnlyEnabled(),
+  );
 
   final cacheDir = Directory(
     p.fromUri(
@@ -1337,6 +1348,29 @@ Uri? parseRemoteOverride(String value) {
     throw _exception('Remote override URI must include a host: $value');
   }
   return uri;
+}
+
+@visibleForTesting
+void validateLocalArtifactSelection({
+  required String platformName,
+  required String? overrideValue,
+  required bool localOnly,
+}) {
+  if (!localOnly) return;
+  if (overrideValue == null || overrideValue.trim().isEmpty) {
+    throw _exception(
+      'Local-only artifact validation for $platformName requires an explicit '
+      'local bundle override; default and remote resolution are disabled.',
+    );
+  }
+  final remote = parseRemoteOverride(overrideValue);
+  if (remote != null) {
+    throw _exception(
+      'Local-only artifact validation for $platformName rejects remote '
+      'bundle overrides (${remote.scheme}); configure a local filesystem '
+      'bundle instead.',
+    );
+  }
 }
 
 String _remoteCacheIdentity(Uri uri) =>

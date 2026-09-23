@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:web/web.dart' as web;
 
-const _smokeMediaPath = '/review16-smoke.mp4';
+const _smokeMediaPath = '/runtime-smoke.mp4';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

@@ -6,17 +6,17 @@ homepage: https://github.com/akashskypatel/ffmpeg-kit-extended
 documentation: https://github.com/akashskypatel/ffmpeg-kit-extended/tree/master/flutter/doc
 version: 1.0.0
 
-# Local-only plugin package test inputs. Uncomment this block when running
-# package-level plugin tests so the build hook uses the WSL-built binaries and
-# never resolves an older published runtime.
-# ffmpeg_kit_extended_config:
-#   type: "base"
-#   gpl: false
-#   small: true
-#   wasm: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
-#   web: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
-#   windows: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\windows-x86_64\releases\bundle-base-windows-x86_64-shared-lgpl.zip'
-#   linux: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle-base-linux-x86_64-shared-lgpl.zip'
+# Local-only plugin package test inputs. These paths are used for local
+# package-level validation and must never resolve a historical published
+# runtime.
+ffmpeg_kit_extended_config:
+  type: "base"
+  gpl: false
+  small: false
+  wasm: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
+  web: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
+  windows: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\windows-x86_64\releases\bundle-base-windows-x86_64-shared-lgpl.zip'
+  linux: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle-base-linux-x86_64-shared-lgpl.zip'
 
 topics:
   - ffmpeg

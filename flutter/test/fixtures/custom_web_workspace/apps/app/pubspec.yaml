@@ -1,4 +1,4 @@
-name: review16_data_assets_app
+name: custom_web_runtime_app
 publish_to: none
 resolution: workspace
 
@@ -11,3 +11,4 @@ dependencies:
     path: ../../../../..
   flutter:
     sdk: flutter
+  web: ^1.1.1
