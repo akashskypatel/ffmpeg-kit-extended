@@ -23,7 +23,7 @@
 | **R24-G69** | Reopen/close G21 with local current-ABI runtime integrity | **Complete — local-only resolver/configuration and fast-forwarded native submodule verified** |
 | **R24-G70** | Prove current-ABI Flutter/RN Web structured direct-log delivery and A/B/C counters | **Complete — Flutter and React Native local Web structured-runtime evidence passed** |
 | **R24-G71** | Cross-platform regression against locally packaged Review 24 artifacts | **Complete — all locally executable Flutter/RN gates passed against local artifacts** |
-| **R24-G72** | Documentation, tracker and local exact-source/artifact closeout | **In progress — documentation committed; requested source snapshot pending** |
+| **R24-G72** | Documentation, tracker and local exact-source/artifact closeout | **Complete — final wrapper SHA and source snapshot recorded** |
 
 ### Review 24 local wrapper closeout — 2026-09-23
 
@@ -38,6 +38,7 @@
 - Cross-platform local regression is complete for the supplied artifact set: Flutter package tests **172/172**, Flutter Web smoke, Flutter Windows release, React Native package type/Web consumer checks, React Native Web smoke, and the React Native Windows MSBuild release all passed. The Windows build used the local Windows ZIP and produced both `FFmpegKitExtended.dll` and the example executable.
 - Android, Apple, and native Linux commands were not run on this Windows host because no matching local artifacts were supplied and remote retrieval/hosted wrapper CI is prohibited for this handoff. This is an environment-scope note, not a native ABI blocker; no native source or ManyLinux builder checkout was changed.
 - Documentation reconciliation is in [review24-production-readiness-report.md](./review24-production-readiness-report.md); Flutter and React Native READMEs now describe local-only artifact validation and the single structured callback ABI without a legacy fallback. The closeout commits are `590f9f8` (Flutter), `5027b95` (local resolver and submodule fast-forward), `b570d89` (React Native Web bridge), and `d143679` (local regression evidence). The source-snapshot run and artifact link will be added after the final documentation SHA is frozen.
+- Final wrapper source SHA is `f46d64f782b0a3b6663ac9512c5b90426ab34863`. The explicitly requested [repository source-snapshot run 35931116466](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35931116466) completed successfully at that exact SHA. The resulting source artifact is `review24-wrapper-source-35931116466`, artifact ID `10781008469`; [download the source snapshot artifact](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10781008469/zip). The snapshot included recursively materialized submodules and did not execute runtime validation.
 
 ### Review 24 blocker ledger
 

@@ -2,6 +2,8 @@
 
 Date: 2026-09-23
 
+Final wrapper source SHA: `f46d64f782b0a3b6663ac9512c5b90426ab34863`
+
 This report records the Flutter and React Native validation performed against the
 frozen native ABI using only the supplied local WSL bundles. It does not publish
 native binaries and does not use hosted Flutter or React Native validation.
@@ -41,6 +43,7 @@ matching local artifacts were not supplied and remote retrieval/hosted wrapper
 CI is prohibited for this handoff. No blocker requiring native ABI changes was
 found; this is an environment-scope limitation only.
 
-The final wrapper source SHA and the requested source-snapshot workflow run and
-artifact links are recorded in `.agent/TRACKER.md` after the documentation
-closeout commit.
+The requested source-snapshot workflow completed successfully at the final
+wrapper SHA: run [35931116466](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/35931116466), source artifact
+`review24-wrapper-source-35931116466` (artifact ID `10781008469`),
+[download link](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10781008469/zip).
