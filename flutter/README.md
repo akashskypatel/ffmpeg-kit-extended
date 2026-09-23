@@ -187,6 +187,13 @@ Flutter Web uses the same public API and shared session implementation as native
    are HTTP(S) archive URLs. Native overrides keep their documented
    platform-specific archive formats.
 
+   For offline validation against a locally built native ABI, set
+   `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true` in the Flutter process environment.
+   With that switch enabled, an explicit local override is required and the
+   hook rejects both default release resolution and HTTP(S) overrides. This is
+   useful for validating a frozen local bundle without accidentally restoring a
+   historical published runtime.
+
    ### Hooks runner lock recovery
 
    Dart Hooks acquires the runner lock before `hook/build.dart` executes. A
@@ -447,12 +454,11 @@ FFmpegKit.executeAsync(
 
 #### Callback transport and redirection
 
-On an ABI-v2-capable runtime, live log callbacks are structured direct events
-carrying the session ID, native sequence, level, and copied message. Normal
-delivery does not poll the complete native log history. Native history getters
-remain available for public inspection and for bounded terminal reconciliation
-when an event arrives late or a compatibility bridge is in use. The v1
-buffered-history path remains the explicit fallback when v2 is unavailable.
+Live log callbacks use the single structured callback ABI, carrying the session
+ID, native sequence, level, and copied message. Normal delivery does not poll
+the complete native log history. Native history getters remain available for
+public inspection and bounded terminal reconciliation when an event arrives
+late; there is no legacy callback-ABI fallback.
 
 Callback bridge installation is demand-driven: completion transport is retained
 for every asynchronous execution, while log and statistics transport is leased

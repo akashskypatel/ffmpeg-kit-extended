@@ -23,7 +23,7 @@
 | **R24-G69** | Reopen/close G21 with local current-ABI runtime integrity | **Complete — local-only resolver/configuration and fast-forwarded native submodule verified** |
 | **R24-G70** | Prove current-ABI Flutter/RN Web structured direct-log delivery and A/B/C counters | **Complete — Flutter and React Native local Web structured-runtime evidence passed** |
 | **R24-G71** | Cross-platform regression against locally packaged Review 24 artifacts | **Complete — all locally executable Flutter/RN gates passed against local artifacts** |
-| **R24-G72** | Documentation, tracker and local exact-source/artifact closeout | **Pending G69–G71** |
+| **R24-G72** | Documentation, tracker and local exact-source/artifact closeout | **In progress — documentation committed; requested source snapshot pending** |
 
 ### Review 24 local wrapper closeout — 2026-09-23
 
@@ -37,6 +37,7 @@
 - Elevated local React Native Web validation passed the complete headless suite: initialize, repeated initialize, FFmpeg, FFprobe, media information, FFplay, pause/resume/stop, and the final WebAssembly smoke assertion. The full React Native `npm run check` gate passed **157/157** Node tests, with typecheck and lint passing (one pre-existing unnecessary-escape warning). No remote artifact or hosted wrapper workflow was used.
 - Cross-platform local regression is complete for the supplied artifact set: Flutter package tests **172/172**, Flutter Web smoke, Flutter Windows release, React Native package type/Web consumer checks, React Native Web smoke, and the React Native Windows MSBuild release all passed. The Windows build used the local Windows ZIP and produced both `FFmpegKitExtended.dll` and the example executable.
 - Android, Apple, and native Linux commands were not run on this Windows host because no matching local artifacts were supplied and remote retrieval/hosted wrapper CI is prohibited for this handoff. This is an environment-scope note, not a native ABI blocker; no native source or ManyLinux builder checkout was changed.
+- Documentation reconciliation is in [review24-production-readiness-report.md](./review24-production-readiness-report.md); Flutter and React Native READMEs now describe local-only artifact validation and the single structured callback ABI without a legacy fallback. The closeout commits are `590f9f8` (Flutter), `5027b95` (local resolver and submodule fast-forward), `b570d89` (React Native Web bridge), and `d143679` (local regression evidence). The source-snapshot run and artifact link will be added after the final documentation SHA is frozen.
 
 ### Review 24 blocker ledger
 

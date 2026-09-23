@@ -173,6 +173,12 @@ npx ffmpeg-kit-extended prepare-web --app-root .
 
 The command writes `public/ffmpeg-kit-extended/wasm/`, verifies release-selected artifacts before extraction, and copies the package Web bridge beside the runtime. Custom builds can be staged from a local directory or ZIP through the `web`/`wasm` override. Remote overrides are downloaded while staging; at runtime the browser loads the staged files from your application origin rather than downloading a release bundle.
 
+For offline validation against a locally built native ABI, set
+`FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true` in the staging process environment. The
+resolver then requires an explicit local `web` or `wasm` override and rejects
+both default release resolution and HTTP(S) overrides. This fail-closed mode
+prevents a local test from silently using a historical published runtime.
+
 The Wasm bundle is pthread-enabled. The Web server must send these headers for the page and runtime assets:
 
 ```http
@@ -213,13 +219,12 @@ React Native command execution is asynchronous. `execute()` and `executeAsync()`
 
 Call `FFmpegKitExtended.initialize()` and await it before using FFmpeg, FFprobe, or FFplay. Successful initialization is idempotent; a failed attempt can be retried, including with corrected `assetBaseUrl` options. Concurrent calls share the same initialization attempt.
 
-The native session starts asynchronously. On an ABI-v2-capable runtime, the
-TypeScript `Session` receives structured log events directly with the native
-session ID, sequence, level, and copied message; it polls state and does not
-poll the complete indexed log history during steady-state delivery. If v2 is
-not available, the wrapper explicitly uses the buffered-history compatibility
-path. Native history remains available for public getters and bounded terminal
-reconciliation.
+The native session starts asynchronously. The TypeScript `Session` receives
+structured log events directly through the single global callback ABI with the
+native session ID, sequence, level, and copied message; it polls state and does
+not poll the complete indexed log history during steady-state delivery. Native
+history remains available for public getters and bounded terminal
+reconciliation. There is no legacy callback-ABI fallback.
 
 Callback activation is demand-driven: completion transport is retained for an
 async execution, while log and statistics transport is leased only while a
