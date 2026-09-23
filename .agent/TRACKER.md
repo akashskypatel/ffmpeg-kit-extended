@@ -20,7 +20,7 @@
 | **FFK24-N11** | Resolve/classify GCC 14/libstdc++ UBSAN vptr diagnostics | **Complete — GCC 14-instrumented binaries were loading the host GCC 8.5 UBSAN runtime; matched-runtime reruns are clean** |
 | **FFK24-N12** | Freeze native handoff after N7–N11 | **Complete — native UBSAN/ASAN 116/116; TSan 116 assertions passed with only the user-accepted N10 race; Wasm 11/11 and exports verified** |
 | **R24-G68** | Validate DataAsset rollback on stable Flutter 3.47 | **Complete — Flutter 3.47.4 stable, local hook matrix 172/172, Web smoke passed** |
-| **R24-G69** | Reopen/close G21 with local current-ABI runtime integrity | **Open — local-only resolver/configuration in progress** |
+| **R24-G69** | Reopen/close G21 with local current-ABI runtime integrity | **Complete — local-only resolver/configuration and fast-forwarded native submodule verified** |
 | **R24-G70** | Prove current-ABI Flutter/RN Web structured direct-log delivery and A/B/C counters | **Open — Flutter evidence complete; React Native Web bridge validation in progress** |
 | **R24-G71** | Cross-platform regression against locally packaged Review 24 artifacts | **Pending G69–G70** |
 | **R24-G72** | Documentation, tracker and local exact-source/artifact closeout | **Pending G69–G71** |
@@ -31,6 +31,7 @@
 - The supplied local artifacts remain the only test authority. Their SHA-256 values are: Wasm `49096fe9145e8d5830a2e9e07b16047819eee1f3b3dfb268dc072fd7b6e239ce`, Windows `e7acb728101708402f7ea5d60abd973d624cf3a1598ba998673f7a6275499c2`, and Linux `cbe56b1749f028ed107d35bc96800c1635a674366badff86a85c69290b279363`. The selected bundle reports FFmpegKit `0.11.2`; no remote artifact URL was fetched.
 - Flutter configuration uses the local WSL paths in `flutter/pubspec.yaml` and `flutter/example/pubspec.yaml`; React Native uses the Wasm, Windows and Linux WSL paths in `react-native/example/ffmpeg-kit-extended.config.json`. `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true` now fails closed when a local override is absent or remote, in both wrapper resolvers. The initial Flutter test proved the former historical remote fallback URL; after the guard and local config were enabled, the full package suite passed **172/172**.
 - Elevated analytics-disabled binding regeneration completed with exit `0` for both `dart run ffigen --config ffigen_native.yaml` and `dart run ffigen_js --config ffigen_js.yaml`; the known `Unable to parse Macros` warning remains non-fatal. `dart --disable-analytics analyze` and Flutter analysis passed with no issues.
+- React Native resolver closeout is fail-closed under `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true`: absent overrides and HTTP(S) release URLs are rejected, while the explicit WSL-local Wasm, Windows, and Linux paths in `react-native/example/ffmpeg-kit-extended.config.json` are accepted. Positive and negative resolver tests passed without release-cache or remote package resolution.
 - Flutter Web was built with `flutter build web --wasm --release --target lib/web_runtime_smoke.dart` against the local Wasm ZIP. Headless browser evidence was `STARTING|INITIALIZED|FFMPEG_OK|FFPROBE_OK|MEDIA_INFO_OK|PASS`, with cross-origin isolation, local package asset requests, and no page/console errors. Flutter Windows release also passed: `flutter build windows --release`.
 
 ### Review 24 blocker ledger

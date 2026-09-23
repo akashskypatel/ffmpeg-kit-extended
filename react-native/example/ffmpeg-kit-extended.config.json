@@ -1,7 +1,7 @@
 {
   "type": "base",
   "gpl": false,
-  "small": true,
+  "small": false,
   "web": "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\bundle-base-wasm-wasm32-static-lgpl.zip",
   "wasm": "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\bundle-base-wasm-wasm32-static-lgpl.zip",
   "windows": "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\windows-x86_64\\releases\\bundle-base-windows-x86_64-shared-lgpl.zip",
