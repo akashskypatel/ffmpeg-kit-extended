@@ -127,6 +127,29 @@ void main() {
     expect(pathReaderInvoked, isFalse);
   });
 
+  test('does not convert a foreign-host file URI on non-Windows hosts', () {
+    const rawWslPath = r'\\wsl.localhost\ManyLinux\bundle.zip';
+    final authorityUri = Uri.parse('file://wsl.localhost/ManyLinux/bundle.zip');
+    final dependencies = <Uri>[];
+
+    final result = resolveUserDefines(
+      read: (key) => key == 'linux' ? rawWslPath : null,
+      readPath: (_) => authorityUri,
+      readBase: (_) => tempRoot.uri,
+      packageRoot: tempRoot.path,
+      addDependency: dependencies.add,
+      log: (_) {},
+    );
+
+    if (Platform.isWindows) {
+      expect(result!.config['linux'], authorityUri.toFilePath(windows: true));
+      expect(dependencies, contains(authorityUri));
+    } else {
+      expect(result!.config['linux'], rawWslPath);
+      expect(dependencies, isEmpty);
+    }
+  });
+
   test('explicit userDefines take precedence for native and Web overrides', () {
     final user = ConfigResult(
       {'type': 'video', 'android': 'user-android', 'web': 'user-web'},

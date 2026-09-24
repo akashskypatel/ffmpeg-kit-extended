@@ -75,8 +75,11 @@ ConfigResult? resolveUserDefines({
         !isUriLikeOverride(value)) {
       final resolvedPath = readPath(key);
       if (resolvedPath != null) {
-        config[key] = File.fromUri(resolvedPath).path;
-        addDependency(resolvedPath);
+        final localPath = _filePathForCurrentHost(resolvedPath);
+        if (localPath != null) {
+          config[key] = localPath;
+          addDependency(resolvedPath);
+        }
       }
     }
   }
@@ -122,6 +125,26 @@ bool _isPlatformOverrideKey(String key) => const {
   'web',
   'wasm',
 }.contains(key);
+
+/// Converts a resolved file URI only when it names a file on this host.
+///
+/// A shared workspace can contain Windows/WSL overrides while a macOS hook is
+/// evaluating the same user-defines map. Those paths resolve to a file URI
+/// with a non-local authority (for example, `wsl.localhost`) and must remain
+/// raw config values for another target instead of being passed to
+/// [File.fromUri], which throws on non-Windows hosts.
+String? _filePathForCurrentHost(Uri uri) {
+  if (uri.scheme != 'file') return null;
+  if (uri.hasAuthority && !Platform.isWindows) {
+    if (uri.authority != 'localhost') return null;
+    uri = Uri.file(uri.path);
+  }
+  try {
+    return uri.toFilePath(windows: Platform.isWindows);
+  } on UnsupportedError {
+    return null;
+  }
+}
 
 /// Returns whether [value] explicitly uses a URI scheme rather than a local
 /// path. Windows drive paths and WSL/UNC paths are intentionally local.
