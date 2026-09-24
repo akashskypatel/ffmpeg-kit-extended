@@ -1,5 +1,28 @@
 # Tracker
 
+## Review 27 Windows Platform Production-Readiness — 2026-09-23
+
+- Plan: [review-27-luna-windows-production-readiness-plan.md](./review-27-luna-windows-production-readiness-plan.md)
+- Scope: Windows architecture authority, React Native Windows runtime staging freshness/coherence, Flutter Windows FFplay ownership and retryable symbol resolution, local Windows production validation, and exact-source closeout.
+- Review authority: Review 26 implementation/source-freeze SHA `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`. Native ABI source, `libs/libffmpegkit`, and the ManyLinux builder checkout remain unchanged and out of scope.
+- Local ABI authority: supplied WSL-local Linux, Windows, and Wasm archives under `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt`; no hosted Flutter/React Native CI, remote old binaries, or native ABI publication.
+- Apple validation amendment: noninteractive Apple build/test gates use `my MacBook Air` (`akash@192.168.1.189`) at `/Users/akash/Projects/ffmpeg_kit_extended`; the checkout was verified clean on `dev-wasm` and synchronized with `origin/dev-wasm` at `b3105fc2af5f8c853144cf3d55293086571f7978`. Interactive iOS/tvOS simulator tests may be deferred only with concrete evidence.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R27-W1** | Make Windows architecture selection truthful and fail-closed | **Open** |
+| **R27-W2** | Make React Native Windows runtime preparation content-fresh and staging-coherent | **Pending — starts after W1** |
+| **R27-W3** | Make Flutter Windows FFplay frame-callback registration process-global-owner safe | **Pending — starts after W2** |
+| **R27-W4** | Make Flutter Windows FFplay symbol resolution retryable, atomic, and fail-closed | **Pending — starts after W3** |
+| **R27-W5** | Run the real local Windows production matrix plus amended Mac Apple noninteractive gates | **Pending — starts after W1–W4** |
+| **R27-W6** | Reconcile Windows/Apple validation docs and freeze one exact source | **Pending — starts after W5** |
+
+### Review 27 preparation evidence — 2026-09-23
+
+- The Review 27 plan was added as the active implementation authority and amended per user direction to use the synced MacBook Air checkout for noninteractive Apple build/test gates. Interactive iOS/tvOS simulator tests remain the only explicitly deferrable Apple gates.
+- The local Windows and React Native/Flutter configurations continue to point at the supplied WSL-local runtime archives. No hosted workflow is an acceptance source for unpublished native ABI validation.
+- The current wrapper starting SHA is `b3105fc2af5f8c853144cf3d55293086571f7978`. The MacBook Air SSH probe and checkout verification passed; no remote checkout changes were made during preparation.
+
 ## Review 26 Functional Production-Readiness Remediation — 2026-09-23
 
 - Plan: [review-26-luna-functional-production-readiness-plan.md](./review-26-luna-functional-production-readiness-plan.md)
