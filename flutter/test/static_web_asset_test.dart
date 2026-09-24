@@ -32,4 +32,15 @@ void main() {
     expect(source, isNot(contains('data_assets:')));
     expect(source, isNot(contains('- assets/wasm/')));
   });
+
+  test('does not retain a stale executable Web runtime', () {
+    expect(File('assets/wasm/ffmpegkit.mjs').existsSync(), isFalse);
+    expect(File('assets/wasm/ffmpegkit.wasm').existsSync(), isFalse);
+
+    final fixture = File(
+      'test/fixtures/custom_web_workspace/pubspec.yaml',
+    ).readAsStringSync();
+    expect(fixture, isNot(contains('../../../assets/wasm')));
+    expect(fixture, contains('bundle-base-wasm-wasm32-static-lgpl.zip'));
+  });
 }

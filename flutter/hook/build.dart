@@ -230,15 +230,30 @@ Directory? selectWebRuntimeDirectory(Directory extractedDir) {
   if (!extractedDir.existsSync()) return null;
 
   final candidateDirectories = <String, Directory>{};
-  for (final entity in extractedDir.listSync(
-    recursive: true,
-    followLinks: false,
-  )) {
-    if (entity is! File) continue;
-    final name = p.basename(entity.path);
-    if (name == 'ffmpegkit.mjs' || name == 'ffmpegkit.wasm') {
-      final parent = entity.parent;
-      candidateDirectories[p.normalize(parent.path)] = parent;
+  final pendingDirectories = <Directory>[extractedDir];
+  while (pendingDirectories.isNotEmpty) {
+    final directory = pendingDirectories.removeLast();
+    List<FileSystemEntity> entities;
+    try {
+      entities = directory.listSync(followLinks: false);
+    } on FileSystemException {
+      // A malformed or inaccessible archive subtree cannot be a valid runtime
+      // candidate. Continue scanning so another complete pair can still be
+      // selected, then fail closed if no unique pair remains.
+      continue;
+    }
+
+    for (final entity in entities) {
+      if (entity is Directory) {
+        pendingDirectories.add(entity);
+        continue;
+      }
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      if (name == 'ffmpegkit.mjs' || name == 'ffmpegkit.wasm') {
+        final parent = entity.parent;
+        candidateDirectories[p.normalize(parent.path)] = parent;
+      }
     }
   }
 

@@ -61,6 +61,35 @@ void main() {
     }
   });
 
+  test('selects a runtime pair nested below an extracted bundle root', () {
+    final runtime = Directory(
+      p.join(
+        tempRoot.path,
+        'bundle',
+        'bundle-base-wasm-wasm32-static-lgpl',
+        'lib',
+      ),
+    )..createSync(recursive: true);
+    File(p.join(runtime.path, 'ffmpegkit.mjs')).writeAsStringSync('module');
+    File(
+      p.join(runtime.path, 'ffmpegkit.wasm'),
+    ).writeAsBytesSync(<int>[0, 97, 115, 109]);
+    Directory(
+      p.join(tempRoot.path, 'bundle', 'include', 'libavutil', 'aarch64'),
+    ).createSync(recursive: true);
+
+    expect(
+      p.normalize(
+        build_hook
+            .selectWebRuntimeDirectory(
+              Directory(p.join(tempRoot.path, 'bundle')),
+            )!
+            .path,
+      ),
+      p.normalize(runtime.path),
+    );
+  });
+
   test('app-scoped configuration stages only into that app', () {
     final plugin = Directory(p.join(tempRoot.path, 'plugin'))..createSync();
     final app = Directory(p.join(tempRoot.path, 'app'))..createSync();
@@ -81,8 +110,10 @@ void main() {
   });
 
   test('shared workspace configuration resolves dependent Web roots', () {
-    final workspace = Directory(p.join(tempRoot.path, 'workspace'))..createSync();
-    final dartTool = Directory(p.join(workspace.path, '.dart_tool'))..createSync();
+    final workspace = Directory(p.join(tempRoot.path, 'workspace'))
+      ..createSync();
+    final dartTool = Directory(p.join(workspace.path, '.dart_tool'))
+      ..createSync();
     final plugin = Directory(p.join(tempRoot.path, 'plugin'))..createSync();
     final app = Directory(p.join(workspace.path, 'apps', 'app'))
       ..createSync(recursive: true);
