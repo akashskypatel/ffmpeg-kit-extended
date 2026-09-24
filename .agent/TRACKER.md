@@ -1,5 +1,29 @@
 # Tracker
 
+## Review 29 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
+
+- Plan: [review29-cross-platform-frozen-snapshot-review.md](./review29-cross-platform-frozen-snapshot-review.md)
+- Authority: the exact Review 28 wrapper snapshot at `e02fb8325a80266ea0faa4e84a65db7ebc53f67e`; frozen native product source remains `625c3452ee3c93fb5d701bb6546726940b88d014`; `libs/libffmpegkit` remains clean on `dev` at `b74da2c5d1e294b87d15d73a6687393729e932b3`, matching origin.
+- Scope: remediate the five wrapper findings identified from the frozen source, then refresh affected local noninteractive gates and freeze one exact wrapper source candidate. No native ABI or ManyLinux builder change is required or permitted by this review.
+- Validation authority: supplied local WSL Linux, Windows, Wasm, and Android artifacts plus the recorded MacBook Air universal XCFramework archives. Hosted Flutter/React Native CI, remote old binaries, native ABI publication, and interactive Flutter/React Native runtime execution are excluded.
+- Android host decision: Android validation runs on the local Windows host using its installed Android toolchain; the WSL AAR remains the local binary authority and no WSL Android build is required.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R29-G1** | Require a complete React Native tvOS FFplay callback pair and extend the Apple lifecycle oracle | **Complete — tvOS now clears partial symbol resolution and requires register/unregister together; focused Node oracle passed 2/2; local MacBook Air tvOS Simulator Release build passed** |
+| **R29-G2** | Restore the older unsettled tracked Flutter FFplay owner when the current tracked execution settles | **Open** |
+| **R29-G3** | Coalesce Flutter Linux frame notifications and retained GLib references to one pending main-loop delivery | **Open** |
+| **R29-G4** | Add Flutter Web playback epochs and clear stale frames at playback boundaries | **Open** |
+| **R29-G5** | Make Flutter Android/iOS/desktop fullscreen transitions failure-atomic | **Open** |
+| **R29-G6** | Reconcile documentation, tracker evidence, and the exact frozen source candidate | **Pending — after R29-G2 through R29-G5 and affected local gates** |
+
+### Review 29 R29-G1 evidence — 2026-09-24
+
+- `react-native/appletvos/RCTFFplayView.mm` now clears both callback pointers when either symbol is unavailable and refuses activation unless the complete register/unregister pair exists.
+- `react-native/tests/ffplay-native-lifecycle.test.js` now includes the tvOS source in the Apple complete-pair oracle. `node --test tests/ffplay-native-lifecycle.test.js` passed **2/2** from `react-native/`.
+- Commit `032a272` (`fix: require complete tvOS frame callbacks`) is pushed to `origin/dev-wasm`.
+- The MacBook Air local gate pulled `032a272`, used `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-appletvos-universal-small-lgpl.xcframework.zip`, and completed `npm run build:appletvos -- --release` with `** BUILD SUCCEEDED **`. No hosted workflow or remote FFmpeg artifact was used.
+
 ## Review 28 Runtime Production-Readiness — 2026-09-24
 
 - Plan: [review-28-luna-runtime-production-readiness-plan.md](./review-28-luna-runtime-production-readiness-plan.md)
