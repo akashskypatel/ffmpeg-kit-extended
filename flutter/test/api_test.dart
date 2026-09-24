@@ -2757,21 +2757,16 @@ void main() {
       expect(ffmpeg.ffmpeg_kit_session_get_session_id(session), equals(-1));
       expect(ffmpeg.ffmpeg_kit_session_get_output(session), equals(nullptr));
 
-      // 5. Try with "fake" handle (ID as pointer)
-      // Convert the integer ID into a Pointer address.
-      // The native layer should detect this is not in active_handles and check session history.
+      // 5. Try with "fake" handle (ID as pointer).
+      // Numeric session IDs are not opaque handles. The native layer must
+      // fail closed instead of guessing from a pointer-shaped integer.
       final fakeHandle = Pointer<Void>.fromAddress(id);
 
-      expect(ffmpeg.ffmpeg_kit_session_get_session_id(fakeHandle), equals(id));
+      expect(ffmpeg.ffmpeg_kit_session_get_session_id(fakeHandle), equals(-1));
 
       final outputPtr = ffmpeg.ffmpeg_kit_session_get_output(fakeHandle);
-      expect(outputPtr, isNot(nullptr));
-
-      if (outputPtr != nullptr) {
-        final output = _fromNative(outputPtr);
-        if (kDebugMode) print("Output from fake handle: $output");
-        ffmpeg.ffmpeg_kit_free(outputPtr.cast());
-      }
+      expect(outputPtr, equals(nullptr));
+      expect(ffmpeg.ffmpeg_kit_session_get_logs_count(fakeHandle), equals(-1));
     });
   });
 

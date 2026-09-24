@@ -1,5 +1,33 @@
 # Tracker
 
+## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
+
+- Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)
+- Authority: the exact Review 29 wrapper source candidate `237fb5044243240b6199b3a46f0c7cc73ae3586a`; frozen native product source remains `625c3452ee3c93fb5d701bb6546726940b88d014`; `libs/libffmpegkit` remains clean on `dev` at `b74da2c5d1e294b87d15d73a6687393729e932b3`, matching origin.
+- Scope: remediate the four wrapper/product findings and one validation-classification finding from the frozen Review 29 source, reconcile the source-authority documentation, run affected local gates, and freeze one new exact wrapper source candidate. No native ABI or ManyLinux builder change is required or permitted.
+- Validation authority: the supplied local WSL Linux, Windows, Wasm, and Android artifacts plus the recorded MacBook Air universal XCFramework archives. Hosted Flutter/React Native CI, remote old binaries, native ABI publication, and interactive Flutter/React Native runtime execution are excluded.
+- Configuration authority: Flutter example and React Native example overrides must continue to point directly to the supplied local WSL artifacts; Apple overrides remain the recorded MacBook Air universal XCFramework paths.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R30-G1** | Move Flutter Web playback epoch ownership to every public FFplay execution route | **Pending** |
+| **R30-G2** | Restore the newest tracked owner when an untracked current session is removed | **Pending** |
+| **R30-G3** | Correct the stale Flutter fake-handle integration oracle and reclassify R29-B1 | **Complete — native numeric-handle fail-closed contract is now asserted; Flutter native/API suite passed 71/71** |
+| **R30-G4** | Make Flutter shared hook-artifact cache mutation safe across processes | **Pending** |
+| **R30-G5** | Deactivate the previous React Native Apple view before callback-owner replacement | **Pending** |
+| **R30-G6** | Reconcile Review 29/30 documentation, affected gates, and the exact source snapshot | **Pending** |
+
+### Review 30 implementation boundary
+
+- Implementation names must describe behavior, not Review 30 goal/finding identifiers. The native ABI, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` checkout are read-only for this review.
+- Every spawned Flutter, Dart, Node, Gradle, WSL, or compiler process must be tagged, observed to completion, and cleaned up before the next gate. No hosted workflow may be used for Flutter/React Native acceptance while the ABI remains unpublished.
+
+### Review 30 R30-G3 evidence — 2026-09-24
+
+- `flutter/test/api_test.dart` now treats a numeric session ID cast to `Pointer<Void>` as an invalid opaque handle: session ID returns `-1`, output returns `nullptr`, and log count returns `-1`. No compatibility fallback, fake-pointer lookup, native ABI change, or native test weakening was introduced.
+- The focused `FFmpegKitTest RobustnessTest` passed **1/1** against the unchanged local Windows archive. The complete `flutter/test/api_test.dart` suite passed **71/71** in the elevated, analytics-disabled Flutter runner, including the native FFplay/concurrency/stress cases.
+- Review 29 blocker **R29-B1 is closed and reclassified**: the prior `expected 1 / actual -1` result matched the frozen native contract and was caused by a stale Flutter integration oracle. No native ABI or ManyLinux builder modification was required.
+
 ## Review 29 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review29-cross-platform-frozen-snapshot-review.md](./review29-cross-platform-frozen-snapshot-review.md)
