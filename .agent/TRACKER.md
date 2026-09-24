@@ -40,7 +40,7 @@
 - Wasm: `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip`.
 - Android: `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\tools\android\build\outputs\aar\bundle-base-shared-small-lgpl-release.aar`.
 - Apple: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/` universal archives recorded in the Review 27 section below.
-- Source snapshot and builders snapshot workflow IDs, artifact IDs, and download links are intentionally blank until all Review 28 goals are complete and the final SHA is frozen.
+- Frozen wrapper source snapshot: [workflow run `36052427391`](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36052427391) completed successfully at exact source SHA `e02fb8325a80266ea0faa4e84a65db7ebc53f67e` (`dev-wasm`), with recursive submodules and no runtime execution. The source artifact is `review28-wrapper-source-e02fb83-36052427391`, artifact ID `10830988517`; [download the wrapper source snapshot](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10830988517/zip). The separate diagnostic-log artifact is `review28-wrapper-source-e02fb83-log-36052427391`, artifact ID `10831162878`. The builder snapshot remains the previously recorded unchanged native/builder provenance; no builder checkout or native ABI binary was modified.
 
 ## Review 27 Cross-Platform Production-Readiness — 2026-09-24
 
