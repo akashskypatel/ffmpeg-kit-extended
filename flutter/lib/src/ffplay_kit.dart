@@ -24,7 +24,6 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart' as callback_manager;
-import 'ffplay_surface.dart';
 
 // Only one FFplay session can be active at a time.
 FFplaySession? _activeFFplaySession;

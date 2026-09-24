@@ -15,7 +15,7 @@
 | **R29-G3** | Coalesce Flutter Linux frame notifications and retained GLib references to one pending main-loop delivery | **Complete — GLib oracle proves one pending source/ref with latest-frame delivery and rescheduling; WSL Flutter Linux Release bundle passes** |
 | **R29-G4** | Add Flutter Web playback epochs and clear stale frames at playback boundaries | **Complete — successful startup commits `(epoch, generation)` identity, epoch transitions clear the old image, focused tests 16/16 and local Web Release build pass** |
 | **R29-G5** | Make Flutter Android/iOS/desktop fullscreen transitions failure-atomic | **Complete — cleanup tracks acquired mobile/external effects independent of mounted state; focused widget lifecycle suite passed 6/6** |
-| **R29-G6** | Reconcile documentation, tracker evidence, and the exact frozen source candidate | **Pending — after R29-G2 through R29-G5 and affected local gates** |
+| **R29-G6** | Reconcile documentation, tracker evidence, and the exact frozen source candidate | **Complete — documentation, local gates, blocker evidence, and the wrapper source-freeze candidate are reconciled; the native-only fake-handle mismatch is recorded below** |
 
 ### Review 29 R29-G1 evidence — 2026-09-24
 
@@ -49,6 +49,15 @@
 - `flutter/lib/src/ffplay_view.dart` now treats mobile system UI, external fullscreen callbacks, route transition, and controller state as one failure-atomic transaction. Cleanup runs without requiring the originating widget to remain mounted; cleanup failures are logged after a primary transition error and do not replace it.
 - `flutter/test/ffplay_view_fullscreen_test.dart` passed **6/6** with a mocked platform channel and an Android target override scoped entirely inside each test. It covers successful entry/exit, throwing entry, disposal while entry is pending, origin disposal with an active route, programmatic route exit, and primary-error preservation over cleanup failure.
 - The test-only `FFplaySurface.test()` constructor supplies a resource-free surface fixture; no interactive Flutter app was launched.
+
+### Review 29 R29-G6 evidence and blocker ledger — 2026-09-24
+
+- `flutter/README.md` now releases the previous FFplay surface before replacing it and releases the replacement when the widget is no longer mounted. The final wrapper changes remain semantic (`FrameNotificationCoalescer`, `FFplayWebPlaybackEpoch`, and failure-atomic fullscreen cleanup); plan and goal identifiers are not used as implementation names.
+- The final local non-native Flutter package gate passed **189/189** with `flutter test --exclude-tags native`. The focused Review 29 suites passed **12/12** (owner fallback), **16/16** (Web epoch/lifecycle), and **6/6** (fullscreen lifecycle). The local platform matrix passed in the requested order: Windows Release (`flutter/example/build/windows/x64/runner/Release/ffmpeg_kit_extended_flutter_example.exe`), Windows-hosted Android Release (`flutter/example/build/app/outputs/flutter-apk/app-release.apk`), WSL Linux Release (`flutter/example/build/linux/x64/release/bundle/ffmpeg_kit_extended_flutter_example`), and the previously recorded local Web Release and MacBook Air Apple gates. Android used the installed Windows toolchain and the WSL-local AAR; Linux used the WSL-local Linux archive.
+- A complete `flutter test` run against the supplied Windows archive reached **259 passing tests and one failure**. The isolated failure is `FFmpegKitTest RobustnessTest`: `ffmpeg_kit_session_get_session_id(Pointer<Void>.fromAddress(id))` returned `-1` instead of the expected session ID (`api_test.dart:2765`). The wrapper-focused tests and non-native package gate are green; this is a native ABI/artifact behavior mismatch, not a Review 29 wrapper regression.
+- **R29-B1 — native-only fake-handle lookup mismatch:** the supplied rebuilt Windows archive does not resolve a released session through its numeric-ID pointer (`expected 1`, `actual -1`). Native ABI and `libs/libffmpegkit` changes are forbidden in this review, so no wrapper workaround or test weakening was made. This remains an explicitly documented native-owner blocker; it does not block the wrapper source candidate or source-only snapshot, but it prevents claiming the supplied native archive's complete API parity suite is green.
+- No hosted Flutter/React Native CI, remote binary, native ABI publication, or ManyLinux builder checkout change was used. The task-owned Flutter/Gradle/WSL build processes completed and were cleaned up; no interactive app runtime was launched.
+- The exact wrapper source-freeze SHA and source-snapshot workflow/artifact metadata will be appended in the docs-only snapshot record immediately after the authorized source-only workflow completes.
 
 ## Review 28 Runtime Production-Readiness — 2026-09-24
 

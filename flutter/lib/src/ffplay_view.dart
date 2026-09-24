@@ -283,10 +283,11 @@ class _FFplayViewState extends State<FFplayView> {
           'error: $cleanupError',
         );
       }
-      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
+      Error.throwWithStackTrace(primaryError, primaryStackTrace!);
     }
-    if (cleanupError != null) {
-      Error.throwWithStackTrace(cleanupError!, cleanupStackTrace!);
+    final finalCleanupError = cleanupError;
+    if (finalCleanupError != null) {
+      Error.throwWithStackTrace(finalCleanupError, cleanupStackTrace!);
     }
   }
 

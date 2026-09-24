@@ -1,10 +1,10 @@
 import 'dart:async';
 
+import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 
 class _FullscreenHost extends StatefulWidget {
   const _FullscreenHost({
@@ -39,20 +39,10 @@ void main() {
 
   setUp(() {
     systemUiCalls = <MethodCall>[];
-    SystemChannels.platform.setMockMethodCallHandler((call) async {
-      if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
-        systemUiCalls.add(call);
-        if (throwOnRestore && systemUiCalls.length == 2) {
-          throw StateError('system UI restore failed');
-        }
-      }
-      return null;
-    });
   });
 
   tearDown(() {
     throwOnRestore = false;
-    SystemChannels.platform.setMockMethodCallHandler(null);
     debugDefaultTargetPlatformOverride = null;
   });
 
@@ -87,9 +77,25 @@ void main() {
   ) {
     testWidgets(description, (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'SystemChrome.setEnabledSystemUIMode') {
+            systemUiCalls.add(call);
+            if (throwOnRestore && systemUiCalls.length == 2) {
+              throw StateError('system UI restore failed');
+            }
+          }
+          return null;
+        },
+      );
       try {
         await body(tester);
       } finally {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
         debugDefaultTargetPlatformOverride = null;
       }
     });

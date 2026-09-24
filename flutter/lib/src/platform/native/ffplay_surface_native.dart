@@ -9,7 +9,6 @@ library;
 
 import 'dart:io' show Platform;
 
-import 'package:meta/meta.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 

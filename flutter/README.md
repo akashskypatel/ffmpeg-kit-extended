@@ -545,8 +545,19 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Future<void> _startPlayback(String filePath) async {
-    // Create surface before starting playback
-    _surface = await FFplaySurface.create();
+    // Release any previous playback surface before replacing it. This keeps
+    // native textures and the Web polling timer bounded across replays.
+    final previousSurface = _surface;
+    _surface = null;
+    await previousSurface?.release();
+
+    // Create the replacement surface before starting playback.
+    final surface = await FFplaySurface.create();
+    if (!mounted) {
+      await surface?.release();
+      return;
+    }
+    setState(() => _surface = surface);
 
     final session = await FFplayKit.executeAsync('-i "$filePath"');
 
