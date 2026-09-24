@@ -135,7 +135,7 @@ bool _isPlatformOverrideKey(String key) => const {
 /// [File.fromUri], which throws on non-Windows hosts.
 String? _filePathForCurrentHost(Uri uri) {
   if (uri.scheme != 'file') return null;
-  if (uri.hasAuthority && !Platform.isWindows) {
+  if (uri.authority.isNotEmpty && !Platform.isWindows) {
     if (uri.authority != 'localhost') return null;
     uri = Uri.file(uri.path);
   }
