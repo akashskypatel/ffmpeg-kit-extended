@@ -1,4 +1,4 @@
-import {getBackend} from './platform/backend';
+import {getBackend} from './platform/backend-registry';
 import {argumentsToString} from './arguments';
 import {FFmpegSession} from './session';
 import type {FFmpegExecuteOptions} from './types';

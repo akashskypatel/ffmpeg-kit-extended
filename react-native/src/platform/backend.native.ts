@@ -1,19 +1,48 @@
 import NativeFFmpegKitExtended from '../NativeFFmpegKitExtended';
-import type {FFmpegKitBackend} from './backend';
+import type {FFmpegKitBackend} from './backend-registry';
 
-export const nativeBackend: FFmpegKitBackend = {
-  ...NativeFFmpegKitExtended,
-  initialize: async () => {
-    NativeFFmpegKitExtended.initialize();
+/**
+ * TurboModule methods are exposed through a proxy and are not guaranteed to
+ * be enumerable. Delegating through a proxy keeps the full generated native
+ * surface intact; spreading the module silently dropped methods such as
+ * `logLevelToString` on Android.
+ */
+export const nativeBackend: FFmpegKitBackend = new Proxy(
+  NativeFFmpegKitExtended as unknown as FFmpegKitBackend,
+  {
+    get(target, property, receiver) {
+      if (property === 'initialize') {
+        return async () => {
+          NativeFFmpegKitExtended.initialize();
+        };
+      }
+      if (property === 'isDirectLogBridgeActive') {
+        return () =>
+          typeof NativeFFmpegKitExtended.installLogBridge === 'function' &&
+          typeof NativeFFmpegKitExtended.uninstallLogBridge === 'function' &&
+          typeof NativeFFmpegKitExtended.onLogEvent === 'function';
+      }
+      if (property === 'getFrameBufferSize') {
+        return () => 0;
+      }
+      if (property === 'copyFrame') {
+        return () => ({
+          width: 0,
+          height: 0,
+          linesize: 0,
+          generation: 0,
+          copied: false,
+        });
+      }
+      if (property === 'getMediaInformationData') {
+        return (sessionId: number) => {
+          const json = NativeFFmpegKitExtended.getMediaInformationJson(sessionId);
+          return json
+            ? (JSON.parse(json) as ReturnType<FFmpegKitBackend['getMediaInformationData']>)
+            : undefined;
+        };
+      }
+      return Reflect.get(target, property, receiver);
+    },
   },
-  isDirectLogBridgeActive: () =>
-    typeof NativeFFmpegKitExtended.installLogBridge === 'function' &&
-    typeof NativeFFmpegKitExtended.uninstallLogBridge === 'function' &&
-    typeof NativeFFmpegKitExtended.onLogEvent === 'function',
-  getFrameBufferSize: () => 0,
-  copyFrame: () => ({width: 0, height: 0, linesize: 0, generation: 0, copied: false}),
-  getMediaInformationData: sessionId => {
-    const json = NativeFFmpegKitExtended.getMediaInformationJson(sessionId);
-    return json ? (JSON.parse(json) as ReturnType<FFmpegKitBackend['getMediaInformationData']>) : undefined;
-  },
-};
+);

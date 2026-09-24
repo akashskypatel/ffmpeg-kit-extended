@@ -7,7 +7,7 @@ import type {
   LogEventHandler,
   LogEventSubscription,
   StatisticsSnapshot,
-} from './backend';
+} from './backend-registry';
 import {WasmSessionRegistry} from './web/session-registry';
 import {
   initializeWasm,

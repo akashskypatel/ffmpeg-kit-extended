@@ -10,5 +10,5 @@ export * from './media-information';
 export * from './session';
 export * from './session-queue-manager';
 export * from './types';
-export type {FFmpegKitInitializeOptions} from './platform/backend';
+export type {FFmpegKitInitializeOptions} from './platform/backend-registry';
 export * from './ffplay-view.web';

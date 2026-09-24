@@ -5,7 +5,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const {WebFFmpegKitBackend} = require('../.test-dist/platform/backend.web.js');
-const {getBackend} = require('../.test-dist/platform/backend.js');
+const {getBackend} = require('../.test-dist/platform/backend-registry.js');
 const {webBackend} = require('../.test-dist/platform/backend.web.js');
 const {
   currentFFplayPlaybackEpoch,

@@ -1,4 +1,4 @@
-import {getBackend} from './platform/backend';
+import {getBackend} from './platform/backend-registry';
 import {argumentsToString} from './arguments';
 import {FFplaySession} from './session';
 import type {ExecuteOptions} from './types';

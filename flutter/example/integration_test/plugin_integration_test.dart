@@ -45,7 +45,7 @@ void main() async {
   FFmpegKitConfig.setEnvironmentVariable("SDL_AUDIODRIVER", "dummy");
 
   String videoFile = "test_video.mp4";
-  String audioFile = "test_audio.mp3";
+  String audioFile = "test_audio.wav";
   String videoPath = "";
   String audioPath = "";
   String outputDir = "";
@@ -53,14 +53,21 @@ void main() async {
   const String dummyVideoCommand =
       "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30";
   const String dummyAudioCommand =
-      "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=3";
+      "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=3 -c:a pcm_s16le";
+
+  Future<void> ensureOutputDirectory() async {
+    if (outputDir.isEmpty) {
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'ffmpeg_kit_extended_integration_',
+      );
+      outputDir = tempDirectory.path;
+    }
+  }
 
   /// Helper to create a dummy video file
   Future<void> createDummyVideo() async {
     if (videoPath.isEmpty) {
-      final currentDir = Directory.current.absolute.path;
-      outputDir = path.join(currentDir, 'test_output');
-      await Directory(outputDir).create(recursive: true);
+      await ensureOutputDirectory();
       videoPath = path.join(outputDir, videoFile).replaceAll(r'\', '/');
       audioPath = path.join(outputDir, audioFile).replaceAll(r'\', '/');
     }
@@ -75,9 +82,7 @@ void main() async {
   /// Helper to create a dummy audio file
   Future<void> createDummyAudio() async {
     if (audioPath.isEmpty) {
-      final currentDir = Directory.current.absolute.path;
-      outputDir = path.join(currentDir, 'test_output');
-      await Directory(outputDir).create(recursive: true);
+      await ensureOutputDirectory();
       audioPath = path.join(outputDir, audioFile).replaceAll(r'\', '/');
     }
 

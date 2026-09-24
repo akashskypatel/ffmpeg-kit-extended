@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const {afterEach, beforeEach, test} = require('node:test');
 
-const {getBackend, setBackend} = require('../.test-dist/platform/backend.js');
+const {getBackend, setBackend} = require('../.test-dist/platform/backend-registry.js');
 const {WasmSessionRegistry} = require('../.test-dist/platform/web/session-registry.js');
 const {
   SessionCancelledException,

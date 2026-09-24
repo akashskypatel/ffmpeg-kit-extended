@@ -18,27 +18,27 @@ const reactNativePackage =
  *
  * @type {import('metro-config').MetroConfig}
  */
+const resolver = {
+  disableHierarchicalLookup: true,
+
+  nodeModulesPaths: [exampleNodeModules],
+
+  extraNodeModules: {
+    react: path.resolve(exampleNodeModules, 'react'),
+    'react-native': path.resolve(
+      exampleNodeModules,
+      reactNativePackage,
+    ),
+  },
+};
+
+if (process.env.REACT_NATIVE_PLATFORM === 'macos') {
+  resolver.platforms = ['android', 'ios', 'macos'];
+}
+
 const config = {
   watchFolders: [libraryRoot],
-
-  resolver: {
-    disableHierarchicalLookup: true,
-
-    platforms:
-      process.env.REACT_NATIVE_PLATFORM === 'macos'
-        ? ['android', 'ios', 'macos']
-        : undefined,
-
-    nodeModulesPaths: [exampleNodeModules],
-
-    extraNodeModules: {
-      react: path.resolve(exampleNodeModules, 'react'),
-      'react-native': path.resolve(
-        exampleNodeModules,
-        reactNativePackage,
-      ),
-    },
-  },
+  resolver,
 };
 
 module.exports = mergeConfig(

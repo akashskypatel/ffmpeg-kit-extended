@@ -1,5 +1,5 @@
-import {getBackend} from '../backend';
-import type {FFplayFrameMetadata} from '../backend';
+import {getBackend} from '../backend-registry';
+import type {FFplayFrameMetadata} from '../backend-registry';
 import {isWasmModuleReady, requireWasmModule} from './wasm-loader';
 import {currentFFplayPlaybackEpoch, currentFFplayPlaybackSessionId} from './ffplay-frame-state';
 

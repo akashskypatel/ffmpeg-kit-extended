@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const {afterEach, beforeEach, test} = require('node:test');
 
-const {setBackend} = require('../.test-dist/platform/backend.js');
+const {setBackend} = require('../.test-dist/platform/backend-registry.js');
 const {SessionCancelledException, SessionQueueManager} = require('../.test-dist/session-queue-manager.js');
 const {SessionState} = require('../.test-dist/types.js');
 

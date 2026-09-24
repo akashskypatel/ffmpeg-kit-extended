@@ -7,7 +7,7 @@ const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 const test = require('node:test');
 
-const {setBackend} = require('../.test-dist/platform/backend.js');
+const {setBackend} = require('../.test-dist/platform/backend-registry.js');
 const {
   initializeWasm,
   requireWasmModule,

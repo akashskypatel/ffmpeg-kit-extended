@@ -1,7 +1,7 @@
 import {
   getBackend,
   type FFmpegKitInitializeOptions,
-} from './platform/backend';
+} from './platform/backend-registry';
 import {
   FFmpegSession,
   FFplaySession,

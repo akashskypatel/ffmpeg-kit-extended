@@ -1590,6 +1590,79 @@ The existing static Java `activeOwner` contract must remain intact.
 
 ---
 
+## 23.5 Current local executable evidence
+
+The current wrapper validation uses the Windows Android toolchain for Android. A
+WSL Android build or Android test run is not required. WSL is used only for the
+Flutter Linux build, with the supplied local Linux archive.
+
+### Flutter Windows and Linux
+
+The Windows Flutter installation passed `flutter doctor -v` with the Android
+SDK, Java, and accepted licenses available. Analytics were disabled with
+`flutter config --no-analytics` and `dart --disable-analytics` before running
+the local gates. The Windows release build and Windows-hosted Android release
+build both passed with the local WSL AAR override.
+
+The local Android AAR is:
+
+```text
+\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\tools\android\build\outputs\aar\bundle-base-shared-small-lgpl-release.aar
+SHA-256: c36e43a512b8c70d7425a9954e8f3d1d3617abc0b1d6e47ce7b5d760f79143d4
+ABIs: arm64-v8a, armeabi-v7a, x86_64
+```
+
+The Flutter Android owner JVM tests passed **3/3**. The Windows emulator
+integration suite passed **63/63**, including initialization, FFmpeg, FFprobe,
+media information, structured logs, FFplay surface ownership, queue behavior,
+and cleanup. The fixture uses WAV/PCM audio because the supplied small LGPL AAR
+does not contain an MP3 encoder; this is a test-fixture compatibility choice,
+not an ABI change.
+
+The WSL Flutter Linux release build passed with the supplied local Linux
+archive and produced:
+
+```text
+flutter/example/build/linux/x64/release/bundle/ffmpeg_kit_extended_flutter_example
+```
+
+The Flutter build hook emitted its existing “File modified during build”
+warning and the build was rerun successfully. React Native Linux is not
+implemented by this package and has no Linux native gate in this run.
+
+### React Native Windows and Android
+
+The local React Native source/package gates passed with TypeScript and lint
+clean apart from two existing warnings, **170/170** Node tests, package
+preparation, packed TypeScript consumer, packed Vite consumer, and
+`npm pack --dry-run`.
+
+The Windows-hosted React Native Android path passed codegen, the release
+Gradle build, and the release example runtime using the same local AAR. The
+final APK remained alive after launch; logcat reported
+`Running "FFmpegKitExtendedExample"` with no JavaScript/native fatal error.
+
+Two wrapper-only fixes were required by the Android runtime evidence:
+
+* the platform backend registry was renamed to `backend-registry` so Metro's
+  Android resolver cannot select the generic registry as a native platform
+  implementation;
+* the native backend delegates through a proxy instead of spreading the
+  TurboModule, preserving generated methods that are not enumerable (including
+  `logLevelToString`).
+
+Neither fix changes the native ABI or the `libs/libffmpegkit` submodule.
+No Flutter/React Native hosted workflow, remotely staged binary, or builder
+checkout modification was used.
+
+### Apple boundary
+
+Apple local build/package validation remains separate on the MacBook Air using
+the exact universal XCFramework archives recorded above. Interactive Apple
+simulator/device runtime is not inferred from package or build success.
+
+---
+
 # 24. R27-P6 — Apple local build and package validation
 
 ## MacBook Air execution gate

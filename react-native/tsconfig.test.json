@@ -17,7 +17,7 @@
     "src/callback-demand.ts",
     "src/platform/web/session-registry.ts",
     "src/platform/web/ffplay-frame-reader.ts",
-    "src/platform/backend.ts",
+    "src/platform/backend-registry.ts",
     "src/platform/backend.web.ts",
     "src/platform/backend.web.register.ts",
     "src/ffplay-kit.ts",

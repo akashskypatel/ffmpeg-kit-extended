@@ -87,7 +87,7 @@ test('concurrent Wasm initialization shares one attempt and successful initializ
 });
 
 test('public initialization clears a failed attempt and deduplicates the retry', async () => {
-  const {setBackend} = require('../.test-dist/platform/backend.js');
+  const {setBackend} = require('../.test-dist/platform/backend-registry.js');
   let attempts = 0;
   let shouldFail = true;
   const observedOptions = [];

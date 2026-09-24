@@ -1,4 +1,4 @@
-import {getBackend} from './platform/backend';
+import {getBackend} from './platform/backend-registry';
 import {argumentsToString, parseArguments} from './arguments';
 import {LogLevel, SessionState, Signal} from './types';
 import {SessionQueueManager} from './session-queue-manager';

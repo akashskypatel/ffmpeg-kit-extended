@@ -14,6 +14,10 @@ if (agpMajor < 9) {
     apply(plugin = "org.jetbrains.kotlin.android")
 }
 
+dependencies {
+    testImplementation(kotlin("test"))
+}
+
 fun resolveStagedClassesJar(): File? {
     val appRoot = project.rootProject.projectDir.parentFile
     val propsFile = File(appRoot, ".dart_tool/hooks_runner/shared/ffmpeg_kit_extended_flutter/build/android_config/paths.properties")

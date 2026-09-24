@@ -1,9 +1,9 @@
-import {getBackend} from './backend';
+import {getBackend} from './backend-registry';
 import type {
   LogEvent,
   LogEventHandler,
   LogEventSubscription,
-} from './backend';
+} from './backend-registry';
 
 type SessionHandlers = Set<LogEventHandler>;
 
@@ -65,4 +65,3 @@ export function subscribeLogEvents(
     },
   };
 }
-

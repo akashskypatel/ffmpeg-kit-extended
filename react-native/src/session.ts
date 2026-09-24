@@ -1,4 +1,4 @@
-import {getBackend} from './platform/backend';
+import {getBackend} from './platform/backend-registry';
 import type {
   ExecuteOptions,
   FFmpegExecuteOptions,
@@ -20,7 +20,7 @@ import {
   type CallbackDemandLease,
 } from './callback-demand';
 import {subscribeLogEvents} from './platform/log-event-router';
-import type {LogEventSubscription} from './platform/backend';
+import type {LogEventSubscription} from './platform/backend-registry';
 
 const NativeFFmpegKitExtended = getBackend();
 
