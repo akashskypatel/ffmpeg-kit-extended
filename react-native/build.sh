@@ -938,6 +938,7 @@ build_macos() {
 
     echo "Building macOS app..."
     NODE_PATH="$macos_runtime_dir/node_modules" \
+    REACT_NATIVE_PLATFORM=macos \
     RCT_NEW_ARCH_ENABLED=1 xcodebuild \
       -workspace FFmpegKitExtendedExample.xcworkspace \
       -scheme FFmpegKitExtendedExample-macOS \

@@ -24,6 +24,11 @@ const config = {
   resolver: {
     disableHierarchicalLookup: true,
 
+    platforms:
+      process.env.REACT_NATIVE_PLATFORM === 'macos'
+        ? ['android', 'ios', 'macos']
+        : undefined,
+
     nodeModulesPaths: [exampleNodeModules],
 
     extraNodeModules: {
