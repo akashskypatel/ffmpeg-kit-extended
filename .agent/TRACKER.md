@@ -7,7 +7,11 @@
 - Review authority: Review 26 wrapper source `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`. Native ABI source, `libs/libffmpegkit`, and the ManyLinux builder checkout remain unchanged and out of scope.
 - Local ABI authority: supplied WSL-local archives under `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt` for Linux x86_64, Windows x86_64, and Wasm wasm32. No hosted Flutter/React Native CI, remote old binaries, or native ABI publication is acceptance evidence.
 - Validation order: Windows, Android, Linux/WSL, then Apple source review/deferred ledger. Do not claim Apple platform validation in this pass.
-- Apple handoff note: the MacBook Air builder will provide universal `.xcframework.zip` archives, not individual dylibs. When P6 Apple work begins, both wrapper example configurations must point directly to the exact locally built platform archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt`, with archive SHA-256 evidence recorded; no per-architecture dylib substitution or remote fallback is allowed.
+- Apple handoff note: the MacBook Air builder has completed the universal XCFramework archives. When P6 Apple work begins, both wrapper example configurations must point directly to these exact local files, not individual dylibs:
+  - iOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-ios-universal-small-lgpl.xcframework.zip`
+  - tvOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-appletvos-universal-small-lgpl.xcframework.zip`
+  - macOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-macos-universal-small-lgpl.xcframework.zip`
+  Record archive SHA-256 evidence before Apple validation; no per-architecture dylib substitution or remote fallback is allowed.
 
 | Goal | Objective | Status |
 | --- | --- | --- |
