@@ -24,6 +24,7 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart' as callback_manager;
+import 'ffplay_surface.dart';
 
 // Only one FFplay session can be active at a time.
 FFplaySession? _activeFFplaySession;
@@ -180,6 +181,7 @@ class FFplayKit {
       terminalObserver = _finishTrackedExecution(session, execution);
       final startup = session.startupFutureForTracking;
       await (startup ?? execution);
+      FFplaySurface.beginPlayback();
     } catch (error, stackTrace) {
       final observer = terminalObserver;
       if (observer != null) {

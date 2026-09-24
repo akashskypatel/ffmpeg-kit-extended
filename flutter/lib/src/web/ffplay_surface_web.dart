@@ -10,6 +10,9 @@ import 'package:flutter/widgets.dart';
 import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../platform/web/wasm_loader.dart';
 import '../platform/web/wasm_memory.dart';
+import 'ffplay_playback_epoch.dart';
+
+final FFplayWebPlaybackEpoch _playbackEpoch = FFplayWebPlaybackEpoch();
 
 /// Flutter widget surface backed by frames copied from the Emscripten heap.
 ///
@@ -23,6 +26,7 @@ class FFplaySurface {
 
   final _WasmFrameReader _reader = _WasmFrameReader();
   final ValueNotifier<ui.Image?> _image = ValueNotifier<ui.Image?>(null);
+  final FFplayWebSurfaceEpoch _surfaceEpoch = FFplayWebSurfaceEpoch();
   Timer? _timer;
   bool _decoding = false;
   bool _released = false;
@@ -33,9 +37,18 @@ class FFplaySurface {
     return FFplaySurface._();
   }
 
+  /// Commits a new rendering epoch after FFplay native startup succeeds.
+  static void beginPlayback() => _playbackEpoch.beginPlayback();
+
   void _poll() {
     if (_released || _decoding) return;
-    final frame = _reader.copyLatest();
+    final epoch = _playbackEpoch.value;
+    if (_surfaceEpoch.observe(epoch)) {
+      final previous = _image.value;
+      _image.value = null;
+      previous?.dispose();
+    }
+    final frame = _reader.copyLatest(epoch: epoch);
     if (frame == null) return;
     _decoding = true;
     ui.decodeImageFromPixels(
@@ -99,14 +112,14 @@ final class _WasmFrameReader {
 
   final bindings.Pointer<bindings.Uint8> _metadata;
   bindings.Pointer<bindings.Uint8>? _pixels;
+  final FFplayWebFrameIdentity _frameIdentity = FFplayWebFrameIdentity();
   int _capacity = 0;
-  int _lastGeneration = -1;
   bool _disposed = false;
 
   bindings.Pointer<T> _metadataAt<T extends bindings.NativeType>(int offset) =>
       bindings.Pointer<T>.fromAddress(_metadata.address + offset);
 
-  _WasmFrame? copyLatest() {
+  _WasmFrame? copyLatest({required int epoch}) {
     if (_disposed) return null;
     wasmLoader.requireInitialized();
 
@@ -134,16 +147,15 @@ final class _WasmFrameReader {
     final height = wasmMemory.readInt32(_metadataAt<bindings.Int32>(4));
     final linesize = wasmMemory.readInt32(_metadataAt<bindings.Int32>(8));
     final generation = wasmMemory.readInt64(_metadataAt<bindings.Int64>(16));
-    if (generation == _lastGeneration ||
-        width <= 0 ||
+    if (width <= 0 ||
         height <= 0 ||
-        linesize <= 0) {
+        linesize <= 0 ||
+        !_frameIdentity.accept(epoch: epoch, generation: generation)) {
       return null;
     }
 
     final byteCount = linesize * height;
     if (byteCount > _capacity) return null;
-    _lastGeneration = generation;
     return _WasmFrame(
       pixels: Uint8List.fromList(wasmMemory.readBytes(pixels, byteCount)),
       width: width,
