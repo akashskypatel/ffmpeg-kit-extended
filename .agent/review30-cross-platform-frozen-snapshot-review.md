@@ -5,12 +5,11 @@
 **Review type:** independent cross-platform frozen-source review  
 **Repository:** `akashskypatel/ffmpeg-kit-extended`  
 **Frozen Review 29 wrapper SHA:** `237fb5044243240b6199b3a46f0c7cc73ae3586a`  
-**Snapshot workflow run:** `36060335093`  
-**Snapshot artifact:** `review29-wrapper-source-36060335093`  
-**Artifact ID:** `10833983040`  
-**Downloaded artifact ZIP SHA-256:** `3fbe20bc33df827b505a0cb836d8c4f5412a155b7d5da35ed65a8e799d325224`  
-**Embedded `source.tar.gz` SHA-256:** `576f3e1c5c74338a94daef6b80455749d77d211bc612c0e0bf1a46b6353ee75e`  
-**Snapshot manifest:** `1058` files / `27222488` bytes  
+**Review 30 snapshot workflow run:** `36068910964`  
+**Review 30 snapshot artifact:** `review30-wrapper-source-36068910964`  
+**Review 30 artifact ID:** `10837312749`  
+**Embedded `source.tar.gz` SHA-256:** `22fac37f955738f14da360b430c7bda929565fdd4565206268b3a922d46cd8fe`  
+**Snapshot manifest:** `1054` files / `27156075` bytes  
 **Recursive submodules:** `true`  
 **Snapshot runtime execution:** `false`  
 **Embedded `libs/libffmpegkit`:** `b74da2c5d1e294b87d15d73a6687393729e932b3`
@@ -516,7 +515,7 @@ No hosted CI should be substituted for the established local unpublished-ABI acc
 
 ---
 
-# Review 30 implementation status after the local Flutter cache gate
+# Review 30 final implementation and source-snapshot closeout
 
 ```text
 Frozen Review 29 snapshot provenance: VERIFIED
@@ -526,8 +525,11 @@ R30-G1: COMPLETE — direct and high-level Flutter Web execution boundaries conv
 R30-G2: COMPLETE — mixed tracked/untracked owner removal restores the newest tracked owner.
 R30-G3: COMPLETE — the Flutter oracle now matches the native fail-closed numeric-handle contract.
 R30-G4: COMPLETE — shared hook cache publication is inter-process safe; local Windows/Linux/Android/Apple gates pass.
-R30-G5: IMPLEMENTED — React Native Apple ownership oracle and local Mac iOS/tvOS/macOS builds pass; tracker closeout follows the per-goal push boundary.
-R30-G6: PENDING — reconcile final documentation, freeze the exact wrapper SHA, and run the requested source snapshots.
+R30-G5: COMPLETE — React Native Apple ownership oracle and local Mac iOS/tvOS/macOS builds pass.
+R30-G6: COMPLETE — final documentation is reconciled and exact wrapper/builders source snapshots are recorded in the tracker.
+Final wrapper source candidate: `e218d305dfd33cd06321f09e7bee706b1e2cd9a`.
+Wrapper source snapshot: run `36068910964`, artifact `review30-wrapper-source-36068910964`, artifact ID `10837312749`.
+Builders source snapshot: run `36069043862`, artifact `review30-builders-source-36069043862`, artifact ID `10836459435`, source `b74da2c5d1e294b87d15d73a6687393729e932b3`.
 Native ABI change required: NO
 Native/builder source modification performed: NO
 Hosted CI used as Flutter/React Native acceptance evidence: NO
