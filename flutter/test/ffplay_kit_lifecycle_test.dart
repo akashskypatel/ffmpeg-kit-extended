@@ -105,6 +105,21 @@ void main() {
     expect(FFplayKit.currentSession, isNull);
   });
 
+  test('settling the newer execution restores the older tracked owner', () async {
+    final older = _FakeFFplaySession(SessionState.created);
+    final newer = _FakeFFplaySession(SessionState.created);
+    FFplayKit.trackExecutionForTest(older, older.executeAsync);
+    FFplayKit.trackExecutionForTest(newer, newer.executeAsync);
+
+    newer.execution.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(FFplayKit.currentSession, same(older));
+
+    older.execution.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(FFplayKit.currentSession, isNull);
+  });
+
   test('execution errors still settle active ownership', () async {
     final session = _FakeFFplaySession(SessionState.created);
     final error = StateError('transport failed');

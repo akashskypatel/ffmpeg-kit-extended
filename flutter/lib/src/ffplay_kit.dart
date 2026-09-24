@@ -193,10 +193,7 @@ class FFplayKit {
           error: error,
           stackTrace: stackTrace,
         );
-        _trackedExecutions.remove(session);
-        if (identical(_activeFFplaySession, session)) {
-          _activeFFplaySession = null;
-        }
+        _releaseTrackedExecution(session);
       }
       if (propagateStartupError) {
         Error.throwWithStackTrace(error, stackTrace);
@@ -220,10 +217,16 @@ class FFplayKit {
         stackTrace: stackTrace,
       );
     } finally {
-      _trackedExecutions.remove(session);
-      if (identical(_activeFFplaySession, session)) {
-        _activeFFplaySession = null;
-      }
+      _releaseTrackedExecution(session);
+    }
+  }
+
+  static void _releaseTrackedExecution(FFplaySession session) {
+    _trackedExecutions.remove(session);
+    if (identical(_activeFFplaySession, session)) {
+      _activeFFplaySession = _trackedExecutions.isEmpty
+          ? null
+          : _trackedExecutions.last;
     }
   }
 
@@ -252,10 +255,7 @@ class FFplayKit {
           stackTrace: stackTrace,
         );
       } finally {
-        _trackedExecutions.remove(session);
-        if (identical(_activeFFplaySession, session)) {
-          _activeFFplaySession = null;
-        }
+        _releaseTrackedExecution(session);
       }
     }());
   }

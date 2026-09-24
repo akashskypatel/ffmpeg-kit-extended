@@ -11,7 +11,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R29-G1** | Require a complete React Native tvOS FFplay callback pair and extend the Apple lifecycle oracle | **Complete — tvOS now clears partial symbol resolution and requires register/unregister together; focused Node oracle passed 2/2; local MacBook Air tvOS Simulator Release build passed** |
-| **R29-G2** | Restore the older unsettled tracked Flutter FFplay owner when the current tracked execution settles | **Open** |
+| **R29-G2** | Restore the older unsettled tracked Flutter FFplay owner when the current tracked execution settles | **Complete — tracked ownership now falls back to the newest remaining unsettled execution; Flutter lifecycle suite passed 12/12** |
 | **R29-G3** | Coalesce Flutter Linux frame notifications and retained GLib references to one pending main-loop delivery | **Open** |
 | **R29-G4** | Add Flutter Web playback epochs and clear stale frames at playback boundaries | **Open** |
 | **R29-G5** | Make Flutter Android/iOS/desktop fullscreen transitions failure-atomic | **Open** |
@@ -23,6 +23,12 @@
 - `react-native/tests/ffplay-native-lifecycle.test.js` now includes the tvOS source in the Apple complete-pair oracle. `node --test tests/ffplay-native-lifecycle.test.js` passed **2/2** from `react-native/`.
 - Commit `032a272` (`fix: require complete tvOS frame callbacks`) is pushed to `origin/dev-wasm`.
 - The MacBook Air local gate pulled `032a272`, used `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-appletvos-universal-small-lgpl.xcframework.zip`, and completed `npm run build:appletvos -- --release` with `** BUILD SUCCEEDED **`. No hosted workflow or remote FFmpeg artifact was used.
+
+### Review 29 R29-G2 evidence — 2026-09-24
+
+- `flutter/lib/src/ffplay_kit.dart` now restores the most recently tracked unsettled `FFplaySession` when the current tracked execution settles, including startup-failure and test-tracking cleanup paths. An older execution therefore remains the global owner until it also settles.
+- `flutter/test/ffplay_kit_lifecycle_test.dart` adds the newer-before-older settlement regression. `flutter test test/ffplay_kit_lifecycle_test.dart` passed **12/12** in the elevated Windows shell with the local Windows artifact override.
+- The initial `dart --disable-analytics test ...` attempt was rejected by the Flutter SDK loader and produced only SDK-type resolution errors; it was not counted as product evidence. The required `flutter test` runner passed and no process was left running.
 
 ## Review 28 Runtime Production-Readiness — 2026-09-24
 
