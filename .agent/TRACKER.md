@@ -12,7 +12,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R27-P1** | Replace broad architecture aliases with the frozen native platform matrix | **Complete — Flutter and React Native reject unsupported targets before artifact/config work; Windows/Linux/Android/Apple metadata mappings are covered by focused tests** |
-| **R27-P2** | Make React Native Windows runtime staging content-fresh and exact | **Pending — starts after P1** |
+| **R27-P2** | Make React Native Windows runtime staging content-fresh and exact | **Complete — current archive/directory content determines the exact staged DLL projection; invalid manifests fail closed** |
 | **R27-P3** | Give every process-global Flutter FFplay video target a process-global wrapper owner | **Pending — starts after P2** |
 | **R27-P4** | Make FFplay frame-API discovery retryable, complete, and fail-closed | **Pending — starts after P3** |
 | **R27-P5** | Run the complete executable Windows/Linux/Android platform matrix | **Pending — starts after P1–P4** |
@@ -26,6 +26,13 @@
 - Flutter P1 mapping now accepts Android arm/arm64/x64, iOS arm64, macOS arm64/x64, Linux x64, and Windows x64 only. Unsupported requests are rejected before configuration, override, download, extraction, or staging. `dart --disable-analytics test test/architecture_mapping_test.dart` passed **9/9** with the supplied local Windows archive.
 - React Native P1 resolver metadata now accepts the frozen Android aliases, constrains Windows/Linux to x86_64, constrains iOS/tvOS to arm64, and constrains macOS to arm64/x86_64. Unsupported requests are rejected before config parsing/override selection. `node --test tests/resolve-ffmpeg-kit-config.test.js` passed **25/25**.
 - `react-native/scripts/prepare-windows-runtime.ps1` no longer advertises arm64. Flutter and React Native example configurations were verified to point at the supplied WSL-local Wasm, Windows, and Linux archives. No native ABI or builder files were modified.
+
+### Review 27 P2 implementation and validation evidence — 2026-09-23
+
+- React Native Windows staging now hashes local archive bytes into extraction identity, fingerprints mutable local runtime directories, extracts through a temporary root, and records the source identity in the completion marker. A same-path archive replacement therefore cannot reuse an earlier extraction.
+- Staging now validates a deterministic recursive DLL manifest before copying: duplicate case-insensitive flattened basenames fail, exactly one `libffmpegkit.dll` is required, and the dedicated destination is cleared/rebuilt from the current manifest. A manifest file records the staged DLL hashes without entering the MSBuild `*.dll` projection.
+- Real PowerShell-backed regression coverage passed **5/5** in `node --test tests/windows-runtime-packaging.test.js`: same-path changed ZIP refresh, stale dependency removal, missing main DLL, duplicate main/flattened basenames, and mutable local-directory refresh.
+- The PowerShell implementation uses .NET SHA-256 APIs for compatibility with the installed Windows PowerShell runtime. All temporary fixture roots are removed by the test teardown; no builder or native ABI files were touched.
 
 ## Review 26 Functional Production-Readiness Remediation — 2026-09-23
 
