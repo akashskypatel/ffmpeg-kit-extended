@@ -1,5 +1,18 @@
 # Tracker
 
+## Review 26 Functional Production-Readiness Remediation — 2026-09-23
+
+- Plan: [review-26-luna-functional-production-readiness-plan.md](./review-26-luna-functional-production-readiness-plan.md)
+- Scope: process-global React Native native/Windows structured-log registration ownership, executable cross-module regression coverage, and narrow callback-lifetime/documentation closeout.
+- Review authority: Review 25 implementation SHA `18bf4a1a32c68bda2d123c33d7c44c3a9ff413f9`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`; `libs/libffmpegkit` and the ManyLinux builder checkout are out of scope and must remain unchanged.
+- Local test authority: WSL-local Linux, Windows, and Wasm archives from `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt`; no hosted Flutter/React Native CI or remotely staged binaries.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R26-R1** | Make process-global native/Windows log-bridge registration ownership-safe across module instances | **Open** |
+| **R26-R2** | Add executable cross-module ownership regressions and rerun affected local targets | **Open — blocked on R26-R1** |
+| **R26-R3** | Reconcile callback-lifetime documentation/tests and freeze exact source | **Open — blocked on R26-R1–R26-R2** |
+
 ## Review 25 Functional Production-Readiness Remediation — 2026-09-23
 
 - Report: [review25-production-readiness-report.md](./review25-production-readiness-report.md)
