@@ -37,3 +37,20 @@ test('React Native Apple activation requires register and unregister symbols tog
     );
   }
 });
+
+test('React Native Apple owner replacement deactivates the previous view locally', () => {
+  for (const source of appleSources) {
+    assert.match(
+      source,
+      /- \(void\)stopAcceptingFrames \{[\s\S]*?_acceptFrames = NO;[\s\S]*?\}/,
+    );
+    assert.match(
+      source,
+      /RCTFFplayView \*previousView = coordinator\.view;\s+if \(previousView && previousView != self\) \{\s+\[previousView stopAcceptingFrames\];\s+\}/,
+    );
+    assert.match(
+      source,
+      /if \(coordinator\.view != self\) \{\s+\[self stopAcceptingFrames\];\s+return;/,
+    );
+  }
+});

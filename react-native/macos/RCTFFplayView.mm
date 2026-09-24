@@ -246,6 +246,12 @@ static void FFplayFrameCallback(void *userdata,
   [self resetFrameState];
 }
 
+- (void)stopAcceptingFrames {
+  [_frameLock lock];
+  _acceptFrames = NO;
+  [_frameLock unlock];
+}
+
 // Activates this mounted component as the process-wide FFplay video target.
 - (void)activateFrameOutput {
   ResolveFFplayFrameSymbols();
@@ -258,6 +264,11 @@ static void FFplayFrameCallback(void *userdata,
   @synchronized(coordinator) {
     if (coordinator.view == self && _acceptFrames) {
       return;
+    }
+
+    RCTFFplayView *previousView = coordinator.view;
+    if (previousView && previousView != self) {
+      [previousView stopAcceptingFrames];
     }
 
     if (gUnregisterFrameCallback) {
@@ -278,6 +289,7 @@ static void FFplayFrameCallback(void *userdata,
   FFplayFrameCoordinator *coordinator = FFplayCoordinator();
   @synchronized(coordinator) {
     if (coordinator.view != self) {
+      [self stopAcceptingFrames];
       return;
     }
 
@@ -288,9 +300,7 @@ static void FFplayFrameCallback(void *userdata,
     }
 
     coordinator.view = nil;
-    [_frameLock lock];
-    _acceptFrames = NO;
-    [_frameLock unlock];
+    [self stopAcceptingFrames];
   }
 }
 
