@@ -180,7 +180,6 @@ class FFplayKit {
       terminalObserver = _finishTrackedExecution(session, execution);
       final startup = session.startupFutureForTracking;
       await (startup ?? execution);
-      FFplaySurface.beginPlayback();
     } catch (error, stackTrace) {
       final observer = terminalObserver;
       if (observer != null) {

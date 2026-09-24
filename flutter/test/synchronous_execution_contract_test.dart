@@ -122,6 +122,9 @@ class _SynchronousFFplaySession extends FFplaySession with _SynchronousFixture {
   void executeSynchronously() => recordNativeExecution();
 
   @override
+  void notifyPlaybackStarted() => events.add('playback-started');
+
+  @override
   bool get started => hasExecutionStarted;
 
   @override
@@ -201,9 +204,17 @@ void main() {
 
     session.execute();
 
-    expect(session.events.last, 'execute');
+    expect(session.events, ['initialized', 'execute', 'playback-started']);
     expect(session.settled, isTrue);
     expect(callbacks.ffplaySessions.containsKey(session.sessionId), isFalse);
+  });
+
+  test('failed FFplay synchronous startup does not commit playback identity', () {
+    final session = _SynchronousFFplaySession()..fail = true;
+
+    expect(session.execute, throwsA(same(session.failure)));
+    expect(session.events, ['initialized', 'execute']);
+    expect(session.settled, isTrue);
   });
 
   test('completion callback failure does not skip the global callback', () {

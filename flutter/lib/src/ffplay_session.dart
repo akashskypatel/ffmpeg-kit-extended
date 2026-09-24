@@ -23,6 +23,7 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
+import 'ffplay_surface.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 
@@ -534,6 +535,7 @@ class FFplaySession extends Session {
       _acquireOptionalBridgeLeases();
       markExecutionStarted();
       executeSynchronously();
+      notifyPlaybackStarted();
       if (_hasLogDemand) dispatchPendingLogs();
       CallbackManager().dispatchFFplayComplete(sessionId);
     } catch (error, stackTrace) {
@@ -940,7 +942,8 @@ class FFplaySession extends Session {
 
     try {
       _acquireExecutionBridgeLeases();
-      ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
+      executeAsynchronously();
+      notifyPlaybackStarted();
       // Start polling only after the native session is executing so timers
       // never fire against a not-yet-started session during queue delays.
       _telemetryExecutionActive = true;
@@ -1034,6 +1037,23 @@ class FFplaySession extends Session {
   @protected
   void executeSynchronously() {
     ffmpegKitBackend.executeFFplaySession(handle, _timeout);
+  }
+
+  /// Submits the non-blocking native playback handoff.
+  ///
+  /// Kept as a protected seam so lifecycle tests can exercise the public
+  /// direct-session path without starting a real decoder.
+  @protected
+  void executeAsynchronously() {
+    ffmpegKitBackend.executeFFplaySessionAsync(handle, _timeout);
+  }
+
+  /// Commits the rendering identity after the native playback handoff has
+  /// succeeded. The Web surface uses this to accept a reused native frame
+  /// generation on every public FFplay execution path.
+  @protected
+  void notifyPlaybackStarted() {
+    FFplaySurface.beginPlayback();
   }
 
   @protected

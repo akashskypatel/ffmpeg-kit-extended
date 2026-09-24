@@ -10,7 +10,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R30-G1** | Move Flutter Web playback epoch ownership to every public FFplay execution route | **Pending** |
+| **R30-G1** | Move Flutter Web playback epoch ownership to every public FFplay execution route | **Complete — direct session boundary owns successful epoch commits; focused execution/epoch oracles pass** |
 | **R30-G2** | Restore the newest tracked owner when an untracked current session is removed | **Complete — shared owner-removal fallback implemented; lifecycle suite passed 14/14** |
 | **R30-G3** | Correct the stale Flutter fake-handle integration oracle and reclassify R29-B1 | **Complete — native numeric-handle fail-closed contract is now asserted; Flutter native/API suite passed 71/71** |
 | **R30-G4** | Make Flutter shared hook-artifact cache mutation safe across processes | **Pending** |
@@ -32,6 +32,12 @@
 
 - `FFplayKit` now uses one `_removeCurrentOwner` helper for both tracked settlement and successful untracked cancel/close cleanup. If the removed session is current, ownership falls back to the newest remaining tracked execution; otherwise it clears to `null`.
 - `flutter/test/ffplay_kit_lifecycle_test.dart` adds separate cancel and close regressions for an older unsettled tracked execution plus a newer untracked current session. The elevated Flutter lifecycle suite passed **14/14**, including existing failed-cancel/failed-close preservation cases.
+
+### Review 30 R30-G1 evidence — 2026-09-24
+
+- `FFplaySession` now owns the playback-identity commit at the successful backend handoff: async direct sessions call `executeAsynchronously()` then `notifyPlaybackStarted()`, while synchronous sessions notify only after the blocking backend call returns successfully. Failed startup paths never notify. `FFplayKit._startTrackedExecution()` no longer performs a second epoch commit, so high-level and direct routes converge without double increments.
+- `flutter/test/ffplay_execution_boundary_test.dart` passed **3/3** using an initialized local Windows artifact: direct async success commits once, direct async failure commits zero times, and high-level `FFplayKit.start` reuses the boundary without a double commit. The synchronous execution contract passed **6/6**, including failed-startup non-commit, and the Web epoch helper suite passed **4/4**.
+- Deprecated direct `FFplaySession.executeCommand` and `executeCommandAsync` inherit the same session boundary because they delegate to `execute` and `executeAsync`. No native ABI or builder change was required.
 
 ## Review 29 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
