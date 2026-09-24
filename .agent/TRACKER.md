@@ -1,5 +1,19 @@
 # Tracker
 
+## Review 25 Functional Production-Readiness Remediation — 2026-09-23
+
+- Report: [review25-production-readiness-report.md](./review25-production-readiness-report.md)
+- Scope: functional React Native Web callback lifetime, React Native native/Windows bridge-state lifetime, stale Flutter Web runtime authority, affected local regression, and behavior-focused documentation/test closeout.
+- Review authority: wrapper source snapshot `f46d64f782b0a3b6663ac9512c5b90426ab34863`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`. The `libs/libffmpegkit` submodule remains untouched by this review.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R25-R1** | Make React Native Web callback registration lifetime-safe | **Open — implementation not started** |
+| **R25-R2** | Bound React Native native/Windows callback bridge state lifetime | **Open — implementation not started** |
+| **R25-R3** | Remove stale old-ABI Flutter Web runtime from positive/runtime authority | **Open — implementation not started** |
+| **R25-R4** | Re-run the affected local platform/runtime matrix after R1–R3 | **Pending R25-R1–R25-R3** |
+| **R25-R5** | Reconcile tests/docs only for behavior changed by R1–R3 | **Pending R25-R1–R25-R4** |
+
 ## Review 24 Tracker — Luna production-readiness remediation — 2026-09-22
 
 - Plan: [review-24-luna-production-readiness-plan.md](./review-24-luna-production-readiness-plan.md)
