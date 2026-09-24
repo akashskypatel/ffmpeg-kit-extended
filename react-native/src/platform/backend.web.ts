@@ -627,7 +627,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
    * Installs the same owned structured Wasm ABI used by the native bridge.
    */
   installLogBridge(): void {
-    if (this.directLogBridgeInstalled || this.logCallbackPointer !== undefined) return;
+    if (this.directLogBridgeInstalled) return;
     const module = this.module();
     const addFunction = module.addFunction;
     if (typeof addFunction !== 'function') {
@@ -639,24 +639,21 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       throw new Error('Wasm export is unavailable: ffmpeg_kit_config_enable_log_callback');
     }
 
-    const pointer = addFunction(this.handleWasmLogEvent, 'vjjipp');
+    const pointer = this.logCallbackPointer ?? addFunction(this.handleWasmLogEvent, 'vjjipp');
+    this.logCallbackPointer = pointer;
     try {
       (enable as WasmFunction)(pointer, 0);
-      this.logCallbackPointer = pointer;
       this.directLogBridgeInstalled = true;
     } catch (error) {
-      try {
-        module.removeFunction?.(pointer);
-      } catch {
-        // Preserve the registration error when function-table cleanup fails.
-      }
+      // Native callback registration may have accepted the pointer before
+      // reporting an error. Retain the table slot and retry with the same
+      // pointer; never recycle it into an unrelated callback.
       throw error;
     }
   }
 
   uninstallLogBridge(): void {
     const pointer = this.logCallbackPointer;
-    this.logCallbackPointer = undefined;
     this.directLogBridgeInstalled = false;
     if (pointer === undefined) return;
 
@@ -666,11 +663,9 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     } catch (error) {
       primaryError = error;
     }
-    try {
-      this.module().removeFunction?.(pointer);
-    } catch (error) {
-      if (primaryError === undefined) primaryError = error;
-    }
+    // Unregistration disables future native snapshots but does not revoke
+    // work already accepted by native code. The Wasm table slot is therefore
+    // retained for the lifetime of the loaded module.
     if (primaryError !== undefined) throw primaryError;
   }
 

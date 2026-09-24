@@ -109,7 +109,52 @@ test('Web backend emits the frozen structured log shape and frees owned memory o
   backend.uninstallLogBridge();
   assert.equal(backend.isDirectLogBridgeActive(), false);
   assert.deepEqual(registrations, [[55, 0], [0, 0]]);
-  assert.deepEqual(removedPointers, [55]);
+  assert.deepEqual(removedPointers, []);
+});
+
+test('Web backend retains one callback pointer across delayed work and stress cycles', () => {
+  const events = [];
+  const registrations = [];
+  const callbacks = [];
+  const removedPointers = [];
+  let addCalls = 0;
+  const module = {
+    addFunction: callback => {
+      addCalls += 1;
+      callbacks.push(callback);
+      return 55;
+    },
+    removeFunction: pointer => removedPointers.push(pointer),
+    ffmpeg_kit_config_enable_log_callback: (pointer, userData) => {
+      registrations.push([pointer, userData]);
+    },
+    UTF8ToString: pointer => `delayed log ${pointer}`,
+    ffmpeg_kit_free: () => {},
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+  backend.onLogEvent(event => events.push(event));
+
+  backend.installLogBridge();
+  const acceptedCallback = callbacks[0];
+  for (let cycle = 0; cycle < 10000; cycle += 1) {
+    backend.uninstallLogBridge();
+    backend.installLogBridge();
+  }
+
+  assert.equal(addCalls, 1);
+  assert.equal(callbacks.length, 1);
+  assert.deepEqual(removedPointers, []);
+  assert.equal(registrations.length, 20001);
+
+  // Invoke the pointer captured before the first uninstall after all
+  // reinstallations. It must still route through the current bridge owner.
+  acceptedCallback(42n, 7n, 32, 128, 0);
+  assert.deepEqual(events, [{
+    sessionId: 42,
+    sequence: 7,
+    level: 32,
+    message: 'delayed log 128',
+  }]);
 });
 
 test('Web backend rejects a missing structured log export without fallback', () => {

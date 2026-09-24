@@ -104,7 +104,9 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
     },
   });
 
-  const callbackRegistry = createCallbackRegistry(wasmTable);
+  const callbackRegistry = createCallbackRegistry(wasmTable, {
+    recycleRemoved: false,
+  });
   defineRuntime("addFunction", {
     configurable: true,
     value: callbackRegistry.addFunction,

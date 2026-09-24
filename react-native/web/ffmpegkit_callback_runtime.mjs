@@ -103,13 +103,14 @@ export function discoverWasmTable(exports) {
   return tables[0];
 }
 
-export function createCallbackRegistry(table) {
+export function createCallbackRegistry(table, {recycleRemoved = true} = {}) {
   if (!(table instanceof WebAssembly.Table)) {
     throw new TypeError("Callback registry requires a WebAssembly.Table.");
   }
 
   const freeSlots = [];
   const owners = new Map();
+  const retainedSlots = new Set();
   const allocateSlot = () => {
     while (freeSlots.length > 0) {
       const index = freeSlots.pop();
@@ -151,9 +152,16 @@ export function createCallbackRegistry(table) {
         `Callback table slot ${index} no longer contains its registered function.`
       );
     }
-    table.set(index, null);
     owners.delete(index);
-    freeSlots.push(index);
+    if (recycleRemoved) {
+      table.set(index, null);
+      freeSlots.push(index);
+    } else {
+      // Native work can retain a numeric callback pointer after the native
+      // callback setter is disabled. Keep the table entry occupied so a later
+      // registration cannot alias that pointer to a different callback.
+      retainedSlots.add(index);
+    }
   };
 
   return {
@@ -164,6 +172,9 @@ export function createCallbackRegistry(table) {
     },
     get freeSlotCount() {
       return freeSlots.length;
+    },
+    get retainedSlotCount() {
+      return retainedSlots.size;
     },
   };
 }

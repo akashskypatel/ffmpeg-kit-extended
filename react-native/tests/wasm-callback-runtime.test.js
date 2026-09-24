@@ -29,7 +29,7 @@ test("Wasm callback wrappers preserve structured i64 and pointer arguments", () 
   assert.deepEqual(received, [11n, 12n, 13, 14, 15]);
 });
 
-test("Wasm callback registry owns and safely recycles registered slots", () => {
+test("Wasm callback registry owns and recycles explicitly recyclable slots", () => {
   const table = new WebAssembly.Table({ element: "anyfunc", initial: 2 });
   const registry = createCallbackRegistry(table);
   const index = registry.addFunction(() => {}, "vjp");
@@ -40,4 +40,23 @@ test("Wasm callback registry owns and safely recycles registered slots", () => {
   assert.equal(table.get(index), null);
   assert.equal(registry.ownedCount, 0);
   assert.equal(registry.freeSlotCount, 1);
+});
+
+test("retained callback slots cannot alias delayed work to a new callback", () => {
+  const table = new WebAssembly.Table({element: "anyfunc", initial: 2});
+  const registry = createCallbackRegistry(table, {recycleRemoved: false});
+  const received = [];
+  const first = registry.addFunction(value => received.push(["first", value]), "vi");
+
+  registry.removeFunction(first);
+  const second = registry.addFunction(value => received.push(["second", value]), "vi");
+
+  assert.equal(first, 1);
+  assert.equal(second, 2);
+  assert.equal(table.get(first) !== null, true);
+  assert.equal(registry.retainedSlotCount, 1);
+
+  // This represents work accepted by native before the first unregister.
+  table.get(first)(7);
+  assert.deepEqual(received, [["first", 7]]);
 });
