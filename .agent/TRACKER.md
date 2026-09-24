@@ -11,7 +11,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R30-G1** | Move Flutter Web playback epoch ownership to every public FFplay execution route | **Pending** |
-| **R30-G2** | Restore the newest tracked owner when an untracked current session is removed | **Pending** |
+| **R30-G2** | Restore the newest tracked owner when an untracked current session is removed | **Complete — shared owner-removal fallback implemented; lifecycle suite passed 14/14** |
 | **R30-G3** | Correct the stale Flutter fake-handle integration oracle and reclassify R29-B1 | **Complete — native numeric-handle fail-closed contract is now asserted; Flutter native/API suite passed 71/71** |
 | **R30-G4** | Make Flutter shared hook-artifact cache mutation safe across processes | **Pending** |
 | **R30-G5** | Deactivate the previous React Native Apple view before callback-owner replacement | **Pending** |
@@ -27,6 +27,11 @@
 - `flutter/test/api_test.dart` now treats a numeric session ID cast to `Pointer<Void>` as an invalid opaque handle: session ID returns `-1`, output returns `nullptr`, and log count returns `-1`. No compatibility fallback, fake-pointer lookup, native ABI change, or native test weakening was introduced.
 - The focused `FFmpegKitTest RobustnessTest` passed **1/1** against the unchanged local Windows archive. The complete `flutter/test/api_test.dart` suite passed **71/71** in the elevated, analytics-disabled Flutter runner, including the native FFplay/concurrency/stress cases.
 - Review 29 blocker **R29-B1 is closed and reclassified**: the prior `expected 1 / actual -1` result matched the frozen native contract and was caused by a stale Flutter integration oracle. No native ABI or ManyLinux builder modification was required.
+
+### Review 30 R30-G2 evidence — 2026-09-24
+
+- `FFplayKit` now uses one `_removeCurrentOwner` helper for both tracked settlement and successful untracked cancel/close cleanup. If the removed session is current, ownership falls back to the newest remaining tracked execution; otherwise it clears to `null`.
+- `flutter/test/ffplay_kit_lifecycle_test.dart` adds separate cancel and close regressions for an older unsettled tracked execution plus a newer untracked current session. The elevated Flutter lifecycle suite passed **14/14**, including existing failed-cancel/failed-close preservation cases.
 
 ## Review 29 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 

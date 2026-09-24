@@ -219,6 +219,23 @@ void main() {
   });
 
   test(
+    'canceling a newer untracked session restores the older tracked owner',
+    () async {
+      final older = _FakeFFplaySession(SessionState.created);
+      final newer = _FakeFFplaySession(SessionState.created);
+      FFplayKit.trackExecutionForTest(older, older.executeAsync);
+      FFplayKit.setCurrentSessionForTest(newer);
+
+      FFplayKit.cancel(newer);
+
+      expect(FFplayKit.currentSession, same(older));
+      older.execution.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(FFplayKit.currentSession, isNull);
+    },
+  );
+
+  test(
     'tracked cancellation retains current ownership until settlement',
     () async {
       final session = _FakeFFplaySession(SessionState.created);
@@ -249,6 +266,23 @@ void main() {
 
       expect(FFplayKit.close, throwsStateError);
       expect(FFplayKit.currentSession, same(failed));
+    },
+  );
+
+  test(
+    'closing a newer untracked session restores the older tracked owner',
+    () async {
+      final older = _FakeFFplaySession(SessionState.created);
+      final newer = _FakeFFplaySession(SessionState.created);
+      FFplayKit.trackExecutionForTest(older, older.executeAsync);
+      FFplayKit.setCurrentSessionForTest(newer);
+
+      FFplayKit.close();
+
+      expect(FFplayKit.currentSession, same(older));
+      older.execution.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(FFplayKit.currentSession, isNull);
     },
   );
 }

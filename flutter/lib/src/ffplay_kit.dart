@@ -224,18 +224,21 @@ class FFplayKit {
 
   static void _releaseTrackedExecution(FFplaySession session) {
     _trackedExecutions.remove(session);
-    if (identical(_activeFFplaySession, session)) {
-      _activeFFplaySession = _trackedExecutions.isEmpty
-          ? null
-          : _trackedExecutions.last;
-    }
+    _removeCurrentOwner(session);
   }
 
   static void _clearCurrentIfUntracked(FFplaySession session) {
     if (identical(_activeFFplaySession, session) &&
         !_trackedExecutions.contains(session)) {
-      _activeFFplaySession = null;
+      _removeCurrentOwner(session);
     }
+  }
+
+  static void _removeCurrentOwner(FFplaySession session) {
+    if (!identical(_activeFFplaySession, session)) return;
+    _activeFFplaySession = _trackedExecutions.isEmpty
+        ? null
+        : _trackedExecutions.last;
   }
 
   /// Installs a test session and tracks a supplied execution Future.
