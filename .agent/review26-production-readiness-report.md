@@ -68,8 +68,15 @@ not modified.
 
 ## Source freeze
 
-The documentation closeout commit is the implementation/source-freeze point.
-Its exact SHA, tree SHA, and the separately requested repository source-snapshot
-workflow run and artifact download link are recorded in `.agent/TRACKER.md`
-after the snapshot-only workflow completes. The snapshot is provenance only and
-does not constitute Flutter or React Native runtime validation.
+The documentation closeout commit is the implementation/source-freeze point:
+
+- wrapper SHA: `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045`;
+- wrapper tree SHA: `0b2313880b271086ec2b4c6276ac99521148fcda`;
+- repository source snapshot: workflow `35943439201`, artifact
+  `review26-wrapper-source-35943439201`, artifact ID `10786006110`, [download
+  link](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10786006110/zip);
+- unchanged frozen builder source snapshot: workflow `35932349418`, artifact
+  ID `10781566959`, [download link](https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/actions/artifacts/10781566959/zip).
+
+The snapshot is provenance only and does not constitute Flutter or React Native
+runtime validation.
