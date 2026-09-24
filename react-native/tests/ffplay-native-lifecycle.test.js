@@ -8,6 +8,7 @@ const windowsHeader = fs.readFileSync('windows/FFmpegKitExtended/FFplayView.h', 
 const windowsSource = fs.readFileSync('windows/FFmpegKitExtended/FFplayView.cpp', 'utf8');
 const appleSources = [
   fs.readFileSync('ios/RCTFFplayView.mm', 'utf8'),
+  fs.readFileSync('appletvos/RCTFFplayView.mm', 'utf8'),
   fs.readFileSync('macos/RCTFFplayView.mm', 'utf8'),
 ];
 
