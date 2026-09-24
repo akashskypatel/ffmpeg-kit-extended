@@ -1,5 +1,6 @@
 #include "FFmpegKitExtendedImpl.h"
 #include "FFmpegKitDynamicApi.h"
+#include "LogBridgeRegistrationCoordinator.h"
 
 #include <mutex>
 #include <utility>
@@ -18,6 +19,7 @@ namespace {
 
 std::mutex retiredLogBridgeStatesMutex;
 std::vector<std::shared_ptr<LogBridgeState>> retiredLogBridgeStates;
+ffmpegkit::bridge::LogBridgeRegistrationCoordinator logBridgeRegistrationCoordinator;
 
 void retainRetiredLogBridgeState(std::shared_ptr<LogBridgeState> state) noexcept {
   if (state == nullptr) return;
@@ -92,7 +94,8 @@ FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl() {
   if (state == nullptr) return;
 
   try {
-    api::enableLogCallback(nullptr, nullptr);
+    logBridgeRegistrationCoordinator.uninstallIfOwned(
+        state.get(), [&] { api::enableLogCallback(nullptr, nullptr); });
   } catch (...) {
     // Destruction must not throw through the TurboModule lifetime boundary.
   }
@@ -133,7 +136,8 @@ void FFmpegKitExtendedImpl::installLogBridge(jsi::Runtime &) {
     state->jsInvoker = jsInvoker_;
   }
   try {
-    api::enableLogCallback(&handleLogEvent, state.get());
+    logBridgeRegistrationCoordinator.install(
+        state.get(), [&] { api::enableLogCallback(&handleLogEvent, state.get()); });
   } catch (...) {
     deactivateLogBridge(state);
     throw;
@@ -145,7 +149,8 @@ void FFmpegKitExtendedImpl::uninstallLogBridge(jsi::Runtime &) {
   if (state == nullptr) return;
 
   try {
-    api::enableLogCallback(nullptr, nullptr);
+    logBridgeRegistrationCoordinator.uninstallIfOwned(
+        state.get(), [&] { api::enableLogCallback(nullptr, nullptr); });
   } catch (...) {
     deactivateLogBridge(state);
     throw;

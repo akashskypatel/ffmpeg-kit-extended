@@ -9,9 +9,15 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R26-R1** | Make process-global native/Windows log-bridge registration ownership-safe across module instances | **Open** |
+| **R26-R1** | Make process-global native/Windows log-bridge registration ownership-safe across module instances | **Complete — semantic registration coordinator serializes latest-successful-owner install/conditional teardown; stale module teardown cannot clear a newer registration** |
 | **R26-R2** | Add executable cross-module ownership regressions and rerun affected local targets | **Open — blocked on R26-R1** |
 | **R26-R3** | Reconcile callback-lifetime documentation/tests and freeze exact source | **Open — blocked on R26-R1–R26-R2** |
+
+### Review 26 R1 implementation evidence — 2026-09-23
+
+- Starting wrapper SHA: `c5fbb00475ec8cd2e136b5e15c696f14c38db04c`. The reproduced pre-fix source sequence was `A install -> A uninstall -> B install -> A stale uninstall/destruction`; both bridges unconditionally called `enableLogCallback(nullptr, nullptr)` whenever retained local state existed, so stale A could clear B's process-global registration.
+- Added semantic `LogBridgeRegistrationCoordinator` under `react-native/cpp/`. It commits the owner only after successful native install, clears ownership only after successful disable, serializes install/teardown, and skips native disable for non-owners. Shared C++ and Windows now use the same latest-successful-install policy while retaining Review 25's stable state lifetime.
+- Updated the native source-contract test; `node --test tests/native-bridge-lifetime.test.js` passed **3/3**. The standalone coordinator translation unit compiled with `g++ -std=c++20 -pthread -Wall -Wextra -Werror` and executed successfully. The behavioral coordinator cases remain R26-R2 evidence.
 
 ## Review 25 Functional Production-Readiness Remediation — 2026-09-23
 

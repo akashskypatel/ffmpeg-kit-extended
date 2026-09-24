@@ -3,6 +3,10 @@ const fs = require('node:fs');
 const test = require('node:test');
 
 const cppBridge = fs.readFileSync('cpp/FFmpegKitExtendedImpl.cpp', 'utf8');
+const registrationCoordinator = fs.readFileSync(
+  'cpp/LogBridgeRegistrationCoordinator.h',
+  'utf8',
+);
 const windowsBridge = fs.readFileSync(
   'windows/FFmpegKitExtended/FFmpegKitExtended.cpp',
   'utf8',
@@ -30,10 +34,12 @@ test('C++ callback bridge reuses one active state across reinstallations', () =>
 
   assert.match(install, /if \(activeLogBridge_ == nullptr\)/);
   assert.match(install, /const auto state = activeLogBridge_/);
+  assert.match(install, /logBridgeRegistrationCoordinator\.install/);
   assert.doesNotMatch(install, /retiredLogBridgeStates\.push_back/);
   assert.doesNotMatch(install, /std::move\(activeLogBridge_\)/);
 
   assert.match(uninstall, /const auto state = activeLogBridge_/);
+  assert.match(uninstall, /logBridgeRegistrationCoordinator\.uninstallIfOwned/);
   assert.match(uninstall, /deactivateLogBridge\(state\)/);
   assert.doesNotMatch(uninstall, /retiredLogBridgeStates\.push_back/);
   assert.doesNotMatch(uninstall, /std::move\(activeLogBridge_\)/);
@@ -43,6 +49,7 @@ test('C++ callback bridge reuses one active state across reinstallations', () =>
     'FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl()',
     'void FFmpegKitExtendedImpl::initialize',
   );
+  assert.match(destructor, /logBridgeRegistrationCoordinator\.uninstallIfOwned/);
   assert.match(destructor, /retainRetiredLogBridgeState\(state\)/);
 });
 
@@ -60,10 +67,12 @@ test('Windows callback bridge reuses one active state and retires only on destru
 
   assert.match(install, /if \(!activeLogBridge_\)/);
   assert.match(install, /const auto state = activeLogBridge_/);
+  assert.match(install, /logBridgeRegistrationCoordinator\.install/);
   assert.doesNotMatch(install, /retainLogBridgeState/);
   assert.doesNotMatch(install, /std::move\(activeLogBridge_\)/);
 
   assert.match(uninstall, /const auto state = activeLogBridge_/);
+  assert.match(uninstall, /logBridgeRegistrationCoordinator\.uninstallIfOwned/);
   assert.doesNotMatch(uninstall, /retainLogBridgeState/);
   assert.doesNotMatch(uninstall, /std::move\(activeLogBridge_\)/);
 
@@ -72,5 +81,13 @@ test('Windows callback bridge reuses one active state and retires only on destru
     'FFmpegKitExtended::~FFmpegKitExtended()',
     'void FFmpegKitExtended::initialize',
   );
+  assert.match(destructor, /logBridgeRegistrationCoordinator\.uninstallIfOwned/);
   assert.match(destructor, /retainLogBridgeState\(std::move\(state\)\)/);
+});
+
+test('registration coordinator commits and clears only the current owner', () => {
+  assert.match(registrationCoordinator, /class LogBridgeRegistrationCoordinator/);
+  assert.match(registrationCoordinator, /currentOwner_ = owner/);
+  assert.match(registrationCoordinator, /if \(currentOwner_ != owner\) return false/);
+  assert.match(registrationCoordinator, /currentOwner_ = nullptr/);
 });

@@ -10,6 +10,7 @@
 #include "FFmpegKitExtended.h"
 
 #include "FFmpegKitDynamicApi.h"
+#include "../../cpp/LogBridgeRegistrationCoordinator.h"
 
 #include <exception>
 #include <mutex>
@@ -30,6 +31,7 @@ namespace {
 
 std::mutex retiredLogBridgeStatesMutex;
 std::vector<std::shared_ptr<LogBridgeState>> retiredLogBridgeStates;
+ffmpegkit::bridge::LogBridgeRegistrationCoordinator logBridgeRegistrationCoordinator;
 
 void retainLogBridgeState(std::shared_ptr<LogBridgeState> state) noexcept {
   if (!state) return;
@@ -144,7 +146,8 @@ FFmpegKitExtended::~FFmpegKitExtended() noexcept {
   if (!state) return;
 
   try {
-    api::enableLogCallback(nullptr, nullptr);
+    logBridgeRegistrationCoordinator.uninstallIfOwned(
+        state.get(), [&] { api::enableLogCallback(nullptr, nullptr); });
   } catch (...) {
     // Destruction cannot report an error. Retain the callback state even when
     // the runtime DLL is already unavailable so an in-flight callback cannot
@@ -218,7 +221,8 @@ void FFmpegKitExtended::installLogBridge() noexcept {
       state->emit = onLogEvent;
     }
     try {
-      api::enableLogCallback(&handleLogEvent, state.get());
+      logBridgeRegistrationCoordinator.install(
+          state.get(), [&] { api::enableLogCallback(&handleLogEvent, state.get()); });
     } catch (...) {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->emit = {};
@@ -232,7 +236,8 @@ void FFmpegKitExtended::uninstallLogBridge() noexcept {
     const auto state = activeLogBridge_;
     if (!state) return;
 
-    api::enableLogCallback(nullptr, nullptr);
+    logBridgeRegistrationCoordinator.uninstallIfOwned(
+        state.get(), [&] { api::enableLogCallback(nullptr, nullptr); });
     {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->emit = {};
