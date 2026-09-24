@@ -16,6 +16,11 @@ compiler-opts:
   # libclang when ffigen_js runs on Windows.
   - '-isystem'
   - 'C:\msys64\mingw64\lib\clang\22\include'
+  # Keep the Apple Clang builtin headers visible when bindings are regenerated
+  # on the MacBook Air; the missing stdbool.h otherwise aborts Wasm binding
+  # generation before the public wrapper declarations are parsed.
+  - '-isystem'
+  - '/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/21/include'
   # Set the macro to empty so Clang ignores the __declspec parts
   - '-DFFMPEG_KIT_C_EXPORT='
   # Tell Clang NOT to error out on macro redefinitions
