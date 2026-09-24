@@ -71,6 +71,32 @@ smoke test or the native Windows build.
 
 Initialization coverage includes module-factory rejection, Wasm instantiation rejection, retry after a failed attempt, and concurrent initialization deduplication.
 
+## Process-global native log registration ownership
+
+FFmpegKit exposes one process-global structured log callback registration. A
+React Native module keeps its callback user-data storage alive long enough for
+already accepted native work, and the most recent successful module
+installation owns the process-global registration.
+
+Uninstalling or destroying a stale non-owner deactivates only that module's
+local bridge state; it does not call the global native setter and cannot clear
+a newer module's registration. Uninstalling the current owner clears the
+native registration. There is no automatic restoration of a previous module's
+registration, and unregistration is not queue draining.
+
+The executable ownership fixture covers replacement, repeated stale teardown,
+current-owner clearing, failed install/disable preservation, and concurrent
+replacement versus stale teardown:
+
+```bash
+g++.exe -std=c++20 -pthread -Wall -Wextra -Werror -I react-native/cpp react-native/tests/native/log_bridge_registration_coordinator_test.cpp -o .tmp-r26/log_bridge_registration_coordinator_test.exe
+.tmp-r26\log_bridge_registration_coordinator_test.exe
+```
+
+The fixture is a deterministic native ownership check. It complements the
+source-contract test and the real Windows Release build; it is not a substitute
+for either package/browser runtime validation.
+
 ## Review 23 callback transport evidence
 
 Review 23 uses an additive ABI-v2 event path. The direct path carries

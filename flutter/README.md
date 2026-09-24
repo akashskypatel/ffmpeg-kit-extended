@@ -34,7 +34,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
   - **Linux**: Full video playback support with `OpenGL` integration.
     - Supported artifact architectures are `arm64` and `x86_64`.
   - **Windows**: Supported artifact architectures are `arm64` and `x86_64`.
-  - **Web**: Ships the pinned default base/small/LGPL `wasm32` runtime as ordinary package assets and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
+  - **Web**: Stages the configured base/small/LGPL `wasm32` runtime through the Flutter build hook and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
 - **Real-time Streaming**: Position and video dimension streams for live playback monitoring.

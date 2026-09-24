@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | **R26-R1** | Make process-global native/Windows log-bridge registration ownership-safe across module instances | **Complete — semantic registration coordinator serializes latest-successful-owner install/conditional teardown; stale module teardown cannot clear a newer registration** |
 | **R26-R2** | Add executable cross-module ownership regressions and rerun affected local targets | **Complete — executable ownership/failure/concurrency fixture and local React Native/Web/Windows gates passed** |
-| **R26-R3** | Reconcile callback-lifetime documentation/tests and freeze exact source | **Open — blocked on R26-R1–R26-R2** |
+| **R26-R3** | Reconcile callback-lifetime documentation/tests and freeze exact source | **Complete — ownership contract, local fixture command, stale Flutter Web wording, and readiness report reconciled** |
 
 ### Review 26 R1 implementation evidence — 2026-09-23
 
@@ -25,6 +25,13 @@
 - Elevated local `npm run check` passed typecheck, lint, and **162/162** Node tests after the intentionally local-only resolver environment was removed. `npm run test:pack-types`, `npm run test:pack-web`, `npm pack --dry-run`, and `npm run test:web` all passed. The Web smoke exercised initialize, repeated initialize, FFmpeg, FFprobe, media information, FFplay, pause/resume/stop, and the final WebAssembly assertion.
 - The local Windows Release MSBuild passed with the supplied WSL-local archive `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\windows-x86_64\releases\bundle-base-windows-x86_64-shared-lgpl.zip`. It compiled the installed package's native bridge and produced `react-native/example/windows/x64/Release/FFmpegKitExtended.dll` and `FFmpegKitExtendedExample.exe`. Warnings were limited to existing React Native/Windows headers and generated JavaScript bundle diagnostics.
 - No Flutter/React Native hosted workflow or remotely staged binary was used. The local resolver configuration remains pointed at the supplied WSL-local Wasm, Windows, and Linux archives.
+
+### Review 26 R3 closeout evidence — 2026-09-23
+
+- `react-native/TEST.md` now states the one process-global structured-log registration rule: the latest successful install owns it, current-owner uninstall clears it, stale non-owner uninstall/destruction deactivates only local state without a global setter call, and no prior registration is automatically restored. The deterministic C++ ownership fixture command is documented alongside the existing Web lifetime contract.
+- `flutter/README.md` now describes build-hook staging of the configured Wasm runtime instead of claiming that a pinned executable pair ships as ordinary package assets. This is documentation reconciliation for the already-verified local Web staging behavior, not a new runtime policy.
+- Added [review26-production-readiness-report.md](./review26-production-readiness-report.md) with the exact Review 25 starting wrapper SHA, frozen native source SHA, finding, semantic coordinator design, changed files, executable/local platform results, residual risk, and source-freeze record.
+- `git diff --check` passed for the closeout documentation. The final implementation/source-freeze SHA and source-snapshot provenance are recorded below once the snapshot-only workflow completes; that workflow is not runtime validation.
 
 ## Review 25 Functional Production-Readiness Remediation — 2026-09-23
 
