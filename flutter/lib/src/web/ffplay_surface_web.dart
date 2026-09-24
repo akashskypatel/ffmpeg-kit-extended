@@ -5,6 +5,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:meta/meta.dart';
 import 'package:flutter/widgets.dart';
 
 import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
@@ -20,11 +21,14 @@ final FFplayWebPlaybackEpoch _playbackEpoch = FFplayWebPlaybackEpoch();
 /// reader owns its Wasm allocations and copies frame bytes before decoding so
 /// the native buffer can be reused on the next poll.
 class FFplaySurface {
-  FFplaySurface._() {
+  FFplaySurface._() : _reader = _WasmFrameReader() {
     _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _poll());
   }
 
-  final _WasmFrameReader _reader = _WasmFrameReader();
+  @visibleForTesting
+  FFplaySurface.test() : _reader = null;
+
+  final _WasmFrameReader? _reader;
   final ValueNotifier<ui.Image?> _image = ValueNotifier<ui.Image?>(null);
   final FFplayWebSurfaceEpoch _surfaceEpoch = FFplayWebSurfaceEpoch();
   Timer? _timer;
@@ -42,13 +46,15 @@ class FFplaySurface {
 
   void _poll() {
     if (_released || _decoding) return;
+    final reader = _reader;
+    if (reader == null) return;
     final epoch = _playbackEpoch.value;
     if (_surfaceEpoch.observe(epoch)) {
       final previous = _image.value;
       _image.value = null;
       previous?.dispose();
     }
-    final frame = _reader.copyLatest(epoch: epoch);
+    final frame = reader.copyLatest(epoch: epoch);
     if (frame == null) return;
     _decoding = true;
     ui.decodeImageFromPixels(
@@ -84,7 +90,7 @@ class FFplaySurface {
     _released = true;
     _timer?.cancel();
     _timer = null;
-    _reader.dispose();
+    _reader?.dispose();
     _image.value?.dispose();
     _image.dispose();
   }

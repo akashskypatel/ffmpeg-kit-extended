@@ -14,7 +14,7 @@
 | **R29-G2** | Restore the older unsettled tracked Flutter FFplay owner when the current tracked execution settles | **Complete — tracked ownership now falls back to the newest remaining unsettled execution; Flutter lifecycle suite passed 12/12** |
 | **R29-G3** | Coalesce Flutter Linux frame notifications and retained GLib references to one pending main-loop delivery | **Complete — GLib oracle proves one pending source/ref with latest-frame delivery and rescheduling; WSL Flutter Linux Release bundle passes** |
 | **R29-G4** | Add Flutter Web playback epochs and clear stale frames at playback boundaries | **Complete — successful startup commits `(epoch, generation)` identity, epoch transitions clear the old image, focused tests 16/16 and local Web Release build pass** |
-| **R29-G5** | Make Flutter Android/iOS/desktop fullscreen transitions failure-atomic | **Open** |
+| **R29-G5** | Make Flutter Android/iOS/desktop fullscreen transitions failure-atomic | **Complete — cleanup tracks acquired mobile/external effects independent of mounted state; focused widget lifecycle suite passed 6/6** |
 | **R29-G6** | Reconcile documentation, tracker evidence, and the exact frozen source candidate | **Pending — after R29-G2 through R29-G5 and affected local gates** |
 
 ### Review 29 R29-G1 evidence — 2026-09-24
@@ -43,6 +43,12 @@
 - `flutter/lib/src/web/ffplay_surface_web.dart` clears and disposes the previous decoded image when a surface observes a new epoch, then accepts a reused native generation for the new playback. Native platform surfaces expose the matching no-op hook.
 - `flutter/test/ffplay_web_playback_epoch_test.dart` covers same-epoch suppression, reused-generation acceptance, stale-image transition signaling, and failed-startup non-commit. Combined with `ffplay_kit_lifecycle_test.dart`, `flutter test` passed **16/16**.
 - `flutter build web --release` passed locally and staged the Wasm runtime under `flutter/example/build/web/assets/packages/ffmpeg_kit_extended_flutter/wasm/`, including `ffmpegkit.wasm` and its loader modules. No hosted workflow or remote runtime artifact was used.
+
+### Review 29 R29-G5 evidence — 2026-09-24
+
+- `flutter/lib/src/ffplay_view.dart` now treats mobile system UI, external fullscreen callbacks, route transition, and controller state as one failure-atomic transaction. Cleanup runs without requiring the originating widget to remain mounted; cleanup failures are logged after a primary transition error and do not replace it.
+- `flutter/test/ffplay_view_fullscreen_test.dart` passed **6/6** with a mocked platform channel and an Android target override scoped entirely inside each test. It covers successful entry/exit, throwing entry, disposal while entry is pending, origin disposal with an active route, programmatic route exit, and primary-error preservation over cleanup failure.
+- The test-only `FFplaySurface.test()` constructor supplies a resource-free surface fixture; no interactive Flutter app was launched.
 
 ## Review 28 Runtime Production-Readiness — 2026-09-24
 

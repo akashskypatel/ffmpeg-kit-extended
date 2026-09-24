@@ -173,6 +173,7 @@ class _FFplayViewState extends State<FFplayView> {
 
   /// Stored while a fullscreen route is active; used by [_popFullscreen].
   NavigatorState? _fullscreenNav;
+  bool _fullscreenTransitionActive = false;
 
   @override
   void initState() {
@@ -191,7 +192,9 @@ class _FFplayViewState extends State<FFplayView> {
 
   @override
   void dispose() {
-    widget.controller?._detach();
+    final controller = widget.controller;
+    controller?._detach();
+    controller?._setIsFullscreen(false);
     super.dispose();
   }
 
@@ -200,39 +203,91 @@ class _FFplayViewState extends State<FFplayView> {
   }
 
   Future<void> _enterFullscreen(BuildContext context) async {
-    if (_fullscreenNav != null) return; // already in fullscreen
+    if (_fullscreenNav != null || _fullscreenTransitionActive) return;
+    _fullscreenTransitionActive = true;
     // Capture the Navigator synchronously before any awaits — using
     // `context` after an async gap would risk referencing a deactivated
     // element and trips the use_build_context_synchronously lint.
     final navigator = Navigator.of(context);
-    if (_isMobile) {
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    }
-    await widget.controller?.onEnterFullscreen?.call();
-    if (!mounted) return;
-    widget.controller?._setIsFullscreen(true);
+    final controller = widget.controller;
+    var immersiveApplied = false;
+    var externalFullscreenEntered = false;
+    Object? primaryError;
+    StackTrace? primaryStackTrace;
 
-    _fullscreenNav = navigator;
-    await _fullscreenNav!.push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => _FullscreenVideoPage(
-          surface: widget.surface,
-          backgroundColor: widget.backgroundColor,
-          aspectRatio: widget.aspectRatio,
-        ),
-      ),
-    );
-    // Reached here after route is popped (any mechanism: button, back gesture,
-    // or external controller.exitFullscreen()).
+    if (_isMobile) {
+      try {
+        await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        immersiveApplied = true;
+      } catch (error, stackTrace) {
+        primaryError = error;
+        primaryStackTrace = stackTrace;
+      }
+    }
+
+    if (primaryError == null) {
+      try {
+        await controller?.onEnterFullscreen?.call();
+        externalFullscreenEntered = controller?.onEnterFullscreen != null;
+        if (mounted) {
+          controller?._setIsFullscreen(true);
+          _fullscreenNav = navigator;
+          await _fullscreenNav!.push(
+            MaterialPageRoute<void>(
+              fullscreenDialog: true,
+              builder: (_) => _FullscreenVideoPage(
+                surface: widget.surface,
+                backgroundColor: widget.backgroundColor,
+                aspectRatio: widget.aspectRatio,
+              ),
+            ),
+          );
+        }
+      } catch (error, stackTrace) {
+        primaryError = error;
+        primaryStackTrace = stackTrace;
+      }
+    }
+
+    Object? cleanupError;
+    StackTrace? cleanupStackTrace;
+    Future<void> runCleanup(Future<void> Function() cleanup) async {
+      try {
+        await cleanup();
+      } catch (error, stackTrace) {
+        cleanupError ??= error;
+        cleanupStackTrace ??= stackTrace;
+      }
+    }
+
     _fullscreenNav = null;
-
-    if (!mounted) return;
-    if (_isMobile) {
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    if (immersiveApplied) {
+      await runCleanup(
+        () => SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge),
+      );
     }
-    await widget.controller?.onExitFullscreen?.call();
-    widget.controller?._setIsFullscreen(false);
+    if (externalFullscreenEntered) {
+      await runCleanup(() async {
+        await controller?.onExitFullscreen?.call();
+      });
+    }
+    if (mounted) {
+      controller?._setIsFullscreen(false);
+    }
+    _fullscreenTransitionActive = false;
+
+    if (primaryError != null) {
+      if (cleanupError != null) {
+        debugPrint(
+          'FFplayView fullscreen cleanup failed after the primary transition '
+          'error: $cleanupError',
+        );
+      }
+      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
+    }
+    if (cleanupError != null) {
+      Error.throwWithStackTrace(cleanupError!, cleanupStackTrace!);
+    }
   }
 
   /// Called by [FFplayViewController.exitFullscreen] to programmatically pop
