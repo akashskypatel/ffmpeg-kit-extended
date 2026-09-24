@@ -37,7 +37,9 @@ enums:
 
 typedefs:
   include:
-    - '.*'
+    # Keep generated bindings independent of the host C library's system
+    # typedef spellings; only these public wrapper-owned types are emitted.
+    - '^(FFmpeg|FFprobe|FFplay|MediaInformation|StreamInformation|Chapter|Statistics).*'
   exclude:
     - '^__.*'
     - '^_.*'
