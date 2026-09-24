@@ -275,6 +275,29 @@ workflow build or compile result is not a browser-runtime result. Do not add a
 SDK/toolchain workaround for this limitation; record the limitation and keep
 the goal blocked when the required local tool is unavailable.
 
+When validating an unpublished local ABI, the custom Web fixture points at the
+local builder archive rather than a hosted or remotely staged binary:
+
+```text
+\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip
+```
+
+The fixture staging tests verify archive discovery and coherent asset
+selection only. They are synthetic hook tests, not executable-runtime
+evidence. Runtime evidence comes from building and serving the example's
+`lib/web_runtime_smoke.dart` target, then running its browser smoke script with
+the cross-origin-isolation headers enabled:
+
+```bash
+flutter build web --wasm --release --target lib/web_runtime_smoke.dart
+node web_static_server.mjs build/web 8080
+node web_runtime_smoke.mjs http://127.0.0.1:8080 wasm
+```
+
+Use the local archive override for this check whenever the native ABI is not
+published. Stop the temporary server after the smoke run and remove any
+temporary package-manager or junction artifacts created to provide Playwright.
+
 The package intentionally keeps `ffigen_js: ^0.0.16-pre` because no stable
 release is available. A publication dry-run warning caused solely by that
 direct prerelease dependency is the accepted release exception; do not replace

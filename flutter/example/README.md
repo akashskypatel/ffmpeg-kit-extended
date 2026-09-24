@@ -75,6 +75,20 @@ Cross-Origin-Embedder-Policy: require-corp
 
 Verify `window.crossOriginIsolated === true` in the browser.
 
+The repository's executable local Wasm smoke target uses the current local
+builder archive when the ABI is unpublished. Run it from this directory after
+setting the Web override in `pubspec.yaml` or the migration config JSON:
+
+```bash
+flutter build web --wasm --release --target lib/web_runtime_smoke.dart
+node web_static_server.mjs build/web 8080
+node web_runtime_smoke.mjs http://127.0.0.1:8080 wasm
+```
+
+The fixture staging tests in the package are synthetic archive-selection tests;
+the served smoke target is the runtime check for the actual Wasm module,
+FFmpeg, FFprobe, and callback path.
+
 ## Features Demonstrated
 
 - **FFmpeg Execution**: Asynchronous video conversion with real-time statistics and log tracking.

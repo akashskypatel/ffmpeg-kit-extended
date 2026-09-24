@@ -20,10 +20,10 @@ npm run test:config
 
 ## React Native Web checks
 
-The standalone `React Native Web checks` workflow in
-`.github/workflows/react_native_web_ci.yaml` is the authoritative React Native
-Web/WASM CI workflow. It is self-contained and does not depend on Flutter
-validation.
+The commands below are the local authority when the native ABI is unpublished
+or has changed locally. Do not use hosted workflows for this validation: those
+runners cannot fetch the local ABI archive and must not substitute a remotely
+staged binary.
 
 Build the package and browser example with:
 
@@ -40,10 +40,34 @@ npm run test:web
 
 Run `npm run test:pack-types` after `npm run prepare`. It packs the generated
 package and verifies that TypeScript resolves declarations from the tarball for
-the supported `react-native` and `browser` plus `react-native` conditions. Both
-React Native Web workflows enforce this packed-consumer check.
+the supported `react-native` and `browser` plus `react-native` conditions. The
+local packed-consumer check is required before the browser smoke test.
 
 The Web start and build scripts invoke the package-owned resolver automatically. `npm run test:web` also prepares the example before launching its headless Chromium smoke test, so no binary path or separately staged artifact is required. The resolver downloads and stages the configured published bundle, or uses an explicit local/remote override when provided. The browser must report `crossOriginIsolated === true`; the smoke flow initializes once, repeats initialization, runs FFmpeg and FFprobe, exercises FFplay controls, and verifies that no console errors are emitted.
+
+For unpublished local ABI validation, set the example's Web override to the
+local builder archive before running the commands above:
+
+```text
+\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip
+```
+
+The Web callback registry retains a stable Wasm table slot after logical
+unregistration. Native delivery is disabled immediately, but the slot is not
+recycled while the module remains alive, so an already queued native callback
+cannot call a newly installed callback. The native bridge likewise reuses one
+active per-module state and only retains a state during module destruction for
+callbacks already in flight. The focused lifetime and delayed-callback checks
+are:
+
+```bash
+npm run test:compile
+node --test tests/wasm-callback-runtime.test.js tests/wasm-backend-memory.test.js tests/native-bridge-lifetime.test.js
+```
+
+`npm run test:web` is the real browser/runtime check. The callback and bridge
+tests are deterministic lifecycle checks; they do not replace the browser
+smoke test or the native Windows build.
 
 Initialization coverage includes module-factory rejection, Wasm instantiation rejection, retry after a failed attempt, and concurrent initialization deduplication.
 
@@ -73,8 +97,8 @@ changes must use locally built runtimes rather than a workflow artifact.
 
 The Wasm runtime is intentionally not included in the npm package. The Web build hook stages it from the configured published release or local override, so package checks do not silently bundle a large binary.
 
-The authoritative workflow covers the same React Native gates plus the
-Windows ZIP staging path:
+The complete local gate covers the same package checks plus the Windows ZIP
+staging path:
 
 - `npm run check`
 - `npm run prepare`
