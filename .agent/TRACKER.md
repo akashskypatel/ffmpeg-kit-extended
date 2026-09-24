@@ -1,27 +1,30 @@
 # Tracker
 
-## Review 27 Windows Platform Production-Readiness — 2026-09-23
+## Review 27 Cross-Platform Production-Readiness — 2026-09-23
 
 - Plan: [review-27-luna-windows-production-readiness-plan.md](./review-27-luna-windows-production-readiness-plan.md)
-- Scope: Windows architecture authority, React Native Windows runtime staging freshness/coherence, Flutter Windows FFplay ownership and retryable symbol resolution, local Windows production validation, and exact-source closeout.
-- Review authority: Review 26 implementation/source-freeze SHA `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`. Native ABI source, `libs/libffmpegkit`, and the ManyLinux builder checkout remain unchanged and out of scope.
-- Local ABI authority: supplied WSL-local Linux, Windows, and Wasm archives under `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt`; no hosted Flutter/React Native CI, remote old binaries, or native ABI publication.
-- Apple validation amendment: noninteractive Apple build/test gates use `my MacBook Air` (`akash@192.168.1.189`) at `/Users/akash/Projects/ffmpeg_kit_extended`; the checkout was verified clean on `dev-wasm` and synchronized with `origin/dev-wasm` at `b3105fc2af5f8c853144cf3d55293086571f7978`. Interactive iOS/tvOS simulator tests may be deferred only with concrete evidence.
+- Scope: frozen native architecture metadata, React Native Windows runtime staging, Flutter/RN FFplay ownership and resolver recovery, and executable Windows/Linux/Android validation. Apple source remediation is included; Apple build/runtime validation is explicitly deferred by the updated plan.
+- Review authority: Review 26 wrapper source `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`. Native ABI source, `libs/libffmpegkit`, and the ManyLinux builder checkout remain unchanged and out of scope.
+- Local ABI authority: supplied WSL-local archives under `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt` for Linux x86_64, Windows x86_64, and Wasm wasm32. No hosted Flutter/React Native CI, remote old binaries, or native ABI publication is acceptance evidence.
+- Validation order: Windows, Android, Linux/WSL, then Apple source review/deferred ledger. Do not claim Apple platform validation in this pass.
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R27-W1** | Make Windows architecture selection truthful and fail-closed | **Open** |
-| **R27-W2** | Make React Native Windows runtime preparation content-fresh and staging-coherent | **Pending — starts after W1** |
-| **R27-W3** | Make Flutter Windows FFplay frame-callback registration process-global-owner safe | **Pending — starts after W2** |
-| **R27-W4** | Make Flutter Windows FFplay symbol resolution retryable, atomic, and fail-closed | **Pending — starts after W3** |
-| **R27-W5** | Run the real local Windows production matrix plus amended Mac Apple noninteractive gates | **Pending — starts after W1–W4** |
-| **R27-W6** | Reconcile Windows/Apple validation docs and freeze one exact source | **Pending — starts after W5** |
+| **R27-P1** | Replace broad architecture aliases with the frozen native platform matrix | **Complete — Flutter and React Native reject unsupported targets before artifact/config work; Windows/Linux/Android/Apple metadata mappings are covered by focused tests** |
+| **R27-P2** | Make React Native Windows runtime staging content-fresh and exact | **Pending — starts after P1** |
+| **R27-P3** | Give every process-global Flutter FFplay video target a process-global wrapper owner | **Pending — starts after P2** |
+| **R27-P4** | Make FFplay frame-API discovery retryable, complete, and fail-closed | **Pending — starts after P3** |
+| **R27-P5** | Run the complete executable Windows/Linux/Android platform matrix | **Pending — starts after P1–P4** |
+| **R27-P6** | Record Apple source remediation and defer Apple build/runtime validation | **Pending — starts after P3–P4 source work** |
+| **R27-P7** | Reconcile docs/tests/tracker and freeze one exact source | **Pending — starts after P1–P6** |
 
-### Review 27 preparation evidence — 2026-09-23
+### Review 27 preparation and P1 evidence — 2026-09-23
 
-- The Review 27 plan was added as the active implementation authority and amended per user direction to use the synced MacBook Air checkout for noninteractive Apple build/test gates. Interactive iOS/tvOS simulator tests remain the only explicitly deferrable Apple gates.
-- The local Windows and React Native/Flutter configurations continue to point at the supplied WSL-local runtime archives. No hosted workflow is an acceptance source for unpublished native ABI validation.
-- The current wrapper starting SHA is `b3105fc2af5f8c853144cf3d55293086571f7978`. The MacBook Air SSH probe and checkout verification passed; no remote checkout changes were made during preparation.
+- The user-replaced Review 27 plan is the active authority; the prior Windows-only tracker section and MacBook validation amendment were removed as stale. The updated plan explicitly defers Apple builds, tests, CocoaPods/Xcode integration, and simulator/runtime validation.
+- Starting wrapper SHA for this implementation pass: `c50a116cd47af26daa16f01fc475de7625262419`; branch `dev-wasm` remains synchronized with `origin/dev-wasm` before the uncommitted P1 edits.
+- Flutter P1 mapping now accepts Android arm/arm64/x64, iOS arm64, macOS arm64/x64, Linux x64, and Windows x64 only. Unsupported requests are rejected before configuration, override, download, extraction, or staging. `dart --disable-analytics test test/architecture_mapping_test.dart` passed **9/9** with the supplied local Windows archive.
+- React Native P1 resolver metadata now accepts the frozen Android aliases, constrains Windows/Linux to x86_64, constrains iOS/tvOS to arm64, and constrains macOS to arm64/x86_64. Unsupported requests are rejected before config parsing/override selection. `node --test tests/resolve-ffmpeg-kit-config.test.js` passed **25/25**.
+- `react-native/scripts/prepare-windows-runtime.ps1` no longer advertises arm64. Flutter and React Native example configurations were verified to point at the supplied WSL-local Wasm, Windows, and Linux archives. No native ABI or builder files were modified.
 
 ## Review 26 Functional Production-Readiness Remediation — 2026-09-23
 

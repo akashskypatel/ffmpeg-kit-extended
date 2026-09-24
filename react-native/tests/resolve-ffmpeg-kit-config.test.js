@@ -88,7 +88,7 @@ test("resolves all primary platform artifact naming schemes", () => {
   const linux = resolveConfig({
     appRoot: nested,
     platform: "linux",
-    architecture: "aarch64",
+    architecture: "x64",
   });
 
   assert.equal(
@@ -109,11 +109,82 @@ test("resolves all primary platform artifact naming schemes", () => {
     windows.filename,
     "bundle-video_hw-windows-x86_64-shared-small-lgpl.zip"
   );
-  assert.equal(linux.architecture, "arm64");
+  assert.equal(linux.architecture, "x86_64");
   assert.equal(
     linux.filename,
-    "bundle-video_hw-linux-arm64-shared-small-lgpl.zip"
+    "bundle-video_hw-linux-x86_64-shared-small-lgpl.zip"
   );
+});
+
+test("maps only the frozen Android ABI aliases", () => {
+  const aliases = [
+    ["arm64", "arm64"],
+    ["aarch64", "arm64"],
+    ["armv7a", "armv7a"],
+    ["armeabi-v7a", "armv7a"],
+    ["x64", "x86_64"],
+    ["x86_64", "x86_64"],
+  ];
+  for (const [input, expected] of aliases) {
+    const { nested } = createApp();
+    const result = resolveConfig({
+      appRoot: nested,
+      platform: "android",
+      architecture: input,
+    });
+    assert.equal(result.architecture, expected);
+    assert.equal(result.filename, "bundle-base-shared-small-lgpl-release.aar");
+  }
+});
+
+test("rejects unsupported platform architectures before config or override work", () => {
+  const unsupported = [
+    ["windows", "arm64"],
+    ["windows", "aarch64"],
+    ["linux", "arm64"],
+    ["linux", "aarch64"],
+    ["android", "x86"],
+    ["android", "ia32"],
+    ["ios", "x64"],
+    ["appletvos", "x64"],
+  ];
+  for (const [platform, architecture] of unsupported) {
+    const { nested } = createApp("{");
+    assert.throws(
+      () =>
+        resolveConfig({
+          appRoot: nested,
+          platform,
+          architecture,
+        }),
+      new RegExp(`Unsupported ${platform} target architecture`)
+    );
+  }
+});
+
+test("accepts the frozen Apple metadata matrix without changing universal filenames", () => {
+  const { nested } = createApp();
+  const ios = resolveConfig({
+    appRoot: nested,
+    platform: "ios",
+    architecture: "aarch64",
+  });
+  const macosArm = resolveConfig({
+    appRoot: nested,
+    platform: "macos",
+    architecture: "arm64",
+  });
+  const macosX64 = resolveConfig({
+    appRoot: nested,
+    platform: "macos",
+    architecture: "x64",
+  });
+
+  assert.equal(ios.architecture, "arm64");
+  assert.equal(ios.filename, "bundle-base-ios-universal-small-lgpl.xcframework.zip");
+  assert.equal(macosArm.architecture, "arm64");
+  assert.equal(macosX64.architecture, "x86_64");
+  assert.equal(macosArm.filename, macosX64.filename);
 });
 
 test("resolves the pinned WebAssembly bundle convention", () => {

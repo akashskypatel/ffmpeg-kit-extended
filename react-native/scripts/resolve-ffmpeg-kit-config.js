@@ -57,7 +57,32 @@ function normalizeArchitecture(value) {
   if (!architecture) return null;
   if (architecture === "x64" || architecture === "x86_64") return "x86_64";
   if (architecture === "arm64" || architecture === "aarch64") return "arm64";
+  if (architecture === "armv7a" || architecture === "armeabi-v7a") {
+    return "armv7a";
+  }
+  if (architecture === "x86" || architecture === "ia32") return "x86";
   fail(`Unsupported architecture: ${value}`);
+}
+
+function validatePlatformArchitecture({ platform, architecture }) {
+  const effectiveArchitecture =
+    architecture ||
+    (platform === "windows" || platform === "linux" ? "x86_64" : null);
+  const supported = {
+    windows: ["x86_64"],
+    linux: ["x86_64"],
+    android: ["arm64", "armv7a", "x86_64"],
+    ios: ["arm64"],
+    appletvos: ["arm64"],
+    macos: ["arm64", "x86_64"],
+  }[platform];
+  if (supported && effectiveArchitecture && !supported.includes(effectiveArchitecture)) {
+    fail(
+      `Unsupported ${platform} target architecture "${architecture}"; ` +
+        `supported architectures: ${supported.join(", ")}.`
+    );
+  }
+  return effectiveArchitecture;
 }
 
 function remoteScheme(value) {
@@ -156,7 +181,11 @@ function resolveConfig({
   localOnly = isLocalArtifactOnlyEnabled(),
 }) {
   const targetPlatform = normalizePlatform(platform);
-  const targetArchitecture = normalizeArchitecture(architecture);
+  const requestedArchitecture = normalizeArchitecture(architecture);
+  const targetArchitecture = validatePlatformArchitecture({
+    platform: targetPlatform,
+    architecture: requestedArchitecture,
+  });
   const loaded = loadConfig(appRoot);
   const config = loaded.config;
 
@@ -386,4 +415,5 @@ module.exports = {
   isLocalArtifactOnlyEnabled,
   resolveConfig,
   validateLocalArtifactSelection,
+  validatePlatformArchitecture,
 };

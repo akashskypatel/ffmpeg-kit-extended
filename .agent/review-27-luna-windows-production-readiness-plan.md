@@ -1,36 +1,40 @@
-# Review 27 — Luna Windows Platform Production-Readiness Plan
+# Review 27 — Luna Cross-Platform Production-Readiness Plan
 
 **Project:** FFmpegKitExtended  
 **Date:** 2026-09-23  
 **Audience:** Luna  
 **Primary wrapper repository:** `akashskypatel/ffmpeg-kit-extended`, branch `dev-wasm`  
 **Native/builder repository:** `akashskypatel/ffmpeg-kit-builders`, branch `dev`  
-**Platform scope:** Windows only, covering both Flutter and React Native  
-**Source authority:** exact Review 26 wrapper source snapshot at `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045` and unchanged frozen native source `625c3452ee3c93fb5d701bb6546726940b88d014`  
+**Review baseline:** exact Review 26 wrapper source snapshot at `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045` and frozen native source `625c3452ee3c93fb5d701bb6546726940b88d014`  
 **Native ABI/runtime version:** `0.11.2`  
-**Validation policy:** local Windows validation against locally packaged native ABI bundles only; do not use hosted CI or remotely built native ABI bundles as acceptance evidence  
-**User-directed Apple validation amendment:** Windows remains the implementation scope, but noninteractive Apple build/test gates must use the synced `my MacBook Air` checkout at `/Users/akash/Projects/ffmpeg_kit_extended` over SSH (`akash@192.168.1.189`) instead of being deferred. Interactive iOS/tvOS simulator tests may remain deferred when the GUI simulator cannot be driven from this session.  
-**Finding policy:** only real functional code defects discovered in the exact Review 26 source are remediation goals. Do not create goals for bookkeeping, intentional release/checksum policy, accepted sanitizer findings, or cosmetic inconsistencies.
+**Implementation scope:** fix the Review 27 defect classes across every affected Flutter/React Native source path in one pass  
+**Executable validation scope for the current agent:** Windows, Linux/WSL, Android  
+**Explicitly deferred validation scope:** all Apple builds/tests/runtime validation: iOS, iOS Simulator, macOS, Apple tvOS, Apple tvOS Simulator, CocoaPods/Xcode integration  
+**Validation policy:** use locally packaged current native ABI bundles; do not use hosted CI or remotely built old native ABI bundles as acceptance evidence  
+**Finding policy:** only functional code defects are remediation goals. Do not reopen intentional release/checksum policy, accepted sanitizer findings, provenance bookkeeping, or unrelated historical issues.
+
+**Apple local-binary handoff:** when the deferred Apple implementation/validation begins on the MacBook Air, update the Flutter example `hooks.user_defines.ffmpeg_kit_extended_flutter` Apple overrides and the React Native example `ffmpeg-kit-extended.config.json` Apple overrides to the locally built archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt`. Use only archive files confirmed present after the builder completes (including their exact SHA-256 values in the tracker); do not fall back to hosted releases, remotely staged old binaries, or a Windows/WSL path for Apple validation. The current Review 27 pass must leave Apple validation deferred until that handoff is available.
 
 ---
 
-## Review 26 prerequisite gate
+## Review 26 prerequisite
 
-**Result: PASS. Review 27 Windows platform review is authorized to proceed.**
+**PASS. Review 27 may proceed.**
 
-The attached Review 26 closure claimed that:
+Review 26 fixed the process-global React Native structured-log registration ownership bug and froze the wrapper at:
 
-- one shared semantic `LogBridgeRegistrationCoordinator` is used by React Native shared C++ and Windows;
-- ownership is committed only after successful native callback installation;
-- ownership is cleared only after successful current-owner disable;
-- stale module teardown cannot clear a newer module's process-global structured-log registration;
-- executable ownership/failure/concurrency coverage passed;
-- React Native package/Web and Windows Release build gates passed;
-- the frozen native ABI source remained unchanged.
+```text
+wrapper SHA:
+ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045
 
-The exact Review 26 snapshot was independently audited before this Windows review.
+wrapper tree:
+0b2313880b271086ec2b4c6276ac99521148fcda
 
-Independent focused reruns against the exact snapshot passed:
+frozen native source:
+625c3452ee3c93fb5d701bb6546726940b88d014
+```
+
+Independent exact-snapshot verification before this Review 27 audit passed:
 
 ```text
 node --test react-native/tests/native-bridge-lifetime.test.js
@@ -45,40 +49,29 @@ g++ -std=c++20 -pthread -Wall -Wextra -Werror \
   exit 0
 ```
 
-The implementation matches the Review 26 ownership invariant:
-
-```text
-latest successful install owns process-global registration
-stale/non-owner uninstall does not invoke native disable
-current-owner uninstall invokes native disable
-owner changes only after native setter succeeds
-owner clears only after native disable succeeds
-```
-
-No Review 26 closure-breaking defect was found.
-
-**If this prerequisite had failed, this plan would stop here and contain no Windows platform goals. It passed, so the Windows review below is valid.**
+Do not regress Review 26's latest-successful-owner structured-log registration semantics.
 
 ---
 
 # Tracker
 
-| Goal | Severity | Wrapper(s) | Objective | Functional finding | Luna mode | Exit gate |
+| Goal | Severity | Platforms / wrappers | Objective | Functional finding | Luna mode | Exit gate |
 |---|---|---|---|---|---|---|
-| **R27-W1** | **High** | Flutter + React Native | Make Windows architecture selection truthful and fail-closed | Both wrapper artifact resolvers accept Windows `arm64`, while the frozen native builder and React Native Windows projects support only `x86_64`; a custom x64 override can even be accepted for an `arm64` request | **Think** | Windows accepts only x64/x86_64 before any artifact/override resolution; Linux/Apple/Android behavior remains unchanged |
-| **R27-W2** | **High** | React Native | Make Windows runtime preparation content-fresh and staging-coherent | Local ZIP extraction is keyed only by path, so replacing a ZIP in place can keep stale extracted bytes; destination staging is never cleared; malformed DLL sets can pass build staging without exactly one `libffmpegkit.dll` | **Think** | Same-path changed ZIP refreshes; staging exactly matches selected runtime; stale DLLs disappear; duplicate basenames and missing/multiple main DLLs fail before MSBuild deployment |
-| **R27-W3** | **Critical** | Flutter | Make Windows FFplay frame-callback registration process-global-owner safe | FFplay's native frame callback is process-global, but each Flutter plugin instance unconditionally unregisters it on release/destruction; an old engine/plugin can disable a newer engine's active texture callback | **Think** | Latest successful texture registration owns the global callback; stale release/destructor cannot unregister a newer owner; current owner release drains and unregisters safely |
-| **R27-W4** | **High** | Flutter | Make Windows FFplay symbol resolution retryable, atomic, and fail-closed | `std::call_once` permanently caches an early "DLL not loaded" lookup; `createTexture` can then return a valid-looking texture with no frame callback, and later initialization cannot recover | **Think** | Failed pre-init lookup does not poison the process; resolver commits only a complete register/unregister pair; texture creation fails without registering a dead texture and succeeds after later initialization |
-| **R27-W5** | **High validation gate** | Flutter + React Native | Run a real local Windows production matrix against the locally packaged x64 runtime | Prior evidence proves builds but is not sufficient for all Windows-only lifecycle/runtime paths found here | **Think** for failures; **Instant** for established commands | Both wrappers pass local Windows build/runtime/package gates, FFmpeg/FFprobe/media-info/log/FFplay paths, and all W1–W4 regressions with no remote native artifact use |
-| **R27-W6** | **Closeout** | Flutter + React Native | Reconcile Windows docs/tests/tracker and freeze one exact source | Final supported architecture, staging freshness, FFplay ownership, and runtime-init behavior must match implemented code | **Instant** after W1–W5 pass | Maintained docs/tests are accurate; tracker records exact commands/results; final source is clean and frozen |
+| **R27-P1** | **High** | Flutter Android/Linux/Windows/iOS; RN Windows + resolver metadata | Replace broad architecture aliases with the actual frozen native platform matrix | Flutter accepts Android x86, Linux arm64, Windows arm64 and iOS x64 even though the frozen builder does not produce those targets; RN constructs nonexistent Windows/Linux arm64 bundle names | **Think** | Unsupported architecture requests fail before override/download/staging; supported platform mappings match the frozen builder; Apple source is corrected but Apple build/runtime validation is deferred |
+| **R27-P2** | **High** | React Native Windows | Make local Windows runtime staging content-fresh and exact | Same-path changed local ZIPs can reuse old extraction; staging can retain removed DLLs; malformed/duplicate DLL layouts are flattened or accepted | **Think** | Current selected runtime bytes fully determine the staged DLL set; exactly one `libffmpegkit.dll`; same-path updates refresh; stale DLLs disappear |
+| **R27-P3** | **Critical** | Flutter Windows/Linux/Android/iOS/macOS | Give every process-global FFplay video target a process-global wrapper owner | Flutter desktop/Apple frame callback and Android ANativeWindow are process-global, but ownership is local to a plugin instance or Dart isolate; stale engine teardown can clear a newer engine's target | **Think** | Latest successful high-level Flutter video target owns the native process-global output; stale engine/plugin/surface teardown cannot clear a newer owner; current owner still releases safely |
+| **R27-P4** | **High** | Flutter Windows/Linux/iOS/macOS; RN Windows + Apple source | Make FFplay frame-API discovery retryable, complete and fail-closed | Flutter Windows/Linux permanently cache failed discovery; Flutter Apple resolves once and can return a live-looking texture without callback; RN Windows independently caches function pointers; RN Apple activation does not require the complete register/unregister pair | **Think** | A failed early lookup does not poison future initialization; no callback is installed without the complete required API; no dead texture/view is reported as usable |
+| **R27-P5** | **High validation gate** | Windows + Linux/WSL + Android | Run the current agent's complete executable platform matrix | P1–P4 touch platform-specific artifact, FFplay ownership and loading behavior and require real current-source runtime evidence | **Think** for failures; **Instant** for established commands | Flutter/RN Windows, Flutter Linux, and Flutter/RN Android build/runtime gates pass against local `0.11.2` bundles; all new regressions pass |
+| **R27-P6** | **Deferred validation gate** | iOS/iOS Simulator/macOS/tvOS/tvOS Simulator | Record Apple source remediation now and defer all Apple build/runtime validation | The same Flutter owner/resolution classes reach Apple source; RN Apple needs complete-pair activation hardening, but the current Windows agent cannot validate Apple toolchains/runtime | **Think for source review only** | Apple source changes are isolated and documented; **no Apple platform is declared validated or production-ready** until the later Apple validation review |
+| **R27-P7** | **Closeout** | All reviewed wrappers | Reconcile docs/tests/tracker and freeze one exact source | Final supported architecture, FFplay ownership, resolver recovery and staging behavior must match the implementation | **Instant** after P1–P6 source work | Windows/Linux/Android production gates are green; Apple is explicitly source-remediated/validation-deferred; final source/tree are clean and frozen |
 
 ---
 
-# 1. Exact source authority
+# 1. Exact review authority
 
-Use the exact Review 26 source snapshot as the immutable review baseline.
+Use the Review 26 source snapshot, not a later inferred branch state, as the audit baseline.
 
-## Wrapper source
+## Wrapper
 
 ```text
 repository:  akashskypatel/ffmpeg-kit-extended
@@ -90,1637 +83,1185 @@ artifact:    review26-wrapper-source-35943439201
 artifact ID: 10786006110
 ```
 
-Snapshot metadata:
+Downloaded snapshot metadata:
 
 ```text
-repository:           akashskypatel/ffmpeg-kit-extended
-event:                workflow_dispatch
-event_sha:            ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045
-snapshot_sha:         ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045
-archive_sha256:       9fe7de5c18269de2a97707c7a8e86b066dfd420a39d9d10cb61a7259e9ca55b5
-file_count:           1044
-symlink_count:        0
-byte_count:           27057739
-include_submodules:   true
-include_lfs:          false
-runtimeExecution:     false
+snapshot_sha:       ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045
+archive_sha256:     9fe7de5c18269de2a97707c7a8e86b066dfd420a39d9d10cb61a7259e9ca55b5
+file_count:         1044
+byte_count:         27057739
+include_submodules: true
+runtimeExecution:   false
 ```
 
-## Frozen native product source
+## Native/builder
+
+Frozen native product source:
 
 ```text
 625c3452ee3c93fb5d701bb6546726940b88d014
 ```
 
-The native source remains frozen for this Windows wrapper review.
-
-Do not modify or republish the native ABI under Review 27 unless a goal proves a wrapper-only correction is impossible and the user separately authorizes a native-first follow-up.
-
-## Native Windows architecture authority
-
-The recursively materialized frozen builder source explicitly says:
-
-```bash
-VALID_WINDOWS_ARCHS=("x86_64")
-```
-
-and the native build documentation/platform matrix names:
+The frozen builder's actual architecture matrix is:
 
 ```text
-windows-x86_64
+Linux:                x86_64
+Windows:              x86_64
+Android:              aarch64, armv7a, x86_64
+iOS:                  aarch64
+iOS Simulator:        aarch64
+Apple tvOS:           aarch64
+Apple tvOS Simulator: aarch64
+macOS:                aarch64, x86_64
+Wasm:                 wasm32
 ```
 
-There is no frozen `windows-arm64` native build authority.
-
-## React Native Windows project authority
-
-The package project and example are x64-only:
-
-```xml
-<ProjectConfiguration Include="Debug|x64">...</ProjectConfiguration>
-<ProjectConfiguration Include="Release|x64">...</ProjectConfiguration>
-```
-
-No ARM64 project configuration exists.
+The wrapper must not advertise/select native targets outside that matrix.
 
 ---
 
-# 2. Explicit exclusions
+# 2. Cross-platform audit of the four original Windows issue classes
 
-Do not create Review 27 goals for the following.
+## Audit result matrix
 
-## Previously accepted policy
-
-Do not reopen:
-
-- `ffigen_js: ^0.0.16-pre`;
-- native ABI/runtime version `0.11.2`;
-- local-only manifest/hash/source-SHA depth;
-- intentional checksum fail-open behavior when GitHub release metadata omits a digest;
-- historical remote `0.11.2` resolver policy;
-- remote native publication policy;
-- developer-specific WSL paths used for local validation;
-- workflow artifact-ID bookkeeping.
-
-## Accepted native/sanitizer dispositions
-
-Do not reopen:
-
-- FFmpeg MPEG-4 `padding_bug_score` TSan race;
-- accepted TLS cancellation diagnostic;
-- GCC 14 matched-UBSAN-runtime disposition.
-
-## Other platforms
-
-Do not broaden Windows fixes into:
-
-- Linux architecture policy;
-- Android ABI work;
-- Apple slice implementation work. Apple noninteractive build/test validation is required on `my MacBook Air` under the amendment above;
-- Web/Wasm architecture;
-- native builder ARM64 Windows enablement.
-
-If Windows ARM64 support is desired later, it is a separate native-builder/platform project requiring actual Windows ARM64 native artifacts plus wrapper/project/runtime validation. Review 27 must not fake it by changing labels.
-
-## Investigated but not promoted to findings
-
-Do not create goals merely for:
-
-- React Native Windows `RaiseFailFastException` policy without a proven supported high-level path that triggers it under a valid runtime;
-- Flutter pixel channel ordering without an observed color/rendering failure;
-- stale or unwired test-file hygiene;
-- documentation-only Windows version-minimum discrepancies;
-- React Native FFplay process-global view ownership: the exact source already guards `g_activeView` with a process-global registration mutex and conditionally unregisters only the active view.
+| Issue class | Flutter Windows | Flutter Linux | Flutter Android | Flutter iOS/macOS | RN Windows | RN Android | RN iOS/macOS/tvOS | RN Web |
+|---|---|---|---|---|---|---|---|---|
+| **Architecture selection exceeds native builder support** | **YES** — arm64 accepted | **YES** — arm64 accepted | **YES** — ia32/x86 accepted | **YES for iOS** — x64 accepted although frozen iOS + simulator artifacts are arm64-only; macOS arm64/x64 is valid | **YES** — arm64 accepted | Normal AAR path is architecture-universal; no equivalent runtime selection bug in actual Gradle path | Podspec selects per-platform universal XCFramework rather than per-arch asset; no equivalent current artifact filename bug | N/A |
+| **Same-path local archive cache / mixed staged binaries** | Flutter generic hook already hashes local file changes and invalidates extraction | Same generic Flutter behavior | Android AAR handled by generic Flutter local-file sync / direct ABI extraction | Same generic Flutter behavior | **YES** | Local AAR is consumed directly; no wrapper extraction/staging cache of this form | Local override is intentionally non-cacheable and destination is rebuilt | Local ZIP extracts into a fresh temporary root and target is replaced |
+| **Process-global FFplay target cleared by stale wrapper instance** | **YES** | **YES** | **YES in multi-engine/isolate overlap** — native ANativeWindow is process-global but Dart `_currentNativeWindowPtr` is isolate-local | **YES** — frame callback is process-global and plugin instance release is unconditional | Existing process-global active-view guard: **NO** | Existing static process-global `activeOwner`: **NO** | Existing coordinator/view identity guard: **NO** | Different Wasm callback model; Review 25 behavior remains authoritative |
+| **Frame API resolution permanently fails / installs partial API / reports dead target** | **YES** — `std::call_once` | **YES** — `g_symbols_resolved=true` after first miss | N/A — JNI/FFI direct API | **YES source path** — dlsym is captured at plugin registration and texture creation still succeeds when unavailable | **YES** — static function-local result caches first lookup | N/A | Resolver retries, but activation currently needs only register; require complete pair before activation | N/A |
 
 ---
 
-# 3. R27-W1 — Make Windows architecture authority x64-only and fail-closed
+# 3. Findings not expanded beyond their actual scope
+
+## React Native Windows staging remains Windows-specific
+
+Do not create copies of P2 for platforms whose current code already avoids the defect.
+
+### Flutter local archive path
+
+The generic hook already:
+
+1. hashes the current local source file;
+2. hashes the cached copy;
+3. copies when content changes;
+4. invalidates the extraction root when the cached bytes change;
+5. extracts through a temporary root.
+
+Do not replace that working behavior while fixing RN Windows.
+
+### React Native Web
+
+For a local ZIP:
+
+```text
+current local ZIP
+-> fresh temporary extraction directory
+-> exact runtime pair discovery
+-> target directory removed/recreated
+-> current files copied
+```
+
+Do not create a new cache layer merely for consistency.
+
+### React Native Android
+
+The local Android override is used directly as an AAR dependency.
+
+Do not copy it into the Windows runtime staging design.
+
+### React Native Apple
+
+Local overrides are non-cacheable in the current podspec prepare contract and the destination is rebuilt.
+
+Do not change that behavior under P2.
+
+---
+
+# 4. R27-P1 — Replace architecture aliases with the frozen native platform matrix
 
 ## Severity
 
 **High**
 
-## Affected wrappers
+## Objective
 
-- Flutter
-- React Native
-
-## Functional finding
-
-The frozen native Windows platform supports only:
+Architecture acceptance must be based on:
 
 ```text
-x86_64
+platform + architecture
 ```
 
-Yet Flutter's architecture helper uses the same desktop mapping for Linux and Windows:
+not a generic mobile/desktop alias.
+
+Reject unsupported native targets before:
+
+- user override acceptance;
+- official artifact URL construction;
+- local artifact copying;
+- download;
+- extraction;
+- CodeAssets emission;
+- PowerShell staging;
+- MSBuild/CMake/Gradle/native link work.
+
+---
+
+## 4.1 Flutter — current defects
+
+Current helper behavior includes:
+
+```text
+Android ia32 -> x86
+Linux arm64 -> arm64
+Windows arm64 -> arm64
+iOS x64 -> x86_64
+```
+
+All four contradict the frozen builder matrix.
+
+The current test suite even asserts several of these unsupported mappings as valid.
+
+---
+
+## 4.2 Flutter — required platform-specific mapping
+
+Replace generic broad helpers with explicit semantic helpers.
+
+Recommended contract:
 
 ```dart
-String desktopArtifactArchitecture(
-  Architecture architecture, {
-  required String platform,
-}) {
-  switch (architecture) {
-    case Architecture.arm64:
-      return 'arm64';
-    case Architecture.x64:
-      return 'x86_64';
-    ...
-  }
+String androidAbiForArchitecture(Architecture architecture) {
+  arm    -> armeabi-v7a
+  arm64  -> arm64-v8a
+  x64    -> x86_64
+
+  ia32 and every other architecture -> throw
+}
+
+String iosArtifactArchitecture(Architecture architecture) {
+  arm64 -> arm64
+  everything else -> throw
+}
+
+String macosArtifactArchitecture(Architecture architecture) {
+  arm64 -> arm64
+  x64   -> x86_64
+  everything else -> throw
+}
+
+String linuxArtifactArchitecture(Architecture architecture) {
+  x64 -> x86_64
+  everything else -> throw
+}
+
+String windowsArtifactArchitecture(Architecture architecture) {
+  x64 -> x86_64
+  everything else -> throw
 }
 ```
 
-and:
+Exact function names may differ, but names must describe the platform semantics.
 
-```dart
-case OS.linux:
-case OS.windows:
-  desktopArtifactArchitecture(...)
+Do not keep one:
+
+```text
+desktopArtifactArchitecture
 ```
 
-The Flutter tests and maintained docs therefore explicitly treat Windows ARM64 as supported.
+if its accepted set differs between Linux and Windows in the future.
 
-React Native has the same resolver-level problem:
+Do not keep one:
 
-```js
-if (architecture === "x64" || architecture === "x86_64") return "x86_64";
-if (architecture === "arm64" || architecture === "aarch64") return "arm64";
+```text
+appleArtifactArchitecture
 ```
 
-and later constructs:
+if iOS and macOS have different accepted sets.
+
+---
+
+## 4.3 Flutter — validation routing
+
+Required:
+
+```text
+OS.android -> android helper
+OS.iOS     -> iOS helper
+OS.macOS   -> macOS helper
+OS.linux   -> Linux helper
+OS.windows -> Windows helper
+```
+
+This validation must happen before config/override resolution.
+
+A local override must not bypass unsupported-target rejection.
+
+---
+
+## 4.4 Flutter — artifact naming
+
+Use the same platform-specific helper for artifact naming that validation uses.
+
+Avoid:
+
+```text
+validate with helper A
+name bundle with helper B
+```
+
+that can drift.
+
+For Android, the official AAR filename remains architecture-universal. The target architecture still must be validated before AAR extraction because the hook later selects one `jni/<abi>` directory.
+
+---
+
+## 4.5 Flutter tests executable now
+
+Run on the current Windows agent.
+
+### Android
+
+Accepted:
+
+```text
+arm
+arm64
+x64
+```
+
+Rejected:
+
+```text
+ia32
+```
+
+and every non-supported architecture.
+
+Explicitly prove:
+
+```text
+Architecture.ia32
+does not reach AAR/artifact resolution
+```
+
+### Linux
+
+Accepted:
+
+```text
+x64 -> x86_64
+```
+
+Rejected:
+
+```text
+arm64
+```
+
+before local override or default artifact construction.
+
+### Windows
+
+Accepted:
+
+```text
+x64 -> x86_64
+```
+
+Rejected:
+
+```text
+arm64
+```
+
+before override/artifact construction.
+
+### macOS/iOS source contract
+
+Implement:
+
+```text
+iOS: arm64 only
+macOS: arm64 + x64
+```
+
+Do not execute Apple platform tests in Review 27.
+
+A host-neutral Dart unit test of the pure architecture helper is acceptable because it does not invoke an Apple build/toolchain. However, per user direction, do not present such a helper test as Apple platform validation.
+
+---
+
+# 5. React Native architecture correction
+
+## 5.1 Windows
+
+Current resolver accepts:
+
+```text
+windows + arm64
+```
+
+and constructs:
 
 ```text
 bundle-<type>-windows-arm64-shared-<license>.zip
 ```
 
-if Windows ARM64 is requested.
+even though the Windows projects and frozen builder are x64-only.
 
-The local override path is worse: because architecture validation is generic rather than platform-specific, an x86_64 local Windows archive can be accepted while the resolved request metadata says:
+Fix exactly as the prior Windows Review 27 plan required.
 
-```text
-platform: windows
-architecture: arm64
-```
-
-The exact Review 26 source reproduces that resolver behavior.
-
-At the same time, React Native's actual Windows `.vcxproj`, solution, example project and packaging project are x64-only.
-
-This is a real unsupported-target selection defect.
-
-A request must not be accepted when no native/project implementation exists for that target.
+`prepare-windows-runtime.ps1` must stop advertising `arm64` as a supported configuration.
 
 ---
 
-## Required invariant
+## 5.2 Linux resolver metadata
 
-For Review 27:
-
-```text
-Windows supported architecture = x64 / x86_64 only
-```
-
-Every Windows entry point must reject ARM64 **before**:
-
-- custom override acceptance;
-- official artifact URL construction;
-- download;
-- extraction;
-- staging;
-- MSBuild invocation.
-
-Do not silently map ARM64 to x64.
-
-Do not relabel an x64 custom bundle as ARM64.
-
----
-
-## Flutter implementation
-
-### Do not break Linux architecture handling
-
-Do not change the generic Linux behavior as a side effect.
-
-Preferred structure:
-
-```dart
-String linuxArtifactArchitecture(Architecture architecture) {
-  ...
-}
-
-String windowsArtifactArchitecture(Architecture architecture) {
-  switch (architecture) {
-    case Architecture.x64:
-      return 'x86_64';
-    default:
-      throw StateError(
-        'Unsupported Windows target architecture "..."; '
-        'supported architecture: x64.',
-      );
-  }
-}
-```
-
-Then make:
-
-```dart
-validateTargetArchitecture(OS.windows, ...)
-```
-
-use the Windows-specific authority.
-
-Likewise, official Windows artifact naming must use the same Windows-specific helper.
-
-Do not validate with one function and name artifacts with another function that can disagree.
-
-### Validation ordering
-
-The existing build hook already validates before configuration/artifact resolution.
-
-Preserve this:
+The resolver currently produces, for example:
 
 ```text
-target detected
--> validate Windows architecture
--> load config
--> resolve custom/default artifact
--> download/extract
--> emit CodeAssets
+platform=linux
+architecture=arm64
+
+-> bundle-video_hw-linux-arm64-shared-small-lgpl.zip
 ```
 
-A custom `windows:` override must not bypass the architecture check.
-
-### Flutter tests
-
-Change the existing architecture test that currently accepts Windows ARM64.
-
-Required cases:
+The frozen builder supports only:
 
 ```text
-Windows x64 -> x86_64
-Windows arm64 -> throws
-Windows arm -> throws
-Windows ia32 -> throws
+linux-x86_64
 ```
 
-Also preserve:
-
-```text
-Linux current behavior unchanged
-Android mappings unchanged
-Apple mappings unchanged
-```
-
-Add a hook-level test proving unsupported Windows architecture fails before the artifact resolver/downloader seam is invoked.
-
-The test must not merely check a string helper if the build hook can bypass it.
-
----
-
-## React Native implementation
-
-Keep generic normalization if useful, but add platform-specific validation immediately after platform + architecture normalization.
-
-Conceptually:
-
-```js
-function validatePlatformArchitecture(platform, architecture) {
-  if (platform === "windows") {
-    const effective = architecture || "x86_64";
-    if (effective !== "x86_64") {
-      fail(
-        `Unsupported Windows architecture: ${architecture}. ` +
-        `Supported architecture: x64/x86_64.`
-      );
-    }
-  }
-}
-```
-
-Exact API shape is Luna's choice.
+If Linux remains a recognized resolver platform, constrain its architecture metadata to x86_64.
 
 Important:
 
-```text
-normalize -> platform-specific validate -> config/override resolution
-```
+There is **no native React Native Linux implementation in this repository**.
 
-not:
+Do not create a React Native Linux build target or declare React Native Linux support.
 
-```text
-normalize -> accept local override -> validate later
-```
-
-### PowerShell staging entry point
-
-`prepare-windows-runtime.ps1` currently accepts:
-
-```powershell
-[ValidateSet('x64', 'arm64')]
-```
-
-Remove ARM64 from the supported production contract.
-
-Preferred:
-
-```powershell
-[ValidateSet('x64')]
-```
-
-or an explicit validation block with a clearer package-specific message.
-
-Do not add an ARM64 MSBuild configuration.
-
-### React Native tests
-
-Add:
-
-```text
-resolve Windows x64 -> succeeds / normalized x86_64
-resolve Windows arm64 -> fails
-resolve Windows aarch64 -> fails
-Windows arm64 + explicit local x64 ZIP -> fails before override selection
-Windows arm64 + remote override -> fails before remote selection
-Linux arm64 behavior -> unchanged
-```
-
-Add a source/project consistency test proving Windows production configurations are x64-only if such a test remains useful after the behavior test.
+This is resolver correctness only.
 
 ---
 
-## Documentation
+## 5.3 Android resolver metadata
 
-Update maintained Windows architecture claims.
+The normal React Native Gradle AAR path does not pass a target architecture to the resolver and consumes one multi-ABI AAR.
 
-At minimum audit:
+Do not redesign Gradle artifact selection under P1.
+
+If the resolver accepts an explicitly supplied Android architecture, align aliases with the AAR's actual frozen native ABI set:
 
 ```text
-flutter/README.md
-flutter/doc/installation.md
-flutter/doc/quick-start.md
-react-native/README.md
-react-native/TEST.md
+arm64 / aarch64        -> arm64
+armv7a / armeabi-v7a   -> armv7a
+x64 / x86_64           -> x86_64
 ```
 
-React Native's primary platform table already says Windows x86_64; preserve that.
+Do not add x86/ia32 because the frozen builder does not produce it.
 
-Remove Flutter claims that published Windows ARM64 artifacts exist.
-
-Do not claim Windows ARM64 is "planned" unless there is an actual plan in project authority.
+Leaving `architecture=null` for the normal universal-AAR call is valid.
 
 ---
 
-## Exit gate
+## 5.4 Apple resolver metadata
 
-R27-W1 closes only when:
+The CocoaPods path selects one per-platform XCFramework artifact, not a per-architecture filename.
+
+Do not change the Apple artifact filename scheme.
+
+If callers explicitly provide architecture metadata, validate it against the frozen source:
 
 ```text
-Flutter Windows x64 accepted
-Flutter Windows arm64 rejected before config/artifact resolution
-RN Windows x64 accepted
-RN Windows arm64 rejected before override/artifact resolution
-RN PowerShell staging cannot be invoked as supported arm64 path
-native builder remains unchanged
-Linux/Android/Apple architecture tests remain green
+ios        -> arm64
+appletvos  -> arm64
+macos      -> arm64 or x86_64
 ```
+
+This source correction is included now.
+
+Apple Pod/Xcode validation is deferred.
 
 ---
 
-# 4. R27-W2 — Make React Native Windows runtime staging fresh and coherent
+## 5.5 React Native host-neutral tests
 
-## Severity
-
-**High**
-
-## Affected wrapper
-
-React Native only.
-
-## Affected code
-
-Primary:
+Run now:
 
 ```text
-react-native/scripts/prepare-windows-runtime.ps1
+Windows x64 -> success
+Windows arm64/aarch64 -> fail before override selection
+
+Linux x64 -> success
+Linux arm64/aarch64 -> fail before artifact construction
+
+Android explicit arm64 -> valid metadata
+Android explicit armv7a -> valid metadata
+Android explicit x86_64 -> valid metadata
+Android explicit x86/ia32 -> fail
+
+iOS explicit arm64 -> valid metadata
+iOS explicit x64 -> fail
+
+tvOS explicit arm64 -> valid metadata
+tvOS explicit x64 -> fail
+
+macOS arm64/x64 -> valid metadata
 ```
 
-Related:
+These are Node resolver tests only.
+
+They do not count as Apple platform build/runtime evidence.
+
+---
+
+# 6. R27-P2 — React Native Windows staging freshness and coherence
+
+**This goal remains Windows-specific.**
+
+Preserve the implementation guidance from the original Review 27 plan, with the following required properties.
+
+## 6.1 Same-path local ZIP freshness
+
+For local archive overrides, extraction identity must include current bytes.
+
+Use at least:
 
 ```text
-react-native/scripts/resolve-ffmpeg-kit-config.js
-react-native/windows/FFmpegKitExtended/FFmpegKitExtended.vcxproj
-react-native/tests/windows-runtime-packaging.test.js
+canonical path + SHA-256(current file bytes)
+```
+
+A path-only marker is insufficient.
+
+Test:
+
+```text
+same runtime.zip path
+A bytes -> stage
+overwrite runtime.zip with B bytes
+-> stage again
+-> B must be active
 ```
 
 ---
 
-## Functional finding A — same-path local ZIP changes are ignored
+## 6.2 Exact staging projection
 
-The current extraction marker is based on source identity:
+The dedicated MSBuild staging directory must be rebuilt from the selected runtime manifest.
 
-```powershell
-$sourceKey = if ($resolution.override) {
-  "$($resolution.override.kind):$($resolution.override.value)"
-} else {
-  "official:$($resolution.url)"
-}
-```
+Do not selectively overwrite old contents.
 
-Extraction runs only when that text changes.
-
-For a local ZIP override:
+Invariant:
 
 ```text
-C:\project\native\ffmpegkit.zip
-```
-
-this sequence is broken:
-
-```text
-build with ZIP bytes A
-replace C:\project\native\ffmpegkit.zip with ZIP bytes B
-build again using the same path
-```
-
-The marker still matches:
-
-```text
-local:C:\project\native\ffmpegkit.zip
-```
-
-so the old extraction remains authoritative.
-
-The new local artifact bytes are never copied/extracted.
-
-That is a real stale-runtime bug for the supported local override workflow.
-
----
-
-## Functional finding B — destination staging retains stale DLLs
-
-The current destination logic is:
-
-```powershell
-New-Item -ItemType Directory -Force -Path $Destination
-foreach ($dll in $dlls) {
-  Copy-Item -Force $dll.FullName (Join-Path $Destination $dll.Name)
-}
-```
-
-It never removes DLLs that existed in a previous selected runtime but are absent from the current runtime.
-
-Therefore:
-
-```text
-bundle A = libffmpegkit.dll + codecA.dll + codecB.dll
-bundle B = libffmpegkit.dll + codecA.dll
-```
-
-can leave:
-
-```text
-codecB.dll
-```
-
-inside the dedicated staging directory after switching to B.
-
-MSBuild then collects:
-
-```xml
-$(FFmpegKitExtendedRuntimeStagingDir)\*.dll
-```
-
-and can deploy the stale DLL.
-
-A build can therefore contain a mixture of two runtime selections.
-
----
-
-## Functional finding C — malformed DLL sets are accepted too late
-
-The staging script currently requires only:
-
-```text
-at least one *.dll
-```
-
-It does not require the actual runtime authority:
-
-```text
-exactly one libffmpegkit.dll
-```
-
-A custom archive containing only:
-
-```text
-foo.dll
-```
-
-can pass staging and reach MSBuild deployment.
-
-The dynamic API later tries to load:
-
-```text
-libffmpegkit.dll
-ffmpegkit.dll
-```
-
-and fails at runtime.
-
-The build should fail during artifact preparation instead.
-
----
-
-## Functional finding D — recursive flattening can silently overwrite duplicate basenames
-
-The script recursively discovers DLLs then copies each to one flat destination.
-
-If an archive contains:
-
-```text
-dirA\codec.dll
-dirB\codec.dll
-```
-
-both target:
-
-```text
-<staging>\codec.dll
-```
-
-Current behavior is last-copy-wins.
-
-That is not a coherent runtime selection.
-
-It should fail clearly rather than choose one based on enumeration order.
-
----
-
-## Required invariant
-
-The staging directory must be a pure projection of one selected runtime.
-
-For every successful run:
-
-```text
-staging DLL set == selected source runtime DLL set
-```
-
-subject only to intentional flattening after duplicate-basename validation.
-
-And:
-
-```text
-exactly one libffmpegkit.dll
-```
-
-must be present.
-
----
-
-## Local archive cache design
-
-Do not change the accepted GitHub release checksum policy.
-
-This goal is about **local override byte freshness**.
-
-For local archive overrides:
-
-1. resolve the local source path;
-2. verify it exists;
-3. calculate SHA-256 of the current source file bytes;
-4. derive local extraction identity from at least:
-
-   ```text
-   canonical local path + content SHA-256
-   ```
-
-5. compare that identity with the extraction marker;
-6. if bytes changed:
-   - copy the current local source to cache if a cached archive is still desired;
-   - remove/recreate extraction root;
-   - extract current bytes;
-   - write the new marker only after successful extraction.
-
-PowerShell has a direct primitive:
-
-```powershell
-Get-FileHash -Algorithm SHA256
-```
-
-Use exact production code; do not shell out to a fragile parser unnecessarily.
-
-### Content-addressed extraction is also acceptable
-
-A content-keyed extraction root is cleaner:
-
-```text
-vendor/windows/x64/<artifact-identity>/<sha256>/
-```
-
-provided old cache cleanup remains bounded and the current build selects only the matching root.
-
-Do not let cache cleanup become a prerequisite for correctness.
-
----
-
-## Local directory overrides
-
-A local directory does not need archive extraction caching.
-
-Every invocation should re-enumerate its DLL set.
-
-But it still must pass the same coherence validation:
-
-```text
-exactly one libffmpegkit.dll
-no duplicate flattened DLL basenames
-```
-
-and final destination must exactly match the current directory runtime selection.
-
----
-
-## Runtime DLL selection helper
-
-Before staging, derive a deterministic runtime manifest.
-
-Preferred rules:
-
-```text
-find all *.dll recursively
-case-insensitive Windows basename comparison
-reject zero DLLs
-require exactly one basename == libffmpegkit.dll
-reject duplicate basenames after case folding
-sort deterministic by target basename
-```
-
-Do not accept `ffmpegkit.dll` as the primary bundle authority unless project release layout explicitly supports it. The wrapper loader may keep its compatibility fallback, but the package's own configured bundle contract is `libffmpegkit.dll`.
-
-If both:
-
-```text
-libffmpegkit.dll
-ffmpegkit.dll
-```
-
-exist, do not silently select an ambiguous main runtime.
-
----
-
-## Exact staging replacement
-
-The destination is a dedicated intermediate directory:
-
-```text
-$(IntDir)\ffmpeg-kit-runtime
-```
-
-so production staging may safely ensure exact contents.
-
-Preferred approach:
-
-1. prepare a temporary sibling directory;
-2. copy the complete validated DLL manifest into it;
-3. verify copied target names;
-4. replace the previous dedicated staging directory;
-5. only expose the completed directory to MSBuild.
-
-If atomic directory replacement is awkward on Windows, it is acceptable to:
-
-```text
-remove the dedicated staging directory
-recreate it
-copy complete validated set
-```
-
-because this target runs before deployment and the directory is build-owned.
-
-Do not selectively overwrite into an uncleared destination.
-
----
-
-## First-error behavior
-
-If:
-
-- hashing fails;
-- archive extraction fails;
-- main DLL is missing;
-- duplicate basenames exist;
-- staging copy fails;
-
-the script must exit nonzero before MSBuild treats runtime preparation as successful.
-
-Do not leave a newly written success marker before all extraction validation passes.
-
----
-
-## Required real Windows regression harness
-
-Do not rely only on regex/source tests.
-
-Add a deterministic Windows-only fixture, for example:
-
-```text
-react-native/tests/windows-runtime-staging.ps1
-```
-
-or an equivalent semantically named test harness.
-
-It may create temporary ZIPs with `Compress-Archive` and call the real production staging script.
-
-### Test 1 — same path, changed bytes
-
-Create:
-
-```text
-runtime.zip version A:
-  libffmpegkit.dll -> bytes "A-main"
-  extra-a.dll      -> bytes "A-extra"
-```
-
-Run staging.
-
-Overwrite the exact same:
-
-```text
-runtime.zip
-```
-
-with:
-
-```text
-version B:
-  libffmpegkit.dll -> bytes "B-main"
-  extra-b.dll      -> bytes "B-extra"
-```
-
-Run staging again.
-
-Assert:
-
-```text
-staged libffmpegkit.dll == B-main
-extra-b.dll exists
-extra-a.dll does not exist
-```
-
-This must fail against the Review 26 script.
-
-### Test 2 — smaller bundle removes stale dependency
-
-```text
-A: libffmpegkit.dll + old.dll
-B: libffmpegkit.dll
-```
-
-After B:
-
-```text
-old.dll absent
-```
-
-### Test 3 — missing main runtime
-
-Archive:
-
-```text
-foo.dll
-```
-
-Expected:
-
-```text
-staging command fails
-no successful runtime deployment state
-```
-
-### Test 4 — duplicate flattened basename
-
-Archive:
-
-```text
-a\codec.dll
-b\codec.dll
-libffmpegkit.dll
-```
-
-Expected:
-
-```text
-fail with duplicate target basename diagnostic
-```
-
-### Test 5 — duplicate main DLL
-
-Archive:
-
-```text
-a\libffmpegkit.dll
-b\libffmpegkit.dll
-```
-
-Expected:
-
-```text
-fail
-```
-
-### Test 6 — local directory freshness
-
-Modify the contents of the configured local directory without changing its path.
-
-Next staging run must exactly reflect the new current set.
-
----
-
-## MSBuild validation
-
-After script-level tests:
-
-```text
-build React Native Windows Release x64
-```
-
-using the actual local `0.11.2` Windows bundle.
-
-Inspect:
-
-```text
-react-native/example/windows/x64/Release/
-```
-
-and package/deployment outputs.
-
-Assert:
-
-```text
-exactly intended runtime DLLs
-exactly one libffmpegkit.dll
-no stale fixture DLLs
-FFmpegKitExtended.dll produced
-example executable produced
-```
-
-Do not use "build succeeded" as the only staging oracle.
-
----
-
-## Exit gate
-
-R27-W2 closes only when:
-
-```text
-same-path local ZIP mutation refreshes
-destination cannot retain removed DLLs
-missing libffmpegkit.dll fails
-multiple libffmpegkit.dll fails
-duplicate flattened basenames fail
-local directory mutations refresh
-real Windows Release build deploys exact selected DLL set
+staged DLL basename set
+==
+validated DLL basename set from current selected runtime
 ```
 
 ---
 
-# 5. R27-W3 — Make Flutter Windows FFplay frame callback ownership-safe
+## 6.3 Runtime manifest rules
+
+Before staging:
+
+```text
+find *.dll recursively
+compare target basenames case-insensitively
+reject duplicate flattened basenames
+require exactly one libffmpegkit.dll
+sort deterministic
+```
+
+Reject:
+
+```text
+zero libffmpegkit.dll
+multiple libffmpegkit.dll
+a/foo.dll + b/foo.dll
+```
+
+---
+
+## 6.4 Real PowerShell regression
+
+Mandatory on Windows:
+
+```text
+same-path changed ZIP
+removed dependency disappears
+missing main DLL fails
+duplicate main DLL fails
+duplicate flattened basename fails
+local directory mutation refreshes
+```
+
+Then run the actual x64 React Native Windows Release build and compare the deployed/staged DLL set with the validated runtime manifest.
+
+---
+
+# 7. R27-P3 — One process-global Flutter FFplay owner across every native video path
 
 ## Severity
 
 **Critical**
 
-## Affected wrapper
+## Common semantic rule
 
-Flutter Windows only.
+Use the same invariant everywhere:
 
-## Affected code
+> **The most recent successful high-level Flutter video-target binding owns the process-global FFplay output. Only that exact owner may clear or unregister it.**
+
+A stale engine, plugin, texture or surface may release its local resources.
+
+It may not clear a newer process-global FFplay target.
+
+Do not create a restoration stack.
+
+If B replaces A:
 
 ```text
-flutter/windows/ffmpeg_kit_extended_flutter_plugin.cpp
+A -> B
 ```
 
-Potential helper:
+then B owns.
+
+When B leaves:
 
 ```text
-flutter/windows/include/.../<semantic frame registration coordinator>.h
+native target -> none
 ```
 
-Tests should be placed in a test-only location with semantic naming.
+Do not restore A automatically.
 
 ---
 
-## Native contract
+# 8. Flutter Windows and Linux frame-callback ownership
 
-The frozen native FFplay implementation has one process-global pair:
+Both platforms register the same process-global native frame callback.
 
-```c
-static FFplayFrameCallback g_frame_callback = NULL;
-static void *g_frame_callback_userdata = NULL;
-```
+Current release/destruction is local-instance based and unconditional.
 
-The setter is process-global:
+Use an owner coordinator keyed by the native callback userdata identity.
 
-```c
-ffplay_set_frame_callback(callback, userdata)
-```
-
-and registration/unregistration ultimately replace that same pair.
-
-The native setter uses the FFplay API mutex.
-
-When callback is set to null, it waits for the in-flight callback block that holds the same mutex to finish before returning.
-
-This is useful lifetime authority, but it does **not** provide per-Flutter-engine ownership.
-
----
-
-## Flutter Windows defect
-
-Each `FfmpegKitExtendedFlutterPlugin` owns a local:
+Recommended owner tokens:
 
 ```text
-texture_state_
+Windows: TextureState*
+Linux:   FfkitGlTexture* or TextureState*
 ```
 
-but `ReleaseTextureState()` unconditionally calls:
+Prefer a small platform-neutral header-only C++ coordinator if it can be included safely from both plugin builds without introducing cross-platform build-system coupling.
+
+Example semantic responsibility:
 
 ```cpp
-ffplay_kit_unregister_frame_callback();
+install(owner, nativeInstall)
+uninstallIfOwned(owner, nativeUninstall)
+isOwner(owner)
 ```
 
-The plugin destructor always calls:
-
-```cpp
-ReleaseTextureState();
-```
-
-There is no process-global current-owner guard.
-
-Therefore:
+Required behavior:
 
 ```text
-Flutter engine/plugin A creates texture
-native global FFplay frame callback = A
-
-Flutter engine/plugin B creates texture
-native global FFplay frame callback = B
-
-old engine/plugin A is disposed
-A.ReleaseTextureState()
-A unconditionally unregisters native global callback
-
-result:
-B remains alive with a registered Flutter texture
-but B no longer receives FFplay frames
+A install -> owner A
+B install -> owner B
+A stale release -> native unregister call count 0
+B release -> unregister once, owner null
 ```
 
-The failure can be silent: playback may continue while video freezes/stays empty.
+The native unregister operation drains any in-flight frame callback through the native FFplay mutex.
 
-This is the same general ownership class fixed for React Native structured logs in Review 26, but it is a separate native FFplay frame callback and a separate Flutter Windows implementation.
+Only destroy the current owner's callback userdata after that unregister/drain completes.
 
-React Native Windows already guards its FFplay view with a process-global active-view owner. Do not change that implementation without new evidence.
+A stale non-owner state can skip global unregister and release local texture state normally after B's successful replacement guarantees native no longer points at A.
 
 ---
 
-## Required ownership contract
+# 9. Flutter Android process-global surface ownership
 
-Use:
+## Functional defect
 
-> **Latest successful Flutter Windows FFplay texture registration owns the process-global FFplay frame callback. Only that exact texture state may unregister it.**
-
-A stale plugin/texture may destroy its local Flutter texture.
-
-It may not unregister the current process-global native callback owned by another state.
-
-Do not restore an older texture automatically.
-
----
-
-## Preferred implementation
-
-Create a small semantic Windows-local coordinator.
-
-Example semantic concept:
+The native FFplay ANativeWindow is process-global:
 
 ```text
-FrameCallbackRegistrationCoordinator
+g_android_native_window
+g_owned_window
 ```
 
-Do not use `Review27`, `W3`, or planning terminology in production names.
-
-The coordinator should serialize:
-
-```text
-install owner
-conditional uninstall owner
-```
-
-with owner identity equal to the actual `TextureState*` registered as native user-data.
-
-Conceptually:
-
-```cpp
-class FrameCallbackRegistrationCoordinator {
- public:
-  template <typename InstallFn>
-  void install(void* owner, InstallFn&& install);
-
-  template <typename UninstallFn>
-  bool uninstallIfOwned(void* owner, UninstallFn&& uninstall);
-};
-```
-
-Owner commit rules must match Review 26's proven semantics:
-
-```text
-native register succeeds
--> current owner = new TextureState*
-
-native current-owner unregister succeeds
--> current owner = null
-
-stale owner teardown
--> no native unregister call
-```
-
----
-
-## Create path
-
-After W4 runtime-symbol resolution succeeds:
-
-1. release this plugin instance's previous texture if needed;
-2. allocate new `TextureState`;
-3. build/register Flutter texture;
-4. use the process-global coordinator to install:
-
-   ```text
-   OnFrameCallback + state_ptr
-   ```
-
-5. commit `texture_state_` only when local/native registration state is coherent.
-
-If Flutter texture registration itself fails according to Flutter's documented API failure contract, do not install the native callback.
-
-Do not return a success payload for a state that cannot receive frames.
-
----
-
-## Release/destructor path
-
-Conceptually:
-
-```text
-move local texture state out of plugin
-conditional process-global unregister if this state is current owner
-drain current-owner native callback through native unregister
-mark local state destroyed
-clear buffers
-unregister local Flutter texture
-destroy state
-```
-
-For a non-owner stale state:
-
-```text
-skip native unregister
-mark local state destroyed
-unregister local Flutter texture
-destroy state
-```
-
-### Why stale non-owner state can be destroyed
-
-When a newer owner successfully registers, the native `ffplay_set_frame_callback` call acquires the native FFplay API mutex.
-
-That registration cannot complete until any old callback holding the same mutex completes.
-
-Therefore, after successful replacement registration returns, the older owner no longer needs indefinite retirement solely for native FFplay frame callback safety.
-
-Still preserve the local `TextureState::mutex` protocol around buffer destruction.
-
----
-
-## Concurrent engine operations
-
-The process-global registration coordinator must serialize at least:
-
-```text
-A release vs B create/register
-A destructor vs B create/register
-A create/register vs B create/register
-```
-
-Valid interleavings:
-
-```text
-A unregister completes first -> B registers -> final owner B
-```
-
-or:
-
-```text
-B registers first -> owner B -> stale A skips unregister -> final owner B
-```
-
-Invalid:
-
-```text
-B registers successfully -> stale A unregisters afterward -> callback null
-```
-
----
-
-## Behavioral tests
-
-Do not rely only on source pattern matching.
-
-Factor the owner state machine into a pure C++ helper that can be compiled without Flutter headers.
-
-Required cases:
-
-```text
-install A -> A
-install B -> B
-stale uninstall A -> B
-current uninstall B -> null
-
-A install
-A uninstall
-B install
-stale A destructor-equivalent uninstall
--> B
-
-A install
-B install
-stale A destructor-equivalent uninstall
--> B
-```
-
-Add a deterministic concurrent barrier/latch test:
-
-```text
-A teardown racing B install
-```
-
-Final successful B registration must never end with no callback.
-
-Stress repeated handoffs, e.g.:
-
-```text
-10,000 A/B transitions
-```
-
-and assert bounded coordinator state/no deadlock.
-
----
-
-## Flutter plugin integration test
-
-Add source/integration coverage proving:
-
-```text
-HandleCreateTexture -> owner-aware registration
-ReleaseTextureState -> conditional owner-aware unregister
-destructor -> same ReleaseTextureState path
-```
-
-A source-contract test may supplement but not replace the executable coordinator test.
-
----
-
-## Exit gate
-
-R27-W3 closes only when:
-
-```text
-stale Flutter engine/plugin release cannot disable newer frame callback
-current owner release unregisters
-native callback drain remains before owner-state destruction
-local Flutter textures still release
-multiple create/release cycles remain bounded
-RN Windows FFplay owner behavior remains untouched
-```
-
----
-
-# 6. R27-W4 — Make Flutter Windows FFplay symbol resolution retryable and fail-closed
-
-## Severity
-
-**High**
-
-## Affected wrapper
-
-Flutter Windows only.
-
-## Functional finding
-
-The current Windows plugin uses:
-
-```cpp
-static RegisterFn g_register_fn = nullptr;
-static UnregisterFn g_unregister_fn = nullptr;
-static std::once_flag g_resolve_once;
-```
-
-and:
-
-```cpp
-std::call_once(g_resolve_once, [] {
-  HMODULE h = GetModuleHandleA(...);
-  ...
-});
-```
-
-The plugin comment assumes:
-
-```text
-libffmpegkit.dll is already loaded by the time any MethodChannel call arrives
-```
-
-but that is not guaranteed by the plugin registration lifecycle.
-
-The Flutter plugin's method channel exists independently of:
+The high-level Flutter Dart guard is:
 
 ```dart
-FFmpegKitExtended.initialize()
+static int _currentNativeWindowPtr
 ```
 
-which is what opens `libffmpegkit.dll` on Windows.
+but Dart statics are isolate-local.
 
-Therefore a supported but misordered call can do this:
+Two Flutter engines normally have different Dart isolates.
+
+Therefore this can occur:
 
 ```text
-FFplayDesktopTexture.create()
-before FFmpegKitExtended.initialize()
+Engine A isolate:
+  A.bindToFFplay()
+  isolate A thinks current pointer = A
 
-ResolveFFplayProcs:
-  GetModuleHandle("libffmpegkit.dll") -> null
-  call_once completes permanently
-  register/unregister pointers remain null
+Engine B isolate:
+  B.bindToFFplay()
+  native process-global target = B
+  isolate B thinks current pointer = B
 
-HandleCreateTexture:
-  Flutter texture is registered
-  register wrapper silently does nothing
-  method returns a valid-looking textureId
+Engine A:
+  A.release()
+  isolate A still sees A as its "current" pointer
+  clearAndroidSurfaceIfMatches(A) calls global clear
 
-later:
-FFmpegKitExtended.initialize() loads DLL
-
-later:
-FFplayDesktopTexture.create()
-ResolveFFplayProcs does not retry because once_flag is already consumed
-frame callback remains unavailable for process lifetime
+Result:
+  B loses FFplay video output
 ```
 
-This is both:
-
-- an early-call fail-open defect; and
-- a permanent recovery defect.
+The high-level surface API therefore has the same ownership defect as Windows/Linux, even though it appears guarded in a single isolate.
 
 ---
 
-## Secondary atomicity defect
+## 9.1 Move high-level ownership into the Android process
 
-The resolver assigns the two pointers independently:
+The process-global ownership authority should live in Android plugin/JVM state shared by all Flutter engines.
 
-```text
-g_register_fn
-g_unregister_fn
-```
+Do not use Dart-isolate static state as the final owner authority.
 
-If an incompatible runtime exposes only one symbol, the resolver can leave a partial pair.
-
-Then:
+Recommended structure in the Android Flutter plugin:
 
 ```text
-register wrapper checks only register pointer
-unregister wrapper checks only unregister pointer
+SurfaceState
+  texture entry
+  android Surface
+  nativeWindowPtr
+  textureId
+
+process-global static/companion coordinator
+  lock
+  active SurfaceState identity
 ```
 
-A callback must never be installed unless its corresponding unregister function is also available.
-
-Use one complete API pair as the commit unit.
+Use object identity, not texture ID alone, because different Flutter engines can produce colliding texture IDs.
 
 ---
 
-## Required resolver contract
+## 9.2 Add owner-aware high-level bind
 
-Resolver states should effectively be:
-
-```text
-unresolved
-resolved-complete
-```
-
-A failed lookup is **not** a permanent resolved state.
-
-Do not permanently cache:
+Add a platform-channel method such as:
 
 ```text
-DLL absent
-partial symbols
+bindSurface(textureId)
 ```
 
-A later call may retry after the runtime DLL has been initialized/loaded.
+The Android plugin:
+
+1. finds this engine's `SurfaceState`;
+2. locks the process-global coordinator;
+3. calls `FFplayKitAndroid.setAndroidSurface(surface)`;
+4. commits that exact `SurfaceState` as process-global owner only after native set succeeds;
+5. returns success.
+
+The current `FFplayKitAndroid.setAndroidSurface(Surface)` JNI path already shares the correct single retained native ANativeWindow authority.
+
+Use it.
+
+Do not add a new native ABI function for ownership.
 
 ---
 
-## Preferred implementation
+## 9.3 Owner-aware release
 
-Replace `std::once_flag` with a mutex-protected complete pair.
-
-Conceptually:
-
-```cpp
-struct FFplayFrameApi {
-  RegisterFn registerCallback = nullptr;
-  UnregisterFn unregisterCallback = nullptr;
-
-  bool complete() const {
-    return registerCallback != nullptr &&
-           unregisterCallback != nullptr;
-  }
-};
-
-std::mutex g_ffplay_frame_api_mutex;
-FFplayFrameApi g_ffplay_frame_api;
-```
-
-Resolver:
+When a high-level Flutter surface releases:
 
 ```text
-lock resolver mutex
-if cached complete pair:
-    return pair
+if process-global owner === this SurfaceState:
+    FFplayKitAndroid.setAndroidSurface(null)
+    owner = null
 
-for candidate DLL names:
-    GetModuleHandle
-    if absent:
-        continue
-
-    resolve register into local temporary
-    resolve unregister into local temporary
-
-    if both exist:
-        commit both together
-        return complete
-
-leave global pair empty
-return unavailable
+release this state's nativeWindowPtr ref
+release Surface
+release Flutter texture entry
 ```
 
-### Do not use partial global assignments while probing
-
-Use local temporaries first.
-
-Only publish:
+For a stale non-owner:
 
 ```text
-register + unregister
+do not clear native process-global surface
+release only local resources
 ```
 
-as one complete pair.
+The same logic must run during engine detach.
 
 ---
 
-## Do not auto-load FFmpegKit from the FFplay texture plugin
+## 9.4 Dart API
 
-Prefer `GetModuleHandle`, not an independent `LoadLibrary`, for this path.
+`FFplayAndroidSurface.bindToFFplay()` currently performs a synchronous Dart FFI process-global set.
 
-Why:
+The safe high-level implementation should route binding through the process-global Android plugin owner.
 
-`FFmpegKitExtended.initialize()` owns native library initialization and calls:
+Because a MethodChannel call is asynchronous, update the high-level method to:
 
-```text
-ffmpeg_kit_initialize()
+```dart
+Future<void> bindToFFplay()
 ```
 
-The texture plugin should not silently bypass the package's initialization authority merely to make symbol lookup pass.
+and update examples/docs to:
 
-If the runtime is not loaded yet:
-
-```text
-return unavailable
+```dart
+await surface.bindToFFplay();
 ```
 
-and allow a later retry after correct initialization.
+Calling a Future-returning method as a statement remains syntactically possible, but maintained examples must await it so playback does not race the bind.
+
+`release()` is already asynchronous and should let the Android plugin own conditional global clear.
+
+Do not retain the old high-level Dart `clearAndroidSurfaceIfMatches()` as the ownership authority.
+
+The low-level public `FFplayKitAndroid` FFI API may remain available for advanced/manual use, but document that direct low-level calls manipulate one process-global native target and the caller owns coordination.
 
 ---
 
-## Make `createTexture` fail closed
+## 9.5 Android unit oracle
 
-Before registering a Flutter texture or returning success:
+Extract the owner state machine into a testable Kotlin/Java helper that does not require a real `Surface`.
+
+Use owner tokens + fake setter.
+
+Mandatory:
 
 ```text
-resolve complete FFplay frame API pair
+A bind
+B bind
+A stale release
+-> native target B
+
+A bind
+A release
+B bind
+A stale engine detach
+-> B
+
+B current release
+-> native clear
+
+10,000 owner replacements/releases
+-> bounded state, no stale clear
+```
+
+Run on the Windows Android/Gradle environment.
+
+---
+
+## 9.6 Android runtime gate
+
+On emulator/device:
+
+```text
+create Flutter surface
+await bind
+start FFplay
+video visible / dimensions advance
+release
+```
+
+Then test two distinct high-level surface states:
+
+```text
+A bind
+B bind
+A release
+B continues receiving video
+B release
+native target cleared
+```
+
+If practical, create two Flutter engines for a direct cross-isolate oracle.
+
+If a two-engine harness is not practical in this review:
+
+- the process-global owner helper test is mandatory;
+- a single-engine two-surface runtime test is mandatory;
+- record the multi-engine runtime case as not directly executed.
+
+Do not claim a two-engine runtime pass without one.
+
+---
+
+# 10. Flutter Apple frame ownership — implement now, build/test later
+
+The iOS and macOS `FfplayKitPlugin` implementations also use one native process-global frame callback.
+
+Each plugin instance currently clears that global callback during local texture release/dealloc.
+
+Apply the same latest-successful-owner rule now.
+
+Use a process-global Objective-C synchronization authority.
+
+Suitable owner identity:
+
+```text
+the exact retained texture userdata pointer
+```
+
+or another unique per-texture token.
+
+Required:
+
+```text
+install A -> owner A
+install B -> owner B
+A stale release/dealloc -> no global unregister
+B release -> unregister + owner null
+```
+
+Preserve:
+
+- strong userdata retention through callback lifetime;
+- texture invalidation/drain;
+- Flutter texture unregister;
+- ARC balance.
+
+Do not attempt an Apple build, `pod install`, Xcode compile, simulator run or macOS runtime gate in Review 27.
+
+Record Apple validation as deferred under P6.
+
+---
+
+# 11. React Native FFplay ownership audit result
+
+Do **not** add a new React Native owner-remediation goal.
+
+The exact Review 26 source already uses process-global owner authorities.
+
+## Android
+
+`FFplayTextureView` has:
+
+```text
+static SURFACE_LOCK
+static activeOwner
+```
+
+Release clears the native surface only when:
+
+```text
+activeOwner == this
+```
+
+Preserve it.
+
+## iOS/macOS/tvOS
+
+The view uses a shared `FFplayFrameCoordinator`.
+
+Deactivate returns without native unregister when:
+
+```text
+coordinator.view != self
+```
+
+Preserve it.
+
+## Windows
+
+The view uses:
+
+```text
+g_registrationMutex
+g_activeView
+```
+
+Destructor unregisters only when:
+
+```text
+g_activeView == this
+```
+
+Preserve it.
+
+Review 27 tests should guard these existing semantics while changing frame API resolution.
+
+---
+
+# 12. R27-P4 — Retryable, complete, fail-closed FFplay frame API resolution
+
+## Common rule
+
+A frame output target is usable only when its required native frame API is available.
+
+Do not permanently cache an unsuccessful lookup.
+
+Do not publish a partial API.
+
+Do not create/return a live-looking Flutter texture or activate an RN view when required native frame delivery cannot be registered safely.
+
+---
+
+# 13. Flutter Windows resolver
+
+Replace:
+
+```text
+std::once_flag
+```
+
+with a mutex-protected complete pair:
+
+```text
+RegisterFn
+UnregisterFn
+```
+
+A lookup failure leaves the resolver retryable.
+
+Commit globals only when both symbols exist.
+
+Do not call an independent `LoadLibrary` here if `FFmpegKitExtended.initialize()` owns library initialization.
+
+`GetModuleHandle` is appropriate for the Flutter plugin path.
+
+Before Flutter texture creation:
+
+```text
+resolve complete pair
+if unavailable:
+    return Platform error
+    create/register no Flutter texture
+```
+
+After later `FFmpegKitExtended.initialize()`:
+
+```text
+create again
+-> resolver retries
+-> success
+```
+
+---
+
+# 14. Flutter Linux resolver
+
+Current Linux code has the same permanent-failure bug:
+
+```text
+g_symbols_resolved = true
+```
+
+is set even when both lookups failed.
+
+It also writes register/unregister globals independently.
+
+Replace with the same logical state as Windows:
+
+```text
+mutex
+complete pair or unresolved
+retry while incomplete
+```
+
+Probe:
+
+```text
+RTLD_DEFAULT
+then already-loaded libffmpegkit handles
+```
+
+Do not permanently cache failure.
+
+Do not auto-load a second independent FFmpegKit runtime behind the Dart initialization layer.
+
+Before first/reused texture is returned:
+
+```text
+complete frame API required
 ```
 
 If unavailable:
 
+```text
+respond with Flutter method error
+do not mark texture usable
+```
+
+A later call after FFmpegKit initialization must retry and succeed.
+
+---
+
+# 15. Flutter Apple resolver
+
+The primary plugin attempts to preload FFmpegKit before registering `FfplayKitPlugin`, so normal Apple startup is less exposed than Windows/Linux.
+
+However, the frame plugin currently stores the result of:
+
+```text
+dlsym(RTLD_DEFAULT, "ffplay_kit_register_frame_callback")
+```
+
+at registration time and does not retry in `createTexture`.
+
+If preload did not expose the symbol, texture creation still returns a texture ID without frame delivery.
+
+Correct the source now.
+
+Preferred Apple frame API:
+
+```text
+register callback function
+unregister callback function
+```
+
+Resolve both through `RTLD_DEFAULT` when `createTexture` needs them.
+
+If the pair is incomplete:
+
+```text
+return FlutterError
+create no usable texture
+```
+
+Do not permanently cache the miss.
+
+If a later runtime load makes them available, retry.
+
+Use the separate native unregister export rather than assuming a partial register-only API is sufficient.
+
+No Apple build/runtime validation in this review.
+
+---
+
+# 16. React Native Windows frame API resolver
+
+Current RN Windows FFplay uses function-local static initialization:
+
 ```cpp
-result->Error(
-  "FFMPEGKIT_RUNTIME_UNAVAILABLE",
-  "Initialize FFmpegKit before creating an FFplay desktop texture."
-);
-return;
+static RegisterFrameCallback callback = [] { ... }();
+static UnregisterFrameCallback callback = [] { ... }();
 ```
 
-Exact code/message may differ.
+A failed first lookup is permanently cached.
 
-Do not:
+The two symbols are also resolved independently.
 
-- register a dead Flutter texture;
-- return a valid-looking texture ID;
-- consume a one-shot resolver state.
+Replace with one retryable complete frame API pair.
+
+It may continue to use the RN Windows runtime loading authority:
+
+```text
+GetModuleHandle
+then LoadLibrary fallback
+```
+
+because this existing RN view path already owns that behavior.
+
+But:
+
+```text
+complete register + unregister pair
+```
+
+must be the activation prerequisite.
+
+`Initialize()` should not register a frame callback if unregister is unavailable.
+
+A later view initialization must retry if the earlier lookup failed.
+
+Do not disturb:
+
+```text
+g_registrationMutex
+g_activeView
+```
+
+ownership.
 
 ---
 
-## Dart API behavior
+# 17. React Native Apple frame API hardening
 
-Preserve the existing public nullable behavior unless a broader API contract change is justified.
+The Apple resolver already retries while the pair is incomplete.
 
-`FFplayDesktopTexture.create()` currently catches `PlatformException` and returns `null`.
+That is good.
 
-It is acceptable for:
+Do not rewrite it into a once-only cache.
 
-```text
-pre-initialization native create -> PlatformException -> Dart null
-```
-
-provided:
-
-- no dead native texture is left behind;
-- no global callback is installed;
-- later initialization followed by create succeeds.
-
-Do not introduce a breaking throw-only public API merely to close this Windows defect unless existing package policy already requires it.
-
-Update docs to make initialization ordering explicit.
-
----
-
-## Required direct Windows regression
-
-This must run in a fresh process/engine where FFmpegKit has not been initialized yet.
-
-Sequence:
+But activation currently checks only:
 
 ```text
-1. call FFplayDesktopTexture.create() before initialize
-2. expect null/error; no valid texture returned
-3. call FFmpegKitExtended.initialize()
-4. call FFplayDesktopTexture.create() again
-5. expect valid texture
-6. release texture
+gRegisterFrameCallback
 ```
-
-The second create proves the first failed lookup did **not** poison the process.
-
-Do not run this test after a global `setUpAll` that already initialized FFmpegKit.
-
-Use a dedicated Windows integration test entrypoint if necessary.
-
----
-
-## Complete-pair test
-
-Exercise a resolver helper with a fake lookup source:
-
-```text
-register missing, unregister present -> unavailable
-register present, unregister missing -> unavailable
-both present -> complete
-retry after initial missing -> succeeds
-```
-
-This test can be pure C++ and does not need a real malformed DLL if the resolver's commit logic is factored cleanly.
-
-A real local runtime integration remains the final Windows oracle.
-
----
-
-## Integration with R27-W3
-
-W3 and W4 touch the same plugin.
-
-The final create order should be coherent:
-
-```text
-resolve complete frame API
--> release this instance's prior texture
--> create/register Flutter texture
--> process-global owner-aware native frame callback install
--> publish local texture state
--> return textureId
-```
-
-The final release order:
-
-```text
-move local state
--> conditional owner-aware native unregister
--> drain callback
--> destroy local frame buffers
--> unregister Flutter texture
-```
-
-Do not create two unrelated global mutexes with an inverted lock order.
-
-Prefer a clearly documented order between:
-
-```text
-symbol resolver mutex
-frame registration coordinator mutex
-TextureState mutex
-native FFplay API mutex
-```
-
-The callback itself should not need the resolver/coordinator mutex.
-
----
-
-## Exit gate
-
-R27-W4 closes only when:
-
-```text
-pre-init texture creation fails without a live texture
-failed lookup remains retryable
-post-init texture creation succeeds
-register/unregister symbols are committed atomically as a pair
-partial ABI cannot install callback
-W3 ownership behavior remains green
-```
-
----
-
-# 7. R27-W5 — Local Windows production validation for Flutter and React Native
-
-## Severity
-
-**High validation gate**
-
-This goal does not create new findings.
-
-It proves W1–W4 and validates the Windows platform surface comprehensively enough for production readiness.
-
----
-
-## Hard validation rules
-
-- Use the local Windows x86_64 native ABI bundle.
-- Do not fetch or substitute a remotely built old bundle.
-- Do not publish the native ABI remotely.
-- Do not use hosted CI as acceptance evidence.
-- Do not silently fall back to a default remote artifact.
-- Do not call a build pass a runtime pass.
-- Do not weaken a test because Windows behavior is inconvenient.
-
-Set the existing local-only guard where appropriate:
-
-```text
-FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true
-```
-
-and keep explicit local Windows configuration.
-
----
-
-## A. Source/build architecture gates
-
-### Flutter
-
-Run the focused architecture tests including W1.
 
 Require:
 
 ```text
-Windows x64 success
-Windows arm64 fail before resolution
+gRegisterFrameCallback && gUnregisterFrameCallback
 ```
 
-Run the build-hook Windows extraction/layout tests.
+before the view becomes active.
 
-### React Native
+Reason:
 
-Run:
+A callback must not be installed when lifecycle teardown cannot unregister it.
 
-```text
-node --test tests/resolve-ffmpeg-kit-config.test.js
-```
+Keep the existing process-global view coordinator unchanged.
 
-plus the new Windows architecture cases.
-
-Run the real PowerShell W2 fixture.
+No Apple build/runtime validation in Review 27.
 
 ---
 
-## B. Flutter package gate
+# 18. Android frame API resolution
 
-With analytics disabled:
+No P4 change is needed for the Android FFplay video path.
+
+Android video uses:
+
+```text
+ANativeWindow
+```
+
+rather than desktop frame callback dlsym/GetProcAddress.
+
+P3 owns the Android process-global target fix.
+
+---
+
+# 19. R27-P5 — Current-agent executable platform matrix
+
+## Mandatory now
+
+```text
+Windows
+Linux/WSL
+Android
+```
+
+## Explicitly not run now
+
+```text
+iOS
+iOS Simulator
+macOS
+Apple tvOS
+Apple tvOS Simulator
+CocoaPods integration
+Xcode builds
+Apple runtime tests
+```
+
+Do not substitute remote CI for deferred Apple validation.
+
+---
+
+# 20. Common package gates
+
+## Flutter
+
+Run:
 
 ```text
 dart --disable-analytics analyze
@@ -1728,148 +1269,11 @@ flutter analyze
 flutter test --no-pub --exclude-tags native
 ```
 
-Also run focused Windows tests explicitly so a future tag/filter change cannot hide them.
+Run focused Review 27 tests separately so a future tag/filter change cannot hide them.
 
-Suggested focused list:
-
-```text
-test/architecture_mapping_test.dart
-test/native_artifact_layout_test.dart
-test/windows_extraction_test.dart
-```
-
-plus all new W3/W4 tests.
-
----
-
-## C. Flutter Windows native API gate
-
-Use the local x64 bundle.
-
-Run the native-tagged Windows API tests if supported by the package harness.
-
-At minimum validate in-process:
-
-```text
-FFmpegKitExtended.initialize()
-getVersion() == expected ABI family
-getFFmpegVersion() nonempty
-getFFmpegArchitecture() reports x86_64-compatible target
-FFmpeg -version
-FFprobe -version
-media information on generated local file
-session history
-structured log callback
-redirection disable/enable behavior
-FFplay session controls
-```
-
-Use generated local media so this does not depend on network availability.
-
----
-
-## D. Flutter Windows FFplay surface gate
-
-This is mandatory because W3/W4 are Windows texture lifecycle findings.
-
-### Pre-init recovery test
-
-Fresh process:
-
-```text
-create surface before initialization -> no valid surface
-initialize
-create surface -> valid textureId
-release -> succeeds
-```
-
-### Normal playback
-
-Generate a short local video.
-
-Then:
-
-```text
-create surface
-start FFplay
-wait for running
-video width > 0
-video height > 0
-position advances
-pause
-position/control state behaves
-resume
-stop
-release surface
-```
-
-Where feasible, verify an actual frame became available.
-
-Preferred non-invasive evidence:
-
-- integration/UI screenshot or rendered-surface observation; or
-- test-only native fixture around frame callback ownership/arrival that does not ship as a public runtime API.
-
-Do not add a permanent public debugging method solely for this test.
-
-### Repeated lifecycle
+## React Native
 
 Run:
-
-```text
-100+ create/play/release cycles
-```
-
-or another justified bounded stress count.
-
-Assert:
-
-- no crash;
-- no dead texture;
-- no callback into destroyed state;
-- no unbounded texture/state growth.
-
-### Multi-engine/owner oracle
-
-The pure C++ W3 owner test must cover old/new plugin identity even if spinning up two Flutter engines in the automated suite is impractical.
-
-If the local test harness can instantiate two Flutter engines/plugins, also perform the real A/B sequence.
-
-Do not claim a two-engine runtime pass if only the helper test ran.
-
----
-
-## E. Flutter Windows Release build and deployed DLL audit
-
-Run:
-
-```text
-flutter build windows --release
-```
-
-against the explicit local x64 bundle.
-
-Inspect the output.
-
-Require:
-
-```text
-app executable present
-plugin DLL present
-libffmpegkit.dll present
-selected runtime companion DLLs present
-no stale DLLs from previous configured bundle
-```
-
-Use file-name set comparison against the selected artifact, not only spot checks.
-
-If CodeAssets intentionally transforms paths/names, document the deterministic expected mapping and compare against that.
-
----
-
-## F. React Native package gate
-
-Run locally:
 
 ```text
 npm run check
@@ -1879,744 +1283,988 @@ npm run test:pack-web
 npm pack --dry-run
 ```
 
-Keep the Review 26 coordinator tests:
-
-```text
-node --test tests/native-bridge-lifetime.test.js
-native/log_bridge_registration_coordinator_test.cpp
-```
-
-Keep existing Web callback lifetime stress tests.
-
-W27 is Windows-only, but these bounded package tests guard against Windows source/package changes breaking package construction.
+Retain Review 25/26 callback ownership tests.
 
 ---
 
-## G. React Native Windows staging gate
+# 21. Windows validation
 
-Run the W2 real PowerShell fixture.
+Run the Windows matrix from the original Review 27 plan with P1–P4 additions.
 
-Then stage the real local x64 bundle.
+## Flutter Windows
 
-Record the exact staged DLL list and SHA-256 for:
+Mandatory:
 
 ```text
-libffmpegkit.dll
+x64 architecture accepted
+arm64 rejected before config/artifact resolution
+
+pre-init FFplay texture create -> fail/no live texture
+initialize
+texture create -> success
+FFplay playback/frame delivery
+pause/resume/stop
+release
+
+owner A
+owner B
+stale A release
+B still receives frames
+
+flutter build windows --release
 ```
 
-and optionally all companions for reproducibility.
+Use the local Windows x86_64 `0.11.2` bundle.
 
-This is local evidence only, not a new mandatory artifact-provenance product feature.
+Inspect final deployed DLL set.
+
+## React Native Windows
+
+Mandatory:
+
+```text
+x64 accepted
+arm64 rejected
+
+P2 real PowerShell staging suite
+
+retryable complete FFplay frame API fixture
+
+Review 26 log registration ownership fixture
+
+Release MSBuild
+
+runtime:
+  initialize
+  FFmpeg
+  FFprobe
+  media info
+  direct structured log
+  session history
+  FFplay video
+  pause/resume/stop
+```
+
+Keep RN Windows FFplay `g_activeView` behavior unchanged.
 
 ---
 
-## H. React Native Windows Release build
+# 22. Linux/WSL validation
 
-Run the established local Windows build.
+React Native has no native Linux implementation in this repository.
 
-Require production outputs:
+Do not invent one.
+
+Linux runtime validation is therefore Flutter-only.
+
+## Flutter Linux architecture
+
+Mandatory:
 
 ```text
-FFmpegKitExtended.dll
-FFmpegKitExtendedExample.exe
+x64 -> accepted
+arm64 -> rejected before override/artifact resolution
 ```
 
-and, where packaging is part of the normal build, verify package payload root placement of runtime DLLs.
+## Flutter Linux C++ helper tests
 
-Assert final runtime DLL set equals W2's validated selected manifest.
+Compile/run the shared or Linux-specific owner coordinator.
+
+Compile/run the retryable frame API state-machine helper with a fake lookup.
+
+Required resolver sequence:
+
+```text
+lookup unavailable
+-> no committed API
+
+lookup later returns both
+-> complete pair committed
+-> install succeeds
+```
+
+Required owner sequence:
+
+```text
+A install
+B install
+A stale release
+-> B remains owner
+
+B release
+-> null
+```
+
+## Flutter Linux build
+
+Using the local Linux x86_64 bundle:
+
+```text
+flutter build linux --release
+```
+
+Verify expected executable + native assets.
+
+## Flutter Linux runtime
+
+If WSLg/display support is available as expected from the current agent capability:
+
+```text
+initialize
+FFmpeg
+FFprobe
+media info
+structured log
+create FFplay desktop texture
+video frame arrives
+pause
+resume
+stop
+release
+```
+
+### Pre-init resolver recovery
+
+Fresh process:
+
+```text
+create texture before initialize
+-> no usable texture / expected platform error
+
+initialize
+create again
+-> success
+```
+
+### Ownership runtime
+
+Use at least two texture states:
+
+```text
+A create
+B create
+A stale release
+B remains active
+```
+
+If spinning two Flutter engines is practical under WSL, add the direct multi-engine case.
+
+Otherwise:
+
+- executable process-global owner helper is mandatory;
+- two-texture runtime case is mandatory;
+- multi-engine runtime remains not directly executed.
+
+Do not claim it passed if not run.
 
 ---
 
-## I. React Native Windows runtime smoke
+# 23. Android validation
 
-A build alone is not a complete platform runtime review.
+Both wrappers are in scope.
 
-Launch the locally built example/test host with the local x64 runtime.
+## 23.1 Flutter Android architecture
+
+Mandatory host-neutral tests:
+
+```text
+arm -> accepted
+arm64 -> accepted
+x64 -> accepted
+ia32 -> rejected before artifact resolution
+```
+
+Build at least the locally configured target ABI set intended by the example.
+
+Do not add unsupported x86.
+
+---
+
+## 23.2 Flutter Android owner helper
+
+Run the pure JVM/Kotlin owner coordinator tests.
+
+Mandatory:
+
+```text
+A bind
+B bind
+A stale release
+-> B remains owner
+
+current B release
+-> native clear
+
+stale engine detach
+-> no clear of B
+
+10,000 replacements
+-> bounded
+```
+
+---
+
+## 23.3 Flutter Android emulator/device runtime
+
+Use local/current AAR/native bundle.
+
+Run:
+
+```text
+initialize
+FFmpeg
+FFprobe
+media information
+structured logs
+create FFplayAndroidSurface
+await bindToFFplay()
+start local video
+verify video target active
+pause/resume/stop
+release
+```
+
+Then:
+
+```text
+A surface bind
+B surface bind
+A release
+B playback remains visible/active
+B release
+```
+
+If a two-Flutter-engine instrumentation fixture is feasible, run it.
+
+If not, record:
+
+```text
+process-global helper: passed
+single-engine two-surface runtime: passed
+two-engine runtime: not executed
+```
+
+Do not collapse those into one claim.
+
+---
+
+## 23.4 React Native Android
+
+No FFplay owner defect was found, but run regression to ensure P1/P4 source changes did not regress Android.
+
+Mandatory:
+
+```text
+resolver/package tests
+Android codegen
+Android build
+runtime example on emulator/device
+```
 
 Exercise:
 
 ```text
 initialize
-FFmpeg async + awaited execution
+FFmpeg
 FFprobe
 media information
-structured direct log events
-session history
-redirection authority
-FFplay video/audio
-pause
-resume
-seek if supported by fixture
-stop
+direct structured logs
+FFplayView mounted
+video output
+pause/resume/stop
+unmount active view -> clears
+mount replacement view -> receives output
 ```
 
-For the FFplay Windows view:
-
-```text
-view mounted before playback
-video dimensions become nonzero
-position advances
-surface remains valid through pause/resume
-unmount current view -> callback unregisters
-remount new view -> callback registers and receives playback frames
-```
-
-The existing RN Windows `g_activeView` owner guard should remain unchanged unless this runtime test finds an actual defect.
+The existing static Java `activeOwner` contract must remain intact.
 
 ---
 
-## J. Error/failure gates
+# 24. R27-P6 — Apple source remediation now, all Apple execution later
 
-Use controlled local failures.
+## This is an explicit deferred validation gate
 
-### Wrong architecture
+Review 27 **does change Apple source** where P1/P3/P4 found the same defect class.
+
+Review 27 **does not execute Apple platform validation**.
+
+Do not run:
 
 ```text
-Windows arm64
+pod install
+pod lib lint
+xcodebuild
+Flutter iOS build
+Flutter macOS build
+RN iOS build
+RN macOS build
+RN tvOS build
+iOS simulator
+tvOS simulator
+Apple device tests
+macOS runtime
 ```
 
-must fail before artifact use in both wrappers.
-
-### Missing main runtime
-
-RN staging fixture without `libffmpegkit.dll` must fail.
-
-For Flutter custom Windows artifact, retain existing `selectExactMainLibrary` negative coverage.
-
-### Changed local artifact
-
-RN same-path archive update must refresh.
-
-Flutter existing local file/dependency behavior must remain green.
-
-### FFplay pre-init
-
-Flutter W4 pre-init call must recover after initialization.
+under this current Windows agent.
 
 ---
 
-## K. No stale process acceptance
+# 25. Apple source changes included now
 
-When runtime tests finish:
+## Flutter iOS
 
-- close example apps;
-- stop Metro if started;
-- remove test-only temporary runtime archives/directories;
-- do not commit generated Windows build outputs;
-- do not alter the frozen builder checkout.
+Implement:
+
+```text
+P1: arm64-only source architecture authority
+P3: process-global latest-successful frame owner
+P4: retryable, complete frame API resolution
+P4: fail texture creation when API unavailable
+```
+
+## Flutter macOS
+
+Implement:
+
+```text
+P1: arm64 + x64 architecture authority
+P3: process-global latest-successful frame owner
+P4: retryable, complete frame API resolution
+P4: fail texture creation when API unavailable
+```
+
+## React Native iOS/macOS/tvOS
+
+No owner redesign.
+
+Implement only:
+
+```text
+P1 explicit resolver architecture metadata validation when architecture supplied
+P4 require complete register/unregister pair before frame activation
+```
+
+Preserve the existing process-global view coordinator.
 
 ---
 
-## L. Apple noninteractive validation on `my MacBook Air`
+# 26. Apple source-review requirements before commit
 
-Windows remains the implementation scope for W1–W4, but Apple validation is
-part of the amended W5 evidence instead of an automatic deferral.
+Because Apple cannot compile on the current host, Luna Think must do a careful direct source audit.
 
-Use the already verified SSH connection:
+For each edited Apple file verify:
 
 ```text
-host: 192.168.1.189
-user: akash
-checkout: /Users/akash/Projects/ffmpeg_kit_extended
-branch: dev-wasm
+Objective-C syntax is locally consistent with surrounding file
+headers/imports needed by synchronization changes are present
+ARC ownership remains balanced
+retained callback userdata is not released before current-owner unregister
+stale non-owner release still invalidates/releases local texture
+Flutter result callback returns exactly once
+RN coordinator logic remains unchanged except complete-pair gate
+no Apple bundle/podspec path changes are introduced unnecessarily
 ```
 
-Before Apple commands:
+Use `git diff --check`.
 
-1. verify the checkout is clean;
-2. verify `dev-wasm` is synchronized with `origin/dev-wasm`;
-3. use the checkout's local dependencies and the user-approved local ABI
-   configuration only;
-4. tag or record every long-running process and clean it up before returning.
-
-Run the repository's available noninteractive Apple package/build/test gates,
-including Flutter and React Native analysis/package checks and no-code-sign
-Apple builds where the local toolchains support them. Do not use hosted Flutter
-or React Native workflows, fetch remote native ABI bundles, or publish native
-ABI binaries.
-
-Interactive iOS and tvOS simulator tests may be recorded as **deferred** when
-the simulator requires GUI interaction unavailable to this session. A deferred
-interactive test must include the command attempted, the concrete environment
-limitation, and the noninteractive evidence that was completed; it must not be
-represented as a runtime pass.
+Do not treat this as Apple platform testing.
 
 ---
 
-## Exit gate
+# 27. Required later Apple validation review
 
-R27-W5 closes only when both wrappers have:
+Carry this exact deferred ledger forward.
+
+## Flutter iOS
+
+Later Apple host must run:
 
 ```text
-analysis/tests green
-Windows x64 Release build green
-runtime initialized from local current ABI
-FFmpeg green
-FFprobe green
-media information green
-structured log path green
-FFplay controls green
-Windows-specific W1–W4 regressions green
-Apple noninteractive package/build/test gates run on `my MacBook Air`; only GUI-dependent iOS/tvOS simulator tests may be explicitly deferred with evidence
-no remote ABI artifact used
+arm64 device or supported arm64 target build
+arm64 simulator build
+analysis/tests
+FFmpeg
+FFprobe
+media info
+direct structured logs
+FFplay texture create/frame/release
+A/B owner replacement + stale A release
+frame API unavailable/retry fixture if controllable
 ```
 
-Record any unavailable runtime gate as **not executed**, not as inferred success.
+Explicitly confirm x64 iOS simulator is rejected/not advertised under the frozen native matrix.
+
+## Flutter macOS
+
+Run both native artifact slices as available:
+
+```text
+arm64
+x86_64
+```
+
+Build/runtime:
+
+```text
+initialize
+FFmpeg
+FFprobe
+media info
+FFplay
+A/B owner lifecycle
+pre-init/unavailable frame API recovery
+```
+
+## React Native iOS
+
+Run:
+
+```text
+Pod prepare/install
+Codegen
+device/simulator build as supported
+runtime FFmpeg/FFprobe/media info/log/FFplay
+view mount/replacement/unmount
+complete-pair frame activation
+```
+
+## React Native tvOS
+
+Run:
+
+```text
+Pod prepare/install
+tvOS build
+tvOS simulator build where frozen artifact supports it
+FFplay view lifecycle
+```
+
+## React Native macOS
+
+Run:
+
+```text
+Pod prepare/install
+macOS build
+runtime native API
+FFplay view lifecycle
+```
+
+Do not close Apple production readiness until those later gates actually execute.
 
 ---
 
-# 8. R27-W6 — Documentation, tracker and exact-source closeout
+# 28. R27-P7 — Documentation and closeout
 
-## Objective
+## Flutter docs
 
-Reconcile only Windows behavior changed or proven by Review 27.
+Reconcile:
+
+```text
+README
+installation
+quick-start
+architecture
+FFplay desktop/mobile surface guidance
+CHANGELOG
+```
+
+Final architecture claims:
+
+```text
+Android:
+  armv7a / arm64 / x86_64
+  no x86/ia32
+
+Linux:
+  x86_64 only
+
+Windows:
+  x86_64 only
+
+iOS + iOS Simulator:
+  arm64 under the frozen native artifact set
+
+macOS:
+  arm64 + x86_64
+```
+
+Do not imply Apple runtime validation happened in Review 27.
 
 ---
 
-## Flutter documentation
+## Flutter FFplay docs
 
-Audit/update:
-
-```text
-flutter/README.md
-flutter/doc/installation.md
-flutter/doc/quick-start.md
-flutter/doc/architecture.md
-Flutter FFplay docs where desktop texture lifetime is described
-flutter/CHANGELOG.md
-```
-
-Required final facts:
+Document high-level ownership:
 
 ```text
-Windows prebuilt/runtime target is x86_64 only
-Windows arm64 requests fail closed
-FFmpegKitExtended.initialize() precedes FFplay desktop texture creation
-failed early FFplay texture resolution does not poison later initialization
-only the currently owning Windows texture may unregister the process-global FFplay frame callback
+one process-global FFplay video output target per process
+latest successful high-level Flutter target owns it
+stale surface/texture teardown does not clear a newer target
 ```
 
-Do not imply Linux architecture policy changed.
+Android examples must use:
+
+```dart
+await surface.bindToFFplay();
+```
+
+Document:
+
+```text
+FFmpegKitExtended.initialize()
+before desktop/Apple FFplay texture creation
+```
+
+and that an early unavailable-runtime create fails without poisoning later retry.
 
 ---
 
-## React Native documentation
+## React Native docs
 
-Audit/update:
-
-```text
-react-native/README.md
-react-native/TEST.md
-react-native/CHANGELOG.md
-```
-
-Required final facts:
+Document:
 
 ```text
-Windows target = x86_64
-local Windows archives are content-refreshed when bytes change
-runtime staging is an exact selected DLL set
-libffmpegkit.dll is mandatory
-duplicate flattened DLL names fail
-local Windows validation uses the configured local ABI bundle
+Windows x86_64 only
+RN Linux native implementation is not supplied by this package
+Windows staging refreshes local archive bytes and deploys one exact DLL set
+FFplay frame APIs must resolve as a complete register/unregister pair
 ```
 
-Do not document SHA enforcement as a product requirement for official GitHub releases.
+Do not claim Apple build validation occurred.
 
 ---
 
-## Tracker
+# 29. Tracker closeout states
 
-Add a new Review 27 section above Review 26.
-
-Record only:
+At the end of the current Windows-agent run, valid statuses are:
 
 ```text
-R27-W1 Windows x64 architecture authority
-R27-W2 RN Windows runtime staging freshness/coherence
-R27-W3 Flutter Windows FFplay global frame-owner safety
-R27-W4 Flutter Windows FFplay retryable symbol resolution
-R27-W5 local Windows production validation
-R27-W6 closeout
+R27-P1 Complete
+  if source + host-neutral architecture tests pass
+
+R27-P2 Complete
+  if real Windows staging/runtime build tests pass
+
+R27-P3:
+  Windows/Linux/Android -> Complete only with required executable evidence
+  Apple source -> Implemented / Validation Deferred
+
+R27-P4:
+  Windows/Linux/RN Windows -> Complete only with required executable evidence
+  Apple source -> Implemented / Validation Deferred
+
+R27-P5 Complete
+  only if Windows/Linux/Android required gates pass
+
+R27-P6 Deferred
+  by explicit user direction
+
+R27-P7 Complete
+  only if tracker/docs distinguish validated non-Apple platforms from deferred Apple
 ```
 
-Do not re-add excluded Review 24–26 findings.
+Do not mark:
+
+```text
+Apple production ready
+```
+
+during Review 27.
 
 ---
 
-## Review report
+# 30. Suggested tracker wording
 
-Create:
+Use a compact platform split such as:
 
 ```text
-.agent/review27-windows-production-readiness-report.md
+Review 27 source remediation:
+  Windows: implemented + validated
+  Linux: implemented + validated for Flutter
+  Android: implemented + validated
+  Apple: source remediation implemented; all builds/runtime tests deferred
 ```
 
-Include:
+If any Windows/Linux/Android runtime gate cannot execute, state:
 
 ```text
-Review 26 prerequisite PASS evidence
-starting wrapper SHA
-frozen native SHA
-each Windows finding and reproduction
-implementation design
-files changed
-focused tests
-PowerShell staging fixture results
-Flutter Windows runtime results
-RN Windows runtime results
-Release build/package outputs
-final wrapper SHA/tree SHA
-residual Windows risk
+Not executed — <exact reason>
+```
+
+not:
+
+```text
+Passed by source inspection
 ```
 
 ---
 
-## Source freeze
-
-Before closeout:
-
-```text
-git status --short
-git diff --check
-git rev-parse HEAD
-git rev-parse HEAD^{tree}
-```
-
-Product worktree must be clean.
-
-No generated:
-
-```text
-build/
-vendor runtime fixture output/
-temporary ZIPs/
-Windows package outputs/
-Metro bundle scratch/
-```
-
-should be committed unless already intentional tracked source.
-
----
-
-## Source-only snapshot
-
-After the final product SHA is frozen, a source-only snapshot may be produced if the established local project process requires it.
-
-It is provenance only.
-
-Do not treat the snapshot workflow as Windows runtime validation.
-
-Do not run hosted platform CI as a substitute for W5.
-
----
-
-# 9. Hard implementation order
+# 31. Implementation order
 
 Use:
 
 ```text
-Review 26 PASS
-  -> R27-W1
-  -> R27-W2
-  -> R27-W3
-  -> R27-W4
-  -> R27-W5
-  -> R27-W6
+R27-P1 architecture matrix
+  ->
+R27-P2 RN Windows staging
+  ->
+R27-P3 Flutter process-global FFplay ownership
+  ->
+R27-P4 FFplay frame API resolution
+  ->
+R27-P5 Windows/Linux/Android executable validation
+  ->
+R27-P6 Apple deferred-source ledger
+  ->
+R27-P7 docs/tracker/source freeze
 ```
 
-W3 and W4 touch the same Flutter Windows plugin and may be implemented in one carefully reviewed branch sequence, but preserve separate test oracles and tracker evidence.
+P3 and P4 touch the same Flutter desktop/Apple files.
 
-Do not start final Windows runtime validation until W1–W4 are implemented.
+Implement their platform-local changes together carefully, but preserve separate test oracles and tracker evidence.
 
 ---
 
-# 10. Luna reasoning guidance by goal
+# 32. Luna model guidance
 
-## R27-W1 — Think
+## Think required
 
-Questions Luna must answer before editing:
+Use Luna Think for:
 
-```text
-What is the actual frozen native Windows architecture set?
-Which wrapper APIs currently accept ARM64?
-Can any custom override bypass platform-specific validation?
-Which helper is shared with Linux and therefore must not be narrowed globally?
-```
+- platform architecture authority;
+- Flutter Android cross-engine/process-global surface ownership;
+- desktop/Apple callback lifetime;
+- frame API retry/commit semantics;
+- RN Windows staging identity and exact-set replacement;
+- lock ordering;
+- Android/desktop runtime failure diagnosis;
+- Apple source edits that cannot compile on the current host.
 
-Do not solve by relabeling.
+Do not let Instant redesign those systems.
 
----
+## Instant appropriate after design freezes
 
-## R27-W2 — Think
+Use Luna Instant for:
 
-Model the staging system as:
+- repetitive architecture test vectors;
+- established build/test commands;
+- deterministic source scans;
+- README/CHANGELOG updates;
+- tracker table updates;
+- package file inspection.
 
-```text
-source identity
-source bytes
-extraction identity
-validated DLL manifest
-dedicated staging directory
-MSBuild deployment set
-```
-
-Correctness requires byte changes to flow through all five stages.
-
-Do not reason only from filenames.
+On a new functional failure, return to Think.
 
 ---
 
-## R27-W3 — Think
+# 33. Lock-order rules
 
-Treat these as separate lifetimes:
+Do not introduce accidental cross-platform deadlocks.
+
+## Desktop Flutter
+
+Keep these concepts separate:
 
 ```text
-Flutter plugin instance
-Flutter TextureState
-process-global FFplay callback registration
-native in-flight callback
-Flutter texture registration
+frame API resolver lock
+process-global registration-owner lock
+TextureState lock
+native FFplay API mutex
 ```
 
-The defect exists because local object ownership was being used as if it implied process-global registration ownership.
+Recommended:
+
+```text
+resolve API
+(no owner/state locks held)
+
+owner coordinator lock
+-> invoke native install/uninstall
+-> commit owner
+unlock
+
+local TextureState lock
+-> mark/destroy buffers
+unlock
+```
+
+The frame callback itself should not acquire resolver/owner locks.
+
+## Android Flutter
+
+Recommended:
+
+```text
+process-global SurfaceOwner lock
+-> JNI set/clear target
+-> commit owner
+unlock
+
+then release local Surface/nativeWindowPtr/texture resources
+```
+
+Do not call back into Dart while holding the Java owner lock.
+
+## Apple Flutter
+
+Use the same semantic ordering:
+
+```text
+resolve complete API
+process-global owner synchronization
+native unregister/install
+local texture invalidate/release
+```
+
+Do not release retained callback userdata before current-owner native unregister returns.
 
 ---
 
-## R27-W4 — Think
+# 34. Failure semantics
 
-Treat symbol resolution as a retryable state machine.
+## Architecture
 
-Do not equate:
-
-```text
-"we tried once"
-```
-
-with:
+Unsupported target:
 
 ```text
-"runtime ABI is resolved"
+fail before artifact selection
 ```
 
-Commit only a complete symbol pair.
+Do not substitute another architecture.
+
+## RN Windows staging
+
+Any of:
+
+```text
+hash/read failure
+archive extraction failure
+missing libffmpegkit.dll
+multiple libffmpegkit.dll
+duplicate target basename
+staging copy failure
+```
+
+must fail the build preparation.
+
+## Flutter frame API unavailable
+
+Desktop/Apple texture create:
+
+```text
+no complete frame API
+-> method error
+-> no usable texture published
+```
+
+Later retry remains allowed.
+
+## Owner teardown
+
+Non-owner stale teardown is not an error.
+
+It releases local resources and performs zero process-global clear/unregister operations.
 
 ---
 
-## R27-W5 — Think for failures, Instant for commands
+# 35. Test truthfulness
 
-Once commands are established, execution can be mechanical.
+Never substitute:
 
-Any Windows-only runtime failure requires source/dataflow analysis before changing product code.
+```text
+source regex
+```
 
-Do not add sleep/retry workarounds without identifying the state transition they are synchronizing.
+for an executable test when Windows/Linux/Android can execute the behavior.
+
+Source contract inspection is acceptable only for the explicitly deferred Apple platform paths.
+
+Do not claim:
+
+```text
+Apple passed
+```
+
+from:
+
+```text
+Dart unit test
+Node resolver test
+C++ coordinator test
+source inspection
+```
+
+Those can validate shared logic, not Apple integration.
 
 ---
 
-## R27-W6 — Instant after behavior is frozen
+# 36. Regression invariants inherited from Reviews 23–26
 
-Documentation should describe proven behavior.
+Preserve:
 
-Do not use closeout as an opportunity for unrelated cleanup.
-
----
-
-# 11. Test truthfulness rules
-
-Luna must follow these rules for this review.
-
-## Do not fabricate
-
-Never state:
+## Structured logs
 
 ```text
-passed
-validated
-green
-production-ready
-```
-
-for a command that did not actually execute successfully.
-
-## Do not substitute weak tests
-
-Examples of unacceptable substitutions:
-
-```text
-source regex instead of W2 real PowerShell same-path ZIP test
-source regex instead of W3 executable owner state machine
-successful compile instead of Windows runtime smoke
-successful FFplay session without testing W4 pre-init recovery
-```
-
-## Do not weaken scenarios
-
-Do not:
-
-- remove ARM64 negative cases because they fail;
-- delete stale-DLL assertions;
-- skip duplicate-basename case;
-- avoid stale plugin teardown case;
-- initialize FFmpegKit before the W4 pre-init regression;
-- filter callback lifetime tests.
-
-## Report mistakes
-
-If implementation initially:
-
-- stages stale files;
-- deadlocks;
-- breaks x64;
-- causes FFplay callback loss;
-- poisons later initialization;
-
-record the error directly and correct it.
-
-Do not hide it by changing tracker language.
-
----
-
-# 12. Semantic naming rule
-
-Do not name production artifacts after planning/review identifiers.
-
-Bad:
-
-```text
-Review27WindowsFix
-W3Coordinator
-R27RuntimeManifest
-```
-
-Good:
-
-```text
-windowsArtifactArchitecture
-RuntimeDllManifest
-FrameCallbackRegistrationCoordinator
-FFplayFrameApi
-resolveFFplayFrameApi
-```
-
-Tests may mention the regression behavior, not the planning goal number, in test names.
-
----
-
-# 13. Files likely to change
-
-This is guidance, not a requirement to edit every file.
-
-## R27-W1
-
-Likely:
-
-```text
-flutter/hook/native_artifact.dart
-flutter/hook/build.dart
-flutter/test/architecture_mapping_test.dart
-
-react-native/scripts/resolve-ffmpeg-kit-config.js
-react-native/scripts/prepare-windows-runtime.ps1
-react-native/tests/resolve-ffmpeg-kit-config.test.js
-
-Flutter/RN Windows docs
-```
-
-## R27-W2
-
-Likely:
-
-```text
-react-native/scripts/prepare-windows-runtime.ps1
-react-native/tests/windows-runtime-packaging.test.js
-react-native/tests/<real Windows staging fixture>
-react-native/TEST.md
-```
-
-Do not change `FFmpegKitDynamicApi` unless the staging/runtime test proves a separate loader defect after coherent staging is fixed.
-
-## R27-W3/W4
-
-Likely:
-
-```text
-flutter/windows/ffmpeg_kit_extended_flutter_plugin.cpp
-flutter/windows/include/.../<semantic coordinator/helper>.h
-flutter/test or windows test-only helper source
-flutter/lib/src/platform/native/ffplay_desktop_texture.dart   # docs/error contract only if needed
-Flutter FFplay docs
-```
-
-Do not modify React Native FFplay ownership merely to share implementation.
-
----
-
-# 14. Regression invariants inherited from Reviews 23–26
-
-Review 27 must preserve all of the following.
-
-## Structured log transport
-
-```text
-one structured native callback ABI
-session ID exact
+single structured callback ABI
+session id exact
 sequence exact
 level exact
 message exact
-owned message released once
-no steady-state full-history polling
+owned payload freed once
+no steady-state whole-history polling
 bounded terminal reconciliation
 ```
 
-## Demand/lifecycle
+## Demand and redirection
 
 ```text
-callback activation remains demand-driven
-completion is independent of optional log/stat consumers
+callback activation demand-driven
+completion independent from optional log/stat sinks
 disableRedirection remains authoritative
-first error remains authoritative
+first error preserved
 ```
 
 ## Review 25
 
 ```text
-RN Web callback pointer is not recycled while delayed native work may hold it
-native/Windows structured-log bridge state remains bounded
-stale Flutter packaged old-ABI Wasm runtime remains removed
+RN Web callback slot is retained/non-recycled
+native/Windows RN log bridge state remains bounded
+stale Flutter packaged old-ABI Wasm runtime remains absent
 ```
 
 ## Review 26
 
 ```text
 latest successful RN module owns process-global structured-log registration
-stale RN module teardown cannot clear a newer owner's registration
+stale RN teardown cannot clear newer registration
 ```
 
-## Build/runtime
+## Native/build
 
 ```text
-DataAssets are not reintroduced
-native ABI remains 0.11.2
-no _v2 callback is reintroduced
-local ABI bundle remains test authority
+native ABI version stays 0.11.2
+no _v2 callback ABI
+no DataAssets reintroduction
+no remote native publication
 ```
 
 ---
 
-# 15. Pre-fix evidence Luna should record
+# 37. Pre-fix evidence Luna should capture
 
-Before implementation, record concise reproductions.
+Before edits, preserve minimal reproduction evidence.
 
-## W1
+## Architecture
 
-React Native exact source currently permits a result equivalent to:
-
-```json
-{
-  "platform": "windows",
-  "architecture": "arm64",
-  "override": {
-    "kind": "local",
-    "value": "...windows-x86_64...zip"
-  }
-}
-```
-
-while the Windows projects contain only x64 configurations.
-
-Flutter's current architecture tests explicitly accept:
+Record current:
 
 ```text
-desktopArtifactArchitecture(Architecture.arm64, platform: 'windows')
--> arm64
+Flutter:
+  Android ia32 -> x86
+  Linux arm64 -> arm64
+  Windows arm64 -> arm64
+  iOS x64 -> accepted
+
+RN resolver:
+  windows arm64 -> bundle-...-windows-arm64-...
+  linux arm64   -> bundle-...-linux-arm64-...
 ```
 
-Record both.
-
----
-
-## W2
-
-On a Windows test shell:
+against frozen builder:
 
 ```text
-same local ZIP path
-content A -> stage
-replace with content B -> stage again
+Android: armv7a, arm64, x86_64
+Linux: x86_64
+Windows: x86_64
+iOS: arm64
 ```
 
-Record that Review 26 reuses old extraction/staging before the fix.
+## Flutter Linux ownership
 
-Also record stale destination behavior with a DLL removed between A and B.
-
----
-
-## W3
-
-Use the owner helper or minimal extraction of current behavior:
+Record current unconditional:
 
 ```text
-A create
-B create
-A release/destructor
+ffplay_kit_unregister_frame_callback()
 ```
 
-Record the unconditional unregister call from A's release path.
+from release/dispose.
 
----
+## Flutter Android ownership
 
-## W4
-
-Fresh process:
+Record that:
 
 ```text
-createTexture before FFmpegKit initialize
+Dart isolate static pointer guard
 ```
+
+is separate from:
+
+```text
+native process-global g_android_native_window
+```
+
+## Flutter Apple ownership
+
+Record unconditional global callback clear in local plugin release/dealloc.
+
+## Resolvers
 
 Record:
 
 ```text
-GetModuleHandle misses runtime
-once_flag consumed
-texture create returns apparent success/current behavior
-later initialization cannot make resolver retry
+Flutter Windows: once_flag
+Flutter Linux: g_symbols_resolved=true
+Flutter Apple: one-time registration dlsym
+RN Windows: function-local static callback caches
 ```
 
-If direct app behavior differs due another startup side effect loading the DLL, preserve the source finding but document that the concrete host loaded the DLL earlier. Then create a deterministic resolver/helper regression that controls the lookup sequence.
-
-Do not invent runtime evidence.
+and the behavior when first lookup is unavailable.
 
 ---
 
-# 16. Final Windows production-readiness definition
+# 38. Final production-readiness definition for this Review 27 pass
 
-Review 27 can be closed only when all of the following are true.
+The current Windows agent may close Review 27's **non-Apple** production gate only when:
 
-1. Review 26 remains passed and its ownership regression tests remain green.
-2. Windows is advertised and accepted as x86_64 only across Flutter and React Native.
-3. Windows ARM64 cannot reach custom override selection, remote artifact resolution, extraction or build staging.
-4. React Native local Windows ZIP changes at the same path invalidate stale extraction by byte identity.
-5. React Native staging contains exactly the DLL set from the current selected runtime.
-6. React Native staging requires exactly one `libffmpegkit.dll`.
-7. Recursive duplicate DLL basenames are rejected rather than flattened nondeterministically.
-8. React Native Windows Release build consumes the current validated staging set.
-9. Flutter Windows FFplay frame callback has process-global current-owner protection.
-10. A stale Flutter plugin/engine cannot unregister a newer engine's FFplay frame callback.
-11. Current Flutter frame owner unregister still drains in-flight callback before state destruction.
-12. Flutter FFplay symbol lookup is retryable after an early unavailable-runtime lookup.
-13. Flutter FFplay symbol pair is committed atomically only when both register and unregister exports exist.
-14. Flutter texture creation does not report a live texture when the native frame API is unavailable.
-15. A fresh-process pre-init Flutter FFplay surface failure can recover after `FFmpegKitExtended.initialize()`.
-16. Flutter local Windows native APIs execute against the current local x64 ABI bundle.
-17. React Native local Windows native APIs execute against the current local x64 ABI bundle.
-18. FFmpeg, FFprobe and media-information runtime paths pass in both wrappers.
-19. Structured direct-log behavior remains correct in both wrappers.
-20. FFplay playback/control paths pass in both Windows hosts.
-21. No remote native ABI artifact or hosted CI run is used as acceptance evidence.
-22. No native ABI publication occurs.
-23. DataAssets are not reintroduced.
-24. The accepted TSan/TLS/UBSAN/`ffigen_js` dispositions are not reopened without new evidence.
-25. Documentation and tracker accurately state the final Windows contract.
-26. One clean exact wrapper source SHA/tree is frozen at closeout.
+1. Flutter Android rejects unsupported ia32/x86.
+2. Flutter Linux rejects arm64.
+3. Flutter Windows rejects arm64.
+4. Flutter iOS/macOS source architecture matrix is corrected without claiming Apple validation.
+5. RN Windows rejects arm64 before overrides/artifacts.
+6. RN Linux resolver does not construct unsupported arm64 native bundles.
+7. RN Windows same-path local archive updates refresh staged bytes.
+8. RN Windows staging removes stale DLLs and requires exactly one `libffmpegkit.dll`.
+9. Flutter Windows stale texture/plugin teardown cannot clear a newer FFplay frame owner.
+10. Flutter Linux stale texture/plugin teardown cannot clear a newer FFplay frame owner.
+11. Flutter Android stale surface/engine teardown cannot clear a newer process-global ANativeWindow owner through the high-level surface API.
+12. Flutter Apple source implements the same owner rule, with validation explicitly deferred.
+13. Flutter Windows failed early frame-API lookup remains retryable.
+14. Flutter Linux failed early frame-API lookup remains retryable.
+15. Flutter Apple source resolves frame API at use time and fails closed, with validation deferred.
+16. RN Windows frame API lookup is retryable and complete-pair.
+17. RN Apple source requires a complete frame API pair before activation, with validation deferred.
+18. Flutter Windows current local x64 runtime passes build/native API/FFplay gates.
+19. RN Windows current local x64 runtime passes build/native API/FFplay gates.
+20. Flutter Linux current local x64 runtime passes build/native API/FFplay gates.
+21. Flutter Android current local native bundle passes build/native API/FFplay surface gates.
+22. RN Android current local native bundle passes build/native API/FFplayView gates.
+23. Existing RN Android/Apple/Windows process-global view-owner semantics are preserved.
+24. Review 25/26 callback ownership tests remain green.
+25. No hosted CI or remotely built old native ABI bundle is used as acceptance evidence.
+26. No Apple build/runtime result is fabricated or inferred.
+27. Apple platform status remains **Validation Deferred**.
+28. Documentation/tracker state exactly which platforms were executable and validated.
+29. Product worktree is clean and one exact final SHA/tree is frozen.
 
-When all applicable local runtime gates actually pass, Windows can be considered production-ready for the reviewed Flutter and React Native surfaces at that exact wrapper source and the frozen local `0.11.2` native ABI.
+At that point the justified status is:
+
+```text
+Windows: production-ready at the frozen Review 27 source
+Linux: Flutter production-ready at the frozen Review 27 source
+Android: Flutter + React Native production-ready at the frozen Review 27 source
+Apple: source-remediated for the reviewed defect classes, platform validation deferred
+Web/Wasm: unchanged from prior accepted Review 25/26 evidence
+```
+
+Apple production readiness must be decided only after the later Apple-specific build/runtime validation review.

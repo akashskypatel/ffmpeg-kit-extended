@@ -1,5 +1,5 @@
 param(
-  [ValidateSet('x64', 'arm64')]
+  [ValidateSet('x64')]
   [string]$Architecture = 'x64',
   [string]$Destination = '',
   [string]$AppRoot = ''

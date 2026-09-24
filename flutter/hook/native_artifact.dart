@@ -9,19 +9,29 @@ String androidAbiForArchitecture(Architecture architecture) {
       return 'armeabi-v7a';
     case Architecture.arm64:
       return 'arm64-v8a';
-    case Architecture.ia32:
-      return 'x86';
     case Architecture.x64:
       return 'x86_64';
     default:
       throw StateError(
         'Unsupported Android target architecture "${architecture.name}"; '
-        'supported architectures: arm, arm64, ia32, x64.',
+        'supported architectures: arm, arm64, x64.',
       );
   }
 }
 
-String appleArtifactArchitecture(Architecture architecture) {
+String iosArtifactArchitecture(Architecture architecture) {
+  switch (architecture) {
+    case Architecture.arm64:
+      return 'arm64';
+    default:
+      throw StateError(
+        'Unsupported iOS target architecture "${architecture.name}"; '
+        'supported architecture: arm64.',
+      );
+  }
+}
+
+String macosArtifactArchitecture(Architecture architecture) {
   switch (architecture) {
     case Architecture.arm64:
       return 'arm64';
@@ -29,25 +39,32 @@ String appleArtifactArchitecture(Architecture architecture) {
       return 'x86_64';
     default:
       throw StateError(
-        'Unsupported Apple target architecture "${architecture.name}"; '
+        'Unsupported macOS target architecture "${architecture.name}"; '
         'supported architectures: arm64, x64.',
       );
   }
 }
 
-String desktopArtifactArchitecture(
-  Architecture architecture, {
-  required String platform,
-}) {
+String linuxArtifactArchitecture(Architecture architecture) {
   switch (architecture) {
-    case Architecture.arm64:
-      return 'arm64';
     case Architecture.x64:
       return 'x86_64';
     default:
       throw StateError(
-        'Unsupported $platform target architecture "${architecture.name}"; '
-        'supported architectures: arm64, x64.',
+        'Unsupported Linux target architecture "${architecture.name}"; '
+        'supported architecture: x64.',
+      );
+  }
+}
+
+String windowsArtifactArchitecture(Architecture architecture) {
+  switch (architecture) {
+    case Architecture.x64:
+      return 'x86_64';
+    default:
+      throw StateError(
+        'Unsupported Windows target architecture "${architecture.name}"; '
+        'supported architecture: x64.',
       );
   }
 }
@@ -57,11 +74,13 @@ void validateTargetArchitecture(OS targetOS, Architecture architecture) {
     case OS.android:
       androidAbiForArchitecture(architecture);
     case OS.iOS:
+      iosArtifactArchitecture(architecture);
     case OS.macOS:
-      appleArtifactArchitecture(architecture);
+      macosArtifactArchitecture(architecture);
     case OS.linux:
+      linuxArtifactArchitecture(architecture);
     case OS.windows:
-      desktopArtifactArchitecture(architecture, platform: targetOS.name);
+      windowsArtifactArchitecture(architecture);
     default:
       throw StateError(
         'Unsupported target OS "${targetOS.name}"; supported target OSes: '

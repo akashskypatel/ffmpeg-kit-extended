@@ -1,43 +1,35 @@
 import 'package:code_assets/code_assets.dart';
 import 'package:test/test.dart';
 
+import '../hook/build.dart';
 import '../hook/native_artifact.dart';
 
 void main() {
   test('maps supported Android architectures explicitly', () {
     expect(androidAbiForArchitecture(Architecture.arm), 'armeabi-v7a');
     expect(androidAbiForArchitecture(Architecture.arm64), 'arm64-v8a');
-    expect(androidAbiForArchitecture(Architecture.ia32), 'x86');
     expect(androidAbiForArchitecture(Architecture.x64), 'x86_64');
   });
 
-  test('maps supported Apple architectures explicitly', () {
-    expect(appleArtifactArchitecture(Architecture.arm64), 'arm64');
-    expect(appleArtifactArchitecture(Architecture.x64), 'x86_64');
+  test('maps supported Apple architectures per platform', () {
+    expect(iosArtifactArchitecture(Architecture.arm64), 'arm64');
+    expect(macosArtifactArchitecture(Architecture.arm64), 'arm64');
+    expect(macosArtifactArchitecture(Architecture.x64), 'x86_64');
   });
 
-  test('maps supported desktop architectures explicitly', () {
-    expect(
-      desktopArtifactArchitecture(Architecture.arm64, platform: 'windows'),
-      'arm64',
-    );
-    expect(
-      desktopArtifactArchitecture(Architecture.x64, platform: 'linux'),
-      'x86_64',
-    );
+  test('maps supported Linux and Windows architectures explicitly', () {
+    expect(linuxArtifactArchitecture(Architecture.x64), 'x86_64');
+    expect(windowsArtifactArchitecture(Architecture.x64), 'x86_64');
   });
 
   test('rejects unsupported Android architectures clearly', () {
     final supported = <Architecture>{
       Architecture.arm,
       Architecture.arm64,
-      Architecture.ia32,
       Architecture.x64,
     };
     for (final architecture in Architecture.values) {
-      if (supported.contains(architecture)) {
-        continue;
-      }
+      if (supported.contains(architecture)) continue;
       expect(
         () => androidAbiForArchitecture(architecture),
         throwsA(
@@ -54,30 +46,29 @@ void main() {
     }
   });
 
-  test('rejects unsupported Apple and desktop architectures clearly', () {
+  test('rejects unsupported Apple architectures clearly', () {
     for (final architecture in Architecture.values) {
-      if (architecture != Architecture.arm64 &&
-          architecture != Architecture.x64) {
+      if (architecture != Architecture.arm64) {
         expect(
-          () => appleArtifactArchitecture(architecture),
+          () => iosArtifactArchitecture(architecture),
           throwsA(
             isA<StateError>().having(
               (error) => error.message,
               'message',
-              allOf(
-                contains(architecture.name),
-                contains('supported architectures'),
-              ),
+              allOf(contains('iOS'), contains(architecture.name)),
             ),
           ),
         );
+      }
+      if (architecture != Architecture.arm64 &&
+          architecture != Architecture.x64) {
         expect(
-          () => desktopArtifactArchitecture(architecture, platform: 'linux'),
+          () => macosArtifactArchitecture(architecture),
           throwsA(
             isA<StateError>().having(
               (error) => error.message,
               'message',
-              allOf(contains('linux'), contains(architecture.name)),
+              allOf(contains('macOS'), contains(architecture.name)),
             ),
           ),
         );
@@ -85,20 +76,74 @@ void main() {
     }
   });
 
-  test('validates target architecture before artifact resolution', () {
+  test('rejects unsupported Linux and Windows architectures clearly', () {
+    for (final architecture in Architecture.values) {
+      if (architecture != Architecture.x64) {
+        expect(
+          () => linuxArtifactArchitecture(architecture),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('Linux'), contains(architecture.name)),
+            ),
+          ),
+        );
+        expect(
+          () => windowsArtifactArchitecture(architecture),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              allOf(contains('Windows'), contains(architecture.name)),
+            ),
+          ),
+        );
+      }
+    }
+  });
+
+  test('validates target architecture before artifact resolution', () async {
     expect(
       () => validateTargetArchitecture(OS.android, Architecture.arm64),
       returnsNormally,
     );
     expect(
-      () => validateTargetArchitecture(OS.iOS, Architecture.x64),
+      () => validateTargetArchitecture(OS.iOS, Architecture.arm64),
       returnsNormally,
     );
     expect(
       () => validateTargetArchitecture(OS.linux, Architecture.x64),
       returnsNormally,
     );
+    expect(
+      () => validateTargetArchitecture(OS.windows, Architecture.x64),
+      returnsNormally,
+    );
+    expect(
+      () => validateTargetArchitecture(OS.iOS, Architecture.x64),
+      throwsA(isA<StateError>()),
+    );
   });
+
+  test(
+    'does not invoke artifact resolution for an unsupported target',
+    () async {
+      var resolved = false;
+      await expectLater(
+        resolveAfterTargetArchitectureValidation(
+          targetOS: OS.windows,
+          targetArch: Architecture.arm64,
+          resolve: () async {
+            resolved = true;
+            return true;
+          },
+        ),
+        throwsA(isA<StateError>()),
+      );
+      expect(resolved, isFalse);
+    },
+  );
 
   test('rejects unsupported target operating systems explicitly', () {
     final supported = [OS.android, OS.iOS, OS.linux, OS.macOS, OS.windows];

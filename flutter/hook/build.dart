@@ -52,16 +52,15 @@ void main(List<String> args) async {
       'Target: ${targetOS.name}-${targetArch.name}; '
       'SDK: ${_buildHookSdk(input)}',
     );
-    validateTargetArchitecture(targetOS, targetArch);
-
-    // 1. Load Configuration
-    final configResult = _loadConfig(input, output);
-
-    // 2. Resolve Artifact
-    final artifact = await _resolveArtifact(
-      configResult,
-      input,
-      output.dependencies.add,
+    // Validate before loading configuration so unsupported targets cannot
+    // trigger override selection, downloads, extraction, or staging.
+    final artifact = await resolveAfterTargetArchitectureValidation(
+      targetOS: targetOS,
+      targetArch: targetArch,
+      resolve: () {
+        final configResult = _loadConfig(input, output);
+        return _resolveArtifact(configResult, input, output.dependencies.add);
+      },
     );
     if (artifact == null) {
       throw _exception(
@@ -72,6 +71,16 @@ void main(List<String> args) async {
     // 3. Emit Assets
     await _emitAssets(artifact, input, output);
   });
+}
+
+@visibleForTesting
+Future<T> resolveAfterTargetArchitectureValidation<T>({
+  required OS targetOS,
+  required Architecture targetArch,
+  required Future<T> Function() resolve,
+}) async {
+  validateTargetArchitecture(targetOS, targetArch);
+  return resolve();
 }
 
 Future<void> _buildWebAssets(
@@ -689,10 +698,9 @@ Future<FFmpegArtifact?> _resolveArtifact(
       url = "$_baseUrlTemplate/$tag/$filename";
     } else {
       // Windows, Linux
-      final archStr = desktopArtifactArchitecture(
-        targetArch,
-        platform: targetOS.name,
-      );
+      final archStr = targetOS == OS.windows
+          ? windowsArtifactArchitecture(targetArch)
+          : linuxArtifactArchitecture(targetArch);
       final parts = ['bundle', currentType, platformName, archStr, 'shared'];
       if (type == 'debug') {
         parts.add('debug');
@@ -1216,7 +1224,9 @@ String _appleFrameworkInfoPlist({required bool simulator}) {
 
 String _getAndroidAbi() => androidAbiForArchitecture(targetArch);
 
-String _getAppleArch() => appleArtifactArchitecture(targetArch);
+String _getAppleArch() => targetOS == OS.iOS
+    ? iosArtifactArchitecture(targetArch)
+    : macosArtifactArchitecture(targetArch);
 
 String _appleDiagnosticContext(BuildInput input) {
   final sdk = targetOS == OS.iOS
