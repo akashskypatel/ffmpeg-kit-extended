@@ -103,6 +103,11 @@ static void ResolveFFplayFrameSymbols(void) {
           gFFmpegKitHandle, "ffplay_kit_unregister_frame_callback");
     }
   }
+
+  if (!gRegisterFrameCallback || !gUnregisterFrameCallback) {
+    gRegisterFrameCallback = NULL;
+    gUnregisterFrameCallback = NULL;
+  }
 }
 
 static void FillPermuteMap(const char *pixelFormat, uint8_t map[4]) {
@@ -244,8 +249,8 @@ static void FFplayFrameCallback(void *userdata,
 // Activates this mounted component as the process-wide FFplay video target.
 - (void)activateFrameOutput {
   ResolveFFplayFrameSymbols();
-  if (!gRegisterFrameCallback) {
-    NSLog(@"FFmpegKitExtended: ffplay_kit_register_frame_callback was not found");
+  if (!gRegisterFrameCallback || !gUnregisterFrameCallback) {
+    NSLog(@"FFmpegKitExtended: complete FFplay callback API was not found");
     return;
   }
 

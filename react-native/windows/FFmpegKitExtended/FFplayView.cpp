@@ -103,6 +103,12 @@ void ConvertToBGRA(const std::uint8_t *source,
 }
 
 } // namespace
+
+FFplayViewComponentView::RegisterFrameCallback
+    FFplayViewComponentView::s_registerFrameCallback = nullptr;
+FFplayViewComponentView::UnregisterFrameCallback
+    FFplayViewComponentView::s_unregisterFrameCallback = nullptr;
+std::mutex FFplayViewComponentView::s_callbackResolveMutex;
 #endif
 
 // Registers the native component used by the TypeScript FFplayView wrapper.
@@ -131,10 +137,9 @@ void FFplayViewComponentView::Initialize(
   m_dispatcherQueue =
       winrt::Microsoft::UI::Dispatching::DispatcherQueue::GetForCurrentThread();
 
-  auto registerCallback = ResolveRegisterCallback();
-  if (!registerCallback) {
+  if (!ResolveFrameCallbacks()) {
     DebugMessage(
-        "FFmpegKitExtended: ffplay_kit_register_frame_callback was not found.");
+        "FFmpegKitExtended: complete FFplay callback API was not found.");
     return;
   }
 
@@ -146,14 +151,12 @@ void FFplayViewComponentView::Initialize(
 
   if (g_activeView) {
     g_activeView->m_acceptFrames.store(false, std::memory_order_release);
-    if (auto unregisterCallback = ResolveUnregisterCallback()) {
-      unregisterCallback();
-    }
+    s_unregisterFrameCallback();
   }
 
   g_activeView = this;
   m_acceptFrames.store(true, std::memory_order_release);
-  registerCallback(&FFplayViewComponentView::OnFrame, this);
+  s_registerFrameCallback(&FFplayViewComponentView::OnFrame, this);
 }
 
 FFplayViewComponentView::~FFplayViewComponentView() {
@@ -162,8 +165,8 @@ FFplayViewComponentView::~FFplayViewComponentView() {
   {
     std::lock_guard<std::mutex> registrationLock(g_registrationMutex);
     if (g_activeView == this) {
-      if (auto unregisterCallback = ResolveUnregisterCallback()) {
-        unregisterCallback();
+      if (s_unregisterFrameCallback) {
+        s_unregisterFrameCallback();
       }
       g_activeView = nullptr;
     }
@@ -374,28 +377,31 @@ HMODULE FFplayViewComponentView::LoadFFmpegKitModule() noexcept {
   return module;
 }
 
-FFplayViewComponentView::RegisterFrameCallback
-FFplayViewComponentView::ResolveRegisterCallback() noexcept {
-  static RegisterFrameCallback callback = []() noexcept {
-    auto module = LoadFFmpegKitModule();
-    return module
-               ? reinterpret_cast<RegisterFrameCallback>(GetProcAddress(
-                     module, "ffplay_kit_register_frame_callback"))
-               : nullptr;
-  }();
-  return callback;
-}
+bool FFplayViewComponentView::ResolveFrameCallbacks() noexcept {
+  std::lock_guard<std::mutex> resolveLock(s_callbackResolveMutex);
+  if (s_registerFrameCallback && s_unregisterFrameCallback) {
+    return true;
+  }
 
-FFplayViewComponentView::UnregisterFrameCallback
-FFplayViewComponentView::ResolveUnregisterCallback() noexcept {
-  static UnregisterFrameCallback callback = []() noexcept {
-    auto module = LoadFFmpegKitModule();
-    return module
-               ? reinterpret_cast<UnregisterFrameCallback>(GetProcAddress(
-                     module, "ffplay_kit_unregister_frame_callback"))
-               : nullptr;
-  }();
-  return callback;
+  auto module = LoadFFmpegKitModule();
+  auto registerCallback = module
+      ? reinterpret_cast<RegisterFrameCallback>(GetProcAddress(
+            module, "ffplay_kit_register_frame_callback"))
+      : nullptr;
+  auto unregisterCallback = module
+      ? reinterpret_cast<UnregisterFrameCallback>(GetProcAddress(
+            module, "ffplay_kit_unregister_frame_callback"))
+      : nullptr;
+
+  if (registerCallback && unregisterCallback) {
+    s_registerFrameCallback = registerCallback;
+    s_unregisterFrameCallback = unregisterCallback;
+    return true;
+  }
+
+  s_registerFrameCallback = nullptr;
+  s_unregisterFrameCallback = nullptr;
+  return false;
 }
 
 #endif // RNW_NEW_ARCH

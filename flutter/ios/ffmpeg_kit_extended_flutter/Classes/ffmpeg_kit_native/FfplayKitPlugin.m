@@ -35,8 +35,61 @@ typedef void (*FFplayFrameCb)(void *userdata, const uint8_t *pixels, int width,
                               const char *pixel_format);
 typedef void (*FFplayRegisterFrameCallbackFn)(FFplayFrameCb callback,
                                               void *userdata);
+typedef void (*FFplayUnregisterFrameCallbackFn)(void);
 static FFplayRegisterFrameCallbackFn _ffplay_kit_register_frame_callback_fn =
     NULL;
+static FFplayUnregisterFrameCallbackFn _ffplay_kit_unregister_frame_callback_fn =
+    NULL;
+
+static NSLock *FfplayOwnerLock(void) {
+  static NSLock *lock;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{ lock = [[NSLock alloc] init]; });
+  return lock;
+}
+
+static void *sFfplayOwner = NULL;
+
+static BOOL FfplayInstallOwner(void *owner, void (^install)(void)) {
+  if (!owner || !install) return NO;
+  NSLock *lock = FfplayOwnerLock();
+  [lock lock];
+  install();
+  sFfplayOwner = owner;
+  [lock unlock];
+  return YES;
+}
+
+static BOOL FfplayUninstallIfOwned(void *owner, void (^uninstall)(void)) {
+  if (!owner || !uninstall) return NO;
+  NSLock *lock = FfplayOwnerLock();
+  [lock lock];
+  if (sFfplayOwner != owner) {
+    [lock unlock];
+    return NO;
+  }
+  uninstall();
+  sFfplayOwner = NULL;
+  [lock unlock];
+  return YES;
+}
+
+static BOOL ResolveFFplayFrameAPI(void) {
+  FFplayRegisterFrameCallbackFn registerFn =
+      (FFplayRegisterFrameCallbackFn)dlsym(
+          RTLD_DEFAULT, "ffplay_kit_register_frame_callback");
+  FFplayUnregisterFrameCallbackFn unregisterFn =
+      (FFplayUnregisterFrameCallbackFn)dlsym(
+          RTLD_DEFAULT, "ffplay_kit_unregister_frame_callback");
+  if (!registerFn || !unregisterFn) {
+    _ffplay_kit_register_frame_callback_fn = NULL;
+    _ffplay_kit_unregister_frame_callback_fn = NULL;
+    return NO;
+  }
+  _ffplay_kit_register_frame_callback_fn = registerFn;
+  _ffplay_kit_unregister_frame_callback_fn = unregisterFn;
+  return YES;
+}
 
 static FlutterEventSink sLogEventSink = nil;
 
@@ -351,8 +404,6 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 }
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar {
-  _ffplay_kit_register_frame_callback_fn =
-      dlsym(RTLD_DEFAULT, "ffplay_kit_register_frame_callback");
   FfplayKitPlugin *instance = [[FfplayKitPlugin alloc] init];
   instance->_textureRegistry = [registrar textures];
 
@@ -390,6 +441,13 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 }
 
 - (void)handleCreateTexture:(FlutterResult)result {
+  if (!ResolveFFplayFrameAPI()) {
+    result([FlutterError errorWithCode:@"FFPLAY_UNAVAILABLE"
+                               message:@"FFplay frame callback API is not available yet"
+                               details:nil]);
+    return;
+  }
+
   // Release any existing texture before allocating a new one.
   [self releaseTextureState];
   FfkitPixelTexture *tex = [[FfkitPixelTexture alloc] init];
@@ -405,8 +463,11 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   // Bump retain count so the object stays alive through the C void* boundary.
   // The matching release happens via __bridge_transfer in -releaseTextureState.
   _retainedTexPtr = (__bridge_retained void *)tex;
-  if (_ffplay_kit_register_frame_callback_fn) {
-    _ffplay_kit_register_frame_callback_fn(ffplay_frame_cb, _retainedTexPtr);
+  if (_ffplay_kit_register_frame_callback_fn &&
+      _ffplay_kit_unregister_frame_callback_fn) {
+    FfplayInstallOwner(_retainedTexPtr, ^{
+      _ffplay_kit_register_frame_callback_fn(ffplay_frame_cb, _retainedTexPtr);
+    });
   } else {
     ffplaykit_log("[ERROR] _ffplay_kit_register_frame_callback_fn is NULL");
   }
@@ -439,8 +500,10 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   _texture = nil;
 
   // 1. Stop frame delivery.
-  if (_ffplay_kit_register_frame_callback_fn) {
-    _ffplay_kit_register_frame_callback_fn(NULL, NULL);
+  if (_ffplay_kit_unregister_frame_callback_fn) {
+    FfplayUninstallIfOwned(_retainedTexPtr, ^{
+      _ffplay_kit_unregister_frame_callback_fn();
+    });
   }
 
   // 2. Drain any in-flight callback: -invalidate acquires _lock, which

@@ -74,8 +74,10 @@ struct FFplayViewComponentView
                    const char *pixelFormat) noexcept;
   bool EnsureDrawingSurface(int width, int height) noexcept;
   static HMODULE LoadFFmpegKitModule() noexcept;
-  static RegisterFrameCallback ResolveRegisterCallback() noexcept;
-  static UnregisterFrameCallback ResolveUnregisterCallback() noexcept;
+  static bool ResolveFrameCallbacks() noexcept;
+  static RegisterFrameCallback s_registerFrameCallback;
+  static UnregisterFrameCallback s_unregisterFrameCallback;
+  static std::mutex s_callbackResolveMutex;
 
   std::mutex m_frameMutex;
   std::atomic_bool m_acceptFrames{false};

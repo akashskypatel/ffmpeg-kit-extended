@@ -21,8 +21,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import 'ffplay_kit_android.dart';
-
 /// Flutter [Texture]-backed Android surface for FFplay video output.
 ///
 /// Creates native `android.view.Surface` registered with Flutter's
@@ -34,7 +32,7 @@ import 'ffplay_kit_android.dart';
 /// ```dart
 /// // Before starting playback:
 /// _surface = await FFplayAndroidSurface.create();
-/// if (_surface != null) _surface!.bindToFFplay();
+/// if (_surface != null) await _surface!.bindToFFplay();
 ///
 /// final session = await FFplayKit.executeAsync('-i "$path"');
 ///
@@ -92,16 +90,18 @@ class FFplayAndroidSurface {
   /// Uses ValueKey to force widget recreation when textureId changes.
   Widget toWidget() => Texture(key: ValueKey(textureId), textureId: textureId);
 
-  /// Registers surface as FFplay video output target.
+  /// Registers this surface as the process-global FFplay video output target.
   /// Must be called **before** `FFplayKit.executeAsync`.
   /// No-op on non-Android platforms.
-  void bindToFFplay() => FFplayKitAndroid.setAndroidSurface(nativeWindowPtr);
+  Future<void> bindToFFplay() async {
+    if (!Platform.isAndroid) return;
+    await _channel.invokeMethod<void>('bindSurface', {'textureId': textureId});
+  }
 
   /// Clears FFplay video output binding and releases native resources.
   /// After calling this, discard the [FFplayAndroidSurface] instance.
   Future<void> release() async {
     if (!Platform.isAndroid) return;
-    FFplayKitAndroid.clearAndroidSurfaceIfMatches(nativeWindowPtr);
     try {
       await _channel.invokeMethod<void>('releaseSurface', {
         'textureId': textureId,

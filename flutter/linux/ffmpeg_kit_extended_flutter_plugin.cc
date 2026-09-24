@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Akash Patel
 // Licensed under LGPL-2.1
 #include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
+#include "../native/ffplay_owner_coordinator.h"
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 #include <GLES3/gl3.h>
@@ -50,40 +51,50 @@ typedef void (*UnregisterFrameCallbackFn)();
 
 static RegisterFrameCallbackFn g_register_fn = nullptr;
 static UnregisterFrameCallbackFn g_unregister_fn = nullptr;
-static bool g_symbols_resolved = false;
+static std::mutex g_resolve_mutex;
 
-static void ResolveFFplayProcs() {
-  if (g_symbols_resolved) return;
+static bool ResolveFFplayProcs() {
+  std::lock_guard<std::mutex> lock(g_resolve_mutex);
+  if (g_register_fn && g_unregister_fn) return true;
   FFKIT_LOG_T("Resolving FFmpegKit symbols...");
-  g_register_fn = reinterpret_cast<RegisterFrameCallbackFn>(
+  RegisterFrameCallbackFn resolved_register = reinterpret_cast<RegisterFrameCallbackFn>(
       dlsym(RTLD_DEFAULT, "ffplay_kit_register_frame_callback"));
-  g_unregister_fn = reinterpret_cast<UnregisterFrameCallbackFn>(
+  UnregisterFrameCallbackFn resolved_unregister = reinterpret_cast<UnregisterFrameCallbackFn>(
       dlsym(RTLD_DEFAULT, "ffplay_kit_unregister_frame_callback"));
   
-  if (!g_register_fn || !g_unregister_fn) {
+  if (!resolved_register || !resolved_unregister) {
     const char* libs[] = { "libffmpegkit.so", "libffmpegkit.so.0", "libffmpegkit.so.1", nullptr};
     for (int i = 0; libs[i]; ++i) {
       void* h = dlopen(libs[i], RTLD_LAZY | RTLD_NOLOAD);
       if (!h) continue;
-      if (!g_register_fn) g_register_fn = reinterpret_cast<RegisterFrameCallbackFn>(dlsym(h, "ffplay_kit_register_frame_callback"));
-      if (!g_unregister_fn) g_unregister_fn = reinterpret_cast<UnregisterFrameCallbackFn>(dlsym(h, "ffplay_kit_unregister_frame_callback"));
-      if (g_register_fn && g_unregister_fn) break;
+      if (!resolved_register) resolved_register = reinterpret_cast<RegisterFrameCallbackFn>(dlsym(h, "ffplay_kit_register_frame_callback"));
+      if (!resolved_unregister) resolved_unregister = reinterpret_cast<UnregisterFrameCallbackFn>(dlsym(h, "ffplay_kit_unregister_frame_callback"));
+      if (resolved_register && resolved_unregister) break;
     }
   }
-  g_symbols_resolved = true;
+
+  if (!resolved_register || !resolved_unregister) {
+    g_register_fn = nullptr;
+    g_unregister_fn = nullptr;
+    FFKIT_LOG_T("FFplay frame API remains unavailable; lookup will retry");
+    return false;
+  }
+  g_register_fn = resolved_register;
+  g_unregister_fn = resolved_unregister;
   FFKIT_LOG_T("Symbols resolved: reg=%p, unreg=%p", g_register_fn, g_unregister_fn);
+  return true;
 }
 
-static void ffplay_kit_register_frame_callback(FFplayKitFrameCallback cb, void* ud) {
-  ResolveFFplayProcs();
-  if (g_register_fn)
-    g_register_fn(cb, ud); 
+static bool ffplay_kit_register_frame_callback(FFplayKitFrameCallback cb, void* ud) {
+  if (!ResolveFFplayProcs() || !g_register_fn) return false;
+  g_register_fn(cb, ud);
+  return true;
 }
 
-static void ffplay_kit_unregister_frame_callback() {
-  ResolveFFplayProcs();
-  if (g_unregister_fn)
-    g_unregister_fn(); 
+static bool ffplay_kit_unregister_frame_callback() {
+  if (!ResolveFFplayProcs() || !g_unregister_fn) return false;
+  g_unregister_fn();
+  return true;
 }
 
 // --- TextureState (Double-Buffered & Thread-Safe) ----------------------------
@@ -115,6 +126,9 @@ struct _FfkitGlTexture {
 struct _FfkitGlTextureClass {
   FlTextureGLClass parent_class;
 };
+
+static ffmpeg_kit_extended_flutter::FfplayOwnerCoordinator<FfkitGlTexture>
+    g_ffplay_owner;
 
 #define FFKIT_GL_TEXTURE(obj) \
   (G_TYPE_CHECK_INSTANCE_CAST((obj), ffkit_gl_texture_get_type(), FfkitGlTexture))
@@ -294,7 +308,8 @@ G_DEFINE_TYPE(FfmpegKitExtendedFlutterPlugin, ffmpeg_kit_extended_flutter_plugin
 static void release_texture(FfmpegKitExtendedFlutterPlugin *self, int64_t texture_id) {
   if (!self->texture || self->texture->state->fl_texture_id != texture_id) return;
   
-  ffplay_kit_unregister_frame_callback();
+  g_ffplay_owner.uninstallIfOwned(
+      self->texture, [] { ffplay_kit_unregister_frame_callback(); });
 
   {
     std::lock_guard<std::mutex> lock(self->texture->state->mutex);
@@ -308,9 +323,17 @@ static void release_texture(FfmpegKitExtendedFlutterPlugin *self, int64_t textur
 }
 
 static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethodCall* method_call) {
+  if (!ResolveFFplayProcs()) {
+    fl_method_call_respond_error(
+        method_call, "FFPLAY_UNAVAILABLE",
+        "FFplay frame callback API is not available yet", nullptr, nullptr);
+    return;
+  }
+
   // Reuse existing texture if available
   if (self->texture) {
-    ffplay_kit_unregister_frame_callback();
+    g_ffplay_owner.uninstallIfOwned(
+        self->texture, [] { ffplay_kit_unregister_frame_callback(); });
     
     {
       std::lock_guard<std::mutex> lock(self->texture->state->mutex);
@@ -321,7 +344,16 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethod
       self->texture->state->needs_gl_reset = true; // Safe reset on next populate call
     }
 
-    ffplay_kit_register_frame_callback(on_frame_callback, self->texture);
+    if (!g_ffplay_owner.install(self->texture, [self] {
+      return ffplay_kit_register_frame_callback(on_frame_callback, self->texture);
+    })) {
+      std::lock_guard<std::mutex> lock(self->texture->state->mutex);
+      self->texture->state->destroyed = true;
+      fl_method_call_respond_error(
+          method_call, "FFPLAY_UNAVAILABLE",
+          "FFplay frame callback API could not be registered", nullptr, nullptr);
+      return;
+    }
     
     g_autoptr(FlValue) result = fl_value_new_map();
     fl_value_set_string_take(result, "textureId", fl_value_new_int(self->texture->state->fl_texture_id));
@@ -335,7 +367,17 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethod
   self->texture = tex;
   self->texture->state->fl_texture_id = fl_texture_get_id(FL_TEXTURE(tex));
   
-  ffplay_kit_register_frame_callback(on_frame_callback, tex);
+  if (!g_ffplay_owner.install(tex, [tex] {
+    return ffplay_kit_register_frame_callback(on_frame_callback, tex);
+  })) {
+    fl_texture_registrar_unregister_texture(self->texture_registrar, FL_TEXTURE(tex));
+    self->texture = nullptr;
+    g_object_unref(tex);
+    fl_method_call_respond_error(
+        method_call, "FFPLAY_UNAVAILABLE",
+        "FFplay frame callback could not be registered", nullptr, nullptr);
+    return;
+  }
   
   g_autoptr(FlValue) result = fl_value_new_map();
   fl_value_set_string_take(result, "textureId", fl_value_new_int(self->texture->state->fl_texture_id));
@@ -376,8 +418,9 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call, 
 static void ffmpeg_kit_extended_flutter_plugin_dispose(GObject* object) {
   auto* self = FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(object);
   if (self->texture) {
-    // Only unregister when the plugin itself is destroyed
-    ffplay_kit_unregister_frame_callback();
+    // Only the current process-global owner may unregister the callback.
+    g_ffplay_owner.uninstallIfOwned(
+        self->texture, [] { ffplay_kit_unregister_frame_callback(); });
     fl_texture_registrar_unregister_texture(self->texture_registrar, FL_TEXTURE(self->texture));
     self->texture = nullptr;
   }

@@ -9,6 +9,7 @@ library;
 
 import 'dart:io' show Platform;
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'ffplay_android_surface.dart';
@@ -25,11 +26,7 @@ class FFplaySurface {
   final FFplayAndroidSurface? _android;
   final FFplayDesktopTexture? _desktop;
 
-  FFplaySurface._({
-    required this.textureId,
-    this._android,
-    this._desktop,
-  });
+  FFplaySurface._({required this.textureId, this._android, this._desktop});
 
   /// Allocates the native surface and wires it to FFplay.
   static Future<FFplaySurface?> create({int width = 1, int height = 1}) async {
@@ -39,7 +36,12 @@ class FFplaySurface {
         height: height,
       );
       if (surface == null) return null;
-      surface.bindToFFplay();
+      try {
+        await surface.bindToFFplay();
+      } on PlatformException {
+        await surface.release();
+        return null;
+      }
       return FFplaySurface._(textureId: surface.textureId, android: surface);
     }
     if (Platform.isLinux ||
