@@ -76,7 +76,7 @@ The documentation closeout commit is the implementation/source-freeze point:
   `review26-wrapper-source-35943439201`, artifact ID `10786006110`, [download
   link](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10786006110/zip);
 - unchanged frozen builder source snapshot: workflow `35932349418`, artifact
-  ID `10781566959`, [download link](https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/actions/artifacts/10781566959/zip).
+  ID `10781831131`, [download link](https://api.github.com/repos/akashskypatel/ffmpeg-kit-builders/actions/artifacts/10781831131/zip). The companion diagnostic log is artifact `10781566959`.
 
 The snapshot is provenance only and does not constitute Flutter or React Native
 runtime validation.
