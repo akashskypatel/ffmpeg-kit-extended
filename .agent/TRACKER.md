@@ -11,8 +11,15 @@
 | **R25-R1** | Make React Native Web callback registration lifetime-safe | **Complete — stable Wasm callback pointer retained across unregister/reinstall; delayed-pointer and 10,000-cycle Node stress tests passed** |
 | **R25-R2** | Bound React Native native/Windows callback bridge state lifetime | **Complete — one reusable active state per module; destruction-only retirement; source contract and 37/37 local Node tests passed** |
 | **R25-R3** | Remove stale old-ABI Flutter Web runtime from positive/runtime authority | **Complete — stale executable pair removed, fixture uses local current Wasm ZIP, selector hardened, focused tests and real Wasm Web build passed** |
-| **R25-R4** | Re-run the affected local platform/runtime matrix after R1–R3 | **Pending R25-R1–R25-R3** |
+| **R25-R4** | Re-run the affected local platform/runtime matrix after R1–R3 | **Complete — local React Native package/Web/Windows and Flutter analysis/test/Wasm/browser gates passed; no hosted CI used** |
 | **R25-R5** | Reconcile tests/docs only for behavior changed by R1–R3 | **Pending R25-R1–R25-R4** |
+
+### Review 25 local validation — 2026-09-23
+
+- React Native local checks passed with an isolated temporary npm cache: `npm run check` passed typecheck, lint, and **161/161** Node tests; `npm run test:web` passed the headless WebAssembly smoke suite; and `npm run test:pack-web` passed the packed Vite consumer build. The only lint output was the pre-existing unnecessary-escape warning in `tests/arguments.test.js`.
+- Flutter local checks passed with analytics disabled: `dart --disable-analytics analyze`, `flutter analyze`, and `flutter test --no-pub --exclude-tags native` passed with **173/173** tests. The example `flutter build web --wasm --release --target lib/web_runtime_smoke.dart` passed against the local WSL Wasm archive, and the served browser smoke passed `STARTING|INITIALIZED|FFMPEG_OK|LOG_OK|FFPROBE_OK|MEDIA_INFO_OK|PASS`.
+- React Native Windows Release MSBuild passed against the local WSL Windows archive and produced `react-native/example/windows/x64/Release/FFmpegKitExtended.dll` and `FFmpegKitExtendedExample.exe`. The generated example bundle completed with compiler warnings only; no hosted workflow or remotely staged binary was used.
+- Temporary npm cache, browser server, Playwright junction, logs, and generated fixture/build directories were removed after validation. The local WSL builder checkout and `libs/libffmpegkit` source were not modified.
 
 ## Review 24 Tracker — Luna production-readiness remediation — 2026-09-22
 
