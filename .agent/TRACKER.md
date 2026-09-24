@@ -1,5 +1,45 @@
 # Tracker
 
+## Review 28 Runtime Production-Readiness — 2026-09-24
+
+- Plan: [review-28-luna-runtime-production-readiness-plan.md](./review-28-luna-runtime-production-readiness-plan.md)
+- Scope: make Flutter desktop texture registration failure-atomic, close the Linux `FfkitGlTexture` ownership leak, and prepare (without executing) the deferred Flutter/React Native desktop and Apple interactive validation matrices.
+- Baseline: Review 27 wrapper source `8e5b25efa9268e6c547001abb1a1f4255e08e7cb`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`; `libs/libffmpegkit` is clean on `dev` at `b74da2c5d1e294b87d15d73a6687393729e932b3`, matching origin.
+- Validation authority: current local ABI artifacts only. Windows, Linux/WSL, Wasm, and Android use the supplied WSL-local files; Apple uses the exact universal XCFramework archives recorded under Review 27. No native ABI or builder checkout changes, remote binary retrieval/publication, or Flutter/React Native hosted CI are allowed.
+- Android host decision: Android build/testing runs on the local Windows host using the installed Windows SDK/toolchain. The WSL AAR remains the local binary authority; no WSL Android build is required for this review.
+- Interactive boundary: Luna may inspect source, add focused native/noninteractive tests, compile, link, package, and prepare fixtures/commands/oracles. Luna must not launch or operate Flutter or React Native interactive apps. Deferred runtime entries remain `Deferred — final manual user validation pending` until the user supplies evidence.
+- Exact iOS SDK decision: Windows-local Flutter `3.47.4` at `D:\Projects\flutter\flutter` documents `0` as the macOS registrar failure result in `FlutterTexture.h`, but the installed iOS `FlutterEngine.mm` allocates IDs with `nextTextureId++` and has no failure path; its default first valid ID is also `0`. Therefore no `tid == 0` failure check was added to the iOS implementation. This is an SDK-specific decision, not an assumption copied from macOS.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R28-G1** | Fail closed when Flutter external-texture registration fails on Windows/Linux/macOS | **Implementation complete; Windows/Linux focused and release gates pass; macOS source is updated in both copies, with the post-change Apple refresh still pending because the authenticated SSH shell currently has no Flutter executable** |
+| **R28-G2** | Release the Linux plugin-owned `FfkitGlTexture` reference exactly once while preserving queued idle-callback safety | **Complete — registration-failure, owner-unwind, queued-callback, and finalization tests pass; Linux release build passes** |
+| **R28-G3** | Prepare deferred Flutter Windows/Linux and React Native Windows interactive runtime validation | **Prepared — desktop builds, local artifact identities, commands, fixture/oracles, owner transition, lifecycle repetition, and deferred user ownership are reconciled in the plan** |
+| **R28-G4** | Prepare deferred Flutter iOS Simulator and macOS interactive runtime validation | **Prepared — exact universal XCFramework identities and manual matrices/oracles are recorded; interactive execution remains user-owned; post-change Flutter Apple refresh is pending tool discovery** |
+| **R28-G5** | Prepare deferred React Native iOS/tvOS/macOS interactive runtime validation | **Prepared — exact universal XCFramework identities and manual matrices/oracles are recorded; interactive execution remains user-owned; post-change noninteractive Apple refresh is being attempted on the MacBook** |
+| **R28-G6** | Prepare rendered-frame and process-global owner-transition stress validation | **Prepared — deterministic color/alpha/geometry/frame-arrival, owner-replacement, lifecycle, and bounded stress criteria are recorded; execution remains deferred to the user** |
+| **R28-G7** | Reconcile docs/tracker and freeze one manual-validation candidate | **Pending** |
+
+### Review 28 implementation evidence — 2026-09-24
+
+- Windows now rejects a negative `RegisterTexture` result before owner installation or a texture ID response. Linux now checks the boolean result from `fl_texture_registrar_register_texture`, releases the newly-created object on failure, and reports `TEXTURE_REGISTRATION_FAILED`; owner-install failure after successful registration unregisters and releases both references.
+- Linux plugin disposal now detaches the texture, conditionally uninstalls the current FFplay owner, marks the state destroyed under its mutex, unregisters from Flutter, and releases the plugin-owned GObject reference. Queued idle callbacks retain their own reference and re-check the destroyed flag.
+- macOS now checks the documented `registerTexture:` failure sentinel and unwinds without installing callback ownership. The duplicate SwiftPM source is kept behaviorally identical. iOS is unchanged for the exact SDK reason recorded above.
+- Focused evidence now passes: the standalone Windows transaction oracle, WSL transaction oracle, WSL GLib finalization oracle, Flutter hook path suite, Flutter architecture suite **9/9**, Flutter lifecycle/ownership suites **29/29**, React Native config **25/25**, React Native unit **18/18**, and native/staging lifecycle tests **10/10**.
+- Platform evidence now passes locally: Flutter Windows release, Flutter Linux release under WSL with scoped `CFLAGS=-fPIC CXXFLAGS=-fPIC`, and Windows-hosted Flutter Android release using the supplied WSL-local AAR. Android was intentionally built/tested on Windows, not WSL. No Flutter or React Native interactive app was launched, and no hosted workflow or remote binary was used.
+- Review 28 manual validation preparation is complete for G3–G6: the plan records commands, fixture assumptions, mandatory native calls, FFplay frame/position/pause/resume/stop/release observations, owner replacement, lifecycle repetition, deterministic rendering oracles, and failure evidence. Final execution remains user-owned.
+- Apple SSH is currently authenticated as `akash@192.168.1.189` (`Akashs-MacBook-Air.local`) and the three recorded universal XCFramework SHA-256 values match. The SSH environment exposes `/usr/bin/xcodebuild`, `/opt/homebrew/bin/node`, and `/opt/homebrew/bin/pod`, but no Flutter executable was found in PATH or the standard absolute locations checked. This is an Apple Flutter toolchain-evidence gap, not a native ABI blocker; no Apple interactive runtime was launched.
+- Task-owned process cleanup completed: the ADB server started by the Windows Android build was stopped, explicit Review 28 temporary files were removed from WSL `/tmp`, and remaining Dart processes were identified as IDE/MCP/Marionette services rather than orphaned build children.
+
+### Review 28 artifacts and closure records
+
+- Windows: `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\windows-x86_64\releases\bundle-base-windows-x86_64-shared-lgpl.zip`.
+- Linux: `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle-base-linux-x86_64-shared-lgpl.zip`.
+- Wasm: `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip`.
+- Android: `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\tools\android\build\outputs\aar\bundle-base-shared-small-lgpl-release.aar`.
+- Apple: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/` universal archives recorded in the Review 27 section below.
+- Source snapshot and builders snapshot workflow IDs, artifact IDs, and download links are intentionally blank until all Review 28 goals are complete and the final SHA is frozen.
+
 ## Review 27 Cross-Platform Production-Readiness — 2026-09-24
 
 - Plan: [review-27-luna-windows-production-readiness-plan.md](./review-27-luna-windows-production-readiness-plan.md)

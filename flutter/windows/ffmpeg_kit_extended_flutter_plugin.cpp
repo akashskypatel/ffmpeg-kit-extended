@@ -8,6 +8,7 @@
 
 #include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
 #include "../native/ffplay_owner_coordinator.h"
+#include "../native/texture_registration_transaction.h"
 
 #include <flutter/standard_method_codec.h>
 #include <windows.h>
@@ -218,12 +219,26 @@ void FfmpegKitExtendedFlutterPlugin::HandleCreateTexture(
   state->texture_id =
       texture_registrar_->RegisterTexture(state->texture_variant.get());
 
+  if (state->texture_id < 0) {
+    result->Error("TEXTURE_REGISTRATION_FAILED",
+                  "Flutter could not register the FFplay texture");
+    return;
+  }
+
   // Register frame callback - decoded frames will now flow into this texture.
   // Only the latest successful wrapper binding owns the process-global target.
-  if (!g_ffplay_owner.install(state_ptr, [state_ptr] {
-        return ffplay_kit_register_frame_callback(OnFrameCallback, state_ptr);
-      })) {
-    texture_registrar_->UnregisterTexture(state->texture_id);
+  if (!InstallOwnerAfterTextureRegistration(
+          state->texture_id,
+          [state_ptr] {
+            return g_ffplay_owner.install(
+                state_ptr, [state_ptr] {
+                  return ffplay_kit_register_frame_callback(OnFrameCallback,
+                                                            state_ptr);
+                });
+          },
+          [this](int64_t texture_id) {
+            texture_registrar_->UnregisterTexture(texture_id);
+          })) {
     result->Error("FFPLAY_OWNER", "Could not claim FFplay output ownership");
     return;
   }

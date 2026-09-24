@@ -277,13 +277,37 @@ Directory? selectWebRuntimeDirectory(Directory extractedDir) {
 }
 
 @visibleForTesting
+String resolveLocalOverridePath({
+  required String overridePath,
+  required String configBaseDir,
+  bool? runningOnLinux,
+}) {
+  final isLinux = runningOnLinux ?? Platform.isLinux;
+  const wslManyLinuxPrefix = '\\\\wsl.localhost\\ManyLinux\\';
+  if (isLinux &&
+      overridePath.toLowerCase().startsWith(
+        wslManyLinuxPrefix.toLowerCase(),
+      )) {
+    final linuxPath = overridePath
+        .substring(wslManyLinuxPrefix.length)
+        .replaceAll('\\', '/');
+    return '/$linuxPath';
+  }
+
+  return p.isAbsolute(overridePath)
+      ? overridePath
+      : p.join(configBaseDir, overridePath);
+}
+
+@visibleForTesting
 WebRuntimeSource? resolveLocalWebDirectory({
   required String overridePath,
   required String configBaseDir,
 }) {
-  final localPath = p.isAbsolute(overridePath)
-      ? overridePath
-      : p.join(configBaseDir, overridePath);
+  final localPath = resolveLocalOverridePath(
+    overridePath: overridePath,
+    configBaseDir: configBaseDir,
+  );
   if (FileSystemEntity.typeSync(localPath, followLinks: false) !=
       FileSystemEntityType.directory) {
     return null;
@@ -336,9 +360,10 @@ Future<WebRuntimeSource> _resolveWebArtifact(
   if (overrideUrl != null) {
     final overrideUri = parseRemoteOverride(overrideUrl);
     if (overrideUri == null) {
-      final localPath = p.isAbsolute(overrideUrl)
-          ? overrideUrl
-          : p.join(configResult.configBaseDir, overrideUrl);
+      final localPath = resolveLocalOverridePath(
+        overridePath: overrideUrl,
+        configBaseDir: configResult.configBaseDir,
+      );
       final localType = FileSystemEntity.typeSync(
         localPath,
         followLinks: false,
@@ -1555,9 +1580,12 @@ Future<File> resolveLocalOverrideToCache({
   required Directory cacheDir,
   required void Function(Uri uri) addDependency,
 }) async {
-  final localFile = p.isAbsolute(overridePath)
-      ? File(overridePath)
-      : File(p.join(configBaseDir, overridePath));
+  final localFile = File(
+    resolveLocalOverridePath(
+      overridePath: overridePath,
+      configBaseDir: configBaseDir,
+    ),
+  );
   if (!localFile.existsSync()) {
     throw _exception('Local override not found: ${localFile.path}');
   }

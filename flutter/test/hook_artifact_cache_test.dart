@@ -122,6 +122,33 @@ void main() {
     );
   });
 
+  test('translates the local ManyLinux authority when the hook runs in WSL', () {
+    expect(
+      resolveLocalOverridePath(
+        overridePath:
+            r'\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle.zip',
+        configBaseDir: '/mnt/d/projects/ffmpeg_kit_extended/flutter/example',
+        runningOnLinux: true,
+      ),
+      equals(
+        '/home/vscode/ffmpeg-kit-builders/prebuilt/linux-x86_64/releases/bundle.zip',
+      ),
+    );
+  });
+
+  test('does not translate the ManyLinux authority on Windows', () {
+    const overridePath =
+        r'\\wsl.localhost\ManyLinux\home\vscode\bundle.zip';
+    expect(
+      resolveLocalOverridePath(
+        overridePath: overridePath,
+        configBaseDir: r'D:\Projects\ffmpeg_kit_extended\flutter\example',
+        runningOnLinux: false,
+      ),
+      equals(overridePath),
+    );
+  });
+
   test('local-only validation rejects defaults and remote overrides', () {
     expect(
       () => validateLocalArtifactSelection(

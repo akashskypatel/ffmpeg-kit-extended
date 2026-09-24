@@ -450,30 +450,43 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   }
 
   // Release any existing texture before allocating a new one.
-  [self releaseTextureState];
-  FfkitPixelTexture *tex = [[FfkitPixelTexture alloc] init];
-  int64_t tid = [_textureRegistry registerTexture:tex];
+   [self releaseTextureState];
+   FfkitPixelTexture *tex = [[FfkitPixelTexture alloc] init];
+   int64_t tid = [_textureRegistry registerTexture:tex];
 
-  __weak NSObject<FlutterTextureRegistry> *weakReg = _textureRegistry;
-  tex.onFrameAvailable = ^{
-    [weakReg textureFrameAvailable:tid];
-  };
-
-  _texture = tex;
-  _textureId = tid;
-  // Bump retain count so the object stays alive through the C void* boundary.
-  // The matching release happens via __bridge_transfer in -releaseTextureState.
-  _retainedTexPtr = (__bridge_retained void *)tex;
-  if (_ffplay_kit_register_frame_callback_fn &&
-      _ffplay_kit_unregister_frame_callback_fn) {
-    FfplayInstallOwner(_retainedTexPtr, ^{
-      _ffplay_kit_register_frame_callback_fn(ffplay_frame_cb, _retainedTexPtr);
-    });
-  } else {
-    ffplaykit_log("[ERROR] _ffplay_kit_register_frame_callback_fn is NULL");
+  if (tid == 0) {
+    result([FlutterError errorWithCode:@"TEXTURE_REGISTRATION_FAILED"
+                               message:@"Flutter could not register the FFplay texture"
+                                details:nil]);
+    return;
   }
-  result(@{@"textureId" : @(tid)});
-}
+
+   __weak NSObject<FlutterTextureRegistry> *weakReg = _textureRegistry;
+   tex.onFrameAvailable = ^{
+     [weakReg textureFrameAvailable:tid];
+   };
+
+   // Bump retain count so the object stays alive through the C void* boundary.
+   // The matching release happens via __bridge_transfer in -releaseTextureState.
+   void *retainedTexPtr = (__bridge_retained void *)tex;
+   if (!FfplayInstallOwner(retainedTexPtr, ^{
+         _ffplay_kit_register_frame_callback_fn(ffplay_frame_cb, retainedTexPtr);
+       })) {
+     FfkitPixelTexture *releasedTex =
+         (__bridge_transfer FfkitPixelTexture *)retainedTexPtr;
+     (void)releasedTex;
+     [_textureRegistry unregisterTexture:tid];
+     result([FlutterError errorWithCode:@"FFPLAY_OWNER"
+                                message:@"Could not claim FFplay output ownership"
+                                 details:nil]);
+     return;
+   }
+
+   _texture = tex;
+   _textureId = tid;
+   _retainedTexPtr = retainedTexPtr;
+   result(@{@"textureId" : @(tid)});
+ }
 
 - (void)handleReleaseTexture:(FlutterMethodCall *)call
                       result:(FlutterResult)result {

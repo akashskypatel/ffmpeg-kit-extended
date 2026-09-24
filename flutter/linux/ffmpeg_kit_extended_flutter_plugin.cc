@@ -3,6 +3,7 @@
 // Licensed under LGPL-2.1
 #include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
 #include "../native/ffplay_owner_coordinator.h"
+#include "../native/texture_registration_transaction.h"
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 #include <GLES3/gl3.h>
@@ -363,16 +364,33 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethod
 
   // First time: Create & Register
   FfkitGlTexture* tex = ffkit_gl_texture_new(self->texture_registrar);
-  fl_texture_registrar_register_texture(self->texture_registrar, FL_TEXTURE(tex));
+  if (!fl_texture_registrar_register_texture(self->texture_registrar,
+                                             FL_TEXTURE(tex))) {
+    g_object_unref(tex);
+    fl_method_call_respond_error(
+        method_call, "TEXTURE_REGISTRATION_FAILED",
+        "Flutter could not register the FFplay texture", nullptr, nullptr);
+    return;
+  }
+
   self->texture = tex;
   self->texture->state->fl_texture_id = fl_texture_get_id(FL_TEXTURE(tex));
   
-  if (!g_ffplay_owner.install(tex, [tex] {
-    return ffplay_kit_register_frame_callback(on_frame_callback, tex);
-  })) {
-    fl_texture_registrar_unregister_texture(self->texture_registrar, FL_TEXTURE(tex));
-    self->texture = nullptr;
-    g_object_unref(tex);
+  if (!ffmpeg_kit_extended_flutter::InstallOwnerAfterTextureRegistration(
+          self->texture->state->fl_texture_id,
+          [tex] {
+            return g_ffplay_owner.install(
+                tex, [tex] {
+                  return ffplay_kit_register_frame_callback(on_frame_callback,
+                                                            tex);
+                });
+          },
+          [self, tex](int64_t) {
+            fl_texture_registrar_unregister_texture(self->texture_registrar,
+                                                    FL_TEXTURE(tex));
+            self->texture = nullptr;
+            g_object_unref(tex);
+          })) {
     fl_method_call_respond_error(
         method_call, "FFPLAY_UNAVAILABLE",
         "FFplay frame callback could not be registered", nullptr, nullptr);
@@ -418,11 +436,33 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call, 
 static void ffmpeg_kit_extended_flutter_plugin_dispose(GObject* object) {
   auto* self = FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(object);
   if (self->texture) {
+    FfkitGlTexture* texture = self->texture;
+    self->texture = nullptr;
+
     // Only the current process-global owner may unregister the callback.
     g_ffplay_owner.uninstallIfOwned(
-        self->texture, [] { ffplay_kit_unregister_frame_callback(); });
-    fl_texture_registrar_unregister_texture(self->texture_registrar, FL_TEXTURE(self->texture));
-    self->texture = nullptr;
+        texture, [] { ffplay_kit_unregister_frame_callback(); });
+
+    // The plugin owns the reference returned by g_object_new. Mark the state
+    // destroyed before releasing it so queued idle callbacks can finish
+    // safely using their own temporary GObject references.
+    ffmpeg_kit_extended_flutter::ReleaseRegisteredTexture(
+        [texture] {
+          g_ffplay_owner.uninstallIfOwned(
+              texture, [] { ffplay_kit_unregister_frame_callback(); });
+        },
+        [texture] {
+          std::lock_guard<std::mutex> lock(texture->state->mutex);
+          texture->state->destroyed = true;
+          texture->state->has_pending_frame = false;
+          texture->state->read_buf.clear();
+          texture->state->write_buf.clear();
+        },
+        [self, texture] {
+          fl_texture_registrar_unregister_texture(self->texture_registrar,
+                                                  FL_TEXTURE(texture));
+        },
+        [texture] { g_object_unref(texture); });
   }
   self->texture_registrar = nullptr;
   g_clear_object(&self->channel);
