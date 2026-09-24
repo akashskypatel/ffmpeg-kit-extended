@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Akash Patel
 // Licensed under LGPL-2.1
 #include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
+#include "../native/frame_notification_coalescer.h"
 #include "../native/ffplay_owner_coordinator.h"
 #include "../native/texture_registration_transaction.h"
 #include <flutter_linux/flutter_linux.h>
@@ -111,6 +112,7 @@ struct TextureState {
   bool has_pending_frame = false;
   bool destroyed = false;
   bool needs_gl_reset = false; // Deferred to render thread
+  ffmpeg_kit_extended_flutter::FrameNotificationCoalescer frame_notification;
   
   GLuint gl_texture_id = 0;
   int64_t fl_texture_id = 0;
@@ -241,6 +243,7 @@ static gboolean mark_frame_idle_cb(gpointer user_data) {
 
   {
     std::lock_guard<std::mutex> lock(tex->state->mutex);
+    tex->state->frame_notification.consume();
     if (!tex->state->destroyed && tex->state->has_pending_frame) {
       should_mark = true;
       registrar = tex->state->registrar;
@@ -287,7 +290,7 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
 
     std::swap(state->write_buf, state->read_buf);
     state->has_pending_frame = true;
-    schedule_mark = true;
+    schedule_mark = state->frame_notification.request();
   }
 
   if (schedule_mark) {

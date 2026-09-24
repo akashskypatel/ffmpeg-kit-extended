@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | **R29-G1** | Require a complete React Native tvOS FFplay callback pair and extend the Apple lifecycle oracle | **Complete — tvOS now clears partial symbol resolution and requires register/unregister together; focused Node oracle passed 2/2; local MacBook Air tvOS Simulator Release build passed** |
 | **R29-G2** | Restore the older unsettled tracked Flutter FFplay owner when the current tracked execution settles | **Complete — tracked ownership now falls back to the newest remaining unsettled execution; Flutter lifecycle suite passed 12/12** |
-| **R29-G3** | Coalesce Flutter Linux frame notifications and retained GLib references to one pending main-loop delivery | **Open** |
+| **R29-G3** | Coalesce Flutter Linux frame notifications and retained GLib references to one pending main-loop delivery | **Complete — GLib oracle proves one pending source/ref with latest-frame delivery and rescheduling; WSL Flutter Linux Release bundle passes** |
 | **R29-G4** | Add Flutter Web playback epochs and clear stale frames at playback boundaries | **Open** |
 | **R29-G5** | Make Flutter Android/iOS/desktop fullscreen transitions failure-atomic | **Open** |
 | **R29-G6** | Reconcile documentation, tracker evidence, and the exact frozen source candidate | **Pending — after R29-G2 through R29-G5 and affected local gates** |
@@ -29,6 +29,13 @@
 - `flutter/lib/src/ffplay_kit.dart` now restores the most recently tracked unsettled `FFplaySession` when the current tracked execution settles, including startup-failure and test-tracking cleanup paths. An older execution therefore remains the global owner until it also settles.
 - `flutter/test/ffplay_kit_lifecycle_test.dart` adds the newer-before-older settlement regression. `flutter test test/ffplay_kit_lifecycle_test.dart` passed **12/12** in the elevated Windows shell with the local Windows artifact override.
 - The initial `dart --disable-analytics test ...` attempt was rejected by the Flutter SDK loader and produced only SDK-type resolution errors; it was not counted as product evidence. The required `flutter test` runner passed and no process was left running.
+
+### Review 29 R29-G3 evidence — 2026-09-24
+
+- `flutter/native/frame_notification_coalescer.h` provides the semantic `FrameNotificationCoalescer` pending bit. The Linux plugin uses it under `TextureState::mutex`, clears it before checking liveness in the idle callback, and requests a new mark only when no callback is already pending.
+- `flutter/linux/test/frame_notification_coalescer_test.cc` is a real GLib main-loop oracle: 1,000 submitted frames produced one queued idle source and one callback-held reference, the latest frame was marked, and a later frame scheduled a second notification after consumption. The `g++ -std=c++17 -Wall -Wextra -Werror` compile and run passed in WSL.
+- `flutter build linux --release` passed in WSL with scoped `CFLAGS=-fPIC CXXFLAGS=-fPIC` and the supplied local Linux archive. Verified output: `flutter/example/build/linux/x64/release/bundle/ffmpeg_kit_extended_flutter_example`, `lib/libffmpeg_kit_extended_flutter_plugin.so`, and `lib/libffmpegkit.so`.
+- The build hook printed a transient `File modified during build. Build must be rerun.` retry diagnostic before completing successfully; the final build result is the passing `✓ Built ...` line. No tagged build process remained.
 
 ## Review 28 Runtime Production-Readiness — 2026-09-24
 
