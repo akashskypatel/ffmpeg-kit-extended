@@ -49,6 +49,10 @@ structs:
   exclude:
     - '^_.*'
 
+unions:
+  exclude:
+    - '^__.*'
+
 globals:
   exclude:
     - '^__.*'
