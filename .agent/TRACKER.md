@@ -13,7 +13,7 @@
 | **R30-G1** | Move Flutter Web playback epoch ownership to every public FFplay execution route | **Complete — direct session boundary owns successful epoch commits; focused execution/epoch oracles pass** |
 | **R30-G2** | Restore the newest tracked owner when an untracked current session is removed | **Complete — shared owner-removal fallback implemented; lifecycle suite passed 14/14** |
 | **R30-G3** | Correct the stale Flutter fake-handle integration oracle and reclassify R29-B1 | **Complete — native numeric-handle fail-closed contract is now asserted; Flutter native/API suite passed 71/71** |
-| **R30-G4** | Make Flutter shared hook-artifact cache mutation safe across processes | **Pending** |
+| **R30-G4** | Make Flutter shared hook-artifact cache mutation safe across processes | **Implemented — local Windows/Linux/Android gates pass; ordered Apple hook evidence remains** |
 | **R30-G5** | Deactivate the previous React Native Apple view before callback-owner replacement | **Pending** |
 | **R30-G6** | Reconcile Review 29/30 documentation, affected gates, and the exact source snapshot | **Pending** |
 
@@ -38,6 +38,13 @@
 - `FFplaySession` now owns the playback-identity commit at the successful backend handoff: async direct sessions call `executeAsynchronously()` then `notifyPlaybackStarted()`, while synchronous sessions notify only after the blocking backend call returns successfully. Failed startup paths never notify. `FFplayKit._startTrackedExecution()` no longer performs a second epoch commit, so high-level and direct routes converge without double increments.
 - `flutter/test/ffplay_execution_boundary_test.dart` passed **3/3** using an initialized local Windows artifact: direct async success commits once, direct async failure commits zero times, and high-level `FFplayKit.start` reuses the boundary without a double commit. The synchronous execution contract passed **6/6**, including failed-startup non-commit, and the Web epoch helper suite passed **4/4**.
 - Deprecated direct `FFplaySession.executeCommand` and `executeCommandAsync` inherit the same session boundary because they delegate to `execute` and `executeAsync`. No native ABI or builder change was required.
+
+### Review 30 R30-G4 implementation and local evidence — 2026-09-24
+
+- Flutter hook artifact publication now uses unique per-process sibling temporary files/directories, an atomic-directory per-artifact lock with owner tokens and stale-lock recovery, destination rechecks under the lock, and archive-hash extraction markers. Local copies are hash-verified before publication; remote refreshes and extracted-root invalidation occur while holding the same cache lock. No process deletes another process's deterministic temporary path.
+- `flutter/test/hook_artifact_cache_test.dart` passed **17/17**, including archive-marker invalidation and a true two-Dart-process same-cache writer regression. The adjacent hook/lifecycle/execution suite passed **39/39**. Bounded Dart analysis of the changed hook/test files reported **No issues found**.
+- Ordered local platform evidence: Flutter Windows debug build passed in **40.3s** (`build/windows/x64/runner/Debug/ffmpeg_kit_extended_flutter_example.exe`); Windows Android debug build passed in **56.2s** (`build/app/outputs/flutter-apk/app-debug.apk`) using the supplied local WSL AAR; ManyLinux WSL Linux debug build passed after Flutter's automatic one-time retry (`build/linux/x64/debug/bundle/ffmpeg_kit_extended_flutter_example`).
+- Apple hook builds are intentionally not claimed here yet because the requested platform order defers Apple validation until the final Apple phase; no remote binaries or hosted workflow were used.
 
 ## Review 29 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 

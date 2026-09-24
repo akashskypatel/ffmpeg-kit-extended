@@ -80,6 +80,137 @@ void main() {
     expect(destination.readAsBytesSync(), equals([1, 2, 3]));
   });
 
+  test('reuses extraction only when the archive marker hash matches', () async {
+    final archive = File(p.join(tempRoot.path, 'bundle.zip'))
+      ..writeAsBytesSync([1, 2, 3]);
+    final cacheDir = Directory(p.join(tempRoot.path, 'cache'));
+    var extractionCount = 0;
+
+    Future<bool> extract(File file, String destination) async {
+      extractionCount++;
+      File(p.join(destination, 'payload'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(file.readAsBytesSync().join(','));
+      return true;
+    }
+
+    final first = await prepareExtractedArtifact(archive, cacheDir, extract);
+    expect(extractionCount, 1);
+    expect(extractCompletionMarkerFor(first).readAsStringSync(), isNotEmpty);
+
+    await prepareExtractedArtifact(archive, cacheDir, extract);
+    expect(extractionCount, 1);
+
+    archive.writeAsBytesSync([4, 5, 6]);
+    await prepareExtractedArtifact(archive, cacheDir, extract);
+    expect(extractionCount, 2);
+    expect(
+      Directory(tempRoot.path)
+          .listSync(recursive: true)
+          .where(
+            (entry) =>
+                p.basename(entry.path).contains('.extracting.') ||
+                p.basename(entry.path).endsWith('.lock'),
+          ),
+      isEmpty,
+    );
+  });
+
+  test(
+    'coordinates concurrent local override writers across processes',
+    () async {
+      final sourceA = File(p.join(tempRoot.path, 'source-a.zip'))
+        ..writeAsBytesSync(List<int>.generate(8 * 1024 * 1024, (i) => i % 251));
+      final sourceB = File(p.join(tempRoot.path, 'source-b.zip'))
+        ..writeAsBytesSync(
+          List<int>.generate(8 * 1024 * 1024, (i) => (i * 7) % 251),
+        );
+      final destination = File(p.join(tempRoot.path, 'cache', 'shared.zip'));
+      final worker = p.join(
+        Directory.current.path,
+        'test',
+        'hook_cache_worker.dart',
+      );
+      final flutterRoot = Platform.environment['FLUTTER_ROOT'];
+      expect(flutterRoot, isNotNull);
+      final dartExecutable = p.join(
+        flutterRoot!,
+        'bin',
+        'cache',
+        'dart-sdk',
+        'bin',
+        Platform.isWindows ? 'dart.exe' : 'dart',
+      );
+
+      final processes = await Future.wait([
+        Process.start(
+          dartExecutable,
+          ['run', worker, sourceA.path, destination.path],
+          workingDirectory: Directory.current.path,
+          environment: {
+            ...Platform.environment,
+            'REVIEW30_PROCESS': 'review30-g4-cache-worker-a',
+          },
+        ),
+        Process.start(
+          dartExecutable,
+          ['run', worker, sourceB.path, destination.path],
+          workingDirectory: Directory.current.path,
+          environment: {
+            ...Platform.environment,
+            'REVIEW30_PROCESS': 'review30-g4-cache-worker-b',
+          },
+        ),
+      ]);
+      final results = await Future.wait(
+        processes.map((process) async {
+          final stdout = await process.stdout
+              .transform(systemEncoding.decoder)
+              .join();
+          final stderr = await process.stderr
+              .transform(systemEncoding.decoder)
+              .join();
+          return (
+            exitCode: await process.exitCode,
+            stdout: stdout,
+            stderr: stderr,
+          );
+        }),
+      );
+
+      for (final result in results) {
+        expect(
+          result.exitCode,
+          0,
+          reason: 'worker stdout=${result.stdout} stderr=${result.stderr}',
+        );
+      }
+      expect(
+        destination.readAsBytesSync(),
+        anyOf(
+          equals(sourceA.readAsBytesSync()),
+          equals(sourceB.readAsBytesSync()),
+        ),
+      );
+
+      final cacheEntries = Directory(tempRoot.path)
+          .listSync(recursive: true)
+          .map((entry) => p.basename(entry.path))
+          .toList();
+      expect(
+        cacheEntries.where(
+          (name) =>
+              name.contains('.copying.') ||
+              name.contains('.refreshing.') ||
+              name.contains('.downloading.') ||
+              name.contains('.extracting.') ||
+              name.endsWith('.lock'),
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   test('tracks a local override source as a hook dependency', () async {
     final source = File(p.join(tempRoot.path, 'bundles', 'native.zip'))
       ..createSync(recursive: true)

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
@@ -22,6 +23,9 @@ const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
 const String localArtifactOnlyEnvironmentVariable =
     'FFMPEG_KIT_EXTENDED_LOCAL_ONLY';
+const Duration _cacheLockPollInterval = Duration(milliseconds: 25);
+const Duration _cacheLockStaleAfter = Duration(minutes: 30);
+final Random _cacheTempRandom = Random();
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
@@ -540,7 +544,91 @@ class AppleRuntimeLayout {
 }
 
 @visibleForTesting
-File tempDownloadFileFor(File target) => File('${target.path}.downloading');
+File tempDownloadFileFor(File target) =>
+    _uniqueSiblingFile(target, 'downloading');
+
+String _cacheTempToken() =>
+    '${pid}_${DateTime.now().microsecondsSinceEpoch}_${_cacheTempRandom.nextInt(1 << 32)}';
+
+File _uniqueSiblingFile(File target, String purpose) =>
+    File('${target.path}.$purpose.${_cacheTempToken()}');
+
+Directory _uniqueSiblingDirectory(Directory target, String purpose) =>
+    Directory('${target.path}.$purpose.${_cacheTempToken()}');
+
+Future<bool> _isStaleCacheLock(Directory lock) async {
+  try {
+    final modified = (await lock.stat()).modified;
+    return DateTime.now().difference(modified) > _cacheLockStaleAfter;
+  } on FileSystemException {
+    return false;
+  }
+}
+
+Future<T> _withCacheLock<T>(
+  String targetPath,
+  Future<T> Function() action,
+) async {
+  final lock = Directory('$targetPath.lock');
+  lock.parent.createSync(recursive: true);
+  final ownerToken = _cacheTempToken();
+  var acquired = false;
+
+  while (!acquired) {
+    var created = false;
+    try {
+      lock.createSync();
+      created = true;
+      File(p.join(lock.path, 'owner')).writeAsStringSync(ownerToken);
+      acquired = true;
+    } on FileSystemException {
+      if (created) {
+        deleteIfExists(lock);
+        rethrow;
+      }
+      if (!lock.existsSync()) {
+        continue;
+      }
+      if (await _isStaleCacheLock(lock)) {
+        deleteIfExists(lock);
+        continue;
+      }
+      await Future<void>.delayed(_cacheLockPollInterval);
+    }
+  }
+
+  try {
+    return await action();
+  } finally {
+    final owner = File(p.join(lock.path, 'owner'));
+    if (owner.existsSync() && owner.readAsStringSync() == ownerToken) {
+      deleteIfExists(lock);
+    }
+  }
+}
+
+Future<void> _publishFile(File temporary, File destination) async {
+  destination.parent.createSync(recursive: true);
+  if (Platform.isWindows && destination.existsSync()) {
+    // Dart's Windows rename can report an error after replacing the target.
+    // Delete it first while the caller holds the destination lock so the
+    // subsequent rename has one well-defined outcome.
+    destination.deleteSync();
+  }
+  try {
+    temporary.renameSync(destination.path);
+  } on FileSystemException {
+    // Windows may not replace an existing file with rename. The caller holds
+    // the destination lock, so this fallback cannot expose a partial file to
+    // another hook invocation that participates in the cache protocol.
+    if (destination.existsSync()) {
+      destination.deleteSync();
+      temporary.renameSync(destination.path);
+    } else {
+      rethrow;
+    }
+  }
+}
 
 @visibleForTesting
 Directory extractRootFor(File file, Directory cacheDir) =>
@@ -549,15 +637,6 @@ Directory extractRootFor(File file, Directory cacheDir) =>
 @visibleForTesting
 File extractCompletionMarkerFor(Directory extractRoot) =>
     File(p.join(extractRoot.path, _extractMarkerFileName));
-
-@visibleForTesting
-void cleanupStaleDownload(File target, {void Function(String message)? log}) {
-  final tempTarget = tempDownloadFileFor(target);
-  if (tempTarget.existsSync()) {
-    log?.call('Removing stale partial download ${tempTarget.path}');
-    tempTarget.deleteSync();
-  }
-}
 
 @visibleForTesting
 void deleteIfExists(FileSystemEntity entity) {
@@ -584,40 +663,49 @@ Future<Directory> prepareExtractedArtifact(
   Future<bool> Function(File zipFile, String destPath) extractFile,
 ) async {
   final extractRoot = extractRootFor(file, cacheDir);
-  final marker = extractCompletionMarkerFor(extractRoot);
-  final hasPayload =
-      extractRoot.existsSync() &&
-      extractRoot.listSync().any(
-        (entity) => p.basename(entity.path) != _extractMarkerFileName,
-      );
-
-  final hasCompletedExtract =
-      extractRoot.existsSync() && marker.existsSync() && hasPayload;
-  if (hasCompletedExtract) {
-    return extractRoot;
+  final archiveHash = await _computeFileSha256(file);
+  if (archiveHash == null) {
+    throw _exception('Unable to hash archive before extraction: ${file.path}');
   }
 
-  if (extractRoot.existsSync()) {
-    deleteIfExists(extractRoot);
-  }
-
-  final tempExtractRoot = Directory('${extractRoot.path}.extracting');
-  deleteIfExists(tempExtractRoot);
-  tempExtractRoot.createSync(recursive: true);
-
-  try {
-    final extracted = await extractFile(file, tempExtractRoot.path);
-    if (!extracted) {
-      throw _exception('Failed to extract ${file.path}');
+  return _withCacheLock(extractRoot.path, () async {
+    final marker = extractCompletionMarkerFor(extractRoot);
+    final hasPayload =
+        extractRoot.existsSync() &&
+        extractRoot.listSync().any(
+          (entity) => p.basename(entity.path) != _extractMarkerFileName,
+        );
+    final hasCompletedExtract =
+        extractRoot.existsSync() &&
+        marker.existsSync() &&
+        hasPayload &&
+        marker.readAsStringSync().trim() == archiveHash;
+    if (hasCompletedExtract) {
+      return extractRoot;
     }
 
-    File(p.join(tempExtractRoot.path, _extractMarkerFileName)).createSync();
-    tempExtractRoot.renameSync(extractRoot.path);
-    return extractRoot;
-  } catch (_) {
-    deleteIfExists(tempExtractRoot);
-    rethrow;
-  }
+    if (extractRoot.existsSync()) {
+      deleteIfExists(extractRoot);
+    }
+
+    final tempExtractRoot = _uniqueSiblingDirectory(extractRoot, 'extracting');
+    tempExtractRoot.createSync(recursive: true);
+    try {
+      final extracted = await extractFile(file, tempExtractRoot.path);
+      if (!extracted) {
+        throw _exception('Failed to extract ${file.path}');
+      }
+
+      File(
+        p.join(tempExtractRoot.path, _extractMarkerFileName),
+      ).writeAsStringSync(archiveHash);
+      tempExtractRoot.renameSync(extractRoot.path);
+      return extractRoot;
+    } catch (_) {
+      deleteIfExists(tempExtractRoot);
+      rethrow;
+    }
+  });
 }
 
 Future<FFmpegArtifact?> _resolveArtifact(
@@ -1265,14 +1353,14 @@ String _buildHookSdk(BuildInput input) =>
 
 Future<bool> _downloadFile(String url, File target) async {
   final client = HttpClient();
-  cleanupStaleDownload(target, log: _log);
   final tempTarget = tempDownloadFileFor(target);
   try {
+    tempTarget.parent.createSync(recursive: true);
     final request = await client.getUrl(Uri.parse(url));
     final response = await request.close();
     if (response.statusCode == 200) {
       await response.pipe(tempTarget.openWrite());
-      tempTarget.renameSync(target.path);
+      await _withCacheLock(target.path, () => _publishFile(tempTarget, target));
       return true;
     }
     await response.drain<void>();
@@ -1282,6 +1370,7 @@ Future<bool> _downloadFile(String url, File target) async {
     if (tempTarget.existsSync()) tempTarget.deleteSync();
     rethrow;
   } finally {
+    if (tempTarget.existsSync()) tempTarget.deleteSync();
     client.close();
   }
 }
@@ -1446,9 +1535,7 @@ Future<bool> syncRemoteOverrideToCache({
   RemoteOverrideDownloader? download,
 }) async {
   cacheDir.createSync(recursive: true);
-  final tempFile = File('${cacheFile.path}.refreshing');
-  deleteIfExists(tempFile);
-  cleanupStaleDownload(tempFile);
+  final tempFile = _uniqueSiblingFile(cacheFile, 'refreshing');
   try {
     final downloaded = await (download ?? _downloadRemoteOverride)(
       uri,
@@ -1462,19 +1549,19 @@ Future<bool> syncRemoteOverrideToCache({
     if (downloadedHash == null) {
       throw _exception('Unable to hash downloaded remote override from $uri');
     }
-    final cachedHash = cacheFile.existsSync()
-        ? await _computeFileSha256(cacheFile)
-        : null;
-    if (downloadedHash == cachedHash) return false;
 
-    cacheFile.parent.createSync(recursive: true);
-    if (cacheFile.existsSync()) cacheFile.deleteSync();
-    tempFile.renameSync(cacheFile.path);
-    deleteIfExists(extractRootFor(cacheFile, cacheDir));
-    return true;
+    return await _withCacheLock(cacheFile.path, () async {
+      final cachedHash = cacheFile.existsSync()
+          ? await _computeFileSha256(cacheFile)
+          : null;
+      if (downloadedHash == cachedHash) return false;
+
+      await _publishFile(tempFile, cacheFile);
+      deleteIfExists(extractRootFor(cacheFile, cacheDir));
+      return true;
+    });
   } finally {
     deleteIfExists(tempFile);
-    cleanupStaleDownload(tempFile);
   }
 }
 
@@ -1557,20 +1644,42 @@ Future<String?> _computeFileSha256(File file) async {
 }
 
 @visibleForTesting
-Future<bool> syncLocalOverride(File source, File destination) async {
+Future<bool> syncLocalOverride(
+  File source,
+  File destination, {
+  Directory? cacheDir,
+}) async {
   final sourceHash = await _computeFileSha256(source);
   if (sourceHash == null) {
     throw _exception('Unable to read local override: ${source.path}');
   }
 
-  final destinationHash = destination.existsSync()
-      ? await _computeFileSha256(destination)
-      : null;
-  if (sourceHash == destinationHash) return false;
-
   destination.parent.createSync(recursive: true);
-  await source.copy(destination.path);
-  return true;
+  return _withCacheLock(destination.path, () async {
+    final destinationHash = destination.existsSync()
+        ? await _computeFileSha256(destination)
+        : null;
+    if (sourceHash == destinationHash) return false;
+
+    final temporary = _uniqueSiblingFile(destination, 'copying');
+    try {
+      destination.parent.createSync(recursive: true);
+      await source.copy(temporary.path);
+      final copiedHash = await _computeFileSha256(temporary);
+      if (copiedHash != sourceHash) {
+        throw _exception(
+          'Local override changed while copying: ${source.path}',
+        );
+      }
+      await _publishFile(temporary, destination);
+      if (cacheDir != null) {
+        deleteIfExists(extractRootFor(destination, cacheDir));
+      }
+      return true;
+    } finally {
+      deleteIfExists(temporary);
+    }
+  });
 }
 
 @visibleForTesting
@@ -1592,9 +1701,6 @@ Future<File> resolveLocalOverrideToCache({
 
   addDependency(localFile.uri);
   final cacheFile = File(p.join(cacheDir.path, p.basename(localFile.path)));
-  final changed = await syncLocalOverride(localFile, cacheFile);
-  if (changed) {
-    deleteIfExists(extractRootFor(cacheFile, cacheDir));
-  }
+  await syncLocalOverride(localFile, cacheFile, cacheDir: cacheDir);
   return cacheFile;
 }
