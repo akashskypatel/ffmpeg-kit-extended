@@ -5,8 +5,9 @@ Date: 2026-09-24
 ## Authority and candidate
 
 - Review 27 starting wrapper SHA: `8e5b25efa9268e6c547001abb1a1f4255e08e7cb`.
-- Review 28 Phase A candidate wrapper SHA: `5595e54b1d3f298143ea7c81187c8e637138f550`.
-- Candidate tree SHA: `77bf8c3f9d81f6d62203b382391f2c012d0b7dbf`.
+- Review 28 Phase A product candidate wrapper SHA: `8db1b7680d1e5902832cc1a3e92940ce9e441666`.
+- Candidate tree SHA: `53b0af31be4b8ba6a7d69ae557e053da67692595`.
+- The later pushed commits `5595e54` and `29ec8bb` are documentation-only closeout commits and do not change the tested product source.
 - Frozen native product source SHA: `625c3452ee3c93fb5d701bb6546726940b88d014`.
 - `libs/libffmpegkit` remains clean on `dev` at `b74da2c5d1e294b87d15d73a6687393729e932b3`, matching origin. The native ABI and ManyLinux builder checkout were not modified.
 - This is the clean Phase A manual-validation candidate. It is not yet promoted to a final runtime-validated source until the user completes the deferred interactive matrices.
