@@ -7,6 +7,7 @@
 - Review authority: Review 26 wrapper source `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045`; frozen native product source `625c3452ee3c93fb5d701bb6546726940b88d014`. Native ABI source, `libs/libffmpegkit`, and the ManyLinux builder checkout remain unchanged and out of scope.
 - Local ABI authority: supplied WSL-local archives under `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt` for Linux x86_64, Windows x86_64, and Wasm wasm32. No hosted Flutter/React Native CI, remote old binaries, or native ABI publication is acceptance evidence.
 - Validation order: Windows, Android, Linux/WSL, then Apple source review/deferred ledger. Do not claim Apple platform validation in this pass.
+- Apple handoff note: the MacBook Air builder will provide universal `.xcframework.zip` archives, not individual dylibs. When P6 Apple work begins, both wrapper example configurations must point directly to the exact locally built platform archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt`, with archive SHA-256 evidence recorded; no per-architecture dylib substitution or remote fallback is allowed.
 
 | Goal | Objective | Status |
 | --- | --- | --- |
