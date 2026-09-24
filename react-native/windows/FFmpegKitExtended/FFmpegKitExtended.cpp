@@ -209,21 +209,27 @@ void FFmpegKitExtended::cancelSession(double sessionId) noexcept {
 
 void FFmpegKitExtended::installLogBridge() noexcept {
   invokeVoid("installLogBridge", [&] {
-    if (activeLogBridge_) return;
-
-    auto state = std::make_shared<LogBridgeState>();
+    if (!activeLogBridge_) {
+      activeLogBridge_ = std::make_shared<LogBridgeState>();
+    }
+    const auto state = activeLogBridge_;
     {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->emit = onLogEvent;
     }
-    api::enableLogCallback(&handleLogEvent, state.get());
-    activeLogBridge_ = std::move(state);
+    try {
+      api::enableLogCallback(&handleLogEvent, state.get());
+    } catch (...) {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->emit = {};
+      throw;
+    }
   });
 }
 
 void FFmpegKitExtended::uninstallLogBridge() noexcept {
   invokeVoid("uninstallLogBridge", [&] {
-    auto state = std::move(activeLogBridge_);
+    const auto state = activeLogBridge_;
     if (!state) return;
 
     api::enableLogCallback(nullptr, nullptr);
@@ -231,7 +237,6 @@ void FFmpegKitExtended::uninstallLogBridge() noexcept {
       std::lock_guard<std::mutex> lock(state->mutex);
       state->emit = {};
     }
-    retainLogBridgeState(std::move(state));
   });
 }
 

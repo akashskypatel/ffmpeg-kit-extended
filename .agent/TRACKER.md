@@ -9,7 +9,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R25-R1** | Make React Native Web callback registration lifetime-safe | **Complete — stable Wasm callback pointer retained across unregister/reinstall; delayed-pointer and 10,000-cycle Node stress tests passed** |
-| **R25-R2** | Bound React Native native/Windows callback bridge state lifetime | **Open — implementation not started** |
+| **R25-R2** | Bound React Native native/Windows callback bridge state lifetime | **Complete — one reusable active state per module; destruction-only retirement; source contract and 37/37 local Node tests passed** |
 | **R25-R3** | Remove stale old-ABI Flutter Web runtime from positive/runtime authority | **Open — implementation not started** |
 | **R25-R4** | Re-run the affected local platform/runtime matrix after R1–R3 | **Pending R25-R1–R25-R3** |
 | **R25-R5** | Reconcile tests/docs only for behavior changed by R1–R3 | **Pending R25-R1–R25-R4** |
