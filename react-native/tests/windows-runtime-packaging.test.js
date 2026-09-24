@@ -53,7 +53,7 @@ function createZip(source, archive) {
     ['-NoProfile', '-Command', command],
     {
       encoding: 'utf8',
-      env: { ...process.env, FFK27_PROCESS_TAG: 'R27-P2-create-zip' },
+      env: { ...process.env, FFK_TEST_PROCESS_TAG: 'windows-staging-create-zip' },
     },
   );
   assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -80,7 +80,7 @@ function prepareRuntime({ appRoot, destination, cacheRoot }) {
     {
       encoding: 'utf8',
       maxBuffer: 4 * 1024 * 1024,
-      env: { ...process.env, FFK27_PROCESS_TAG: 'R27-P2-prepare-runtime' },
+      env: { ...process.env, FFK_TEST_PROCESS_TAG: 'windows-staging-prepare-runtime' },
     },
   );
 }

@@ -8,12 +8,12 @@
 **Review baseline:** exact Review 26 wrapper source snapshot at `ebb2b055aa9e1841c73dd82a89c1c8aab5fbc045` and frozen native source `625c3452ee3c93fb5d701bb6546726940b88d014`  
 **Native ABI/runtime version:** `0.11.2`  
 **Implementation scope:** fix the Review 27 defect classes across every affected Flutter/React Native source path in one pass  
-**Executable validation scope for the current agent:** Windows, Linux/WSL, Android  
-**Explicitly deferred validation scope:** all Apple builds/tests/runtime validation: iOS, iOS Simulator, macOS, Apple tvOS, Apple tvOS Simulator, CocoaPods/Xcode integration  
+**Executable validation scope for the current agent:** Windows, Linux/WSL, Android, and MacBook Air Apple builds/package gates
+**Explicitly deferred validation scope:** interactive Apple simulator/device runtime sessions only; noninteractive Apple builds, CocoaPods/Xcode integration, package tests, and architecture checks are required on the MacBook Air
 **Validation policy:** use locally packaged current native ABI bundles; do not use hosted CI or remotely built old native ABI bundles as acceptance evidence  
 **Finding policy:** only functional code defects are remediation goals. Do not reopen intentional release/checksum policy, accepted sanitizer findings, provenance bookkeeping, or unrelated historical issues.
 
-**Apple local-binary handoff:** the MacBook Air build is complete. When the deferred Apple implementation/validation begins, update the Flutter example `hooks.user_defines.ffmpeg_kit_extended_flutter` Apple overrides and the React Native example `ffmpeg-kit-extended.config.json` Apple overrides to these exact locally built universal `.xcframework.zip` archives:
+**Apple local-binary authority:** the MacBook Air universal XCFramework build is complete. Flutter and React Native Apple implementation/validation must use these exact local `.xcframework.zip` archives:
 
 ```text
 /Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-ios-universal-small-lgpl.xcframework.zip
@@ -21,7 +21,7 @@
 /Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-macos-universal-small-lgpl.xcframework.zip
 ```
 
-These are universal XCFramework archives, not individual dylibs; point both wrappers at the exact platform archive produced by the builder and do not unpack or substitute per-architecture dylib paths. Record exact SHA-256 values in the tracker before Apple validation. Do not fall back to hosted releases, remotely staged old binaries, or a Windows/WSL path for Apple validation. The current Review 27 pass must leave Apple validation deferred.
+These are universal XCFramework archives, not individual dylibs; point both wrappers at the exact platform archive produced by the builder and do not unpack or substitute per-architecture dylib paths. Record exact SHA-256 values in the tracker before Apple validation. Do not fall back to hosted releases, remotely staged old binaries, or a Windows/WSL path for Apple validation. The MacBook Air is the required Apple validation host for this pass.
 
 The completed MacBook Air handoff has these verified SHA-256 values:
 
@@ -31,7 +31,7 @@ tvOS:   96bb464af154f8a90d160e2d86a194c5b24f2c85924e76e285e07a7d5019e172
 macOS:  e524b6a0cd6edf88af2e2bcd2e8d5b7253ff60c4b24eb213eeaf581d89cd099b
 ```
 
-The Flutter and React Native example configuration overrides now point to these exact universal archive paths. This is a source handoff/configuration update only; Apple builds, tests, CocoaPods/Xcode integration, simulator execution, and runtime validation remain deferred by this plan.
+The Flutter and React Native example configuration overrides now point to these exact universal archive paths. Apple builds, package tests, CocoaPods/Xcode integration, and architecture checks run locally on the MacBook Air; interactive simulator/device runtime execution may remain deferred and must be called out explicitly.
 
 ---
 
@@ -75,13 +75,13 @@ Do not regress Review 26's latest-successful-owner structured-log registration s
 
 | Goal | Severity | Platforms / wrappers | Objective | Functional finding | Luna mode | Exit gate |
 |---|---|---|---|---|---|---|
-| **R27-P1** | **High** | Flutter Android/Linux/Windows/iOS; RN Windows + resolver metadata | Replace broad architecture aliases with the actual frozen native platform matrix | Flutter accepts Android x86, Linux arm64, Windows arm64 and iOS x64 even though the frozen builder does not produce those targets; RN constructs nonexistent Windows/Linux arm64 bundle names | **Think** | Unsupported architecture requests fail before override/download/staging; supported platform mappings match the frozen builder; Apple source is corrected but Apple build/runtime validation is deferred |
+| **R27-P1** | **High** | Flutter Android/Linux/Windows/iOS; RN Windows + resolver metadata | Replace broad architecture aliases with the actual frozen native platform matrix | Flutter accepts Android x86, Linux arm64, Windows arm64 and iOS x64 even though the frozen builder does not produce those targets; RN constructs nonexistent Windows/Linux arm64 bundle names | **Think** | Unsupported architecture requests fail before override/download/staging; supported platform mappings match the frozen builder; Apple source and local universal XCFramework mappings are validated on the MacBook Air |
 | **R27-P2** | **High** | React Native Windows | Make local Windows runtime staging content-fresh and exact | Same-path changed local ZIPs can reuse old extraction; staging can retain removed DLLs; malformed/duplicate DLL layouts are flattened or accepted | **Think** | Current selected runtime bytes fully determine the staged DLL set; exactly one `libffmpegkit.dll`; same-path updates refresh; stale DLLs disappear |
 | **R27-P3** | **Critical** | Flutter Windows/Linux/Android/iOS/macOS | Give every process-global FFplay video target a process-global wrapper owner | Flutter desktop/Apple frame callback and Android ANativeWindow are process-global, but ownership is local to a plugin instance or Dart isolate; stale engine teardown can clear a newer engine's target | **Think** | Latest successful high-level Flutter video target owns the native process-global output; stale engine/plugin/surface teardown cannot clear a newer owner; current owner still releases safely |
 | **R27-P4** | **High** | Flutter Windows/Linux/iOS/macOS; RN Windows + Apple source | Make FFplay frame-API discovery retryable, complete and fail-closed | Flutter Windows/Linux permanently cache failed discovery; Flutter Apple resolves once and can return a live-looking texture without callback; RN Windows independently caches function pointers; RN Apple activation does not require the complete register/unregister pair | **Think** | A failed early lookup does not poison future initialization; no callback is installed without the complete required API; no dead texture/view is reported as usable |
 | **R27-P5** | **High validation gate** | Windows + Linux/WSL + Android | Run the current agent's complete executable platform matrix | P1–P4 touch platform-specific artifact, FFplay ownership and loading behavior and require real current-source runtime evidence | **Think** for failures; **Instant** for established commands | Flutter/RN Windows, Flutter Linux, and Flutter/RN Android build/runtime gates pass against local `0.11.2` bundles; all new regressions pass |
-| **R27-P6** | **Deferred validation gate** | iOS/iOS Simulator/macOS/tvOS/tvOS Simulator | Record Apple source remediation now and defer all Apple build/runtime validation | The same Flutter owner/resolution classes reach Apple source; RN Apple needs complete-pair activation hardening, but the current Windows agent cannot validate Apple toolchains/runtime | **Think for source review only** | Apple source changes are isolated and documented; **no Apple platform is declared validated or production-ready** until the later Apple validation review |
-| **R27-P7** | **Closeout** | All reviewed wrappers | Reconcile docs/tests/tracker and freeze one exact source | Final supported architecture, FFplay ownership, resolver recovery and staging behavior must match the implementation | **Instant** after P1–P6 source work | Windows/Linux/Android production gates are green; Apple is explicitly source-remediated/validation-deferred; final source/tree are clean and frozen |
+| **R27-P6** | **Apple validation gate** | iOS/iOS Simulator/macOS/tvOS/tvOS Simulator | Validate Flutter and React Native Apple package/build integration against the MacBook Air universal XCFramework archives | The same Flutter owner/resolution classes reach Apple source; RN Apple requires complete-pair activation hardening and local Pod/Xcode integration | **Think** | Local universal iOS/tvOS/macOS archives are selected by exact path; Flutter package/build gates and RN iOS/tvOS/macOS build gates pass; interactive runtime limitations are explicit |
+| **R27-P7** | **Closeout** | All reviewed wrappers | Reconcile docs/tests/tracker and freeze one exact source | Final supported architecture, FFplay ownership, resolver recovery, staging behavior, and local Apple package/build evidence must match the implementation | **Instant** after P1–P6 evidence and blocker disposition | Executable platform results and environment exceptions are documented; final source/tree are clean and frozen at one exact SHA |
 
 ---
 
@@ -405,7 +405,7 @@ iOS: arm64 only
 macOS: arm64 + x64
 ```
 
-Do not execute Apple platform tests in Review 27.
+Execute the Apple architecture/build/package gates on the MacBook Air in Review 27. Interactive simulator/device runtime sessions may remain deferred.
 
 A host-neutral Dart unit test of the pure architecture helper is acceptable because it does not invoke an Apple build/toolchain. However, per user direction, do not present such a helper test as Apple platform validation.
 
@@ -500,7 +500,7 @@ macos      -> arm64 or x86_64
 
 This source correction is included now.
 
-Apple Pod/Xcode validation is deferred.
+Apple Pod/Xcode validation is required on the MacBook Air and must use the exact local universal XCFramework archive for each platform.
 
 ---
 
@@ -529,9 +529,7 @@ tvOS explicit x64 -> fail
 macOS arm64/x64 -> valid metadata
 ```
 
-These are Node resolver tests only.
-
-They do not count as Apple platform build/runtime evidence.
+These are Node resolver tests only. They are supplemented by the MacBook Air Flutter and React Native Apple build/package gates; they do not by themselves establish interactive runtime evidence.
 
 ---
 
@@ -945,9 +943,7 @@ Preserve:
 - Flutter texture unregister;
 - ARC balance.
 
-Do not attempt an Apple build, `pod install`, Xcode compile, simulator run or macOS runtime gate in Review 27.
-
-Record Apple validation as deferred under P6.
+Do not attempt Apple builds or CocoaPods/Xcode commands on the Windows host. Run the Apple build/package gates over the designated MacBook Air SSH checkout; interactive simulator/device runtime remains optional and must not be implied by build success.
 
 ---
 
@@ -1149,7 +1145,7 @@ If a later runtime load makes them available, retry.
 
 Use the separate native unregister export rather than assuming a partial register-only API is sufficient.
 
-No Apple build/runtime validation in this review.
+Apple build/package validation is performed on the MacBook Air in this review; interactive runtime validation is separately classified.
 
 ---
 
@@ -1228,7 +1224,7 @@ A callback must not be installed when lifecycle teardown cannot unregister it.
 
 Keep the existing process-global view coordinator unchanged.
 
-No Apple build/runtime validation in Review 27.
+Apple noninteractive build/package validation is required in Review 27 on the MacBook Air; only interactive Apple simulator/device runtime may remain deferred.
 
 ---
 
@@ -1256,22 +1252,18 @@ P3 owns the Android process-global target fix.
 Windows
 Linux/WSL
 Android
+Apple build/package gates on the MacBook Air
 ```
 
 ## Explicitly not run now
 
 ```text
-iOS
-iOS Simulator
-macOS
-Apple tvOS
-Apple tvOS Simulator
-CocoaPods integration
-Xcode builds
-Apple runtime tests
+Interactive iOS simulator/device runtime
+Interactive macOS runtime
+Interactive tvOS simulator/device runtime
 ```
 
-Do not substitute remote CI for deferred Apple validation.
+Do not substitute remote CI or remotely staged old binaries for the local Apple build/package gates or the deferred interactive runtime.
 
 ---
 
@@ -1598,32 +1590,24 @@ The existing static Java `activeOwner` contract must remain intact.
 
 ---
 
-# 24. R27-P6 — Apple source remediation now, all Apple execution later
+# 24. R27-P6 — Apple local build and package validation
 
-## This is an explicit deferred validation gate
+## MacBook Air execution gate
 
-Review 27 **does change Apple source** where P1/P3/P4 found the same defect class.
+Review 27 **changes Apple source** where P1/P3/P4 found the same defect class and validates the wrapper package/build integration on the designated MacBook Air.
 
-Review 27 **does not execute Apple platform validation**.
+The Windows agent orchestrates these commands over SSH; no Apple hosted workflow or remote old binary is used.
 
-Do not run:
+Run with the exact local universal XCFramework archives:
 
 ```text
-pod install
-pod lib lint
-xcodebuild
-Flutter iOS build
-Flutter macOS build
-RN iOS build
-RN macOS build
-RN tvOS build
-iOS simulator
-tvOS simulator
-Apple device tests
-macOS runtime
+Flutter package tests and iOS/macOS builds
+React Native package check and iOS/tvOS/macOS builds
+CocoaPods install for iOS/macOS/tvOS
+Xcode simulator/device-target builds without signing
 ```
 
-under this current Windows agent.
+Interactive simulator/device runtime sessions may remain deferred when no interactive Apple session is available.
 
 ---
 
@@ -1668,7 +1652,7 @@ Preserve the existing process-global view coordinator.
 
 # 26. Apple source-review requirements before commit
 
-Because Apple cannot compile on the current host, Luna Think must do a careful direct source audit.
+In addition to the direct source audit, the MacBook Air must compile the affected Apple package/build paths.
 
 For each edited Apple file verify:
 
@@ -1685,32 +1669,25 @@ no Apple bundle/podspec path changes are introduced unnecessarily
 
 Use `git diff --check`.
 
-Do not treat this as Apple platform testing.
+Build/package success is not interactive runtime evidence; record the distinction explicitly.
 
 ---
 
-# 27. Required later Apple validation review
+# 27. MacBook Air Apple validation record
 
-Carry this exact deferred ledger forward.
+Use this ledger for the current Apple pass. Record build/package results in the tracker and leave only interactive runtime sessions deferred when they cannot be run.
 
 ## Flutter iOS
 
-Later Apple host must run:
+The MacBook Air build/package gate must run:
 
 ```text
 arm64 device or supported arm64 target build
 arm64 simulator build
 analysis/tests
-FFmpeg
-FFprobe
-media info
-direct structured logs
-FFplay texture create/frame/release
-A/B owner replacement + stale A release
-frame API unavailable/retry fixture if controllable
 ```
 
-Explicitly confirm x64 iOS simulator is rejected/not advertised under the frozen native matrix.
+The FFmpeg, FFprobe, media-information, structured-log, FFplay lifecycle, owner-replacement, and unavailable/retry rows are interactive runtime follow-ups, not inferred from a build. Explicitly confirm x64 iOS simulator is rejected/not advertised under the frozen native matrix.
 
 ## Flutter macOS
 
@@ -1768,7 +1745,7 @@ runtime native API
 FFplay view lifecycle
 ```
 
-Do not close Apple production readiness until those later gates actually execute.
+Do not claim interactive Apple runtime readiness from build/package success alone. Close the Apple build/package gate after the local noninteractive commands above execute and their archive identities are recorded; leave any unavailable interactive session explicitly deferred.
 
 ---
 
@@ -1807,7 +1784,7 @@ macOS:
   arm64 + x86_64
 ```
 
-Do not imply Apple runtime validation happened in Review 27.
+Do not imply interactive Apple runtime validation happened unless an interactive simulator/device session actually ran.
 
 ---
 
@@ -1849,7 +1826,7 @@ Windows staging refreshes local archive bytes and deploys one exact DLL set
 FFplay frame APIs must resolve as a complete register/unregister pair
 ```
 
-Do not claim Apple build validation occurred.
+Do not claim Apple interactive runtime validation occurred unless it actually ran; local build/package validation is recorded separately.
 
 ---
 
@@ -1866,20 +1843,20 @@ R27-P2 Complete
 
 R27-P3:
   Windows/Linux/Android -> Complete only with required executable evidence
-  Apple source -> Implemented / Validation Deferred
+  Apple source/build -> Complete; interactive runtime -> deferred only if not executable
 
 R27-P4:
   Windows/Linux/RN Windows -> Complete only with required executable evidence
-  Apple source -> Implemented / Validation Deferred
+  Apple source/build -> Complete; interactive runtime -> deferred only if not executable
 
 R27-P5 Complete
   only if Windows/Linux/Android required gates pass
 
-R27-P6 Deferred
-  by explicit user direction
+R27-P6 Complete
+  if the MacBook Air local Apple build/package gates pass and exact XCFramework hashes are recorded
 
 R27-P7 Complete
-  only if tracker/docs distinguish validated non-Apple platforms from deferred Apple
+  only if tracker/docs distinguish build/package evidence from any deferred interactive Apple runtime
 ```
 
 Do not mark:
@@ -1901,7 +1878,7 @@ Review 27 source remediation:
   Windows: implemented + validated
   Linux: implemented + validated for Flutter
   Android: implemented + validated
-  Apple: source remediation implemented; all builds/runtime tests deferred
+  Apple: source remediation and local build/package validation complete; interactive runtime deferred only where not executable
 ```
 
 If any Windows/Linux/Android runtime gate cannot execute, state:
@@ -1933,7 +1910,7 @@ R27-P4 FFplay frame API resolution
   ->
 R27-P5 Windows/Linux/Android executable validation
   ->
-R27-P6 Apple deferred-source ledger
+R27-P6 Apple local build/package validation
   ->
 R27-P7 docs/tracker/source freeze
 ```
@@ -2248,7 +2225,7 @@ The current Windows agent may close Review 27's **non-Apple** production gate on
 1. Flutter Android rejects unsupported ia32/x86.
 2. Flutter Linux rejects arm64.
 3. Flutter Windows rejects arm64.
-4. Flutter iOS/macOS source architecture matrix is corrected without claiming Apple validation.
+4. Flutter iOS/macOS source architecture matrix is corrected and local Apple build/package validation is recorded.
 5. RN Windows rejects arm64 before overrides/artifacts.
 6. RN Linux resolver does not construct unsupported arm64 native bundles.
 7. RN Windows same-path local archive updates refresh staged bytes.
@@ -2256,12 +2233,12 @@ The current Windows agent may close Review 27's **non-Apple** production gate on
 9. Flutter Windows stale texture/plugin teardown cannot clear a newer FFplay frame owner.
 10. Flutter Linux stale texture/plugin teardown cannot clear a newer FFplay frame owner.
 11. Flutter Android stale surface/engine teardown cannot clear a newer process-global ANativeWindow owner through the high-level surface API.
-12. Flutter Apple source implements the same owner rule, with validation explicitly deferred.
+12. Flutter Apple source implements the same owner rule; local MacBook Air build/package gates are recorded.
 13. Flutter Windows failed early frame-API lookup remains retryable.
 14. Flutter Linux failed early frame-API lookup remains retryable.
-15. Flutter Apple source resolves frame API at use time and fails closed, with validation deferred.
+15. Flutter Apple source resolves frame API at use time and fails closed; local Apple build/package gates are recorded.
 16. RN Windows frame API lookup is retryable and complete-pair.
-17. RN Apple source requires a complete frame API pair before activation, with validation deferred.
+17. RN Apple source requires a complete frame API pair before activation; local Apple build/package gates are recorded.
 18. Flutter Windows current local x64 runtime passes build/native API/FFplay gates.
 19. RN Windows current local x64 runtime passes build/native API/FFplay gates.
 20. Flutter Linux current local x64 runtime passes build/native API/FFplay gates.
@@ -2270,8 +2247,8 @@ The current Windows agent may close Review 27's **non-Apple** production gate on
 23. Existing RN Android/Apple/Windows process-global view-owner semantics are preserved.
 24. Review 25/26 callback ownership tests remain green.
 25. No hosted CI or remotely built old native ABI bundle is used as acceptance evidence.
-26. No Apple build/runtime result is fabricated or inferred.
-27. Apple platform status remains **Validation Deferred**.
+26. No Apple interactive runtime result is fabricated or inferred; build/package evidence is separately identified.
+27. Apple platform build/package status is **Validated locally on the MacBook Air**; interactive runtime status is explicit.
 28. Documentation/tracker state exactly which platforms were executable and validated.
 29. Product worktree is clean and one exact final SHA/tree is frozen.
 
@@ -2281,8 +2258,8 @@ At that point the justified status is:
 Windows: production-ready at the frozen Review 27 source
 Linux: Flutter production-ready at the frozen Review 27 source
 Android: Flutter + React Native production-ready at the frozen Review 27 source
-Apple: source-remediated for the reviewed defect classes, platform validation deferred
+Apple: source-remediated and locally build/package validated on the MacBook Air; interactive runtime separately classified
 Web/Wasm: unchanged from prior accepted Review 25/26 evidence
 ```
 
-Apple production readiness must be decided only after the later Apple-specific build/runtime validation review.
+Apple interactive production readiness must be decided only after interactive simulator/device runtime evidence; local build/package integration is covered by R27-P6.
