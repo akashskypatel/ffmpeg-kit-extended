@@ -8,20 +8,20 @@
 - Local ABI authority: supplied WSL-local archives under `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt` for Linux x86_64, Windows x86_64, and Wasm wasm32. No hosted Flutter/React Native CI, remote old binaries, or native ABI publication is acceptance evidence.
 - Validation order: Windows, Android, Linux/WSL, then Apple source review/deferred ledger. Do not claim Apple platform validation in this pass.
 - Apple handoff note: the MacBook Air builder has completed the universal XCFramework archives. When P6 Apple work begins, both wrapper example configurations must point directly to these exact local files, not individual dylibs:
-  - iOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-ios-universal-small-lgpl.xcframework.zip`
-  - tvOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-appletvos-universal-small-lgpl.xcframework.zip`
-  - macOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-macos-universal-small-lgpl.xcframework.zip`
-  Record archive SHA-256 evidence before Apple validation; no per-architecture dylib substitution or remote fallback is allowed.
+  - iOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-ios-universal-small-lgpl.xcframework.zip` — SHA-256 `9f10e46e4326d2cf1ec6542f82cfb714a9f5e3aeade8a38073218cdb6e18bf68`
+  - tvOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-appletvos-universal-small-lgpl.xcframework.zip` — SHA-256 `96bb464af154f8a90d160e2d86a194c5b24f2c85924e76e285e07a7d5019e172`
+  - macOS: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-macos-universal-small-lgpl.xcframework.zip` — SHA-256 `e524b6a0cd6edf88af2e2bcd2e8d5b7253ff60c4b24eb213eeaf581d89cd099b`
+  No per-architecture dylib substitution or remote fallback is allowed.
 
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R27-P1** | Replace broad architecture aliases with the frozen native platform matrix | **Complete — Flutter and React Native reject unsupported targets before artifact/config work; Windows/Linux/Android/Apple metadata mappings are covered by focused tests** |
 | **R27-P2** | Make React Native Windows runtime staging content-fresh and exact | **Complete — current archive/directory content determines the exact staged DLL projection; invalid manifests fail closed** |
-| **R27-P3** | Give every process-global Flutter FFplay video target a process-global wrapper owner | **Pending — starts after P2** |
-| **R27-P4** | Make FFplay frame-API discovery retryable, complete, and fail-closed | **Pending — starts after P3** |
-| **R27-P5** | Run the complete executable Windows/Linux/Android platform matrix | **Pending — starts after P1–P4** |
-| **R27-P6** | Record Apple source remediation and defer Apple build/runtime validation | **Pending — starts after P3–P4 source work** |
-| **R27-P7** | Reconcile docs/tests/tracker and freeze one exact source | **Pending — starts after P1–P6** |
+| **R27-P3** | Give every process-global Flutter FFplay video target a process-global wrapper owner | **Complete with Android test-execution exception — latest-successful-owner/conditional teardown is implemented across Flutter Windows/Linux/Android/iOS/macOS; executable C++ ownership oracle passed** |
+| **R27-P4** | Make FFplay frame-API discovery retryable, complete, and fail-closed | **Complete — Flutter desktop/Apple and React Native Windows/Apple now require a complete callback pair, retry after misses, and fail closed; focused source/regression tests passed 32/32** |
+| **R27-P5** | Run the complete executable Windows/Linux/Android platform matrix | **Blocked by host/artifact availability — Windows gates passed; Linux/Android current executable gates cannot run without a WSL Flutter toolchain and current Android ABI archive** |
+| **R27-P6** | Record Apple source remediation and defer Apple build/runtime validation | **Complete — source remediation and universal XCFramework handoff are recorded; Apple build/runtime validation remains explicitly deferred** |
+| **R27-P7** | Reconcile docs/tests/tracker and freeze one exact source | **Pending — final exact-SHA closeout waits for the P5 blocker disposition** |
 
 ### Review 27 preparation and P1 evidence — 2026-09-23
 
@@ -37,6 +37,15 @@
 - Staging now validates a deterministic recursive DLL manifest before copying: duplicate case-insensitive flattened basenames fail, exactly one `libffmpegkit.dll` is required, and the dedicated destination is cleared/rebuilt from the current manifest. A manifest file records the staged DLL hashes without entering the MSBuild `*.dll` projection.
 - Real PowerShell-backed regression coverage passed **5/5** in `node --test tests/windows-runtime-packaging.test.js`: same-path changed ZIP refresh, stale dependency removal, missing main DLL, duplicate main/flattened basenames, and mutable local-directory refresh.
 - The PowerShell implementation uses .NET SHA-256 APIs for compatibility with the installed Windows PowerShell runtime. All temporary fixture roots are removed by the test teardown; no builder or native ABI files were touched.
+
+### Review 27 P3/P4 implementation and P5/P6 evidence — 2026-09-23
+
+- Flutter P3 adds the semantic `FfplayOwnerCoordinator` and applies latest-successful-owner plus conditional teardown semantics to Windows, Linux, Android, iOS, and macOS. Android binds the process-global `Surface` through the plugin method channel before releasing the previous owner. The standalone C++ ownership oracle compiled with `g++.exe -std=c++17 -Wall -Wextra -Werror` and exited `0`; the Android Kotlin regression test is present but could not execute because the host Gradle launcher points to a missing Chocolatey distribution and the Flutter SDK wrapper lacks wrapper properties.
+- Flutter and React Native P4 source paths now resolve complete register/unregister callback pairs retryably, clear partial discovery, and fail closed before exposing an unusable FFplay target. `node --test tests/ffplay-native-lifecycle.test.js tests/resolve-ffmpeg-kit-config.test.js tests/windows-runtime-packaging.test.js` passed **32/32**. The Flutter architecture regression remained **9/9** from P1.
+- Windows executable evidence passed against the supplied current WSL Windows ZIP: Flutter `flutter build windows --release` completed, and the React Native Windows Release MSBuild completed with both the runtime staging and example executable output. The direct staging hash was `e7acb728101708402f7ea5d60abd973d624cf3a1598baa998673f7a6275499c2`.
+- Linux executable validation is blocked by the available host toolchain: the `ManyLinux` WSL distro has no `flutter` or `dart` executable, and the Windows Flutter command reports `"build linux" only supported on Linux hosts`. Android executable validation is blocked without a supplied current Android ABI/AAR artifact; pre-existing local AARs were not used because their native identity is not tied to the supplied current artifacts, and remote/hosted retrieval is prohibited. These are environment/artifact-availability blockers, not native ABI findings; no native ABI or builder checkout was modified.
+- P6 source remediation is complete. Flutter and React Native example configs point to the exact MacBook Air universal XCFramework ZIPs recorded above; no per-architecture dylib substitution was made. No Apple build, test, simulator, CocoaPods, Xcode, or runtime command was run.
+- The requested Review 24 document scan covered all five matching files under `.agent`: the production plan, frame-data-race note, Linux CMake note, local-artifact manifest, and production report. No stale Review 24 open/pending status was found in the current plan/report/tracker records.
 
 ## Review 26 Functional Production-Readiness Remediation — 2026-09-23
 

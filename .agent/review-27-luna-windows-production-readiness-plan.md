@@ -23,6 +23,16 @@
 
 These are universal XCFramework archives, not individual dylibs; point both wrappers at the exact platform archive produced by the builder and do not unpack or substitute per-architecture dylib paths. Record exact SHA-256 values in the tracker before Apple validation. Do not fall back to hosted releases, remotely staged old binaries, or a Windows/WSL path for Apple validation. The current Review 27 pass must leave Apple validation deferred.
 
+The completed MacBook Air handoff has these verified SHA-256 values:
+
+```text
+iOS:    9f10e46e4326d2cf1ec6542f82cfb714a9f5e3aeade8a38073218cdb6e18bf68
+tvOS:   96bb464af154f8a90d160e2d86a194c5b24f2c85924e76e285e07a7d5019e172
+macOS:  e524b6a0cd6edf88af2e2bcd2e8d5b7253ff60c4b24eb213eeaf581d89cd099b
+```
+
+The Flutter and React Native example configuration overrides now point to these exact universal archive paths. This is a source handoff/configuration update only; Apple builds, tests, CocoaPods/Xcode integration, simulator execution, and runtime validation remain deferred by this plan.
+
 ---
 
 ## Review 26 prerequisite

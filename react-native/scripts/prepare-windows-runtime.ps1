@@ -19,10 +19,59 @@ function Get-CanonicalPath {
   if (-not (Test-Path -LiteralPath $Path)) {
     throw "Path does not exist: $Path"
   }
-  return (Resolve-Path -LiteralPath $Path).Path
+  return (Resolve-Path -LiteralPath $Path).ProviderPath
 }
 
-function Get-FileSha256 {
+function Get-WslPathParts {
+  param([Parameter(Mandatory)][string]$Path)
+
+  $match = [regex]::Match(
+    $Path,
+    '^\\\\wsl(?:\.localhost|\$)\\([^\\]+)\\(.*)$',
+    [Text.RegularExpressions.RegexOptions]::IgnoreCase
+  )
+  if (-not $match.Success) {
+    return $null
+  }
+
+  return @{
+    Distro = $match.Groups[1].Value
+    LinuxPath = '/' + ($match.Groups[2].Value -replace '\\', '/')
+  }
+}
+
+function Convert-WindowsPathToWslPath {
+  param([Parameter(Mandatory)][string]$Path)
+
+  $fullPath = [IO.Path]::GetFullPath($Path)
+  if ($fullPath -notmatch '^[A-Za-z]:\\') {
+    throw "A local drive path is required for WSL copy destination: $Path"
+  }
+  return "/mnt/$($fullPath.Substring(0, 1).ToLowerInvariant())$($fullPath.Substring(2) -replace '\\', '/')"
+}
+
+function Copy-LocalFile {
+  param(
+    [Parameter(Mandatory)][string]$Source,
+    [Parameter(Mandatory)][string]$Destination
+  )
+
+  $wslParts = Get-WslPathParts $Source
+  if (-not $wslParts) {
+    Copy-Item -LiteralPath $Source -Destination $Destination -Force
+    return
+  }
+
+  $destinationDirectory = Split-Path -Parent $Destination
+  New-Item -ItemType Directory -Force -Path $destinationDirectory | Out-Null
+  $wslDestination = Convert-WindowsPathToWslPath $Destination
+  & wsl.exe -d $wslParts.Distro -- cp -- $wslParts.LinuxPath $wslDestination
+  if ($LASTEXITCODE -ne 0) {
+    throw "WSL could not copy local override $Source to $Destination"
+  }
+}
+
+function Get-DotNetFileSha256 {
   param([Parameter(Mandatory)][string]$Path)
 
   $sha = [Security.Cryptography.SHA256]::Create()
@@ -32,6 +81,27 @@ function Get-FileSha256 {
   } finally {
     $stream.Dispose()
     $sha.Dispose()
+  }
+}
+
+function Get-FileSha256 {
+  param([Parameter(Mandatory)][string]$Path)
+
+  try {
+    $hash = Get-FileHash -LiteralPath $Path -Algorithm SHA256 -ErrorAction Stop
+    if ($hash) {
+      return $hash.Hash.ToLowerInvariant()
+    }
+  } catch {
+    $temporaryHashFile = Join-Path $env:TEMP "ffmpeg-kit-hash-$PID-$([guid]::NewGuid().ToString('N')).bin"
+    try {
+      Copy-LocalFile -Source $Path -Destination $temporaryHashFile
+      return Get-DotNetFileSha256 $temporaryHashFile
+    } finally {
+      if (Test-Path -LiteralPath $temporaryHashFile) {
+        Remove-Item -LiteralPath $temporaryHashFile -Force
+      }
+    }
   }
 }
 
@@ -174,7 +244,7 @@ if ($resolution.override -and $resolution.override.kind -eq 'local') {
     $archive = Join-Path $cacheRoot "source-$archiveHash.zip"
     $runtimeRoot = Join-Path $cacheRoot "extract-$archiveHash"
     Write-Host "Using local FFmpegKit Extended Windows archive: $localArchive"
-    Copy-Item -LiteralPath $localArchive -Destination $archive -Force
+    Copy-LocalFile -Source $localArchive -Destination $archive
     Expand-ArchiveWithMarker -Archive $archive -ExtractRoot $runtimeRoot -SourceIdentity $sourceIdentity
   }
 } else {
