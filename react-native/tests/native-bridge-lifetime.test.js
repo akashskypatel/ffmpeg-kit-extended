@@ -114,12 +114,15 @@ test('native session cleanup clears owning handles through the registry-aware AP
   assert.match(clearSessions, /retainedSessionHandles\.clear\(\)/);
 });
 
-test('native session history enumerates frozen native exports directly', () => {
-  assert.match(dynamicApi, /std::vector<HandleGuard> collectNativeSessionHandles/);
-  assert.match(dynamicApi, /sessionHistoryExport\(kind\)/);
-  assert.match(dynamicApi, /lastSessionExport\(kind\)/);
-  assert.match(dynamicApi, /ffmpeg_kit_get_sessions/);
-  assert.match(dynamicApi, /ffmpeg_kit_get_last_session/);
+test('native session history projects recorded identities without enumerating owning arrays', () => {
+  assert.match(dynamicApi, /struct HistoryRecord/);
+  assert.match(dynamicApi, /rememberHistorySession/);
+  assert.match(dynamicApi, /visibleHistoryRecords\(kind\)/);
+  assert.match(dynamicApi, /acquireHistorySession/);
+  assert.match(dynamicApi, /historyRecords\.clear\(\)/);
+  assert.doesNotMatch(dynamicApi, /collectNativeSessionHandles/);
+  assert.doesNotMatch(dynamicApi, /sessionHistoryExport\(kind\)/);
+  assert.doesNotMatch(dynamicApi, /lastSessionExport\(kind\)/);
   assert.doesNotMatch(
     dynamicApi,
     /knownSessionIds|knownSessionIdSet|pruneKnownSessionIds|sessionIdsSnapshot/,

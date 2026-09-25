@@ -11,7 +11,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R33-G1** | Make Flutter session-history inspection ownership-safe so read APIs cannot cancel Running sessions | **Complete — weak identity projection reuses live Dart sessions, keeps Created/terminal lookups temporary, and focused history-index plus ownership regressions pass** |
-| **R33-G2** | Make React Native native/Web history inspection ownership-safe without restoring the Review 31/32 history-mirror defects | **Pending** |
+| **R33-G2** | Make React Native native/Web history inspection ownership-safe without restoring the Review 31/32 history-mirror defects | **Complete — native and Wasm identity projections borrow retained active handles, temporary non-active reads are released safely, and focused bridge/registry regressions pass** |
 | **R33-G3** | Give React Native native monitoring a scalar session-state path instead of full-session JSON polling | **Pending** |
 | **R33-G4** | Run focused and affected cross-platform local wrapper regression against the existing frozen local ABI artifacts | **Pending** |
 | **R33-G5** | Reconcile affected behavior/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
@@ -21,6 +21,12 @@
 - Flutter history reads now project from a semantic identity index that stores session ID, type, creation order, visibility, and weak wrapper references only. Active/queued sessions already owned by `CallbackManager` are returned directly; the history APIs no longer enumerate owning native handles for those sessions, so repeated reads cannot release a Running handle or accumulate deferred duplicates. Created/terminal cache misses still use `getSessionById` and the normal wrapper ownership transfer, where release is non-cancelling.
 - `getSession`, all typed/all-session history lists, and all typed/overall last-session lookups use the same observational projection. `clearSessions()` hides active identities without destroying callback/execution ownership; history-size reductions prune terminal visibility only. The native ABI, `libs/libffmpegkit`, and ManyLinux builders were not modified.
 - Focused elevated analytics-disabled validation passed: `flutter test --no-pub test/session_history_index_test.dart test/ownership_callback_regression_test.dart` (**23/23**), and bounded `dart --disable-analytics analyze lib/src/ffmpeg_kit_extended.dart lib/src/session_history_index.dart` reported **No issues found**. The first non-elevated analysis was terminated after no output; the elevated retry completed successfully.
+
+### Review 33 React Native history ownership evidence — 2026-09-25
+
+- The native C++ bridge now records semantic session identities at creation, projects history in creation order, borrows retained execution handles for active IDs, and resolves only Created/terminal IDs through temporary handles. Missing native IDs are reconciled out of the identity authority; `clearSessions()` clears identity metadata together with retained execution ownership. The old owning native-array enumeration path and second bounded mirror were removed.
+- The Wasm backend now uses the same identity/type/order authority. Active retained pointers are borrowed, running pointers discovered during reconciliation are retained before serialization, and only non-active temporary pointers are released. Typed/all-session and last-session JSON reads share the same projection; the Web identity registry stores no pointer or session object.
+- Local evidence passed: React Native test compilation, typecheck, C++ bridge syntax check (`clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp`), and focused Node tests **11/11** covering the native source oracle, identity/type/order filters, duplicate identities, visibility/removal, and pointer registry behavior. No native ABI or `libs/libffmpegkit` file changed.
 
 ### Review 33 implementation boundary
 

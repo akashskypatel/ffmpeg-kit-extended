@@ -21,7 +21,6 @@ namespace ffmpegkit::bridge {
 namespace {
 
 using Handle = void *;
-using HandleArray = void **;
 
 std::once_flag initFlag;
 #if defined(_WIN32)
@@ -35,6 +34,17 @@ void *libraryHandle = nullptr;
 // for each session until execution has actually completed.
 std::mutex sessionHandlesMutex;
 std::unordered_map<std::int64_t, Handle> retainedSessionHandles;
+
+struct HistoryRecord {
+  std::int64_t sessionId;
+  std::string type;
+  std::uint64_t creationOrder;
+  bool visible = true;
+};
+
+std::mutex historyMutex;
+std::unordered_map<std::int64_t, HistoryRecord> historyRecords;
+std::uint64_t nextHistoryOrder = 0;
 
 void ensureLibraryLoaded() {
   if (libraryHandle != nullptr) {
@@ -248,6 +258,58 @@ HandleGuard ensureRetainedSession(std::int64_t id) {
   return HandleGuard(handle, false);
 }
 
+void rememberHistorySession(std::int64_t id, const std::string &type) {
+  std::lock_guard<std::mutex> lock(historyMutex);
+  if (historyRecords.find(id) != historyRecords.end()) return;
+  historyRecords.emplace(
+      id, HistoryRecord{id, type, nextHistoryOrder++, true});
+}
+
+void removeHistorySession(std::int64_t id) {
+  std::lock_guard<std::mutex> lock(historyMutex);
+  historyRecords.erase(id);
+}
+
+std::vector<HistoryRecord> visibleHistoryRecords(const std::string &kind) {
+  std::vector<HistoryRecord> result;
+  {
+    std::lock_guard<std::mutex> lock(historyMutex);
+    for (const auto &[id, record] : historyRecords) {
+      if (!record.visible ||
+          (kind != "all" && record.type != kind)) {
+        continue;
+      }
+      result.push_back(record);
+    }
+  }
+  std::sort(result.begin(), result.end(), [](const auto &left, const auto &right) {
+    return left.creationOrder < right.creationOrder;
+  });
+  return result;
+}
+
+HandleGuard acquireHistorySession(std::int64_t id) {
+  HandleGuard guard = acquireSession(id);
+  if (guard.handle == nullptr || !guard.owned) return guard;
+
+  using StateFn = int (*)(Handle);
+  if (resolve<StateFn>("ffmpeg_kit_session_get_state")(guard.handle) != 1) {
+    return guard;
+  }
+
+  std::lock_guard<std::mutex> lock(sessionHandlesMutex);
+  const auto existing = retainedSessionHandles.find(id);
+  if (existing != retainedSessionHandles.end()) {
+    release(guard.handle);
+    guard.handle = existing->second;
+    guard.owned = false;
+    return guard;
+  }
+  retainedSessionHandles.emplace(id, guard.handle);
+  guard.owned = false;
+  return guard;
+}
+
 void releaseRetainedSession(std::int64_t id) {
   Handle handle = nullptr;
   {
@@ -312,44 +374,6 @@ std::string sessionJson(Handle handle) {
       << "\"debugLogEnabled\":" << (debugEnabled ? "true" : "false")
       << '}';
   return out.str();
-}
-
-std::vector<HandleGuard> collectNativeSessionHandles(const char *symbol) {
-  using SessionsFn = HandleArray (*)();
-  const auto array = resolve<SessionsFn>(symbol)();
-  if (array == nullptr) return {};
-
-  std::vector<HandleGuard> sessions;
-  try {
-    for (std::size_t index = 0; array[index] != nullptr; ++index) {
-      sessions.emplace_back(array[index]);
-    }
-  } catch (...) {
-    freeNative(array);
-    throw;
-  }
-  freeNative(array);
-  return sessions;
-}
-
-const char *sessionHistoryExport(const std::string &kind) {
-  if (kind == "ffmpeg") return "ffmpeg_kit_get_ffmpeg_sessions";
-  if (kind == "ffprobe") return "ffmpeg_kit_get_ffprobe_sessions";
-  if (kind == "ffplay") return "ffmpeg_kit_get_ffplay_sessions";
-  if (kind == "media-information") {
-    return "ffmpeg_kit_get_media_information_sessions";
-  }
-  return "ffmpeg_kit_get_sessions";
-}
-
-const char *lastSessionExport(const std::string &kind) {
-  if (kind == "ffmpeg") return "ffmpeg_kit_get_last_ffmpeg_session";
-  if (kind == "ffprobe") return "ffmpeg_kit_get_last_ffprobe_session";
-  if (kind == "ffplay") return "ffmpeg_kit_get_last_ffplay_session";
-  if (kind == "media-information") {
-    return "ffmpeg_kit_get_last_media_information_session";
-  }
-  return "ffmpeg_kit_get_last_session";
 }
 
 std::string stringCall(const char *symbol) {
@@ -443,6 +467,15 @@ static double createSessionWith(const char *symbol, const std::string &command) 
   HandleGuard guard(resolve<Fn>(symbol)(command.c_str()));
   if (guard.handle == nullptr) throw std::runtime_error("Failed to create FFmpegKit session");
   const auto id = sessionIdOf(guard.handle);
+  const std::string type =
+      std::string(symbol) == "ffprobe_kit_create_session"
+          ? "ffprobe"
+          : std::string(symbol) == "ffplay_kit_create_session"
+              ? "ffplay"
+              : std::string(symbol) == "media_information_create_session"
+                  ? "media-information"
+                  : "ffmpeg";
+  rememberHistorySession(id, type);
   // The session is still in Created state, so releasing this temporary handle is
   // safe. executeSessionAsync() obtains and retains a fresh owning handle before
   // starting the native worker.
@@ -468,6 +501,11 @@ static double createSessionWithArguments(
     throw std::runtime_error("Failed to create FFmpegKit session from arguments");
   }
   const auto id = sessionIdOf(guard.handle);
+  const std::string type =
+      std::string(symbol) == "ffplay_kit_create_session_from_argv"
+          ? "ffplay"
+          : "ffmpeg";
+  rememberHistorySession(id, type);
   return static_cast<double>(id);
 }
 
@@ -498,6 +536,7 @@ double createMediaInformationSessionFromPath(const std::string &path) {
     throw std::runtime_error("Failed to create FFmpegKit media information session");
   }
   const auto id = sessionIdOf(guard.handle);
+  rememberHistorySession(id, "media-information");
   return static_cast<double>(id);
 }
 
@@ -558,12 +597,16 @@ void releaseSessionHandle(double sessionId) {
 
 std::string getSessionsJson(const std::string &kind) {
   ensureInitialized();
-  auto sessions = collectNativeSessionHandles(sessionHistoryExport(kind));
+  const auto records = visibleHistoryRecords(kind);
   std::ostringstream out;
   out << '[';
   bool first = true;
-  for (auto &guard : sessions) {
-    if (guard.handle == nullptr) continue;
+  for (const auto &record : records) {
+    HandleGuard guard = acquireHistorySession(record.sessionId);
+    if (guard.handle == nullptr) {
+      removeHistorySession(record.sessionId);
+      continue;
+    }
     if (!first) out << ',';
     first = false;
     out << sessionJson(guard.handle);
@@ -574,9 +617,16 @@ std::string getSessionsJson(const std::string &kind) {
 
 std::string getLastSessionJson(const std::string &kind) {
   ensureInitialized();
-  using LastSessionFn = Handle (*)();
-  HandleGuard session{resolve<LastSessionFn>(lastSessionExport(kind))()};
-  return session.handle == nullptr ? std::string{} : sessionJson(session.handle);
+  const auto records = visibleHistoryRecords(kind);
+  for (auto it = records.rbegin(); it != records.rend(); ++it) {
+    HandleGuard session = acquireHistorySession(it->sessionId);
+    if (session.handle == nullptr) {
+      removeHistorySession(it->sessionId);
+      continue;
+    }
+    return sessionJson(session.handle);
+  }
+  return {};
 }
 
 std::string getLogsJson(double sessionId, double fromIndex) {
@@ -751,6 +801,11 @@ void clearSessions() {
   resolve<Fn>("ffmpeg_kit_config_clear_sessions")();
   std::lock_guard<std::mutex> lock(sessionHandlesMutex);
   retainedSessionHandles.clear();
+  {
+    std::lock_guard<std::mutex> historyLock(historyMutex);
+    historyRecords.clear();
+    nextHistoryOrder = 0;
+  }
 }
 std::string registerNewFFmpegPipe() { ensureInitialized(); return stringCall("ffmpeg_kit_config_register_new_ffmpeg_pipe"); }
 void closeFFmpegPipe(const std::string &path) { ensureInitialized(); using Fn = void (*)(const char*); resolve<Fn>("ffmpeg_kit_config_close_ffmpeg_pipe")(path.c_str()); }

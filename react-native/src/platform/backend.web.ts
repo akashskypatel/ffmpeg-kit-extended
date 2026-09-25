@@ -10,6 +10,11 @@ import type {
 } from './backend-registry';
 import {WasmSessionRegistry} from './web/session-registry';
 import {
+  SessionHistoryRegistry,
+  type SessionHistoryRecord,
+  type SessionHistoryType,
+} from './web/session-history-registry';
+import {
   initializeWasm,
   requireWasmModule,
   type WasmModule,
@@ -43,6 +48,7 @@ function jsonArray(value: unknown): string {
 
 export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private readonly sessions = new WasmSessionRegistry();
+  private readonly history = new SessionHistoryRegistry();
   private readonly executingSessions = new Set<number>();
   private readonly moduleOverride?: WasmModule;
   private initializeOptions?: FFmpegKitInitializeOptions;
@@ -131,7 +137,10 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     }
   }
 
-  private consumeCreatedSessionHandle(pointer: unknown): number {
+  private consumeCreatedSessionHandle(
+    pointer: unknown,
+    type: SessionHistoryType,
+  ): number {
     const address = numberResult(pointer);
     if (!address) throw new Error('Wasm returned an invalid session handle');
 
@@ -153,6 +162,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     try {
       this.call('ffmpeg_kit_handle_release')(address);
       this.sessions.take(sessionId);
+      this.history.record(sessionId, type);
       return sessionId;
     } catch (error) {
       throw error;
@@ -265,65 +275,42 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     };
   }
 
-  private snapshots(kind: string): Record<string, unknown>[] {
-    const exportName = kind === 'ffmpeg'
-      ? 'ffmpeg_kit_get_ffmpeg_sessions'
-      : kind === 'ffprobe'
-        ? 'ffmpeg_kit_get_ffprobe_sessions'
-        : kind === 'ffplay'
-          ? 'ffmpeg_kit_get_ffplay_sessions'
-          : kind === 'media-information'
-            ? 'ffmpeg_kit_get_media_information_sessions'
-            : 'ffmpeg_kit_get_sessions';
-    const arrayPointer = numberResult(this.call(exportName)());
-    if (!arrayPointer) return [];
+  private historyPointer(record: SessionHistoryRecord): {
+    pointer: number;
+    temporary: boolean;
+  } | undefined {
+    const retained = this.sessions.get(record.sessionId);
+    if (retained) return {pointer: retained, temporary: false};
+
+    const pointer = numberResult(
+      this.call('ffmpeg_kit_get_session')(int64(record.sessionId)),
+    );
+    if (!pointer) return undefined;
+
+    const state = numberResult(this.call('ffmpeg_kit_session_get_state')(pointer));
+    if (state === SessionState.Running) {
+      this.sessions.retain(pointer, record.sessionId);
+      return {pointer, temporary: false};
+    }
+    return {pointer, temporary: true};
+  }
+
+  private historySnapshots(kind?: SessionHistoryType): Record<string, unknown>[] {
     const result: Record<string, unknown>[] = [];
-    const pointers: number[] = [];
-    let firstErrorSet = false;
-    let firstError: unknown;
-    const recordError = (error: unknown): void => {
-      if (firstErrorSet) return;
-      firstErrorSet = true;
-      firstError = error;
-    };
-
-    try {
-      for (let index = 0; ; index += 1) {
-        let pointer: number;
-        try {
-          pointer = this.module().HEAPU32[arrayPointer / 4 + index];
-        } catch (error) {
-          recordError(error);
-          break;
-        }
-        if (!pointer) break;
-        pointers.push(pointer);
-      }
-
-      for (const pointer of pointers) {
-        try {
-          result.push(this.snapshot(pointer));
-        } catch (error) {
-          recordError(error);
-          break;
-        }
-      }
-    } finally {
-      for (const pointer of pointers) {
-        try {
-          this.call('ffmpeg_kit_handle_release')(pointer);
-        } catch (error) {
-          recordError(error);
-        }
+    for (const record of this.history.entries(kind)) {
+      const handle = this.historyPointer(record);
+      if (!handle) {
+        this.history.remove(record.sessionId);
+        continue;
       }
       try {
-        this.call('ffmpeg_kit_free')(arrayPointer);
-      } catch (error) {
-        recordError(error);
+        result.push(this.snapshot(handle.pointer));
+      } finally {
+        if (handle.temporary) {
+          this.call('ffmpeg_kit_handle_release')(handle.pointer);
+        }
       }
     }
-
-    if (firstErrorSet) throw firstError;
     return result;
   }
 
@@ -336,31 +323,31 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   getBuildStamp(): string { return this.readString(this.call('ffmpeg_kit_get_build_stamp')()); }
 
   createFFmpegSession(command: string): number {
-    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffmpeg_kit_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffmpeg_kit_create_session')(pointer), 'ffmpeg'));
   }
 
   createFFmpegSessionFromArguments(arguments_: readonly string[]): number {
-    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffmpeg_kit_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffmpeg_kit_create_session_from_argv')(arguments_.length, argv), 'ffmpeg'));
   }
 
   createFFprobeSession(command: string): number {
-    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffprobe_kit_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffprobe_kit_create_session')(pointer), 'ffprobe'));
   }
 
   createFFprobeSessionFromArguments(arguments_: readonly string[]): number {
-    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffprobe_kit_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffprobe_kit_create_session_from_argv')(arguments_.length, argv), 'ffprobe'));
   }
 
   createFFplaySession(command: string): number {
-    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffplay_kit_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('ffplay_kit_create_session')(pointer), 'ffplay'));
   }
 
   createFFplaySessionFromArguments(arguments_: readonly string[]): number {
-    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffplay_kit_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('ffplay_kit_create_session_from_argv')(arguments_.length, argv), 'ffplay'));
   }
 
   createMediaInformationSession(command: string): number {
-    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('media_information_create_session')(pointer)));
+    return this.withString(command, pointer => this.consumeCreatedSessionHandle(this.call('media_information_create_session')(pointer), 'media-information'));
   }
 
   createMediaInformationSessionFromPath(path: string): number {
@@ -376,7 +363,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       '-i',
       path,
     ];
-    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('media_information_create_session_from_argv')(arguments_.length, argv)));
+    return this.withArguments(arguments_, argv => this.consumeCreatedSessionHandle(this.call('media_information_create_session_from_argv')(arguments_.length, argv), 'media-information'));
   }
 
   executeSessionAsync(sessionId: number, timeoutMs: number): void {
@@ -427,21 +414,21 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     this.executingSessions.delete(sessionId);
   }
 
-  getSessionsJson(kind: string): string { return jsonArray(this.snapshots(kind)); }
+  getSessionsJson(kind: string): string {
+    const historyKind = kind === 'ffmpeg' || kind === 'ffprobe' ||
+        kind === 'ffplay' || kind === 'media-information'
+      ? kind
+      : undefined;
+    return jsonArray(this.historySnapshots(historyKind));
+  }
 
   getLastSessionJson(kind: string): string {
-    const exportName = kind === 'ffmpeg'
-      ? 'ffmpeg_kit_get_last_ffmpeg_session'
-      : kind === 'ffprobe'
-        ? 'ffmpeg_kit_get_last_ffprobe_session'
-        : kind === 'ffplay'
-          ? 'ffmpeg_kit_get_last_ffplay_session'
-          : kind === 'media-information'
-            ? 'ffmpeg_kit_get_last_media_information_session'
-            : 'ffmpeg_kit_get_last_session';
-    const pointer = numberResult(this.call(exportName)());
-    if (!pointer) return '';
-    return this.withTemporaryHandle(pointer, value => JSON.stringify(this.snapshot(value)));
+    const historyKind = kind === 'ffmpeg' || kind === 'ffprobe' ||
+        kind === 'ffplay' || kind === 'media-information'
+      ? kind
+      : undefined;
+    const snapshots = this.historySnapshots(historyKind);
+    return snapshots.length === 0 ? '' : JSON.stringify(snapshots[snapshots.length - 1]);
   }
 
   getLogsJson(sessionId: number, fromIndex: number): string {
@@ -710,6 +697,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
       this.executingSessions.delete(sessionId);
     }
     this.call('ffmpeg_kit_clear_sessions')();
+    this.history.clear();
   }
   registerNewFFmpegPipe(): string { return this.readString(this.call('ffmpeg_kit_config_register_new_ffmpeg_pipe')()); }
   closeFFmpegPipe(path: string): void { this.withString(path, p => this.call('ffmpeg_kit_config_close_ffmpeg_pipe')(p)); }
