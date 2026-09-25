@@ -66,6 +66,12 @@ R31-G1..R31-G6 implementation
 - `flutter/test/hook_artifact_cache_test.dart` adds a same-basename/different-source-path regression and updates stale-extraction invalidation to the hashed cache identity. The final elevated Flutter hook-cache suite passed **17/17**; bounded elevated `dart analyze hook/build.dart test/hook_artifact_cache_test.dart` reported **No issues found**. The suite also completed its two-process local cache-writer regression and left no task-owned staging entries.
 - No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed; the local WSL artifact override remained the configured test input.
 
+### Review 31 R31-G6 evidence — 2026-09-24
+
+- `react-native/scripts/download-ffmpeg-kit-artifact.js` now publishes through an atomic per-target lock and unique process/timestamp/random staging filename. It no longer removes or reuses a deterministic `${target}.downloading` path, and failures preserve an existing complete target because the target is not touched until a full response is written.
+- `react-native/scripts/prepare-windows-runtime.ps1` now serializes archive copy and extraction with atomic directory locks, owner timestamps, stale-lock recovery, and unique `.copying.<pid>.<guid>` / `.extracting.<pid>.<guid>` staging paths. Marker validation and cleanup occur while the corresponding lock is held; no process removes another process's deterministic staging path.
+- The Node download suite passed **4/4**, including concurrent same-target publication with no leftover staging or lock entries. The focused PowerShell concurrency regression passed **1/1** with two tagged processes sharing one archive/cache and distinct destinations; both staged complete DLL sets and no `.copying.*`, `.extracting.*`, or `.lock` entries remained. `node --check scripts/download-ffmpeg-kit-artifact.js` and the PowerShell parser check both passed. No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed.
+
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)

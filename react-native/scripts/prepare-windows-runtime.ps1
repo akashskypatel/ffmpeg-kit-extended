@@ -135,6 +135,51 @@ function Remove-DirectoryContents {
   }
 }
 
+function Enter-DirectoryLock {
+  param([Parameter(Mandatory)][string]$LockPath)
+
+  for ($attempt = 0; $attempt -lt 2400; $attempt++) {
+    try {
+      New-Item -ItemType Directory -Path $LockPath -ErrorAction Stop | Out-Null
+      Set-Content -NoNewline -LiteralPath (Join-Path $LockPath 'owner') -Value "$PID`n$([DateTime]::UtcNow.ToString('O'))"
+      return
+    } catch {
+      if (-not (Test-Path -LiteralPath $LockPath -PathType Container)) {
+        continue
+      }
+      $lockInfo = Get-Item -LiteralPath $LockPath -Force
+      if (((Get-Date) - $lockInfo.LastWriteTimeUtc).TotalMinutes -gt 30) {
+        Remove-Item -LiteralPath $LockPath -Recurse -Force
+        continue
+      }
+      Start-Sleep -Milliseconds 25
+    }
+  }
+  throw "Timed out waiting for staging lock: $LockPath"
+}
+
+function Exit-DirectoryLock {
+  param([Parameter(Mandatory)][string]$LockPath)
+
+  if (Test-Path -LiteralPath $LockPath -PathType Container) {
+    Remove-Item -LiteralPath $LockPath -Recurse -Force
+  }
+}
+
+function Invoke-WithDirectoryLock {
+  param(
+    [Parameter(Mandatory)][string]$LockPath,
+    [Parameter(Mandatory)][scriptblock]$Action
+  )
+
+  Enter-DirectoryLock $LockPath
+  try {
+    & $Action
+  } finally {
+    Exit-DirectoryLock $LockPath
+  }
+}
+
 function Expand-ArchiveWithMarker {
   param(
     [Parameter(Mandatory)][string]$Archive,
@@ -142,30 +187,29 @@ function Expand-ArchiveWithMarker {
     [Parameter(Mandatory)][string]$SourceIdentity
   )
 
-  $marker = Join-Path $ExtractRoot '.extract_complete'
-  $markerMatches = (Test-Path -LiteralPath $marker -PathType Leaf) -and
-    ((Get-Content -LiteralPath $marker -Raw) -eq $SourceIdentity)
-  if ($markerMatches) {
-    return
-  }
-
-  if (Test-Path -LiteralPath $ExtractRoot) {
-    Remove-Item -LiteralPath $ExtractRoot -Recurse -Force
-  }
-  $temporaryRoot = "$ExtractRoot.extracting"
-  if (Test-Path -LiteralPath $temporaryRoot) {
-    Remove-Item -LiteralPath $temporaryRoot -Recurse -Force
-  }
-  New-Item -ItemType Directory -Force -Path $temporaryRoot | Out-Null
-  try {
-    Expand-Archive -LiteralPath $Archive -DestinationPath $temporaryRoot -Force
-    Set-Content -NoNewline -LiteralPath (Join-Path $temporaryRoot '.extract_complete') -Value $SourceIdentity
-    Move-Item -LiteralPath $temporaryRoot -Destination $ExtractRoot
-  } catch {
-    if (Test-Path -LiteralPath $temporaryRoot) {
-      Remove-Item -LiteralPath $temporaryRoot -Recurse -Force
+  Invoke-WithDirectoryLock -LockPath "$ExtractRoot.lock" -Action {
+    $marker = Join-Path $ExtractRoot '.extract_complete'
+    $markerMatches = (Test-Path -LiteralPath $marker -PathType Leaf) -and
+      ((Get-Content -LiteralPath $marker -Raw) -eq $SourceIdentity)
+    if ($markerMatches) {
+      return
     }
-    throw
+
+    if (Test-Path -LiteralPath $ExtractRoot) {
+      Remove-Item -LiteralPath $ExtractRoot -Recurse -Force
+    }
+    $temporaryRoot = "$ExtractRoot.extracting.$PID.$([guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory -Force -Path $temporaryRoot | Out-Null
+    try {
+      Expand-Archive -LiteralPath $Archive -DestinationPath $temporaryRoot -Force
+      Set-Content -NoNewline -LiteralPath (Join-Path $temporaryRoot '.extract_complete') -Value $SourceIdentity
+      Move-Item -LiteralPath $temporaryRoot -Destination $ExtractRoot
+    } catch {
+      if (Test-Path -LiteralPath $temporaryRoot) {
+        Remove-Item -LiteralPath $temporaryRoot -Recurse -Force
+      }
+      throw
+    }
   }
 }
 
@@ -244,7 +288,22 @@ if ($resolution.override -and $resolution.override.kind -eq 'local') {
     $archive = Join-Path $cacheRoot "source-$archiveHash.zip"
     $runtimeRoot = Join-Path $cacheRoot "extract-$archiveHash"
     Write-Host "Using local FFmpegKit Extended Windows archive: $localArchive"
-    Copy-LocalFile -Source $localArchive -Destination $archive
+    Invoke-WithDirectoryLock -LockPath "$archive.lock" -Action {
+      if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) {
+        $temporaryArchive = "$archive.copying.$PID.$([guid]::NewGuid().ToString('N'))"
+        try {
+          Copy-LocalFile -Source $localArchive -Destination $temporaryArchive
+          if ((Get-FileSha256 $temporaryArchive) -ne $archiveHash) {
+            throw "Local FFmpegKit Extended archive changed while copying: $localArchive"
+          }
+          Move-Item -LiteralPath $temporaryArchive -Destination $archive
+        } finally {
+          if (Test-Path -LiteralPath $temporaryArchive) {
+            Remove-Item -LiteralPath $temporaryArchive -Force
+          }
+        }
+      }
+    }
     Expand-ArchiveWithMarker -Archive $archive -ExtractRoot $runtimeRoot -SourceIdentity $sourceIdentity
   }
 } else {

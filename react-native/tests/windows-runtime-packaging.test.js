@@ -3,7 +3,7 @@ const { after, test } = require('node:test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
 
@@ -83,6 +83,44 @@ function prepareRuntime({ appRoot, destination, cacheRoot }) {
       env: { ...process.env, FFK_TEST_PROCESS_TAG: 'windows-staging-prepare-runtime' },
     },
   );
+}
+
+function prepareRuntimeAsync({ appRoot, destination, cacheRoot }, tag) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      powershell,
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        path.join(root, 'scripts', 'prepare-windows-runtime.ps1'),
+        '-Architecture',
+        'x64',
+        '-Destination',
+        destination,
+        '-AppRoot',
+        appRoot,
+        '-CacheRoot',
+        cacheRoot,
+      ],
+      {
+        env: {
+          ...process.env,
+          FFK_TEST_PROCESS_TAG: tag,
+          REVIEW31_PROCESS: tag,
+        },
+      },
+    );
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (status, signal) => resolve({status, signal, stdout, stderr}));
+  });
 }
 
 function writeWindowsConfig(appRoot, override) {
@@ -169,6 +207,49 @@ test('PowerShell staging refreshes same-path archives and removes stale DLLs', {
   assert.deepEqual(stagedDlls(destination), ['avutil.dll', 'libffmpegkit.dll']);
   assert.equal(fs.readFileSync(path.join(destination, 'libffmpegkit.dll'), 'utf8'), 'B-main');
   assert.equal(fs.existsSync(path.join(destination, 'avcodec.dll')), false);
+});
+
+test('PowerShell staging serializes concurrent extraction and cleans transactional staging', {
+  skip: !powershellAvailable,
+}, async () => {
+  const rootDirectory = createTemporaryRoot();
+  const appRoot = path.join(rootDirectory, 'app');
+  const source = path.join(rootDirectory, 'source');
+  const archive = path.join(rootDirectory, 'runtime.zip');
+  const cacheRoot = path.join(rootDirectory, 'cache');
+  const destinationA = path.join(rootDirectory, 'staged-a');
+  const destinationB = path.join(rootDirectory, 'staged-b');
+  fs.mkdirSync(appRoot, { recursive: true });
+  createRuntimeDirectory(source, {
+    'libffmpegkit.dll': 'main',
+    'avcodec.dll': 'codec',
+  });
+  createZip(source, archive);
+  writeWindowsConfig(appRoot, archive);
+
+  const results = await Promise.all([
+    prepareRuntimeAsync(
+      {appRoot, destination: destinationA, cacheRoot},
+      'review31-g6-windows-a',
+    ),
+    prepareRuntimeAsync(
+      {appRoot, destination: destinationB, cacheRoot},
+      'review31-g6-windows-b',
+    ),
+  ]);
+
+  for (const result of results) {
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+  }
+  assert.deepEqual(stagedDlls(destinationA), ['avcodec.dll', 'libffmpegkit.dll']);
+  assert.deepEqual(stagedDlls(destinationB), ['avcodec.dll', 'libffmpegkit.dll']);
+  const cacheEntries = fs.readdirSync(cacheRoot, {withFileTypes: true})
+    .map(entry => entry.name);
+  assert.equal(cacheEntries.some(name =>
+    name.includes('.copying.') ||
+    name.includes('.extracting.') ||
+    name.endsWith('.lock'),
+  ), false);
 });
 
 test('PowerShell staging rejects invalid runtime DLL manifests', {

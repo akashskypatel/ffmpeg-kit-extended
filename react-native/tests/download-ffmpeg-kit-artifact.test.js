@@ -53,6 +53,35 @@ test('checksum-free downloads refresh instead of reusing an unverified cache', a
   assert.equal(fs.readFileSync(output, 'utf8'), 'refreshed artifact');
 });
 
+test('concurrent downloads publish complete artifacts without shared staging names', async () => {
+  let requests = 0;
+  const serverUrl = await startServer((_request, response) => {
+    requests += 1;
+    setTimeout(() => response.end(`artifact-${requests}`), 25);
+  });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-download-'));
+  temporaryRoots.push(root);
+  const output = path.join(root, 'build.zip');
+  const options = {
+    url: `${serverUrl}/build.zip`,
+    output,
+    retries: 1,
+    timeoutMs: 1000,
+    quiet: true,
+    reuseCached: false,
+  };
+
+  await Promise.all([ensureArtifact(options), ensureArtifact(options)]);
+
+  assert.match(fs.readFileSync(output, 'utf8'), /^artifact-[12]$/);
+  assert.deepEqual(
+    fs.readdirSync(root).filter(name =>
+      name.includes('.downloading.') || name.endsWith('.download.lock'),
+    ),
+    [],
+  );
+});
+
 test('checksum validation removes corrupt cached artifacts and reuses valid ones', async () => {
   const validArtifact = Buffer.from('valid artifact');
   const invalidArtifact = Buffer.from('invalid artifact');
