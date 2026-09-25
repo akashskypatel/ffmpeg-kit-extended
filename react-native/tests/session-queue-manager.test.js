@@ -104,6 +104,55 @@ test('duplicate object admission does not undercount active work', async () => {
   assert.equal(manager.activeSessionCount, 0);
 });
 
+test('duplicate queued admission is rejected without discard cleanup', async () => {
+  manager.maxConcurrentSessions = 1;
+  const activeGate = deferred();
+  const queuedSession = createSession();
+  const active = manager.executeSession(createSession(), () => activeGate.promise);
+  const queued = manager.executeSession(queuedSession, async () => 'queued');
+  let discardCalls = 0;
+
+  await assert.rejects(
+    manager.executeSession(
+      queuedSession,
+      async () => 'duplicate queued',
+      () => {
+        discardCalls += 1;
+      },
+    ),
+    /already queued or active/,
+  );
+  assert.equal(discardCalls, 0);
+  assert.equal(manager.queueLength, 1);
+
+  activeGate.resolve();
+  await active;
+  assert.equal(await queued, 'queued');
+});
+
+test('waitForAll remains pending while the admitted executor is active', async () => {
+  manager.maxConcurrentSessions = 2;
+  const gate = deferred();
+  const session = createSession();
+  const active = manager.executeSession(session, () => gate.promise);
+  await assert.rejects(
+    manager.executeSession(session, async () => 'duplicate'),
+    /already queued or active/,
+  );
+
+  let settled = false;
+  const all = manager.waitForAll().then(() => {
+    settled = true;
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, false);
+
+  gate.resolve();
+  await active;
+  await all;
+  assert.equal(settled, true);
+});
+
 test('distinct wrappers for one native session ID cannot both be admitted', async () => {
   manager.maxConcurrentSessions = 2;
   const firstSession = createSession(9001);
@@ -137,6 +186,20 @@ test('synchronous executor failure releases the slot and starts the next item', 
   await assert.rejects(first, reason => reason === firstError);
   assert.equal(await second, 'second');
   assert.deepEqual(starts, ['first', 'second']);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('asynchronous executor rejection preserves the original error and releases the slot', async () => {
+  manager.maxConcurrentSessions = 1;
+  const failure = new Error('asynchronous executor failure');
+  const rejected = manager.executeSession(createSession(), async () => {
+    await Promise.resolve();
+    throw failure;
+  });
+  const next = manager.executeSession(createSession(), async () => 'next');
+
+  await assert.rejects(rejected, reason => reason === failure);
+  assert.equal(await next, 'next');
   assert.equal(manager.activeSessionCount, 0);
 });
 
