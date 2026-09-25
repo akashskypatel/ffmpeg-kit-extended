@@ -6,13 +6,15 @@ import 'package:ffmpeg_kit_extended_flutter/src/session_queue_manager.dart';
 import 'package:test/test.dart';
 
 class _QueueSession extends Session {
-  _QueueSession({this.throwOnDiscard = false}) : super.noFinalizer() {
+  _QueueSession({this.sessionIdOverride, this.throwOnDiscard = false})
+    : super.noFinalizer() {
     handle = const SessionHandle(Object());
-    sessionId = _nextId++;
+    sessionId = sessionIdOverride ?? _nextId++;
     command = 'test';
   }
 
   static int _nextId = 1;
+  final int? sessionIdOverride;
   SessionState state = SessionState.created;
   bool throwOnDiscard;
   bool throwOnStateRead = false;
@@ -275,6 +277,23 @@ void main() {
       expect(queue.queueLength, queueLengthBeforeDuplicate);
       expect(discardCalls, 0);
       expect(session.cancelCalls, 0);
+
+      gate.complete();
+      await firstFuture;
+    },
+  );
+
+  test(
+    'distinct wrappers for one native session ID are rejected before handoff',
+    () async {
+      final gate = Completer<void>();
+      final first = _QueueSession(sessionIdOverride: 7001);
+      final second = _QueueSession(sessionIdOverride: 7001);
+      final firstFuture = queue.executeSession(first, () => gate.future);
+      final secondFuture = queue.executeSession(second, () async {});
+
+      await expectLater(secondFuture, throwsStateError);
+      expect(queue.queueLength, 0);
 
       gate.complete();
       await firstFuture;

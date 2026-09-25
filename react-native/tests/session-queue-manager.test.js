@@ -20,9 +20,15 @@ function deferred() {
   return {promise, resolve, reject};
 }
 
-function createSession() {
+let nextSessionId = 1;
+
+function createSession(sessionId = nextSessionId++) {
   return {
+    sessionId,
     cancelCount: 0,
+    getSessionId() {
+      return this.sessionId;
+    },
     cancel() {
       this.cancelCount += 1;
     },
@@ -79,6 +85,81 @@ test('executeSession respects the configured concurrency limit', async () => {
     'first:end',
     'second:start',
   ]);
+});
+
+test('duplicate object admission does not undercount active work', async () => {
+  manager.maxConcurrentSessions = 2;
+  const session = createSession();
+  const gate = deferred();
+  const first = manager.executeSession(session, () => gate.promise);
+
+  await assert.rejects(
+    manager.executeSession(session, async () => 'duplicate'),
+    /already queued or active/,
+  );
+  assert.equal(manager.activeSessionCount, 1);
+
+  gate.resolve();
+  await first;
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('distinct wrappers for one native session ID cannot both be admitted', async () => {
+  manager.maxConcurrentSessions = 2;
+  const firstSession = createSession(9001);
+  const secondSession = createSession(9001);
+  const gate = deferred();
+  const first = manager.executeSession(firstSession, () => gate.promise);
+
+  await assert.rejects(
+    manager.executeSession(secondSession, async () => 'duplicate native ID'),
+    /Session 9001 is already queued or active/,
+  );
+  assert.equal(manager.queueLength, 0);
+
+  gate.resolve();
+  await first;
+});
+
+test('synchronous executor failure releases the slot and starts the next item', async () => {
+  manager.maxConcurrentSessions = 1;
+  const firstError = new Error('synchronous executor failure');
+  const starts = [];
+  const first = manager.executeSession(createSession(), () => {
+    starts.push('first');
+    throw firstError;
+  });
+  const second = manager.executeSession(createSession(), async () => {
+    starts.push('second');
+    return 'second';
+  });
+
+  await assert.rejects(first, reason => reason === firstError);
+  assert.equal(await second, 'second');
+  assert.deepEqual(starts, ['first', 'second']);
+  assert.equal(manager.activeSessionCount, 0);
+});
+
+test('handoff state rejection releases admission without discard cleanup', async () => {
+  manager.maxConcurrentSessions = 1;
+  const rejectedSession = createSession();
+  let discardCalls = 0;
+  rejectedSession.prepareForExecution = () => {
+    throw new Error('session is already terminal');
+  };
+  const rejected = manager.executeSession(
+    rejectedSession,
+    async () => 'must not execute',
+    () => {
+      discardCalls += 1;
+    },
+  );
+  const next = manager.executeSession(createSession(), async () => 'next');
+
+  await assert.rejects(rejected, /already terminal/);
+  assert.equal(discardCalls, 0);
+  assert.equal(await next, 'next');
+  assert.equal(manager.activeSessionCount, 0);
 });
 
 test('clearQueue rejects pending work without cancelling the active session', async () => {

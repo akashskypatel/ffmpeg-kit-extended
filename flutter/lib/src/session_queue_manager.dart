@@ -39,6 +39,13 @@ class SessionQueueManager {
   /// The currently executing sessions.
   final Set<Session> _activeSessions = <Session>{};
 
+  /// Native session IDs reserved by queued or active executions.
+  ///
+  /// Wrapper objects are disposable observations and are not an execution
+  /// identity. This bounded set closes that gap without retaining history:
+  /// each ID is held only until its queue item is discarded or settles.
+  final Set<int> _reservedSessionIds = <int>{};
+
   /// Queue of pending sessions waiting to execute.
   final Queue<_QueuedSession> _queue = Queue<_QueuedSession>();
 
@@ -91,7 +98,9 @@ class SessionQueueManager {
     }
     if (_containsSession(session)) {
       return Future<void>.error(
-        StateError('Session ${session.sessionId} is already queued or active'),
+        StateError(
+          'Session ${session.sessionId} is already queued or active',
+        ),
       );
     }
     final completer = Completer<void>();
@@ -102,6 +111,7 @@ class SessionQueueManager {
       );
       return completer.future;
     }
+    _reservedSessionIds.add(session.sessionId);
     _queue.add(_QueuedSession(session, executor, completer, onDiscard));
 
     _processQueue();
@@ -110,10 +120,9 @@ class SessionQueueManager {
   }
 
   bool _containsSession(Session session) {
-    if (_activeSessions.any((active) => identical(active, session))) {
-      return true;
-    }
-    return _queue.any((queued) => identical(queued.session, session));
+    return _reservedSessionIds.contains(session.sessionId) ||
+        _activeSessions.any((active) => identical(active, session)) ||
+        _queue.any((queued) => identical(queued.session, session));
   }
 
   /// Processes the session queue, starting as many sessions as allowed.
@@ -187,6 +196,7 @@ class SessionQueueManager {
     } finally {
       queued.session.markExecutionSettled();
       _activeSessions.remove(queued.session);
+      _reservedSessionIds.remove(queued.session.sessionId);
       // Trigger processing for the next session in queue
       _processQueue();
     }
@@ -235,6 +245,8 @@ class SessionQueueManager {
     } catch (e, st) {
       error = e;
       stackTrace = st;
+    } finally {
+      _reservedSessionIds.remove(queued.session.sessionId);
     }
     if (!queued.completer.isCompleted) {
       if (stackTrace == null) {

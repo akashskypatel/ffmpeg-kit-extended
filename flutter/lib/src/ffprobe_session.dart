@@ -291,7 +291,6 @@ class FFprobeSession extends Session {
     claimExecutionSubmission();
     if (completeCallback != null) _completeCallback = completeCallback;
     if (logCallback != null) _logCallback = logCallback;
-    _ensureRegistered();
 
     await SessionQueueManager().executeSession(this, _runAsync);
     return this;
@@ -345,6 +344,8 @@ class FFprobeSession extends Session {
   /// Core async execution body, called by [executeAsync] through the queue.
   Future<void> _runAsync() async {
     FFmpegKitExtended.requireInitialized();
+    validateExecutionHandoff();
+    ensureRegistered();
     final sessionCompleter = Completer<void>();
     trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;

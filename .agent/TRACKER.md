@@ -10,7 +10,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R32-G1** | Establish one execution claimant per native session ID across Flutter and React Native | **Pending** |
+| **R32-G1** | Establish one execution claimant per native session ID across Flutter and React Native | **Complete — native-ID reservations, Created handoff checks, and focused Flutter/RN regressions pass** |
 | **R32-G2** | Make React Native `SessionQueueManager` duplicate-safe and failure-atomic | **Pending** |
 | **R32-G3** | Make React Native history enumeration bounded and native-authoritative without dropping Created sessions | **Pending** |
 | **R32-G4** | Run focused and ordered local wrapper regression against the frozen local ABI artifacts | **Pending** |
@@ -23,6 +23,13 @@
 - Use only the established local Windows/Linux/Wasm/Android artifacts and MacBook Air universal Apple archives. Use WSL `/mnt/d/Projects/ffmpeg_kit_extended` for Linux noninteractive work.
 - Tag every spawned process, observe it to completion, kill task-owned hangs/orphans immediately, and clean task-owned temporary files.
 - Close each goal only after evidence, tracker transition, meaningful commit, and push. Final closeout creates one wrapper source snapshot only; do not create another builders/native snapshot.
+
+### Review 32 native-session execution ownership evidence — 2026-09-24
+
+- Flutter `SessionQueueManager` now reserves native session IDs for queued/active work, releases them on discard or settlement, and preserves object-level one-shot guards. Concrete async session implementations revalidate `Created` immediately before callback registration and native handoff, so restored/running/terminal wrappers fail closed without acquiring callback ownership. Distinct wrappers for one ID, independent IDs, cancellation/discard, and existing lifecycle behavior are covered.
+- React Native now uses the same native-ID reservation boundary for native and Web wrappers. The native backend exposes the existing session JSON state as the state oracle; the shared session boundary revalidates `Created` immediately before invoking the native async symbol, matching the Web backend's existing guard.
+- Focused evidence: elevated Flutter session-queue suite **15/15**; Flutter session-lifecycle plus ownership/callback suite **30/30**; serialized React Native queue suite **12/12**; React Native typecheck and test compilation passed. All task-owned processes were observed and cleaned up; the normal-shell analytics commands hung, were terminated by exact tagged PID, and the elevated analytics-disabled retries passed.
+- No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed. React Native queue transaction and native-history changes remain tracked as the next goals; this transition closes only the native-session-ID ownership objective.
 
 ### Review 32 implementation order
 

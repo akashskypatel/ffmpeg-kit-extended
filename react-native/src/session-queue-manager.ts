@@ -9,7 +9,11 @@ export class SessionCancelledException extends Error {
   }
 }
 
-type CancellableSession = {cancel(): void};
+type CancellableSession = {
+  cancel(): void;
+  getSessionId?: () => number;
+  prepareForExecution?: () => void;
+};
 
 type QueueItem<T> = {
   session: CancellableSession;
@@ -38,6 +42,7 @@ export class SessionQueueManager {
   private maxConcurrent = 8;
   private readonly active = new Set<CancellableSession>();
   private readonly queue: Array<QueueItem<unknown>> = [];
+  private readonly reservedSessionIds = new Set<number>();
 
   /** Snapshot of sessions whose executors have started and not settled. */
   get activeSessions(): CancellableSession[] {
@@ -89,6 +94,22 @@ export class SessionQueueManager {
     executor: () => Promise<T>,
     onDiscard?: () => void,
   ): Promise<T> {
+    const sessionId = this.executionSessionId(session);
+    if (
+      this.active.has(session) ||
+      this.queue.some(item => item.session === session) ||
+      (sessionId !== undefined && this.reservedSessionIds.has(sessionId))
+    ) {
+      return Promise.reject(
+        new Error(
+          sessionId === undefined
+            ? 'Session is already queued or active'
+            : `Session ${sessionId} is already queued or active`,
+        ),
+      );
+    }
+
+    if (sessionId !== undefined) this.reservedSessionIds.add(sessionId);
     return new Promise<T>((resolve, reject) => {
       this.queue.push({
         session,
@@ -97,7 +118,14 @@ export class SessionQueueManager {
         reject,
         onDiscard,
       } as QueueItem<unknown>);
-      this.processQueue();
+      try {
+        this.processQueue();
+      } catch (error) {
+        // processQueue normalizes executor failures, but retain a defensive
+        // rollback for an unexpected queue-internal exception.
+        this.releaseSessionReservation(sessionId);
+        reject(error);
+      }
     });
   }
 
@@ -159,21 +187,57 @@ export class SessionQueueManager {
       item.onDiscard?.();
     } catch (error) {
       rejection = error;
+    } finally {
+      this.releaseSessionReservation(this.executionSessionId(item.session));
     }
     item.reject(rejection);
   }
+
+  private executionSessionId(session: CancellableSession): number | undefined {
+    const value = session.getSessionId?.();
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  }
+
+  private releaseSessionReservation(sessionId: number | undefined): void {
+    if (sessionId !== undefined) this.reservedSessionIds.delete(sessionId);
+  }
+
   private processQueue(): void {
     while (this.queue.length > 0 && this.active.size < this.maxConcurrent) {
       const item = this.queue.shift();
       if (!item) return;
+      try {
+        item.session.prepareForExecution?.();
+      } catch (error) {
+        this.releaseSessionReservation(this.executionSessionId(item.session));
+        item.reject(error);
+        continue;
+      }
+
       this.active.add(item.session);
-      item
-        .executor()
-        .then(item.resolve, item.reject)
-        .finally(() => {
-          this.active.delete(item.session);
-          this.processQueue();
-        });
+      let execution: Promise<unknown>;
+      try {
+        execution = Promise.resolve(item.executor());
+      } catch (error) {
+        execution = Promise.reject(error);
+      }
+      execution
+        .then(
+          value => {
+            this.completeActiveItem(item);
+            item.resolve(value);
+          },
+          error => {
+            this.completeActiveItem(item);
+            item.reject(error);
+          },
+        );
     }
+  }
+
+  private completeActiveItem(item: QueueItem<unknown>): void {
+    this.active.delete(item.session);
+    this.releaseSessionReservation(this.executionSessionId(item.session));
+    this.processQueue();
   }
 }

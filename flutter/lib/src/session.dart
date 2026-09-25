@@ -605,18 +605,29 @@ abstract class Session {
     if (_submitted) {
       throw StateError('Session $sessionId has already been submitted');
     }
+    validateExecutionHandoff();
+    _submitted = true;
+  }
+
+  /// Revalidates the native lifecycle immediately before queue handoff.
+  ///
+  /// A history lookup can create a second wrapper around the same native
+  /// session after the original wrapper has been queued. The queue invokes
+  /// this check again at handoff so only a still-Created native session can
+  /// reach callback registration or native execution.
+  void validateExecutionHandoff() {
+    _ensureNotDisposed();
     if (_isCancelled) {
       throw SessionCancelledException(
-        'Session $sessionId was cancelled before submission',
+        'Session $sessionId was cancelled before execution',
       );
     }
     final state = executionStateForSubmission();
     if (state != SessionState.created) {
       throw StateError(
-        'Session $sessionId cannot be submitted from state $state',
+        'Session $sessionId cannot start from state $state',
       );
     }
-    _submitted = true;
   }
 
   /// Returns the native exit code.

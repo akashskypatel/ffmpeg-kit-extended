@@ -610,7 +610,6 @@ class FFplaySession extends Session {
     if (timeout != null) _timeout = timeout;
     if (completeCallback != null) _completeCallback = completeCallback;
     if (logCallback != null) _logCallback = logCallback;
-    _ensureRegistered();
 
     final startup = Completer<void>();
     final execution = SessionQueueManager().executeSession(
@@ -870,6 +869,13 @@ class FFplaySession extends Session {
 
   /// Core async execution body, called by [executeAsync] through the queue.
   Future<void> _runAsync(Completer<void> startup) async {
+    try {
+      validateExecutionHandoff();
+    } catch (error, stackTrace) {
+      if (!startup.isCompleted) startup.completeError(error, stackTrace);
+      rethrow;
+    }
+    _ensureRegistered();
     final sessionCompleter = Completer<void>();
     trackExecution(sessionCompleter);
     final userCompleteCallback = _completeCallback;

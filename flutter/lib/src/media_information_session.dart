@@ -454,7 +454,6 @@ class MediaInformationSession extends FFprobeSession {
     if (logCallback != null) {
       setLogCallback(logCallback);
     }
-    ensureRegistered();
 
     await SessionQueueManager().executeSession(this, _runAsyncMediaInfo);
     return this;
@@ -572,6 +571,8 @@ class MediaInformationSession extends FFprobeSession {
   /// Executes this session asynchronously and invokes the complete callback when done.
   Future<void> _runAsyncMediaInfo() async {
     FFmpegKitExtended.requireInitialized();
+    validateExecutionHandoff();
+    ensureRegistered();
     final sessionCompleter = Completer<void>();
     trackExecution(sessionCompleter);
     final userCb = _mediaInfoCompleteCallback;

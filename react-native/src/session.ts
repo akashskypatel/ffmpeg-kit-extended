@@ -229,6 +229,7 @@ export abstract class Session {
   /** Starts native execution and releases the owning handle if start fails. */
   protected startNativeExecution(timeoutMs: number): void {
     try {
+      this.prepareForExecution();
       NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, timeoutMs);
     } catch (error) {
       try {
@@ -237,6 +238,19 @@ export abstract class Session {
         // Preserve the native start failure as the primary error.
       }
       throw error;
+    }
+  }
+
+  /** Revalidates the native session immediately before async handoff. */
+  prepareForExecution(): void {
+    if (this.cancelled) {
+      throw new SessionCancelledException(
+        `Session ${this.sessionId} was cancelled before execution`,
+      );
+    }
+    const state = this.getState();
+    if (state !== SessionState.Created) {
+      throw new Error(`Session ${this.sessionId} cannot start from state ${state}`);
     }
   }
 

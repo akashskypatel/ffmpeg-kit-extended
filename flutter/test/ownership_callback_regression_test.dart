@@ -36,6 +36,8 @@ class _RecordingFinalizer implements SessionFinalizer {
 }
 
 class _ReleasableSession extends Session {
+  static int _nextNoFinalizerSessionId = 101;
+
   int releases = 0;
   bool throwOnRelease = false;
   final List<String>? events;
@@ -46,9 +48,11 @@ class _ReleasableSession extends Session {
     command = 'test';
   }
 
-  _ReleasableSession.noFinalizer() : events = null, super.noFinalizer() {
+  _ReleasableSession.noFinalizer({int? sessionId})
+    : events = null,
+      super.noFinalizer() {
     handle = const SessionHandle(Object());
-    sessionId = 101;
+    this.sessionId = sessionId ?? _nextNoFinalizerSessionId++;
     command = 'test';
   }
 

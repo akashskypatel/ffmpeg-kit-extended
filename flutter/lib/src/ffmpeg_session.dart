@@ -477,9 +477,6 @@ class FFmpegSession extends Session {
     if (logCallback != null) _logCallback = logCallback;
     if (statisticsCallback != null) _statisticsCallback = statisticsCallback;
 
-    // Ensure registration is current after any callback mutations above.
-    _ensureRegistered();
-
     await SessionQueueManager().executeSession(this, _runAsync);
 
     return this;
@@ -512,6 +509,9 @@ class FFmpegSession extends Session {
   /// Core async execution body, called by [executeAsync] through the queue.
   Future<void> _runAsync() async {
     FFmpegKitExtended.requireInitialized();
+    validateExecutionHandoff();
+    // Register only after native-ID admission and the immediate state check.
+    _ensureRegistered();
     final sessionCompleter = Completer<void>();
     trackExecution(sessionCompleter);
 
