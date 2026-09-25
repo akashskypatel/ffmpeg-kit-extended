@@ -9,7 +9,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R31-G1** | Preserve native session-handle ownership when React Native clears session history | **Pending** |
+| **R31-G1** | Preserve native session-handle ownership when React Native clears session history | **Complete — native registry-aware clear and focused source oracle pass** |
 | **R31-G2** | Make React Native cancellation attempt every target and retry deferred native cancellation | **Pending** |
 | **R31-G3** | Give restored Flutter/history sessions correct native cancellation authority | **Pending** |
 | **R31-G4** | Keep the React Native history mirror bounded and aligned with native history | **Pending** |
@@ -36,6 +36,12 @@ R31-G1..R31-G6 implementation
 -> wrapper and builders source snapshots
 -> stop automated interactive execution; user owns final runtime validation
 ```
+
+### Review 31 R31-G1 evidence — 2026-09-24
+
+- `react-native/cpp/FFmpegKitDynamicApi.cpp` now dispatches `clearSessions()` through the existing `ffmpeg_kit_config_clear_sessions()` symbol. That native API clears the owning handle registry, cancels/drains active sessions, and clears history before the bridge drops its retained-handle and ID mirrors. The history-only `ffmpeg_kit_clear_sessions()` symbol is no longer used by the native bridge cleanup path.
+- `react-native/tests/native-bridge-lifetime.test.js` adds a source oracle for the registry-aware entrypoint, mirror cleanup, and rejection of the history-only call. `node --test tests/native-bridge-lifetime.test.js` passed **4/4**.
+- No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed; the bridge uses an already-exported native symbol from the frozen ABI.
 
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 

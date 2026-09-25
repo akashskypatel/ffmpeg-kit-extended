@@ -731,10 +731,10 @@ double getSessionHistorySize() { ensureInitialized(); using Fn = std::int64_t (*
 void clearSessions() {
   ensureInitialized();
   using Fn = void (*)();
-  resolve<Fn>("ffmpeg_kit_clear_sessions")();
-  // The core clear operation removes all wrapper handles from its registry and
-  // cancels/drains active sessions. The raw keys retained here are therefore no
-  // longer releasable and can simply be forgotten.
+  // This entrypoint clears the native handle registry, cancels/drains active
+  // sessions, and then clears native history. The legacy history-only entrypoint
+  // would strand the owning handles retained by this bridge.
+  resolve<Fn>("ffmpeg_kit_config_clear_sessions")();
   std::lock_guard<std::mutex> lock(sessionHandlesMutex);
   retainedSessionHandles.clear();
   knownSessionIds.clear();
