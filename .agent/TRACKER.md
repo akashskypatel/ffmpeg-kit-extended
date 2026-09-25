@@ -43,6 +43,12 @@ R31-G1..R31-G6 implementation
 - `react-native/tests/native-bridge-lifetime.test.js` adds a source oracle for the registry-aware entrypoint, mirror cleanup, and rejection of the history-only call. `node --test tests/native-bridge-lifetime.test.js` passed **4/4**.
 - No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed; the bridge uses an already-exported native symbol from the frozen ABI.
 
+### Review 31 R31-G2 evidence — 2026-09-24
+
+- `react-native/src/session-queue-manager.ts` now attempts cancellation on every active session, preserves the first cancellation failure, and rethrows it only after all active targets have been attempted. The focused queue regression `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern 'cancelCurrent' tests/session-queue-manager.test.js` passed **2/2**, and the full queue-manager file passed **8/8** in the same serialized runner.
+- `react-native/src/session.ts` no longer latches a deferred native cancellation failure permanently. The monitor preserves the first failure as execution error authority while retrying the native dispatch on later Running observations until it succeeds. The serialized cancellation lifecycle regression `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern 'cancellation' tests/wasm-session-ownership.test.js` passed **9/9**, including deferred retry, handle retention, and terminal error propagation. `npm run test:compile` passed before the focused runs.
+- Node 26 default multi-test scheduling was not used as acceptance evidence because this shared-fixture file intermittently left an active session between concurrent test workers; the bounded serialized commands above completed and exited cleanly. No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed.
+
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)

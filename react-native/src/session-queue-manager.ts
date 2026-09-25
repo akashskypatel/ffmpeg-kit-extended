@@ -101,9 +101,23 @@ export class SessionQueueManager {
     });
   }
 
-  /** Requests cancellation of every currently active session. */
+  /**
+   * Requests cancellation of every currently active session.
+   *
+   * A single native cancellation failure must not prevent the remaining active
+   * sessions from receiving the request. Preserve the first failure so callers
+   * still receive deterministic error authority after all attempts complete.
+   */
   cancelCurrent(): void {
-    for (const session of [...this.active]) session.cancel();
+    let firstError: unknown;
+    for (const session of [...this.active]) {
+      try {
+        session.cancel();
+      } catch (error) {
+        if (firstError === undefined) firstError = error;
+      }
+    }
+    if (firstError !== undefined) throw firstError;
   }
 
   /**

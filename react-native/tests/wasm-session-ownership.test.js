@@ -397,6 +397,13 @@ test('deferred native cancellation failure preserves ownership and error authori
   assert.deepEqual(releases, []);
   assert.equal(registry.has(18), true);
 
+  cancelError = undefined;
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(cancelAttempts, 2);
+  assert.deepEqual(cancelCalls, [18]);
+  assert.deepEqual(releases, []);
+  assert.equal(registry.has(18), true);
+
   sessionState = 2;
   await assert.rejects(execution, reason => reason === error);
   assert.deepEqual(releases, [18]);

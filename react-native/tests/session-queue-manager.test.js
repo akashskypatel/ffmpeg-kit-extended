@@ -222,3 +222,27 @@ test('cancelCurrent cancels every active session', async () => {
   secondGate.resolve();
   await Promise.all([first, second]);
 });
+
+test('cancelCurrent attempts every active session before rethrowing the first error', async () => {
+  manager.maxConcurrentSessions = 2;
+  const firstError = new Error('first cancellation failed');
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    throw firstError;
+  };
+  const secondSession = createSession();
+  const firstGate = deferred();
+  const secondGate = deferred();
+
+  const first = manager.executeSession(firstSession, async () => firstGate.promise);
+  const second = manager.executeSession(secondSession, async () => secondGate.promise);
+
+  assert.throws(() => manager.cancelCurrent(), reason => reason === firstError);
+  assert.equal(firstSession.cancelCount, 1);
+  assert.equal(secondSession.cancelCount, 1);
+
+  firstGate.resolve();
+  secondGate.resolve();
+  await Promise.all([first, second]);
+});

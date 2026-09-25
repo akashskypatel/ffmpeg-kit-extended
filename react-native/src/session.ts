@@ -356,7 +356,6 @@ export abstract class Session {
     let statisticsProcessed = 0;
     let callbackFailed = false;
     let monitorFailed = false;
-    let nativeCancellationFailed = false;
     let firstErrorSet = false;
     let firstError: unknown;
     const recordError = (error: unknown): void => {
@@ -540,13 +539,11 @@ export abstract class Session {
       if (
         state === SessionState.Running &&
         this.cancelled &&
-        !this.nativeCancellationDispatched &&
-        !nativeCancellationFailed
+        !this.nativeCancellationDispatched
       ) {
         try {
           this.dispatchNativeCancellation();
         } catch (error) {
-          nativeCancellationFailed = true;
           monitorFailed = true;
           recordError(error);
         }
