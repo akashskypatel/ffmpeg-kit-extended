@@ -1,5 +1,29 @@
 # Tracker
 
+## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
+
+- Plan: [review33-luna-cross-platform-remediation-plan.md](./review33-luna-cross-platform-remediation-plan.md)
+- Code review: [review33-cross-platform-code-review.md](./review33-cross-platform-code-review.md)
+- Starting wrapper authority: `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6` from the verified Review 32 wrapper snapshot. Native ABI and `libs/libffmpegkit` remain frozen/read-only and are not a Review 33 work item.
+- Scope: resolve the three substantive wrapper findings: ownership-safe Flutter history inspection, ownership-safe React Native native/Web history inspection, and scalar React Native native state polling.
+- Validation boundary: local wrapper tests and configured local artifacts only; no hosted Flutter/React Native acceptance workflow, remote old binary, native ABI publication, builders/native snapshot, or interactive Flutter/React Native runtime execution.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R33-G1** | Make Flutter session-history inspection ownership-safe so read APIs cannot cancel Running sessions | **Pending** |
+| **R33-G2** | Make React Native native/Web history inspection ownership-safe without restoring the Review 31/32 history-mirror defects | **Pending** |
+| **R33-G3** | Give React Native native monitoring a scalar session-state path instead of full-session JSON polling | **Pending** |
+| **R33-G4** | Run focused and affected cross-platform local wrapper regression against the existing frozen local ABI artifacts | **Pending** |
+| **R33-G5** | Reconcile affected behavior/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 33 implementation boundary
+
+- Review/finding/goal identifiers are metadata only. Implementation names must describe history ownership, observational projections, scalar state transport, and related semantic behavior.
+- Do not modify `libs/libffmpegkit`, FFmpegKit native source, or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`; do not download or re-review a builders/native source snapshot.
+- Use only the established local Windows/Linux/Wasm/Android artifacts and MacBook Air universal Apple XCFramework archives. Use WSL for Linux noninteractive work and analytics-disabled Flutter/Dart commands.
+- Tag every spawned process, observe it to completion, kill task-owned hangs/orphans immediately, and clean task-owned temporary files.
+- Close each goal only after evidence, tracker transition, meaningful commit, and push. Final closeout creates one wrapper source snapshot only; do not create another native/builders snapshot.
+
 ## Review 32 Flutter + React Native Cross-Platform Remediation — 2026-09-24
 
 - Plan: [review32-luna-cross-platform-remediation-plan.md](./review32-luna-cross-platform-remediation-plan.md)
