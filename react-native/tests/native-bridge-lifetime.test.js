@@ -112,19 +112,16 @@ test('native session cleanup clears owning handles through the registry-aware AP
     /resolve<Fn>\("ffmpeg_kit_clear_sessions"\)\(\)/,
   );
   assert.match(clearSessions, /retainedSessionHandles\.clear\(\)/);
-  assert.match(clearSessions, /knownSessionIds\.clear\(\)/);
 });
 
-test('native session history mirror stays bounded without evicting retained handles', () => {
-  assert.match(dynamicApi, /std::deque<std::int64_t> knownSessionIds/);
-  assert.match(dynamicApi, /std::unordered_set<std::int64_t> knownSessionIdSet/);
-  assert.match(dynamicApi, /nativeSessionHistoryLimit\(\)/);
-  assert.match(dynamicApi, /void pruneKnownSessionIdsLocked\(std::int64_t historyLimit\)/);
-  assert.match(dynamicApi, /retainedSessionHandles\.find\(candidate\)/);
-  assert.match(dynamicApi, /knownSessionIdSet\.insert\(id\)/);
-  assert.match(dynamicApi, /knownSessionIdSet\.clear\(\)/);
+test('native session history enumerates frozen native exports directly', () => {
+  assert.match(dynamicApi, /std::vector<HandleGuard> collectNativeSessionHandles/);
+  assert.match(dynamicApi, /sessionHistoryExport\(kind\)/);
+  assert.match(dynamicApi, /lastSessionExport\(kind\)/);
+  assert.match(dynamicApi, /ffmpeg_kit_get_sessions/);
+  assert.match(dynamicApi, /ffmpeg_kit_get_last_session/);
   assert.doesNotMatch(
     dynamicApi,
-    /std::find\(knownSessionIds\.begin\(\), knownSessionIds\.end\(\), id\)/,
+    /knownSessionIds|knownSessionIdSet|pruneKnownSessionIds|sessionIdsSnapshot/,
   );
 });

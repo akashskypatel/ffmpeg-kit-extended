@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | **R32-G1** | Establish one execution claimant per native session ID across Flutter and React Native | **Complete — native-ID reservations, Created handoff checks, and focused Flutter/RN regressions pass** |
 | **R32-G2** | Make React Native `SessionQueueManager` duplicate-safe and failure-atomic | **Complete — duplicate admission, sync/async failure cleanup, wait, and cancellation regressions pass** |
-| **R32-G3** | Make React Native history enumeration bounded and native-authoritative without dropping Created sessions | **Pending** |
+| **R32-G3** | Make React Native history enumeration bounded and native-authoritative without dropping Created sessions | **Complete — history/last-session queries now use frozen native exports directly** |
 | **R32-G4** | Run focused and ordered local wrapper regression against the frozen local ABI artifacts | **Pending** |
 | **R32-G5** | Reconcile behavior/docs/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
 
@@ -36,6 +36,12 @@
 - `SessionQueueManager` now rejects identical queued/active objects and conflicting native session IDs without invoking discard cleanup, keeps active accounting one-item-per-executor, catches synchronous executor throws before chaining, preserves original sync/async errors, and completes active cleanup before resolving/rejecting the public promise. Queue reservations are released exactly once on discard, handoff rejection, success, cancellation, or failure.
 - Focused evidence: serialized React Native queue suite **15/15**, including queued and active duplicate admission, `waitForAll()` while an executor remains active, synchronous throw identity, asynchronous rejection identity, next-item continuation, and Review 31 all-target/first-error cancellation behavior. React Native test compilation and typecheck passed.
 - No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed; no hosted test workflow or remote binary was used.
+
+### Review 32 React Native native-history evidence — 2026-09-24
+
+- React Native C++ history queries no longer maintain a second bounded ID mirror. `getSessionsJson()` selects the existing frozen native typed/all-session list export, serializes every returned native handle in native order, and releases the temporary handles; `getLastSessionJson()` selects the matching native last-session export. The retained-handle map remains only for active execution ownership.
+- The change preserves Created and Running native history entries, terminal eviction, native creation/last ordering, type filtering, history-size changes, and `clearSessions()` semantics by delegating enumeration to the native history authority. No new native export was added.
+- Focused evidence: native bridge source oracle **5/5** and `clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp` passed. No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed.
 
 ### Review 32 implementation order
 
