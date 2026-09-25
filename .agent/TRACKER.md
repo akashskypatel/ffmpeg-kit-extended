@@ -10,11 +10,11 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R31-G1** | Preserve native session-handle ownership when React Native clears session history | **Complete — native registry-aware clear and focused source oracle pass** |
-| **R31-G2** | Make React Native cancellation attempt every target and retry deferred native cancellation | **Pending** |
-| **R31-G3** | Give restored Flutter/history sessions correct native cancellation authority | **Pending** |
-| **R31-G4** | Keep the React Native history mirror bounded and aligned with native history | **Pending** |
-| **R31-G5** | Give local Flutter artifact overrides collision-free shared-cache identities | **Pending** |
-| **R31-G6** | Make React Native artifact download and Windows extraction staging transactional across processes | **Pending** |
+| **R31-G2** | Make React Native cancellation attempt every target and retry deferred native cancellation | **Complete — all-target cancellation and deferred retry regressions pass** |
+| **R31-G3** | Give restored Flutter/history sessions correct native cancellation authority | **Complete — restored-session cancellation regression and ownership suite pass** |
+| **R31-G4** | Keep the React Native history mirror bounded and aligned with native history | **Complete — bounded history oracle and C++ syntax gate pass** |
+| **R31-G5** | Give local Flutter artifact overrides collision-free shared-cache identities | **Complete — collision regression, cache suite, and analysis pass** |
+| **R31-G6** | Make React Native artifact download and Windows extraction staging transactional across processes | **Complete — transactional staging and cross-process concurrency gates pass** |
 | **R31-G7** | Reconcile evidence, freeze the exact wrapper source, and record the source snapshots | **Complete — exact wrapper and builders source snapshots verified** |
 
 ### Review 31 implementation boundary
