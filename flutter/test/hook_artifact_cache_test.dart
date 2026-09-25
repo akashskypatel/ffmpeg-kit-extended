@@ -47,13 +47,17 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsBytesSync([1, 2, 3]);
     final cacheDir = Directory(p.join(tempRoot.path, 'cache'));
-    final cachedArchive = File(p.join(cacheDir.path, 'source.zip'))
-      ..createSync(recursive: true)
-      ..writeAsBytesSync([4, 5, 6]);
+    final dependencies = <Uri>[];
+    final cachedArchive = await resolveLocalOverrideToCache(
+      overridePath: p.join('bundles', 'source.zip'),
+      configBaseDir: tempRoot.path,
+      cacheDir: cacheDir,
+      addDependency: dependencies.add,
+    );
     final extractRoot = extractRootFor(cachedArchive, cacheDir);
     File(p.join(extractRoot.path, 'stale-file')).createSync(recursive: true);
     extractCompletionMarkerFor(extractRoot).createSync();
-    final dependencies = <Uri>[];
+    source.writeAsBytesSync([4, 5, 6]);
 
     final cached = await resolveLocalOverrideToCache(
       overridePath: p.join('bundles', 'source.zip'),
@@ -62,9 +66,36 @@ void main() {
       addDependency: dependencies.add,
     );
 
-    expect(cached.readAsBytesSync(), equals([1, 2, 3]));
+    expect(cached.readAsBytesSync(), equals([4, 5, 6]));
     expect(extractRoot.existsSync(), isFalse);
     expect(dependencies, contains(source.uri));
+  });
+
+  test('separates local overrides with the same basename', () async {
+    final sourceA = File(p.join(tempRoot.path, 'a', 'bundle.zip'))
+      ..createSync(recursive: true)
+      ..writeAsBytesSync([1, 2, 3]);
+    final sourceB = File(p.join(tempRoot.path, 'b', 'bundle.zip'))
+      ..createSync(recursive: true)
+      ..writeAsBytesSync([4, 5, 6]);
+    final cacheDir = Directory(p.join(tempRoot.path, 'cache'));
+
+    final cachedA = await resolveLocalOverrideToCache(
+      overridePath: p.relative(sourceA.path, from: tempRoot.path),
+      configBaseDir: tempRoot.path,
+      cacheDir: cacheDir,
+      addDependency: (_) {},
+    );
+    final cachedB = await resolveLocalOverrideToCache(
+      overridePath: p.relative(sourceB.path, from: tempRoot.path),
+      configBaseDir: tempRoot.path,
+      cacheDir: cacheDir,
+      addDependency: (_) {},
+    );
+
+    expect(cachedA.path, isNot(equals(cachedB.path)));
+    expect(cachedA.readAsBytesSync(), equals([1, 2, 3]));
+    expect(cachedB.readAsBytesSync(), equals([4, 5, 6]));
   });
 
   test('does not copy an identical local override', () async {
@@ -268,8 +299,7 @@ void main() {
   });
 
   test('does not translate the ManyLinux authority on Windows', () {
-    const overridePath =
-        r'\\wsl.localhost\ManyLinux\home\vscode\bundle.zip';
+    const overridePath = r'\\wsl.localhost\ManyLinux\home\vscode\bundle.zip';
     expect(
       resolveLocalOverridePath(
         overridePath: overridePath,

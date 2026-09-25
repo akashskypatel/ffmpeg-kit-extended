@@ -289,9 +289,7 @@ String resolveLocalOverridePath({
   final isLinux = runningOnLinux ?? Platform.isLinux;
   const wslManyLinuxPrefix = '\\\\wsl.localhost\\ManyLinux\\';
   if (isLinux &&
-      overridePath.toLowerCase().startsWith(
-        wslManyLinuxPrefix.toLowerCase(),
-      )) {
+      overridePath.toLowerCase().startsWith(wslManyLinuxPrefix.toLowerCase())) {
     final linuxPath = overridePath
         .substring(wslManyLinuxPrefix.length)
         .replaceAll('\\', '/');
@@ -882,13 +880,22 @@ Future<FFmpegArtifact> _handleDownloadedFile(
     cacheDir,
     _extractFile,
   );
+  final extractedDirectories = extractRoot
+      .listSync()
+      .whereType<Directory>()
+      .toList();
   final finalExtractedDir = requireAppleFramework
       ? selectAppleXcframeworkRoot(extractRoot)
-      : extractRoot.listSync().whereType<Directory>().firstWhere(
+      : extractedDirectories.firstWhere(
           (d) => p.basename(d.path).endsWith('.xcframework'),
-          orElse: () => Directory(
-            p.join(extractRoot.path, p.basename(extractRoot.path)),
-          ), // flat zip fallback
+          orElse: () => extractedDirectories.length == 1
+              ? extractedDirectories.single
+              : Directory(
+                  p.join(
+                    extractRoot.path,
+                    p.basenameWithoutExtension(file.path),
+                  ),
+                ), // flat zip fallback
         );
   return FFmpegArtifact(
     file: file,
@@ -1643,6 +1650,18 @@ Future<String?> _computeFileSha256(File file) async {
   }
 }
 
+String _localOverrideCacheFileName(File source) {
+  final absolutePath = p.normalize(source.absolute.path);
+  final identity = Platform.isWindows
+      ? absolutePath.toLowerCase()
+      : absolutePath;
+  final pathDigest = sha256
+      .convert(utf8.encode(identity))
+      .toString()
+      .substring(0, 16);
+  return '$pathDigest-${p.basename(source.path)}';
+}
+
 @visibleForTesting
 Future<bool> syncLocalOverride(
   File source,
@@ -1700,7 +1719,9 @@ Future<File> resolveLocalOverrideToCache({
   }
 
   addDependency(localFile.uri);
-  final cacheFile = File(p.join(cacheDir.path, p.basename(localFile.path)));
+  final cacheFile = File(
+    p.join(cacheDir.path, _localOverrideCacheFileName(localFile)),
+  );
   await syncLocalOverride(localFile, cacheFile, cacheDir: cacheDir);
   return cacheFile;
 }

@@ -60,6 +60,12 @@ R31-G1..R31-G6 implementation
 - `react-native/cpp/FFmpegKitDynamicApi.cpp` now maintains the wrapper history mirror as an ordered deque with an O(1) membership set. New and released sessions are pruned against the native `ffmpeg_kit_get_session_history_size()` limit; retained owning handles are never selected for eviction, and history-size changes trigger the same pruning path. Released terminal sessions remain visible until native-history capacity requires eviction.
 - The focused native bridge source oracle passed **5/5**, including bounded storage, native-limit lookup, retained-handle protection, set cleanup, and removal of the old linear membership scan. `clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp` completed successfully on Windows. No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed.
 
+### Review 31 R31-G5 evidence — 2026-09-24
+
+- `flutter/hook/build.dart` now derives local override cache filenames from a normalized absolute source-path digest plus the original basename, so same-named archives from different local directories cannot share one cache file or extraction marker. The archive fallback now discovers a single top-level extracted directory instead of assuming the cache filename names the archive’s internal directory.
+- `flutter/test/hook_artifact_cache_test.dart` adds a same-basename/different-source-path regression and updates stale-extraction invalidation to the hashed cache identity. The final elevated Flutter hook-cache suite passed **17/17**; bounded elevated `dart analyze hook/build.dart test/hook_artifact_cache_test.dart` reported **No issues found**. The suite also completed its two-process local cache-writer regression and left no task-owned staging entries.
+- No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed; the local WSL artifact override remained the configured test input.
+
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)
