@@ -14,7 +14,7 @@
 | **R32-G2** | Make React Native `SessionQueueManager` duplicate-safe and failure-atomic | **Complete — duplicate admission, sync/async failure cleanup, wait, and cancellation regressions pass** |
 | **R32-G3** | Make React Native history enumeration bounded and native-authoritative without dropping Created sessions | **Complete — history/last-session queries now use frozen native exports directly** |
 | **R32-G4** | Run focused and ordered local wrapper regression against the frozen local ABI artifacts | **Complete — focused suites, package gates, and ordered Windows/Android/WSL/Wasm/Web/Apple local validation pass** |
-| **R32-G5** | Reconcile behavior/docs/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+| **R32-G5** | Reconcile behavior/docs/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Complete — exact wrapper source snapshot verified at `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6`** |
 
 ### Review 32 implementation boundary
 
@@ -34,6 +34,13 @@
 - Apple was run last on the MacBook Air over SSH to `akash@192.168.1.189`. Flutter macOS Release, iOS Simulator Debug, and iOS Debug `--no-codesign` passed. React Native iOS, tvOS Simulator, and macOS Debug builds each completed with `** BUILD SUCCEEDED **`, using the configured local universal archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/`. The first React Native iOS attempt was rejected by the noninteractive SSH locale; the UTF-8 retry passed. A command-path quoting retry was corrected before the tvOS/macOS builds and did not reach compilation.
 - A normal-shell React Native Web preparation attempt was denied WSL access and the first package checks encountered Windows cache/temp permissions; elevated tagged retries with task-local cache/temp directories passed. All temporary directories, generated Web staging, the Wasm smoke helper, Apple Pods/runtime/vendor/build outputs, and the tagged browser server were removed afterward. Final Windows and MacBook Air process audits found no task-owned Review 32 processes.
 - No hosted Flutter/React Native CI or test workflow, remotely staged old binary, native ABI publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was used. The native submodule remains on `dev` at `b74da2c5d1e294b87d15d73a6687393729e932b3`, matching `origin/dev`; the configured local artifact paths remain the validation authority.
+
+### Review 32 exact wrapper source snapshot — 2026-09-24
+
+- The reconciled wrapper source candidate was clean, pushed, and snapshotted at exact SHA `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6`; `origin/dev-wasm` matched it when the snapshot was dispatched. The frozen native submodule remained `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- The single permitted wrapper-only snapshot completed in [workflow run `36095917288`](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36095917288). The primary artifact is `review32-final-wrapper-source-36095917288`, artifact ID `10847428217`, with digest `sha256:79478c8d9a6ed785808b33d4acb2ff29d8544508a003ebbe0e6749cee6c7e688`; [download the final wrapper source snapshot](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10847428217/zip).
+- Artifact verification passed: embedded `source.tar.gz` SHA-256 `2a25832597b6015e62e6dc5e3ce36e5773c6e100f97602022b8ba7a666fae7b9`, workflow metadata and `SHA256SUMS` each report **1,057 files**, extracted source contains **1,057 files / 27,244,721 bytes**, symlinks **0**, recursive submodule materialization is recorded, and `runtimeExecution=false`. The diagnostic artifact is `review32-final-wrapper-source-log-36095917288`, artifact ID `10846988744`; [download the snapshot diagnostic log](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10846988744/zip).
+- This was a source-only snapshot. No Flutter/React Native hosted test workflow, builders/native snapshot, remote staged binary, native ABI publication, or ManyLinux builder checkout mutation was used. Final automated work is complete; interactive runtime validation remains user-owned.
 
 ### Review 32 native-session execution ownership evidence — 2026-09-24
 

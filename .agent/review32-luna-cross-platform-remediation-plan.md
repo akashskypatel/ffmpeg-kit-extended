@@ -30,7 +30,7 @@ Implementation identifiers must describe behavior. `R32-*`, finding numbers, pla
 | R32-F2 / R32-G2 | Transactional React Native queue admission and cleanup | Complete — duplicate admission, sync/async failure cleanup, wait, and cancellation regressions pass |
 | R32-F3 / R32-G3 | Native-authoritative React Native history enumeration without dropping Created sessions | Complete — history/last-session queries use frozen native exports directly |
 | R32-G4 | Focused and ordered local wrapper regression | Complete — focused suites, package gates, and ordered local platform validation pass |
-| R32-G5 | Documentation, exact wrapper freeze, and one wrapper-only source snapshot | Pending |
+| R32-G5 | Documentation, exact wrapper freeze, and one wrapper-only source snapshot | Complete — exact wrapper source snapshot verified at `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6` |
 
 Close each goal only after its required evidence exists, the tracker is updated, and a meaningful commit is pushed. Keep failed commands and corrected assumptions explicit.
 
@@ -146,7 +146,7 @@ Exit evidence must show focused regressions, affected package gates, required lo
 
 The wrapper remediation and local regression sequence is complete through G4. Flutter and React Native focused regressions, the full non-native Flutter package suite (**200/200**), React Native package gates, Windows and Windows-hosted Android builds, WSL Linux, Wasm/Web build and browser smoke, and the ordered MacBook Air Apple builds all passed against the configured local artifacts. Failed or retried commands were environment corrections only: elevated shells, task-local npm cache/temp paths, Windows Edge for the missing WSL Playwright executable, UTF-8 SSH locale, and Windows JDK 17 for Android. No native ABI contradiction was found.
 
-The G5 source candidate is the next pushed wrapper commit after this documentation reconciliation. It must be snapshotted once with recursive submodules, then its exact workflow/artifact evidence must be added to the tracker.
+The exact G5 source candidate was pushed at `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6` and snapshotted once with recursive submodules in workflow run `36095917288`. The primary artifact is `review32-final-wrapper-source-36095917288` (artifact `10847428217`); its tracker entry records the artifact link, digest, embedded archive hash, manifest count, submodule state, and `runtimeExecution=false`.
 
 ## R32-G5 — Exact wrapper closeout
 

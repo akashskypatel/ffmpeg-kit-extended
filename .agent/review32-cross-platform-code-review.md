@@ -95,4 +95,4 @@ Promotion: NOT RECOMMENDED before R32-F1..F3 remediation
 
 The pre-remediation review disposition above is retained as the review-time baseline. Review 32 subsequently resolved all three substantive findings in the wrapper: native-session-ID execution ownership, transactional React Native queue admission/cleanup, and native-authoritative history enumeration. Focused Flutter/React Native regressions, package gates, and ordered local Windows, Android, WSL Linux, Wasm/Web, and MacBook Air Apple validation passed against the existing local ABI artifacts. No native ABI change, `libs/libffmpegkit` change, ManyLinux builder change, remote binary retrieval, hosted acceptance workflow, or interactive runtime claim was introduced.
 
-Promotion remains subject only to the exact wrapper SHA freeze and the single wrapper-only source snapshot required by the implementation plan.
+The exact wrapper SHA freeze and the single wrapper-only source snapshot are complete at `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6`; promotion is no longer blocked by the Review 32 findings.
