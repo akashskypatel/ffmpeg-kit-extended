@@ -94,12 +94,18 @@ class _CleanupFailingSession extends _ReleasableSession {
 class _NoopFFmpegSession extends FFmpegSession {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
+  int nativeCancellationCalls = 0;
 
   _NoopFFmpegSession(int sessionId)
     : super.test(sessionId: sessionId, register: false);
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  void dispatchNativeCancellation() {
+    nativeCancellationCalls += 1;
+  }
 
   @override
   SessionState executionStateForSubmission() {
@@ -574,6 +580,17 @@ void main() {
       );
       expect(failedRead.completeCallback, isNull);
       expect(manager.ffmpegSessions, isNot(contains(330)));
+    });
+
+    test('restored running sessions retain native cancellation authority', () {
+      final session = _NoopFFmpegSession(331);
+      session.restoreForTest(SessionState.running);
+
+      session.cancel();
+      session.cancel();
+
+      expect(session.isCancelled, isTrue);
+      expect(session.nativeCancellationCalls, 1);
     });
 
     test('clearing the last callback unregisters each session', () {

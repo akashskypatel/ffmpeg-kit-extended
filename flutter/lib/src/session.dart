@@ -992,7 +992,7 @@ abstract class Session {
       return;
     }
 
-    if (!_submitted) {
+    if (!_submitted && !_restoredFromHandle) {
       _cleanupCancelledBeforeStart();
       return;
     }

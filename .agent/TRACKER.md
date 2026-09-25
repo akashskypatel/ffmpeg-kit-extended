@@ -49,6 +49,12 @@ R31-G1..R31-G6 implementation
 - `react-native/src/session.ts` no longer latches a deferred native cancellation failure permanently. The monitor preserves the first failure as execution error authority while retrying the native dispatch on later Running observations until it succeeds. The serialized cancellation lifecycle regression `node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern 'cancellation' tests/wasm-session-ownership.test.js` passed **9/9**, including deferred retry, handle retention, and terminal error propagation. `npm run test:compile` passed before the focused runs.
 - Node 26 default multi-test scheduling was not used as acceptance evidence because this shared-fixture file intermittently left an active session between concurrent test workers; the bounded serialized commands above completed and exited cleanly. No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed.
 
+### Review 31 R31-G3 evidence — 2026-09-24
+
+- `flutter/lib/src/session.dart` now treats a restored native handle as cancellation-authoritative even though it is intentionally not submit-able for a second execution. Restored sessions use the live state oracle: Running dispatches native cancellation, terminal states remain naturally settled, and only genuinely pre-start non-restored sessions use the pre-start cleanup path.
+- `flutter/test/ownership_callback_regression_test.dart` adds a restored Running session regression asserting repeated cancellation dispatches exactly once. The focused Flutter test passed **1/1**; the complete ownership/callback regression suite passed **20/20**; bounded elevated `dart analyze lib/src/session.dart test/ownership_callback_regression_test.dart` reported **No issues found**.
+- The requested analytics-disabled commands were run before the Flutter gates (`flutter config --no-analytics`, `dart --disable-analytics`). No FFI binding, native ABI, `libs/libffmpegkit`, or ManyLinux builder change was required for this wrapper-only fix.
+
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)
