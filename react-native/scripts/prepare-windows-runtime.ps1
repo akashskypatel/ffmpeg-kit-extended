@@ -148,7 +148,24 @@ function Enter-DirectoryLock {
         continue
       }
       $lockInfo = Get-Item -LiteralPath $LockPath -Force
-      if (((Get-Date) - $lockInfo.LastWriteTimeUtc).TotalMinutes -gt 30) {
+      $ownerPath = Join-Path $LockPath 'owner'
+      $ownerAlive = $true
+      if (Test-Path -LiteralPath $ownerPath -PathType Leaf) {
+        $owner = @(Get-Content -LiteralPath $ownerPath -ErrorAction SilentlyContinue)
+        $ownerPid = 0
+        if ($owner.Count -gt 0 -and [int]::TryParse($owner[0], [ref]$ownerPid)) {
+          try {
+            $ownerProcess = Get-Process -Id $ownerPid -ErrorAction Stop
+            if ($owner.Count -gt 1) {
+              $ownerTime = [DateTime]::Parse($owner[1]).ToUniversalTime()
+              $ownerAlive = $ownerProcess.StartTime.ToUniversalTime() -le $ownerTime.AddSeconds(1)
+            }
+          } catch {
+            $ownerAlive = $false
+          }
+        }
+      }
+      if (-not $ownerAlive -or ((Get-Date) - $lockInfo.LastWriteTimeUtc).TotalMinutes -gt 30) {
         Remove-Item -LiteralPath $LockPath -Recurse -Force
         continue
       }
@@ -161,6 +178,13 @@ function Enter-DirectoryLock {
 function Exit-DirectoryLock {
   param([Parameter(Mandatory)][string]$LockPath)
 
+  $ownerPath = Join-Path $LockPath 'owner'
+  if (Test-Path -LiteralPath $ownerPath -PathType Leaf) {
+    $owner = @(Get-Content -LiteralPath $ownerPath -ErrorAction SilentlyContinue)
+    if ($owner.Count -gt 0 -and $owner[0] -ne "$PID") {
+      return
+    }
+  }
   if (Test-Path -LiteralPath $LockPath -PathType Container) {
     Remove-Item -LiteralPath $LockPath -Recurse -Force
   }
