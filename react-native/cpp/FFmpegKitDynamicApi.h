@@ -31,6 +31,7 @@ void enableLogCallback(LogCallback callback, void *userData);
 void releaseOwnedLogMessage(char *message);
 
 std::string getSessionJson(double sessionId);
+std::int32_t getSessionState(double sessionId);
 double getLogsCount(double sessionId);
 void releaseSessionHandle(double sessionId);
 std::string getSessionsJson(const std::string &kind);

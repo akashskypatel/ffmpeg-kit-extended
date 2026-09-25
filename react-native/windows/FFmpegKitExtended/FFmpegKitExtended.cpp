@@ -249,6 +249,10 @@ std::string FFmpegKitExtended::getSessionJson(double sessionId) noexcept {
   return invoke<std::string>("getSessionJson", [&] { return api::getSessionJson(sessionId); });
 }
 
+std::int32_t FFmpegKitExtended::getSessionState(double sessionId) noexcept {
+  return invoke<std::int32_t>("getSessionState", [&] { return api::getSessionState(sessionId); });
+}
+
 double FFmpegKitExtended::getLogsCount(double sessionId) noexcept {
   return invoke<double>("getLogsCount", [&] { return api::getLogsCount(sessionId); });
 }

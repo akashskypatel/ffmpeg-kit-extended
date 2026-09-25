@@ -159,6 +159,7 @@ void FFmpegKitExtendedImpl::uninstallLogBridge(jsi::Runtime &) {
 }
 
 std::string FFmpegKitExtendedImpl::getSessionJson(jsi::Runtime &, double sessionId) { return api::getSessionJson(sessionId); }
+std::int32_t FFmpegKitExtendedImpl::getSessionState(jsi::Runtime &, double sessionId) { return api::getSessionState(sessionId); }
 double FFmpegKitExtendedImpl::getLogsCount(jsi::Runtime &, double sessionId) { return api::getLogsCount(sessionId); }
 void FFmpegKitExtendedImpl::releaseSessionHandle(jsi::Runtime &, double sessionId) { api::releaseSessionHandle(sessionId); }
 std::string FFmpegKitExtendedImpl::getSessionsJson(jsi::Runtime &, std::string kind) { return api::getSessionsJson(kind); }

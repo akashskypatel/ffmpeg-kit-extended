@@ -12,7 +12,7 @@
 | --- | --- | --- |
 | **R33-G1** | Make Flutter session-history inspection ownership-safe so read APIs cannot cancel Running sessions | **Complete — weak identity projection reuses live Dart sessions, keeps Created/terminal lookups temporary, and focused history-index plus ownership regressions pass** |
 | **R33-G2** | Make React Native native/Web history inspection ownership-safe without restoring the Review 31/32 history-mirror defects | **Complete — native and Wasm identity projections borrow retained active handles, temporary non-active reads are released safely, and focused bridge/registry regressions pass** |
-| **R33-G3** | Give React Native native monitoring a scalar session-state path instead of full-session JSON polling | **Pending** |
+| **R33-G3** | Give React Native native monitoring a scalar session-state path instead of full-session JSON polling | **Complete — scalar state is exposed through TurboModule/native/Windows surfaces and the monitor oracle proves zero full-snapshot polling** |
 | **R33-G4** | Run focused and affected cross-platform local wrapper regression against the existing frozen local ABI artifacts | **Pending** |
 | **R33-G5** | Reconcile affected behavior/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
 
@@ -27,6 +27,12 @@
 - The native C++ bridge now records semantic session identities at creation, projects history in creation order, borrows retained execution handles for active IDs, and resolves only Created/terminal IDs through temporary handles. Missing native IDs are reconciled out of the identity authority; `clearSessions()` clears identity metadata together with retained execution ownership. The old owning native-array enumeration path and second bounded mirror were removed.
 - The Wasm backend now uses the same identity/type/order authority. Active retained pointers are borrowed, running pointers discovered during reconciliation are retained before serialization, and only non-active temporary pointers are released. Typed/all-session and last-session JSON reads share the same projection; the Web identity registry stores no pointer or session object.
 - Local evidence passed: React Native test compilation, typecheck, C++ bridge syntax check (`clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp`), and focused Node tests **11/11** covering the native source oracle, identity/type/order filters, duplicate identities, visibility/removal, and pointer registry behavior. No native ABI or `libs/libffmpegkit` file changed.
+
+### Review 33 React Native scalar state evidence — 2026-09-25
+
+- `getSessionState(sessionId)` now crosses the TurboModule TypeScript contract, shared dynamic C++ API, shared Cxx implementation used by Android/Apple, and the Windows module surface. The implementation acquires the ownership-safe session handle and calls only the frozen `ffmpeg_kit_session_get_state` symbol; it does not construct or serialize a session snapshot.
+- `react-native/src/platform/backend.native.ts` now delegates monitor state reads directly to `NativeFFmpegKitExtended.getSessionState`. The full JSON getter remains available for explicit snapshot access, but the high-frequency monitor path has no `getSessionJson` fallback.
+- Local evidence passed: test compilation, typecheck, dynamic bridge syntax (`clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp`), native bridge/source oracle **6/6**, and a scalar monitor test **1/1** proving repeated state polling with zero full-session JSON reads and exactly one terminal release. The isolated Cxx implementation syntax check was not possible because consumer-generated `FFmpegKitExtendedSpecJSI.h` is intentionally absent from this package; the Cxx source is covered by the shared contract/source oracle and consumer codegen gate in G4.
 
 ### Review 33 implementation boundary
 

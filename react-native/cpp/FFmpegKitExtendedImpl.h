@@ -49,6 +49,7 @@ class FFmpegKitExtendedImpl
   void uninstallLogBridge(jsi::Runtime &rt);
 
   std::string getSessionJson(jsi::Runtime &rt, double sessionId);
+  std::int32_t getSessionState(jsi::Runtime &rt, double sessionId);
   double getLogsCount(jsi::Runtime &rt, double sessionId);
   void releaseSessionHandle(jsi::Runtime &rt, double sessionId);
   std::string getSessionsJson(jsi::Runtime &rt, std::string kind);

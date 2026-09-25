@@ -55,6 +55,8 @@ export interface Spec extends TurboModule {
 
   /** Session snapshots and buffered callback payloads are serialized as JSON. */
   getSessionJson(sessionId: Double): string;
+  /** Returns only the native lifecycle state for monitor polling. */
+  getSessionState(sessionId: Double): Int32;
   /**
    * Returns the retained native log count for one bounded terminal
    * reconciliation. Normal direct delivery does not call indexed getters.

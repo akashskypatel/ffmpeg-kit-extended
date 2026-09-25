@@ -43,11 +43,7 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
         };
       }
       if (property === 'getSessionState') {
-        return (sessionId: number) => {
-          const json = NativeFFmpegKitExtended.getSessionJson(sessionId);
-          if (!json) throw new Error(`Session ${sessionId} no longer exists`);
-          return (JSON.parse(json) as {state: number}).state;
-        };
+        return (sessionId: number) => NativeFFmpegKitExtended.getSessionState(sessionId);
       }
       return Reflect.get(target, property, receiver);
     },

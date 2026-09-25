@@ -12,6 +12,14 @@ const windowsBridge = fs.readFileSync(
   'windows/FFmpegKitExtended/FFmpegKitExtended.cpp',
   'utf8',
 );
+const nativeHeader = fs.readFileSync(
+  'src/NativeFFmpegKitExtended.ts',
+  'utf8',
+);
+const nativeBackend = fs.readFileSync(
+  'src/platform/backend.native.ts',
+  'utf8',
+);
 
 function section(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -127,4 +135,20 @@ test('native session history projects recorded identities without enumerating ow
     dynamicApi,
     /knownSessionIds|knownSessionIdSet|pruneKnownSessionIds|sessionIdsSnapshot/,
   );
+});
+
+test('native monitor state polling uses the scalar bridge surface', () => {
+  assert.match(nativeHeader, /getSessionState\(sessionId: Double\): Int32/);
+  assert.match(dynamicApi, /std::int32_t getSessionState\(double sessionId\)/);
+  assert.match(
+    dynamicApi,
+    /getSessionState\(double sessionId\)[\s\S]*?acquireSession\(toId\(sessionId\)\)/,
+  );
+  assert.match(dynamicApi, /ffmpeg_kit_session_get_state/);
+  assert.match(nativeBackend, /NativeFFmpegKitExtended\.getSessionState\(sessionId\)/);
+  assert.doesNotMatch(
+    nativeBackend,
+    /if \(property === 'getSessionState'[\s\S]*?getSessionJson\(/,
+  );
+  assert.match(windowsBridge, /FFmpegKitExtended::getSessionState/);
 });

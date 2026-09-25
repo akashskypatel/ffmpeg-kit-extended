@@ -79,8 +79,8 @@ export interface FFmpegKitBackend {
   installStatisticsBridge?(): void;
   uninstallStatisticsBridge?(): void;
   cancelSession(sessionId: number): void;
-  /** Optional lightweight state read used by the Web monitor. */
-  getSessionState?(sessionId: number): number;
+  /** Lightweight scalar state read used by the execution monitor. */
+  getSessionState(sessionId: number): number;
   getSessionJson(sessionId: number): string;
   releaseSessionHandle(sessionId: number): void;
   getSessionsJson(kind: string): string;
