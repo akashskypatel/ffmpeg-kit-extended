@@ -16,6 +16,42 @@ function powershellLiteral(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
+function getWslPathParts(value) {
+  const segments = String(value).split('\\');
+  if (
+    segments.length < 5 ||
+    segments[0] !== '' ||
+    segments[1] !== '' ||
+    !/^wsl(?:\.localhost|\$)$/i.test(segments[2])
+  ) {
+    return null;
+  }
+  return {
+    distro: segments[3],
+    linuxPath: `/${segments.slice(4).join('/')}`,
+  };
+}
+
+function windowsPathToWslPath(value) {
+  const fullPath = path.resolve(value);
+  if (!/^[A-Za-z]:\\/.test(fullPath)) {
+    fail(`A local drive path is required for WSL copy destination: ${value}`);
+  }
+  return `/mnt/${fullPath[0].toLowerCase()}${fullPath.slice(2).replaceAll('\\', '/')}`;
+}
+
+function copyWslLocalFile(source, destination) {
+  const parts = getWslPathParts(source);
+  if (!parts) return false;
+  fs.mkdirSync(path.dirname(destination), {recursive: true});
+  childProcess.execFileSync(
+    'wsl.exe',
+    ['-d', parts.distro, '--', 'cp', '--', parts.linuxPath, windowsPathToWslPath(destination)],
+    {stdio: 'inherit'},
+  );
+  return true;
+}
+
 function parseArgs(argv) {
   const result = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -104,17 +140,35 @@ async function main(argv = process.argv.slice(2)) {
 
   let sourceRoot;
   let temporaryRoot;
+  let temporaryOverrideRoot;
   try {
     if (resolution.override?.kind === 'local') {
       const overridePath = resolution.override.resolvedPath;
-      if (!fs.existsSync(overridePath)) {
-        fail(`Configured local Web runtime does not exist: ${overridePath}`);
-      }
-      if (fs.statSync(overridePath).isDirectory()) {
-        sourceRoot = overridePath;
+      const wslPath = process.platform === 'win32' ? getWslPathParts(overridePath) : null;
+      if (wslPath) {
+        temporaryOverrideRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-source-'));
+        const localCopy = path.join(temporaryOverrideRoot, path.basename(wslPath.linuxPath));
+        try {
+          copyWslLocalFile(overridePath, localCopy);
+        } catch (error) {
+          fail(`Could not copy configured local Web runtime from WSL: ${error.message}`);
+        }
+        sourceRoot = localCopy;
       } else {
+        if (!fs.existsSync(overridePath)) {
+          fail(`Configured local Web runtime does not exist: ${overridePath}`);
+        }
+        if (fs.statSync(overridePath).isDirectory()) {
+          sourceRoot = overridePath;
+        } else {
+          temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-'));
+          extractZip(overridePath, temporaryRoot);
+          sourceRoot = temporaryRoot;
+        }
+      }
+      if (wslPath) {
         temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ffmpeg-kit-web-'));
-        extractZip(overridePath, temporaryRoot);
+        extractZip(sourceRoot, temporaryRoot);
         sourceRoot = temporaryRoot;
       }
     } else {
@@ -144,6 +198,7 @@ async function main(argv = process.argv.slice(2)) {
     process.stdout.write(`${JSON.stringify({target, filename: resolution.filename, version: resolution.version})}\n`);
   } finally {
     if (temporaryRoot) fs.rmSync(temporaryRoot, {recursive: true, force: true});
+    if (temporaryOverrideRoot) fs.rmSync(temporaryOverrideRoot, {recursive: true, force: true});
   }
 }
 

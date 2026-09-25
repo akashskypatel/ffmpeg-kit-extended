@@ -34,7 +34,7 @@
   "scripts": {
     "clean": "del-cli android/build ios/build lib",
     "prepare": "bob build",
-    "prepare-web": "node scripts/prepare-web.js",
+    "prepare-web": "node scripts/prepare-web.js --app-root example --quiet true",
     "test:web": "node scripts/web-smoke.js",
     "test:pack-web": "node tests/packed-web-consumer.js",
     "test:pack-types": "node tests/packed-types-consumer.js",
