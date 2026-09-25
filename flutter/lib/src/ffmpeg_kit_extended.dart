@@ -29,6 +29,7 @@ import 'media_information_session.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 import 'session.dart';
+import 'session_history_index.dart';
 import 'session_queue_manager.dart';
 import 'signal.dart';
 
@@ -39,6 +40,11 @@ enum _ExpectedSessionKind { any, ffmpeg, ffprobe, ffplay, mediaInformation }
 /// All methods are static.  Use this class to create and manage FFmpeg
 /// sessions, configure global settings, and retrieve version information.
 class FFmpegKitExtended {
+  static final _sessionHistoryIndex = SessionHistoryIndex();
+
+  /// Test-only access to the identity index; it does not expose ownership.
+  static SessionHistoryIndex get sessionHistoryIndex => _sessionHistoryIndex;
+
   /// Throws [StateError] if [FFmpegKitExtended.initialize] has not been called.
   ///
   /// Call this at the top of every method that reaches the native layer.
@@ -82,12 +88,14 @@ class FFmpegKitExtended {
   }) {
     requireInitialized();
     _requireNonBlank(command, 'command');
-    return FFmpegSession(
+    final session = FFmpegSession(
       command,
       completeCallback: completeCallback,
       logCallback: logCallback,
       statisticsCallback: statisticsCallback,
     );
+    _rememberSession(session, SessionHistoryType.ffmpeg);
+    return session;
   }
 
   /// Creates a new [FFprobeSession] for [command].
@@ -99,7 +107,9 @@ class FFmpegKitExtended {
   }) {
     requireInitialized();
     _requireNonBlank(command, 'command');
-    return FFprobeSession(command, completeCallback: completeCallback);
+    final session = FFprobeSession(command, completeCallback: completeCallback);
+    _rememberSession(session, SessionHistoryType.ffprobe);
+    return session;
   }
 
   /// Creates a new [FFplaySession] for [command].
@@ -112,11 +122,13 @@ class FFmpegKitExtended {
   }) {
     requireInitialized();
     _requireNonBlank(command, 'command');
-    return FFplaySession(
+    final session = FFplaySession(
       command,
       timeout: timeout,
       completeCallback: completeCallback,
     );
+    _rememberSession(session, SessionHistoryType.ffplay);
+    return session;
   }
 
   /// Creates a new [MediaInformationSession] for [command].
@@ -132,11 +144,13 @@ class FFmpegKitExtended {
   }) {
     requireInitialized();
     _requireNonBlank(command, 'command');
-    return MediaInformationSession(
+    final session = MediaInformationSession(
       command,
       timeout: timeout,
       completeCallback: completeCallback,
     );
+    _rememberSession(session, SessionHistoryType.mediaInformation);
+    return session;
   }
 
   // ---------------------------------------------------------------------------
@@ -325,6 +339,7 @@ class FFmpegKitExtended {
   static void setSessionHistorySize(int size) {
     requireInitialized();
     ffmpegKitBackend.setSessionHistorySize(size);
+    _pruneTerminalHistory(size);
   }
 
   /// Returns the current native-layer session history size.
@@ -336,14 +351,13 @@ class FFmpegKitExtended {
   /// Returns all sessions in native-layer history, correctly typed.
   static List<Session> getSessions() {
     requireInitialized();
-    return _wrapSessions<Session>(ffmpegKitBackend.getSessions());
+    return _projectHistory<Session>();
   }
 
   /// Returns all FFmpeg sessions in native-layer history.
   static List<FFmpegSession> getFFmpegSessions() {
     requireInitialized();
-    return _wrapSessions<FFmpegSession>(
-      ffmpegKitBackend.getFFmpegSessions(),
+    return _projectHistory<FFmpegSession>(
       expectedKind: _ExpectedSessionKind.ffmpeg,
     );
   }
@@ -351,8 +365,7 @@ class FFmpegKitExtended {
   /// Returns all FFprobe sessions in native-layer history.
   static List<FFprobeSession> getFFprobeSessions() {
     requireInitialized();
-    return _wrapSessions<FFprobeSession>(
-      ffmpegKitBackend.getFFprobeSessions(),
+    return _projectHistory<FFprobeSession>(
       expectedKind: _ExpectedSessionKind.ffprobe,
     );
   }
@@ -360,8 +373,7 @@ class FFmpegKitExtended {
   /// Returns all FFplay sessions in native-layer history.
   static List<FFplaySession> getFFplaySessions() {
     requireInitialized();
-    return _wrapSessions<FFplaySession>(
-      ffmpegKitBackend.getFFplaySessions(),
+    return _projectHistory<FFplaySession>(
       expectedKind: _ExpectedSessionKind.ffplay,
     );
   }
@@ -369,8 +381,7 @@ class FFmpegKitExtended {
   /// Returns all MediaInformation sessions in native-layer history.
   static List<MediaInformationSession> getMediaInformationSessions() {
     requireInitialized();
-    return _wrapSessions<MediaInformationSession>(
-      ffmpegKitBackend.getMediaInformationSessions(),
+    return _projectHistory<MediaInformationSession>(
       expectedKind: _ExpectedSessionKind.mediaInformation,
     );
   }
@@ -382,62 +393,63 @@ class FFmpegKitExtended {
   /// Returns the session with [sessionId], or `null` if not found.
   static Session? getSession(int sessionId) {
     requireInitialized();
-    final handle = ffmpegKitBackend.getSessionById(sessionId);
-    return handle == null ? null : _wrapSession(handle);
+    _synchronizeLiveSessions();
+    final entry = _sessionHistoryIndex[sessionId];
+    if (entry == null || !entry.visible) return null;
+    return _resolveHistoryEntry(entry);
   }
 
   /// Returns the most recently created session, or `null`.
   static Session? getLastSession() {
     requireInitialized();
-    final handle = ffmpegKitBackend.getLastSession();
-    return handle == null ? null : _wrapSession(handle);
+    final sessions = _projectHistory<Session>();
+    return sessions.isEmpty ? null : sessions.last;
   }
 
   /// Returns the most recently created [FFmpegSession], or `null`.
   static FFmpegSession? getLastFFmpegSession() {
     requireInitialized();
-    final handle = ffmpegKitBackend.getLastFFmpegSession();
-    return handle == null
-        ? null
-        : _wrapTypedSession(handle, _ExpectedSessionKind.ffmpeg)
-              as FFmpegSession?;
+    final sessions = _projectHistory<FFmpegSession>(
+      expectedKind: _ExpectedSessionKind.ffmpeg,
+    );
+    return sessions.isEmpty ? null : sessions.last;
   }
 
   /// Returns the most recently created [FFprobeSession], or `null`.
   static FFprobeSession? getLastFFprobeSession() {
     requireInitialized();
-    final handle = ffmpegKitBackend.getLastFFprobeSession();
-    return handle == null
-        ? null
-        : _wrapTypedSession(handle, _ExpectedSessionKind.ffprobe)
-              as FFprobeSession?;
+    final sessions = _projectHistory<FFprobeSession>(
+      expectedKind: _ExpectedSessionKind.ffprobe,
+    );
+    return sessions.isEmpty ? null : sessions.last;
   }
 
   /// Returns the most recently created [FFplaySession], or `null`.
   static FFplaySession? getLastFFplaySession() {
     requireInitialized();
-    final handle = ffmpegKitBackend.getLastFFplaySession();
-    return handle == null
-        ? null
-        : _wrapTypedSession(handle, _ExpectedSessionKind.ffplay)
-              as FFplaySession?;
+    final sessions = _projectHistory<FFplaySession>(
+      expectedKind: _ExpectedSessionKind.ffplay,
+    );
+    return sessions.isEmpty ? null : sessions.last;
   }
 
   /// Returns the most recently created [MediaInformationSession], or `null`.
   static MediaInformationSession? getLastMediaInformationSession() {
     requireInitialized();
-    final handle = ffmpegKitBackend.getLastMediaInformationSession();
-    return handle == null
-        ? null
-        : _wrapTypedSession(handle, _ExpectedSessionKind.mediaInformation)
-              as MediaInformationSession?;
+    final sessions = _projectHistory<MediaInformationSession>(
+      expectedKind: _ExpectedSessionKind.mediaInformation,
+    );
+    return sessions.isEmpty ? null : sessions.last;
   }
 
   /// Returns the most recently completed session, or `null`.
   static Session? getLastCompletedSession() {
     requireInitialized();
-    final handle = ffmpegKitBackend.getLastCompletedSession();
-    return handle == null ? null : _wrapSession(handle);
+    final sessions = _projectHistory<Session>().where((session) {
+      final state = session.getState();
+      return state == SessionState.completed || state == SessionState.failed;
+    }).toList();
+    return sessions.isEmpty ? null : sessions.last;
   }
 
   /// Gets the session ID for a given session handle.
@@ -458,6 +470,15 @@ class FFmpegKitExtended {
   static void clearSessions() {
     requireInitialized();
     ffmpegKitBackend.clearSessions();
+    _synchronizeLiveSessions();
+    for (final entry in _sessionHistoryIndex.entries.toList()) {
+      final live = _liveSession(entry.sessionId);
+      if (live == null) {
+        _sessionHistoryIndex.remove(entry.sessionId);
+      } else {
+        entry.visible = false;
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -747,8 +768,19 @@ class FFmpegKitExtended {
           manager.ffprobeSessions[sessionId] ??
           manager.ffplaySessions[sessionId];
       if (existing != null) {
-        duplicateReleaseAttempted = true;
-        ffmpegKitBackend.releaseSession(handle);
+        // History projection normally avoids acquiring a second handle for an
+        // active session. Keep this defensive path ownership-safe as well:
+        // terminal/Created handles can be released immediately, while a live
+        // handle must remain deferred until its native state is terminal.
+        final state = existing.getState();
+        if (state == SessionState.created ||
+            state == SessionState.completed ||
+            state == SessionState.failed) {
+          duplicateReleaseAttempted = true;
+          ffmpegKitBackend.releaseSession(handle);
+        } else {
+          _deferredHistoryHandles[sessionId] = handle;
+        }
         return existing;
       }
 
@@ -797,103 +829,142 @@ class FFmpegKitExtended {
     }
   }
 
-  static List<T> _wrapSessions<T extends Session>(
-    List<SessionHandle> handles, {
-    _ExpectedSessionKind expectedKind = _ExpectedSessionKind.any,
-  }) {
-    final sessions = <T>[];
-    for (var index = 0; index < handles.length; index++) {
+  static final Map<int, SessionHandle> _deferredHistoryHandles = {};
+
+  static void _rememberSession(Session session, SessionHistoryType type) {
+    _sessionHistoryIndex.record(session.sessionId, type, wrapper: session);
+  }
+
+  static SessionHistoryType _historyType(Session session) {
+    if (session is MediaInformationSession) {
+      return SessionHistoryType.mediaInformation;
+    }
+    if (session is FFmpegSession) return SessionHistoryType.ffmpeg;
+    if (session is FFprobeSession) return SessionHistoryType.ffprobe;
+    return SessionHistoryType.ffplay;
+  }
+
+  static Session? _liveSession(int sessionId) =>
+      callback_manager.CallbackManager().sessionForId(sessionId);
+
+  static void _synchronizeLiveSessions() {
+    final manager = callback_manager.CallbackManager();
+    for (final session in [
+      ...manager.ffmpegSessions.values,
+      ...manager.ffprobeSessions.values,
+      ...manager.ffplaySessions.values,
+      ...manager.mediaInformationSessions.values,
+    ]) {
+      _rememberSession(session, _historyType(session));
+    }
+  }
+
+  static void _pruneTerminalHistory(int capacity) {
+    if (capacity < 0) return;
+    final terminalEntries = <SessionHistoryEntry>[];
+    for (final entry in _sessionHistoryIndex.entries) {
+      if (!entry.visible) continue;
+      final cached = entry.wrapper;
+      final session = cached is Session && !cached.isDisposed
+          ? cached
+          : _liveSession(entry.sessionId);
+      if (session == null) continue;
       try {
-        if (expectedKind != _ExpectedSessionKind.any) {
-          _validateSessionKind(handles[index], expectedKind);
+        final state = session.getState();
+        if (state == SessionState.completed || state == SessionState.failed) {
+          terminalEntries.add(entry);
         }
-        final session = _wrapSession(handles[index]);
-        sessions.add(session as T);
-      } catch (error, stackTrace) {
-        for (
-          var remaining = index + 1;
-          remaining < handles.length;
-          remaining++
-        ) {
-          _releaseUntransferredHandle(handles[remaining]);
-        }
-        Error.throwWithStackTrace(error, stackTrace);
+      } catch (_) {
+        // An invalidated wrapper is reconciled by the next projection. It is
+        // not safe to infer terminal ownership from a failed state read.
       }
     }
+    final removeCount = terminalEntries.length - capacity;
+    if (removeCount <= 0) return;
+    for (final entry in terminalEntries.take(removeCount)) {
+      entry.visible = false;
+    }
+  }
+
+  static bool _matchesExpectedKind(
+    SessionHistoryEntry entry,
+    _ExpectedSessionKind expectedKind,
+  ) {
+    switch (expectedKind) {
+      case _ExpectedSessionKind.any:
+        return true;
+      case _ExpectedSessionKind.ffmpeg:
+        return entry.type == SessionHistoryType.ffmpeg;
+      case _ExpectedSessionKind.ffprobe:
+        return entry.type == SessionHistoryType.ffprobe;
+      case _ExpectedSessionKind.ffplay:
+        return entry.type == SessionHistoryType.ffplay;
+      case _ExpectedSessionKind.mediaInformation:
+        return entry.type == SessionHistoryType.mediaInformation;
+    }
+  }
+
+  static Session? _resolveHistoryEntry(SessionHistoryEntry entry) {
+    final cached = entry.wrapper;
+    if (cached is Session && !cached.isDisposed) return cached;
+    if (cached != null) entry.clearWrapper();
+
+    final live = _liveSession(entry.sessionId);
+    if (live != null) {
+      entry.cacheWrapper(live);
+      return live;
+    }
+
+    final handle = ffmpegKitBackend.getSessionById(entry.sessionId);
+    if (handle == null) {
+      _sessionHistoryIndex.remove(entry.sessionId);
+      return null;
+    }
+    final session = _wrapSession(handle);
+    if (session == null) {
+      _sessionHistoryIndex.remove(entry.sessionId);
+      return null;
+    }
+    entry.cacheWrapper(session);
+    return session;
+  }
+
+  static List<T> _projectHistory<T extends Session>({
+    _ExpectedSessionKind expectedKind = _ExpectedSessionKind.any,
+  }) {
+    _synchronizeLiveSessions();
+    final sessions = <T>[];
+    for (final entry in _sessionHistoryIndex.entries.toList()) {
+      if (!entry.visible || !_matchesExpectedKind(entry, expectedKind)) {
+        continue;
+      }
+      final session = _resolveHistoryEntry(entry);
+      if (session == null) continue;
+      if (session is! T) continue;
+      sessions.add(session);
+    }
+    _releaseDeferredHistoryHandles();
     return sessions;
   }
 
-  static Session? _wrapTypedSession(
-    SessionHandle handle,
-    _ExpectedSessionKind expectedKind,
-  ) {
-    _validateSessionKind(handle, expectedKind);
-    return _wrapSession(handle);
-  }
-
-  /// Validates a typed-history token before any wrapper can adopt ownership.
-  ///
-  /// A typed native getter is still treated as untrusted because its result can
-  /// be stale or can be supplied by a backend with inconsistent type flags.
-  /// Mismatched tokens are released here, before [_wrapSession] can reuse an
-  /// existing Dart object or transfer the token into a new wrapper.
-  static void _validateSessionKind(
-    SessionHandle handle,
-    _ExpectedSessionKind expectedKind,
-  ) {
-    _ExpectedSessionKind actualKind;
-    try {
-      actualKind = _classifySessionKind(handle);
-    } catch (error, stackTrace) {
-      _releaseUntransferredHandle(handle);
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-
-    if (actualKind == expectedKind) return;
-
-    late final int sessionId;
-    try {
-      sessionId = ffmpegKitBackend.getSessionId(handle);
-    } catch (error, stackTrace) {
-      _releaseUntransferredHandle(handle);
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-    _releaseUntransferredHandle(handle);
-    throw StateError(
-      'Typed session history returned session $sessionId as '
-      '${_sessionKindName(expectedKind)}, but native flags classify it as '
-      '${_sessionKindName(actualKind)}; refusing to adopt its handle.',
-    );
-  }
-
-  static _ExpectedSessionKind _classifySessionKind(SessionHandle handle) {
-    if (ffmpegKitBackend.isMediaInformationSession(handle)) {
-      return _ExpectedSessionKind.mediaInformation;
-    }
-    if (ffmpegKitBackend.isFFmpegSession(handle)) {
-      return _ExpectedSessionKind.ffmpeg;
-    }
-    if (ffmpegKitBackend.isFFprobeSession(handle)) {
-      return _ExpectedSessionKind.ffprobe;
-    }
-    if (ffmpegKitBackend.isFFplaySession(handle)) {
-      return _ExpectedSessionKind.ffplay;
-    }
-    return _ExpectedSessionKind.any;
-  }
-
-  static String _sessionKindName(_ExpectedSessionKind kind) {
-    switch (kind) {
-      case _ExpectedSessionKind.any:
-        return 'unknown';
-      case _ExpectedSessionKind.ffmpeg:
-        return 'FFmpeg';
-      case _ExpectedSessionKind.ffprobe:
-        return 'plain FFprobe';
-      case _ExpectedSessionKind.ffplay:
-        return 'FFplay';
-      case _ExpectedSessionKind.mediaInformation:
-        return 'MediaInformation';
+  static void _releaseDeferredHistoryHandles() {
+    for (final entry in _deferredHistoryHandles.entries.toList()) {
+      final live = _liveSession(entry.key);
+      if (live == null) {
+        _deferredHistoryHandles.remove(entry.key);
+        ffmpegKitBackend.releaseSession(entry.value);
+        continue;
+      }
+      try {
+        final state = live.getState();
+        if (state == SessionState.completed || state == SessionState.failed) {
+          _deferredHistoryHandles.remove(entry.key);
+          ffmpegKitBackend.releaseSession(entry.value);
+        }
+      } catch (_) {
+        // Keep the ownership deferred while the live session is still
+        // authoritative; the next history read retries the terminal check.
+      }
     }
   }
 
