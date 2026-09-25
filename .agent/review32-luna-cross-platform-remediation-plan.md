@@ -26,10 +26,10 @@ Implementation identifiers must describe behavior. `R32-*`, finding numbers, pla
 
 | Metadata | Finding / objective | Status |
 | --- | --- | --- |
-| R32-F1 / R32-G1 | One execution claimant per native session ID across Flutter and React Native | Pending |
-| R32-F2 / R32-G2 | Transactional React Native queue admission and cleanup | Pending |
-| R32-F3 / R32-G3 | Native-authoritative React Native history enumeration without dropping Created sessions | Pending |
-| R32-G4 | Focused and ordered local wrapper regression | Pending |
+| R32-F1 / R32-G1 | One execution claimant per native session ID across Flutter and React Native | Complete — native-ID reservations, Created handoff checks, and focused Flutter/RN regressions pass |
+| R32-F2 / R32-G2 | Transactional React Native queue admission and cleanup | Complete — duplicate admission, sync/async failure cleanup, wait, and cancellation regressions pass |
+| R32-F3 / R32-G3 | Native-authoritative React Native history enumeration without dropping Created sessions | Complete — history/last-session queries use frozen native exports directly |
+| R32-G4 | Focused and ordered local wrapper regression | Complete — focused suites, package gates, and ordered local platform validation pass |
 | R32-G5 | Documentation, exact wrapper freeze, and one wrapper-only source snapshot | Pending |
 
 Close each goal only after its required evidence exists, the tracker is updated, and a meaningful commit is pushed. Keep failed commands and corrected assumptions explicit.
@@ -141,6 +141,12 @@ Platform order:
 Only materially affected platform builds are required, but both Flutter and React Native package-level gates must remain green. Do not launch interactive apps.
 
 Exit evidence must show focused regressions, affected package gates, required local platform gates, no remote old ABI retrieval, no native publication, and no interactive runtime claim.
+
+### Implementation validation recorded before exact closeout
+
+The wrapper remediation and local regression sequence is complete through G4. Flutter and React Native focused regressions, the full non-native Flutter package suite (**200/200**), React Native package gates, Windows and Windows-hosted Android builds, WSL Linux, Wasm/Web build and browser smoke, and the ordered MacBook Air Apple builds all passed against the configured local artifacts. Failed or retried commands were environment corrections only: elevated shells, task-local npm cache/temp paths, Windows Edge for the missing WSL Playwright executable, UTF-8 SSH locale, and Windows JDK 17 for Android. No native ABI contradiction was found.
+
+The G5 source candidate is the next pushed wrapper commit after this documentation reconciliation. It must be snapshotted once with recursive submodules, then its exact workflow/artifact evidence must be added to the tracker.
 
 ## R32-G5 — Exact wrapper closeout
 
