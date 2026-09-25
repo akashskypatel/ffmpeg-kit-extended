@@ -1,5 +1,42 @@
 # Tracker
 
+## Review 32 Flutter + React Native Cross-Platform Remediation — 2026-09-24
+
+- Plan: [review32-luna-cross-platform-remediation-plan.md](./review32-luna-cross-platform-remediation-plan.md)
+- Code review: [review32-cross-platform-code-review.md](./review32-cross-platform-code-review.md)
+- Starting wrapper authority: `a3017c2f2415a5ad5052f54f4382a2c2ff910dd9` from the verified Review 31 wrapper snapshot. Native ABI and `libs/libffmpegkit` remain frozen/read-only and are not a Review 32 work item.
+- Scope: remediate only the three substantive wrapper findings: native-session-ID execution ownership, React Native queue transaction integrity, and React Native native-history authority. Pedantic/style/documentation-only observations are excluded.
+- Validation boundary: local wrapper tests and local supplied artifacts only; no hosted Flutter/React Native acceptance workflow, remote old binary, native ABI publication, native/builder snapshot, or interactive Flutter/React Native runtime execution.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R32-G1** | Establish one execution claimant per native session ID across Flutter and React Native | **Pending** |
+| **R32-G2** | Make React Native `SessionQueueManager` duplicate-safe and failure-atomic | **Pending** |
+| **R32-G3** | Make React Native history enumeration bounded and native-authoritative without dropping Created sessions | **Pending** |
+| **R32-G4** | Run focused and ordered local wrapper regression against the frozen local ABI artifacts | **Pending** |
+| **R32-G5** | Reconcile behavior/docs/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 32 implementation boundary
+
+- Goal/finding identifiers are tracker metadata only. Implementation names must describe execution ownership, queue transactions, and history authority rather than Review 32 identifiers.
+- Do not modify `libs/libffmpegkit` or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`; do not download or re-review the native source snapshot.
+- Use only the established local Windows/Linux/Wasm/Android artifacts and MacBook Air universal Apple archives. Use WSL `/mnt/d/Projects/ffmpeg_kit_extended` for Linux noninteractive work.
+- Tag every spawned process, observe it to completion, kill task-owned hangs/orphans immediately, and clean task-owned temporary files.
+- Close each goal only after evidence, tracker transition, meaningful commit, and push. Final closeout creates one wrapper source snapshot only; do not create another builders/native snapshot.
+
+### Review 32 implementation order
+
+```text
+R32-G1 native-session-ID execution ownership
+-> R32-G2 React Native queue transaction integrity
+-> R32-G3 React Native native-history authority
+-> focused Flutter/RN regressions
+-> local package/platform gates: Windows, Android, Linux/WSL, Wasm/Web, Apple last
+-> tracker/docs and exact wrapper freeze
+-> one wrapper-only source snapshot
+-> stop automated interactive work; user owns final runtime validation
+```
+
 ## Review 31 Flutter + React Native Cross-Platform Remediation — 2026-09-24
 
 - Plan: [review31-cross-platform-frozen-snapshot-review.md](./review31-cross-platform-frozen-snapshot-review.md)
