@@ -1,5 +1,42 @@
 # Tracker
 
+## Review 31 Flutter + React Native Cross-Platform Remediation — 2026-09-24
+
+- Plan: [review31-cross-platform-frozen-snapshot-review.md](./review31-cross-platform-frozen-snapshot-review.md)
+- Authority: the frozen Review 30 wrapper source is `e218d305dfd33cd06321f09e7bee706b1e2cd9a`; the unchanged native/builder source authority is `b74da2c5d1e294b87d15d73a6687393729e932b3`.
+- Scope: implement the six substantive Review 31 findings against the live wrapper while preserving the frozen native ABI, local-only unpublished-ABI validation, semantic implementation names, and the read-only `libs/libffmpegkit` and ManyLinux builder boundaries.
+- Validation authority: supplied WSL Windows/Linux/Wasm/Android artifacts and the recorded MacBook Air universal Apple archives. Hosted Flutter/React Native testing, remote old binary retrieval, native ABI publication, and interactive runtime execution remain excluded.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R31-G1** | Preserve native session-handle ownership when React Native clears session history | **Pending** |
+| **R31-G2** | Make React Native cancellation attempt every target and retry deferred native cancellation | **Pending** |
+| **R31-G3** | Give restored Flutter/history sessions correct native cancellation authority | **Pending** |
+| **R31-G4** | Keep the React Native history mirror bounded and aligned with native history | **Pending** |
+| **R31-G5** | Give local Flutter artifact overrides collision-free shared-cache identities | **Pending** |
+| **R31-G6** | Make React Native artifact download and Windows extraction staging transactional across processes | **Pending** |
+| **R31-G7** | Reconcile evidence, freeze the exact wrapper source, and record the source snapshots | **Pending** |
+
+### Review 31 implementation boundary
+
+- Goal and finding identifiers are tracker metadata only; implementation names must describe behavior.
+- No change to `libs/libffmpegkit` or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` is permitted. Any native-ABI blocker must be recorded with exact evidence instead of worked around in wrapper code.
+- Every spawned Flutter, Dart, Node, WSL, compiler, SSH, or snapshot-monitor process must be tagged, observed to completion, and cleaned up before the next gate.
+- Each completed goal receives focused evidence, a tracker transition, a meaningful commit, and a push before the next goal is closed.
+
+### Review 31 validation order
+
+```text
+R31-G1..R31-G6 implementation
+-> focused native/lifecycle/cache/staging regressions
+-> Flutter and React Native local package gates
+-> Windows, Android, Linux/WSL, Wasm, and Web local gates
+-> ordered MacBook Air Apple local gates
+-> documentation and exact-SHA reconciliation
+-> wrapper and builders source snapshots
+-> stop automated interactive execution; user owns final runtime validation
+```
+
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)
