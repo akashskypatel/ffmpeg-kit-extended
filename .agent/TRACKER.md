@@ -14,7 +14,7 @@
 | **R33-G2** | Make React Native native/Web history inspection ownership-safe without restoring the Review 31/32 history-mirror defects | **Complete — native and Wasm identity projections borrow retained active handles, temporary non-active reads are released safely, and focused bridge/registry regressions pass** |
 | **R33-G3** | Give React Native native monitoring a scalar session-state path instead of full-session JSON polling | **Complete — scalar state is exposed through TurboModule/native/Windows surfaces and the monitor oracle proves zero full-snapshot polling** |
 | **R33-G4** | Run focused and affected cross-platform local wrapper regression against the existing frozen local ABI artifacts | **Complete — ordered Windows, Android, WSL Linux, Wasm/Web, and MacBook Air Apple gates pass locally** |
-| **R33-G5** | Reconcile affected behavior/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+| **R33-G5** | Reconcile affected behavior/tracker, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Complete — exact wrapper source snapshot verified at `9d2dfa08bdbfc2845732679471aba5aae668f8f4`** |
 
 ### Review 33 Flutter history ownership evidence — 2026-09-25
 
@@ -43,6 +43,14 @@
 - Wasm/Web passed locally. Flutter `build web --wasm --release --target lib/web_runtime_smoke.dart` staged the configured local Wasm archive, and the installed Windows Edge headless smoke reported `STARTING|INITIALIZED|FFMPEG_OK|LOG_OK|FFPROBE_OK|MEDIA_INFO_OK|PASS`. React Native `prepare-web`, packed type/Web consumers, `web:build`, package dry-run, and `npm run test:web` all passed; the Web smoke exercised initialization, repeated initialization, FFmpeg, FFprobe, media information, and FFplay pause/resume/stop.
 - Apple ran last on `akash@192.168.1.189` (`Akashs-MacBook-Air.local`) with UTF-8 locale and the configured universal XCFramework archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/`. Flutter macOS Release, iOS Simulator Debug, and iOS Debug `--no-codesign` all built. React Native `./build.sh ios; ./build.sh appletvos; ./build.sh macos` completed with exit code **0**; the Xcode builds completed successfully for iOS, tvOS Simulator, and macOS, using the local archives.
 - All tagged Windows, WSL, and MacBook Air process audits were empty after completion; the local Flutter Web server was terminated immediately after its smoke. Generated task staging was cleaned from the workspace. No hosted Flutter/React Native workflow, remote old binary, native ABI publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was used, and no native-ABI blocker was found.
+
+### Review 33 final wrapper source snapshot — 2026-09-25
+
+- The reconciled wrapper source candidate was clean, pushed, and snapshotted at exact SHA `9d2dfa08bdbfc2845732679471aba5aae668f8f4`; `origin/dev-wasm` matched it when dispatched. The frozen native submodule remained `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- The single permitted wrapper-only snapshot completed in [workflow run `36188816031`](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36188816031). The primary artifact is `review33-final-wrapper-source-36188816031`, artifact ID `10887515848`, with digest `sha256:3d8e4a86b53f80e9777b455e8bd4bd0648764b3bed2db10e855d6b41a59cad05`; [download the final wrapper source snapshot](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10887515848/zip).
+- The diagnostic artifact is `review33-final-wrapper-source-log-36188816031`, artifact ID `10886679428`, with digest `sha256:1758e7ffcec42a880bda6862e628be82beea150f52e6ec82a440710390fe151c`; [download the snapshot diagnostic log](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/10886679428/zip).
+- This was a source-only snapshot with `runtimeExecution=false`; no Flutter/React Native hosted test workflow, remote staged binary, native ABI publication, ManyLinux builder edit, or second snapshot was used.
+
 
 ### Review 33 implementation boundary
 
