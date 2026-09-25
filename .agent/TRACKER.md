@@ -55,6 +55,11 @@ R31-G1..R31-G6 implementation
 - `flutter/test/ownership_callback_regression_test.dart` adds a restored Running session regression asserting repeated cancellation dispatches exactly once. The focused Flutter test passed **1/1**; the complete ownership/callback regression suite passed **20/20**; bounded elevated `dart analyze lib/src/session.dart test/ownership_callback_regression_test.dart` reported **No issues found**.
 - The requested analytics-disabled commands were run before the Flutter gates (`flutter config --no-analytics`, `dart --disable-analytics`). No FFI binding, native ABI, `libs/libffmpegkit`, or ManyLinux builder change was required for this wrapper-only fix.
 
+### Review 31 R31-G4 evidence — 2026-09-24
+
+- `react-native/cpp/FFmpegKitDynamicApi.cpp` now maintains the wrapper history mirror as an ordered deque with an O(1) membership set. New and released sessions are pruned against the native `ffmpeg_kit_get_session_history_size()` limit; retained owning handles are never selected for eviction, and history-size changes trigger the same pruning path. Released terminal sessions remain visible until native-history capacity requires eviction.
+- The focused native bridge source oracle passed **5/5**, including bounded storage, native-limit lookup, retained-handle protection, set cleanup, and removal of the old linear membership scan. `clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp` completed successfully on Windows. No native ABI, `libs/libffmpegkit`, or ManyLinux builder file changed.
+
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
 - Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)

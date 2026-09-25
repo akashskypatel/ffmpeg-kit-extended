@@ -114,3 +114,17 @@ test('native session cleanup clears owning handles through the registry-aware AP
   assert.match(clearSessions, /retainedSessionHandles\.clear\(\)/);
   assert.match(clearSessions, /knownSessionIds\.clear\(\)/);
 });
+
+test('native session history mirror stays bounded without evicting retained handles', () => {
+  assert.match(dynamicApi, /std::deque<std::int64_t> knownSessionIds/);
+  assert.match(dynamicApi, /std::unordered_set<std::int64_t> knownSessionIdSet/);
+  assert.match(dynamicApi, /nativeSessionHistoryLimit\(\)/);
+  assert.match(dynamicApi, /void pruneKnownSessionIdsLocked\(std::int64_t historyLimit\)/);
+  assert.match(dynamicApi, /retainedSessionHandles\.find\(candidate\)/);
+  assert.match(dynamicApi, /knownSessionIdSet\.insert\(id\)/);
+  assert.match(dynamicApi, /knownSessionIdSet\.clear\(\)/);
+  assert.doesNotMatch(
+    dynamicApi,
+    /std::find\(knownSessionIds\.begin\(\), knownSessionIds\.end\(\), id\)/,
+  );
+});
