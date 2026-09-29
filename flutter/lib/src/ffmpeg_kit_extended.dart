@@ -395,6 +395,16 @@ class FFmpegKitExtended {
     return _resolveHistoryEntry(entry);
   }
 
+  /// Returns whether a Created identity was explicitly abandoned before
+  /// execution and must not be reconstructed from native history.
+  static bool isSessionAbandoned(int sessionId) =>
+      _sessionHistoryIndex.isAbandoned(sessionId);
+
+  /// Records ID-scoped pre-execution abandonment without retaining a wrapper.
+  static void abandonCreatedSession(int sessionId) {
+    _sessionHistoryIndex.abandon(sessionId);
+  }
+
   /// Returns the most recently created session, or `null`.
   static Session? getLastSession() {
     requireInitialized();
@@ -485,6 +495,7 @@ class FFmpegKitExtended {
   static void reconcileCompletedSession(Session session) {
     final entry = _sessionHistoryIndex[session.sessionId];
     if (entry == null) return;
+    if (entry.terminal) return;
     if (_sessionHistoryIndex.removeHidden(session.sessionId)) {
       return;
     }
@@ -496,7 +507,6 @@ class FFmpegKitExtended {
     } catch (_) {
       return;
     }
-    if (entry.terminal) return;
     _sessionHistoryIndex.markTerminal(session.sessionId);
     try {
       _pruneTerminalHistory(ffmpegKitBackend.getSessionHistorySize());
@@ -870,6 +880,7 @@ class FFmpegKitExtended {
   /// bypass creation-order tracking. Repeated adoption of an existing identity
   /// remains idempotent in [SessionHistoryIndex].
   static void registerCreatedSession(Session session) {
+    if (_sessionHistoryIndex.isAbandoned(session.sessionId)) return;
     _sessionHistoryIndex.record(
       session.sessionId,
       _historyType(session),

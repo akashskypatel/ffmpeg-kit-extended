@@ -43,17 +43,26 @@ final class SessionHistoryEntry {
 /// session object or of a native handle.
 final class SessionHistoryIndex {
   final Map<int, SessionHistoryEntry> _entries = {};
+  final Set<int> _abandonedSessionIds = <int>{};
   int _nextCreationOrder = 0;
 
   Iterable<SessionHistoryEntry> get entries => _entries.values;
 
   SessionHistoryEntry? operator [](int sessionId) => _entries[sessionId];
 
+  /// Returns whether a Created identity was explicitly abandoned before
+  /// execution. The tombstone is an ID-only authority; it never retains a
+  /// wrapper or native handle.
+  bool isAbandoned(int sessionId) => _abandonedSessionIds.contains(sessionId);
+
   SessionHistoryEntry record(
     int sessionId,
     SessionHistoryType type, {
     Object? wrapper,
   }) {
+    if (isAbandoned(sessionId)) {
+      throw StateError('Session $sessionId was abandoned before execution');
+    }
     final entry = _entries[sessionId] ??= SessionHistoryEntry(
       sessionId: sessionId,
       type: type,
@@ -65,6 +74,13 @@ final class SessionHistoryIndex {
 
   void remove(int sessionId) {
     _entries.remove(sessionId);
+  }
+
+  /// Makes a Created identity permanently non-reconstructable until the
+  /// history authority is cleared.
+  void abandon(int sessionId) {
+    _entries.remove(sessionId);
+    _abandonedSessionIds.add(sessionId);
   }
 
   /// Removes an identity that was hidden by a history clear while live.
@@ -100,6 +116,7 @@ final class SessionHistoryIndex {
 
   void clear() {
     _entries.clear();
+    _abandonedSessionIds.clear();
     _nextCreationOrder = 0;
   }
 

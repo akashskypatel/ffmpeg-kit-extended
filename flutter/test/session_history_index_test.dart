@@ -77,6 +77,20 @@ void main() {
     expect(index.length, 0);
   });
 
+  test('abandoned Created identities cannot be recorded again', () {
+    final index = SessionHistoryIndex();
+    index.record(65, SessionHistoryType.ffmpeg);
+
+    index.abandon(65);
+
+    expect(index[65], isNull);
+    expect(index.isAbandoned(65), isTrue);
+    expect(() => index.record(65, SessionHistoryType.ffmpeg), throwsStateError);
+
+    index.clear();
+    expect(index.isAbandoned(65), isFalse);
+  });
+
   test('hidden identities are removed when their live execution settles', () {
     final index = SessionHistoryIndex();
     final entry = index.record(71, SessionHistoryType.ffmpeg);

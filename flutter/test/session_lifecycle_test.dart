@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_extended.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session_queue_manager.dart';
@@ -38,6 +39,8 @@ class _LifecycleSession extends Session {
 }
 
 void main() {
+  setUp(() => FFmpegKitExtended.sessionHistoryIndex.clear());
+
   group('one-shot session submission', () {
     test('accepts Created once and rejects a second claim', () {
       final session = _LifecycleSession(SessionState.created);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ffi';
 
 import 'package:ffmpeg_kit_extended_flutter/src/callback_manager.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_extended.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffplay_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffprobe_session.dart';
@@ -99,6 +100,7 @@ class _NoopFFmpegSession extends FFmpegSession {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
   int nativeCancellationCalls = 0;
+  int releases = 0;
 
   _NoopFFmpegSession(int sessionId)
     : super.test(sessionId: sessionId, register: false);
@@ -112,10 +114,16 @@ class _NoopFFmpegSession extends FFmpegSession {
   }
 
   @override
+  void releaseHandle(SessionHandle handle) => releases++;
+
+  @override
   SessionState executionStateForSubmission() {
     if (throwOnStateRead) throw StateError('state read failed');
     return restoredState;
   }
+
+  @override
+  SessionState getState() => restoredState;
 
   void submitForTest() => claimExecutionSubmission();
 
@@ -428,6 +436,51 @@ void main() {
   });
 
   group('Callback isolation', () {
+    test('completion disposal waits for global callbacks and settlement', () {
+      FFmpegKitExtended.sessionHistoryIndex.clear();
+      final session = _NoopFFmpegSession(360);
+      FFmpegKitExtended.registerCreatedSession(session);
+
+      var globalCalls = 0;
+      manager.globalFFmpegSessionCompleteCallback = (completed) {
+        globalCalls++;
+        expect(completed.isDisposed, isFalse);
+      };
+      session.submitForTest();
+      session.setCompleteCallback((completed) {
+        completed.dispose();
+        expect(completed.isDisposed, isFalse);
+      });
+      session.restoredState = SessionState.completed;
+
+      manager.dispatchFFmpegComplete(session.sessionId);
+      session.settleForTest();
+
+      expect(globalCalls, 1);
+      expect(session.isDisposed, isTrue);
+      expect(session.releases, 1);
+      FFmpegKitExtended.sessionHistoryIndex.clear();
+    });
+
+    test(
+      'pre-submission cancellation remains durable across wrapper recreation',
+      () {
+        FFmpegKitExtended.sessionHistoryIndex.clear();
+        final original = _NoopFFmpegSession(361);
+        FFmpegKitExtended.registerCreatedSession(original);
+
+        original.cancel();
+        final reconstructed = _NoopFFmpegSession(361);
+
+        expect(FFmpegKitExtended.isSessionAbandoned(361), isTrue);
+        expect(
+          reconstructed.submitForTest,
+          throwsA(isA<SessionCancelledException>()),
+        );
+        FFmpegKitExtended.sessionHistoryIndex.clear();
+      },
+    );
+
     test('continues to global callback when local callback throws', () {
       var localCalls = 0;
       var globalCalls = 0;

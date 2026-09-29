@@ -17,6 +17,7 @@ class _AsyncBoundarySession extends FFplaySession {
   bool terminalHistoryCommitted = false;
   SessionState observedState = SessionState.created;
   int playbackStartNotifications = 0;
+  int releases = 0;
 
   @override
   SessionState executionStateForSubmission() => SessionState.created;
@@ -25,7 +26,7 @@ class _AsyncBoundarySession extends FFplaySession {
   SessionState getState() => observedState;
 
   @override
-  void releaseHandle(SessionHandle handle) {}
+  void releaseHandle(SessionHandle handle) => releases++;
 
   @override
   void commitTerminalHistory() {
@@ -54,6 +55,14 @@ void main() {
 
   test('direct async execution commits playback identity once', () async {
     late final _AsyncBoundarySession session;
+    var globalCallbackCalls = 0;
+    CallbackManager().globalFFplaySessionCompleteCallback = (completed) {
+      globalCallbackCalls++;
+      expect(completed.isDisposed, isFalse);
+    };
+    addTearDown(
+      () => CallbackManager().globalFFplaySessionCompleteCallback = null,
+    );
     session = _AsyncBoundarySession(
       completeCallback: (completed) {
         expect(
@@ -61,6 +70,7 @@ void main() {
           isTrue,
         );
         completed.dispose();
+        expect(completed.isDisposed, isFalse);
       },
     );
     FFmpegKitExtended.registerCreatedSession(session);
@@ -69,6 +79,9 @@ void main() {
 
     expect(session.playbackStartNotifications, 1);
     expect(session.terminalHistoryCommitted, isTrue);
+    expect(globalCallbackCalls, 1);
+    expect(session.releases, 1);
+    expect(session.isDisposed, isTrue);
   });
 
   test(

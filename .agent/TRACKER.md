@@ -1,5 +1,34 @@
 # Tracker
 
+## Review 36 Flutter + React Native Cross-Platform Remediation — 2026-09-29
+
+- Plan: [review36-luna-cross-platform-remediation-plan.md](./review36-luna-cross-platform-remediation-plan.md)
+- Code review: [review36-cross-platform-code-review.md](./review36-cross-platform-code-review.md)
+- Preparation status: **Ready for implementation — the latest Review 36 response was opened at the bottom of the browser conversation; its attachment download control did not materialize files locally, so the complete visible plan/review content was copied from the document viewer into these local Markdown files. This is not claimed to be a byte-for-byte attachment download.**
+- Review authority: final Review 35 wrapper snapshot at `d6afceabfe7baa9190a20342aad9e7e87a59a803`, workflow `36521169004`, artifact `11013156574`, with `1,066/1,066` wrapper files verified. Artifact digest: `sha256:9216d85557af470f06f4db7be41cdce519bc6f4111ac257b1c939369798815c2`; embedded `source.tar.gz` SHA-256: `2d2b8623b50b275b01e388aca68da42d1d854dfbd90bc3dcede2020c3d64f75e`; frozen submodule `libs/libffmpegkit` at `b74da2c5d1e294b87d15d73a6687393729e932b3`.
+- Scope: Flutter and React Native wrapper lifecycle remediation only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. No remote old-binary fallback, native publication, or hosted Flutter/React Native test workflow.
+- Findings: R36-F1 High — Flutter completion-callback disposal can release the handle before global completion fan-out and queue settlement finish; R36-F2 Medium-High — RN native/Web Created-session abandonment can be bypassed by direct ID lookup and wrapper reconstruction; R36-F3 Medium-High — Flutter direct pre-submission cancellation is not durable across weak-history reconstruction.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R36-G1** | Add a Flutter completion lifetime barrier/deferred disposal and idempotent terminal reconciliation | **Complete — deferred disposal now spans local/global completion fan-out through queue settlement; focused ownership and FFplay boundary tests passed (21/21 + 21/21)** |
+| **R36-G2** | Make React Native native/Web Created abandonment durable and fail closed by session ID | **In progress — native/Web ID tombstones, direct lookup/handoff guards, and retained-handle discard cleanup implemented; commit/push evidence pending** |
+| **R36-G3** | Make Flutter pre-submission cancellation durable across history reconstruction | **Complete — ID-only abandonment survives weak-history reconstruction and blocks resubmission; focused cancellation/history tests passed** |
+| **R36-G4** | Run focused regressions and ordered Windows → Android → WSL Linux → Wasm/Web → Apple local validation | **Pending** |
+| **R36-G5** | Reconcile evidence, freeze exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 36 implementation boundary
+
+- Review/goal identifiers are metadata only; implementation names describe completion lifetime barriers, ID-scoped abandonment, and durable Created cancellation.
+- Do not edit native ABI sources, `libs/libffmpegkit`, or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`. Do not download or re-review native binaries.
+- Use analytics-disabled Flutter/Dart commands, tag every task-owned process, terminate confirmed hangs before retrying, and clean task-owned temporary files/processes.
+- The final snapshot is wrapper-only and may be dispatched only after the exact implementation SHA is frozen.
+
+### Review 36 implementation evidence — wrapper goals
+
+- Flutter G1/G3 focused evidence passed with elevated analytics-disabled commands: `flutter test --no-pub test/ownership_callback_regression_test.dart` (**21/21**) and `flutter test --no-pub test/session_history_index_test.dart test/session_lifecycle_test.dart test/ffplay_execution_boundary_test.dart` (**21/21**). The completion barrier keeps the handle live through local/global callback fan-out and queue settlement; durable cancellation is ID-scoped and blocks reconstructed Created wrappers.
+- No native ABI, `libs/libffmpegkit`, ManyLinux builder, remote binary, or hosted test workflow was changed or used.
+
 ## Review 35 Flutter + React Native Cross-Platform Remediation — 2026-09-28
 
 - Plan: [review35-luna-cross-platform-remediation-plan.md](./review35-luna-cross-platform-remediation-plan.md)

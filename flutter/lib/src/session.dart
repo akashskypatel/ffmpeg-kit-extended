@@ -174,6 +174,8 @@ abstract class Session {
   bool _disposing = false;
   bool _executionSettled = false;
   bool _completionDispatched = false;
+  int _completionDispatchDepth = 0;
+  bool _disposeRequested = false;
   final Completer<void> _executionSettlement = Completer<void>();
   final Set<Completer<void>> _executionCompleters = <Completer<void>>{};
   SessionExecutionErrorCallback? _executionErrorCallback;
@@ -225,6 +227,18 @@ abstract class Session {
   /// a running session before releasing it.
   void dispose() {
     if (_disposed || _disposing) return;
+    if (_completionDispatchDepth > 0) {
+      // Completion observers share this session until queue-owned settlement
+      // finishes. Defer physical release so a local callback cannot make the
+      // global callback or settlement path use a released handle.
+      _disposeRequested = true;
+      return;
+    }
+    _disposeNow();
+  }
+
+  void _disposeNow() {
+    if (_disposed || _disposing) return;
     _disposing = true;
     try {
       // Native release is the ownership commit point. If it throws, retain
@@ -237,7 +251,7 @@ abstract class Session {
       // the caller, but the committed disposal state prevents a second native
       // release attempt.
       try {
-        _sessionFinalizer.detach(this);
+        if (!_skipFinalizer) _sessionFinalizer.detach(this);
       } finally {
         try {
           clearExecutionErrorHandler();
@@ -402,7 +416,7 @@ abstract class Session {
   /// Called by [SessionQueueManager] when a queued item is discarded.
   void discardBeforeExecution() {
     _cleanupCancelledBeforeStart();
-    FFmpegKitExtended.removeNonTerminalSession(this);
+    FFmpegKitExtended.abandonCreatedSession(sessionId);
   }
 
   /// Records cancellation for a queue-wide discard without querying native
@@ -478,12 +492,39 @@ abstract class Session {
   /// retrying after execution settles, even when the final native state read
   /// failed or never reached `Running`.
   void markExecutionSettled() {
-    if (_executionSettled) return;
-    _executionSettled = true;
-    commitTerminalHistory();
+    if (!_executionSettled) {
+      _executionSettled = true;
+      commitTerminalHistory();
+    }
     if (!_executionSettlement.isCompleted) {
       _executionSettlement.complete();
     }
+    _releaseDeferredDisposeIfReady();
+  }
+
+  /// Enters the lifetime scope shared by local and global completion
+  /// observers. Physical disposal is deferred while this scope is active.
+  void beginCompletionDispatch() {
+    _completionDispatchDepth++;
+  }
+
+  /// Leaves the completion-observer lifetime scope. Disposal remains deferred
+  /// until execution settlement has also completed.
+  void endCompletionDispatch() {
+    if (_completionDispatchDepth == 0) return;
+    _completionDispatchDepth--;
+    _releaseDeferredDisposeIfReady();
+  }
+
+  void _releaseDeferredDisposeIfReady() {
+    if (!_disposeRequested ||
+        _completionDispatchDepth != 0 ||
+        !_executionSettled ||
+        _disposed) {
+      return;
+    }
+    _disposeRequested = false;
+    _disposeNow();
   }
 
   /// Commits wrapper history after authoritative native terminal observation.
@@ -629,6 +670,11 @@ abstract class Session {
   /// reach callback registration or native execution.
   void validateExecutionHandoff() {
     _ensureNotDisposed();
+    if (FFmpegKitExtended.isSessionAbandoned(sessionId)) {
+      throw SessionCancelledException(
+        'Session $sessionId was abandoned before execution',
+      );
+    }
     if (_isCancelled) {
       throw SessionCancelledException(
         'Session $sessionId was cancelled before execution',
@@ -1014,6 +1060,7 @@ abstract class Session {
     }
 
     if (!_submitted && !_restoredFromHandle) {
+      FFmpegKitExtended.abandonCreatedSession(sessionId);
       _cleanupCancelledBeforeStart();
       return;
     }
@@ -1035,6 +1082,11 @@ abstract class Session {
 
     if (currentState == SessionState.completed ||
         currentState == SessionState.failed) {
+      return;
+    }
+    if (currentState == SessionState.created && !_submitted) {
+      FFmpegKitExtended.abandonCreatedSession(sessionId);
+      _cleanupCancelledBeforeStart();
       return;
     }
     if (currentState == SessionState.running) {

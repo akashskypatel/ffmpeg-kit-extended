@@ -315,12 +315,17 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
-    _invoke('FFmpeg session completion', sessionId, () {
-      session.completeCallback?.call(session);
-    });
-    _invoke('FFmpeg global completion', sessionId, () {
-      globalFFmpegSessionCompleteCallback?.call(session);
-    });
+    session.beginCompletionDispatch();
+    try {
+      _invoke('FFmpeg session completion', sessionId, () {
+        session.completeCallback?.call(session);
+      });
+      _invoke('FFmpeg global completion', sessionId, () {
+        globalFFmpegSessionCompleteCallback?.call(session);
+      });
+    } finally {
+      session.endCompletionDispatch();
+    }
   }
 
   /// Media-information sessions are mirrored in the FFprobe map for lookup.
@@ -331,20 +336,25 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
-    if (session is MediaInformationSession) {
-      _invoke('Media-information session completion', sessionId, () {
-        session.mediaInfoCompleteCallback?.call(session);
-      });
-      _invoke('Media-information global completion', sessionId, () {
-        globalMediaInformationSessionCompleteCallback?.call(session);
-      });
-    } else {
-      _invoke('FFprobe session completion', sessionId, () {
-        session.completeCallback?.call(session);
-      });
-      _invoke('FFprobe global completion', sessionId, () {
-        globalFFprobeSessionCompleteCallback?.call(session);
-      });
+    session.beginCompletionDispatch();
+    try {
+      if (session is MediaInformationSession) {
+        _invoke('Media-information session completion', sessionId, () {
+          session.mediaInfoCompleteCallback?.call(session);
+        });
+        _invoke('Media-information global completion', sessionId, () {
+          globalMediaInformationSessionCompleteCallback?.call(session);
+        });
+      } else {
+        _invoke('FFprobe session completion', sessionId, () {
+          session.completeCallback?.call(session);
+        });
+        _invoke('FFprobe global completion', sessionId, () {
+          globalFFprobeSessionCompleteCallback?.call(session);
+        });
+      }
+    } finally {
+      session.endCompletionDispatch();
     }
   }
 
@@ -355,12 +365,17 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
-    _invoke('FFplay session completion', sessionId, () {
-      session.completeCallback?.call(session);
-    });
-    _invoke('FFplay global completion', sessionId, () {
-      globalFFplaySessionCompleteCallback?.call(session);
-    });
+    session.beginCompletionDispatch();
+    try {
+      _invoke('FFplay session completion', sessionId, () {
+        session.completeCallback?.call(session);
+      });
+      _invoke('FFplay global completion', sessionId, () {
+        globalFFplaySessionCompleteCallback?.call(session);
+      });
+    } finally {
+      session.endCompletionDispatch();
+    }
   }
 
   void dispatchMediaInformationComplete(int sessionId) {
@@ -370,12 +385,17 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
-    _invoke('Media-information session completion', sessionId, () {
-      session.mediaInfoCompleteCallback?.call(session);
-    });
-    _invoke('Media-information global completion', sessionId, () {
-      globalMediaInformationSessionCompleteCallback?.call(session);
-    });
+    session.beginCompletionDispatch();
+    try {
+      _invoke('Media-information session completion', sessionId, () {
+        session.mediaInfoCompleteCallback?.call(session);
+      });
+      _invoke('Media-information global completion', sessionId, () {
+        globalMediaInformationSessionCompleteCallback?.call(session);
+      });
+    } finally {
+      session.endCompletionDispatch();
+    }
   }
 
   /// Routes a platform execution failure to the active session.
