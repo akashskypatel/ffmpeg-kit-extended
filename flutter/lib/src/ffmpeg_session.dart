@@ -150,6 +150,7 @@ class FFmpegSession extends Session {
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
     if (completeCallback != null ||
         logCallback != null ||
         statisticsCallback != null) {
@@ -182,6 +183,7 @@ class FFmpegSession extends Session {
     _completeCallback = completeCallback;
     _logCallback = logCallback;
     _statisticsCallback = statisticsCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
     if (completeCallback != null ||
         logCallback != null ||
         statisticsCallback != null) {

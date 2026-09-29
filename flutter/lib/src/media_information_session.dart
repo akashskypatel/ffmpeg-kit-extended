@@ -196,6 +196,7 @@ class MediaInformationSession extends FFprobeSession {
     }
 
     _mediaInfoCompleteCallback = completeCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
     if (completeCallback != null) {
       ensureRegisteredForSinkDemand();
     }
@@ -239,6 +240,7 @@ class MediaInformationSession extends FFprobeSession {
       rethrow;
     }
     _mediaInfoCompleteCallback = completeCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
     if (completeCallback != null) {
       ensureRegisteredForSinkDemand();
     }

@@ -86,6 +86,7 @@ class FFprobeSession extends Session {
     }
 
     _completeCallback = completeCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
     if (completeCallback != null) {
       ensureRegisteredForSinkDemand();
     }

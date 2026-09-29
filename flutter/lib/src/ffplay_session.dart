@@ -160,6 +160,7 @@ class FFplaySession extends Session {
       rethrow;
     }
     _completeCallback = completeCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
 
     if (completeCallback != null) {
       _ensureRegisteredForSinkDemand();
@@ -188,6 +189,7 @@ class FFplaySession extends Session {
     adoptOwnedHandle(ownedHandle, readSessionId: ffmpegKitBackend.getSessionId);
 
     _completeCallback = completeCallback;
+    FFmpegKitExtended.registerCreatedSession(this);
     if (completeCallback != null) {
       _ensureRegisteredForSinkDemand();
     }

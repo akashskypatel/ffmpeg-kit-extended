@@ -11,7 +11,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R34-G1** | Ensure every Flutter public session creation/adoption path registers one history identity at true creation time | **Open — centralize registration across command, argv, sync/async, FFprobe, MediaInformation, and FFplay paths** |
+| **R34-G1** | Ensure every Flutter public session creation/adoption path registers one history identity at true creation time | **Complete — production constructors for command, argv, sync/async, FFprobe, MediaInformation, and FFplay now share the idempotent creation-boundary registrar** |
 | **R34-G2** | Keep Flutter, React Native native, and React Native Web history metadata bounded by live identities plus terminal capacity | **Open — reconcile on completion/eviction instead of waiting for a history read** |
 | **R34-G3** | Classify React Native Web MediaInformation before FFprobe | **Open — restore typed-history and generic-reconstruction parity** |
 | **R34-G4** | Run focused regressions and ordered local validation | **Pending — Windows → Android → WSL Linux → Wasm/Web → Apple** |
@@ -23,6 +23,12 @@
 - Preserve the frozen native ABI and existing local artifact authority. Do not edit `libs/libffmpegkit` or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`.
 - The browser-visible findings are: incomplete Flutter creation-path registration; completion-insensitive/unbounded history metadata across Flutter/RN native/RN Web; and React Native Web MediaInformation misclassification due to FFprobe-first precedence.
 - No native ABI change is required. Tests must prove true creation order, exactly-once identity adoption, completion-driven bounds without history reads, Web MediaInformation precedence, and the ordered local platform matrix.
+
+### Review 34 Flutter creation-boundary evidence — 2026-09-28
+
+- The Flutter identity index is now registered from every production native-session constructor: command and argv FFmpeg sessions, FFprobe sessions, MediaInformation command/argv sessions, and FFplay command/argv sessions. Public synchronous/asynchronous helpers and convenience APIs all funnel through these constructors, so they cannot create a native identity outside the index. History restoration constructors remain adoption-only and do not allocate a new identity.
+- `FFmpegKitExtended.registerCreatedSession` is the single semantic registration boundary. `SessionHistoryIndex.record` remains idempotent, preserving the first creation order if a live-session synchronization pass observes an already registered wrapper.
+- Elevated analytics-disabled focused validation passed: `flutter test --no-pub test/session_history_index_test.dart` (**4/4**). `flutter analyze --no-pub` completed with **0 errors**; it returned five pre-existing info/warning diagnostics in `hook/config.dart`, `ffplay_session.dart`, `ffprobe_session.dart`, `session_queue_manager.dart`, and the test import ordering. The initial dependency-resolving test invocation hung during loading and was terminated before the successful `--no-pub` retry; no task-owned Flutter/Dart orphan remained.
 
 ## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
 

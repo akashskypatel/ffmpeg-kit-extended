@@ -94,7 +94,6 @@ class FFmpegKitExtended {
       logCallback: logCallback,
       statisticsCallback: statisticsCallback,
     );
-    _rememberSession(session, SessionHistoryType.ffmpeg);
     return session;
   }
 
@@ -108,7 +107,6 @@ class FFmpegKitExtended {
     requireInitialized();
     _requireNonBlank(command, 'command');
     final session = FFprobeSession(command, completeCallback: completeCallback);
-    _rememberSession(session, SessionHistoryType.ffprobe);
     return session;
   }
 
@@ -127,7 +125,6 @@ class FFmpegKitExtended {
       timeout: timeout,
       completeCallback: completeCallback,
     );
-    _rememberSession(session, SessionHistoryType.ffplay);
     return session;
   }
 
@@ -149,7 +146,6 @@ class FFmpegKitExtended {
       timeout: timeout,
       completeCallback: completeCallback,
     );
-    _rememberSession(session, SessionHistoryType.mediaInformation);
     return session;
   }
 
@@ -831,8 +827,18 @@ class FFmpegKitExtended {
 
   static final Map<int, SessionHandle> _deferredHistoryHandles = {};
 
-  static void _rememberSession(Session session, SessionHistoryType type) {
-    _sessionHistoryIndex.record(session.sessionId, type, wrapper: session);
+  /// Registers a newly created wrapper at the native creation boundary.
+  ///
+  /// Public helpers and direct session constructors share this method so an
+  /// argument-based, synchronous, asynchronous, or specialised session cannot
+  /// bypass creation-order tracking. Repeated adoption of an existing identity
+  /// remains idempotent in [SessionHistoryIndex].
+  static void registerCreatedSession(Session session) {
+    _sessionHistoryIndex.record(
+      session.sessionId,
+      _historyType(session),
+      wrapper: session,
+    );
   }
 
   static SessionHistoryType _historyType(Session session) {
@@ -855,7 +861,7 @@ class FFmpegKitExtended {
       ...manager.ffplaySessions.values,
       ...manager.mediaInformationSessions.values,
     ]) {
-      _rememberSession(session, _historyType(session));
+      registerCreatedSession(session);
     }
   }
 
