@@ -231,6 +231,7 @@ abstract class Session {
       // the finalizer and the live handle so a later dispose() can retry.
       releaseHandle(_handle);
       _disposed = true;
+      FFmpegKitExtended.removeNonTerminalSession(this);
 
       // Everything below is post-commit cleanup. Failures remain visible to
       // the caller, but the committed disposal state prevents a second native
@@ -401,6 +402,7 @@ abstract class Session {
   /// Called by [SessionQueueManager] when a queued item is discarded.
   void discardBeforeExecution() {
     _cleanupCancelledBeforeStart();
+    FFmpegKitExtended.removeNonTerminalSession(this);
   }
 
   /// Records cancellation for a queue-wide discard without querying native
@@ -481,6 +483,7 @@ abstract class Session {
     if (!_executionSettlement.isCompleted) {
       _executionSettlement.complete();
     }
+    FFmpegKitExtended.reconcileCompletedSession(this);
   }
 
   /// Registers the handler used when the platform cannot deliver a normal
@@ -624,9 +627,7 @@ abstract class Session {
     }
     final state = executionStateForSubmission();
     if (state != SessionState.created) {
-      throw StateError(
-        'Session $sessionId cannot start from state $state',
-      );
+      throw StateError('Session $sessionId cannot start from state $state');
     }
   }
 

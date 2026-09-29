@@ -17,6 +17,12 @@ final class SessionHistoryEntry {
   /// can hide an active entry while its callback/session owner remains alive.
   bool visible = true;
 
+  /// Set only after the execution boundary observes a terminal native state.
+  ///
+  /// Keeping this marker in the identity index lets capacity pruning happen at
+  /// completion time without issuing a history read.
+  bool terminal = false;
+
   WeakReference<Object>? _wrapper;
 
   Object? get wrapper => _wrapper?.target;
@@ -59,6 +65,26 @@ final class SessionHistoryIndex {
 
   void remove(int sessionId) {
     _entries.remove(sessionId);
+  }
+
+  void markTerminal(int sessionId) {
+    _entries[sessionId]?.terminal = true;
+  }
+
+  /// Removes the oldest terminal identities until terminal metadata fits the
+  /// native history capacity. Live identities are never removed here.
+  void pruneTerminal(int capacity) {
+    if (capacity < 0) return;
+    final terminalEntries =
+        _entries.values
+            .where((entry) => entry.visible && entry.terminal)
+            .toList()
+          ..sort((left, right) => left.creationOrder - right.creationOrder);
+    final removeCount = terminalEntries.length - capacity;
+    if (removeCount <= 0) return;
+    for (final entry in terminalEntries.take(removeCount)) {
+      _entries.remove(entry.sessionId);
+    }
   }
 
   void clear() {

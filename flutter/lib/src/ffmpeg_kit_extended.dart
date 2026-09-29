@@ -477,6 +477,38 @@ class FFmpegKitExtended {
     }
   }
 
+  /// Records terminal execution and reconciles terminal metadata immediately.
+  ///
+  /// This is called from the queue settlement boundary rather than from a
+  /// history getter, so long-running applications cannot accumulate completed
+  /// identities between reads.
+  static void reconcileCompletedSession(Session session) {
+    final entry = _sessionHistoryIndex[session.sessionId];
+    if (entry == null || entry.terminal) return;
+    try {
+      final state = session.getState();
+      if (state != SessionState.completed && state != SessionState.failed) {
+        return;
+      }
+    } catch (_) {
+      return;
+    }
+    _sessionHistoryIndex.markTerminal(session.sessionId);
+    try {
+      _pruneTerminalHistory(ffmpegKitBackend.getSessionHistorySize());
+    } catch (_) {
+      // Capacity reconciliation must never replace the execution result.
+    }
+  }
+
+  /// Removes an identity whose wrapper no longer owns a live execution.
+  static void removeNonTerminalSession(Session session) {
+    final entry = _sessionHistoryIndex[session.sessionId];
+    if (entry != null && !entry.terminal) {
+      _sessionHistoryIndex.remove(session.sessionId);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Global callbacks
   // ---------------------------------------------------------------------------
@@ -866,30 +898,7 @@ class FFmpegKitExtended {
   }
 
   static void _pruneTerminalHistory(int capacity) {
-    if (capacity < 0) return;
-    final terminalEntries = <SessionHistoryEntry>[];
-    for (final entry in _sessionHistoryIndex.entries) {
-      if (!entry.visible) continue;
-      final cached = entry.wrapper;
-      final session = cached is Session && !cached.isDisposed
-          ? cached
-          : _liveSession(entry.sessionId);
-      if (session == null) continue;
-      try {
-        final state = session.getState();
-        if (state == SessionState.completed || state == SessionState.failed) {
-          terminalEntries.add(entry);
-        }
-      } catch (_) {
-        // An invalidated wrapper is reconciled by the next projection. It is
-        // not safe to infer terminal ownership from a failed state read.
-      }
-    }
-    final removeCount = terminalEntries.length - capacity;
-    if (removeCount <= 0) return;
-    for (final entry in terminalEntries.take(removeCount)) {
-      entry.visible = false;
-    }
+    _sessionHistoryIndex.pruneTerminal(capacity);
   }
 
   static bool _matchesExpectedKind(

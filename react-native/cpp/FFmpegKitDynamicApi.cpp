@@ -40,7 +40,12 @@ struct HistoryRecord {
   std::string type;
   std::uint64_t creationOrder;
   bool visible = true;
+  bool terminal = false;
 };
+
+constexpr std::int32_t kCreatedSessionState = 0;
+constexpr std::int32_t kCompletedSessionState = 2;
+constexpr std::int32_t kFailedSessionState = 3;
 
 std::mutex historyMutex;
 std::unordered_map<std::int64_t, HistoryRecord> historyRecords;
@@ -270,6 +275,41 @@ void removeHistorySession(std::int64_t id) {
   historyRecords.erase(id);
 }
 
+void markHistorySessionTerminal(std::int64_t id) {
+  std::lock_guard<std::mutex> lock(historyMutex);
+  const auto it = historyRecords.find(id);
+  if (it != historyRecords.end()) it->second.terminal = true;
+}
+
+void removeNonTerminalHistorySession(std::int64_t id) {
+  std::lock_guard<std::mutex> lock(historyMutex);
+  const auto it = historyRecords.find(id);
+  if (it != historyRecords.end() && !it->second.terminal) {
+    historyRecords.erase(it);
+  }
+}
+
+void pruneTerminalHistory(std::int64_t capacity) {
+  if (capacity < 0) return;
+  std::vector<HistoryRecord> terminal;
+  {
+    std::lock_guard<std::mutex> lock(historyMutex);
+    for (const auto &[id, record] : historyRecords) {
+      if (record.visible && record.terminal) terminal.push_back(record);
+    }
+  }
+  std::sort(terminal.begin(), terminal.end(), [](const auto &left, const auto &right) {
+    return left.creationOrder < right.creationOrder;
+  });
+  const auto removeCount = static_cast<std::size_t>(
+      std::max<std::int64_t>(0, static_cast<std::int64_t>(terminal.size()) - capacity));
+  if (removeCount == 0) return;
+  std::lock_guard<std::mutex> lock(historyMutex);
+  for (std::size_t index = 0; index < removeCount; ++index) {
+    historyRecords.erase(terminal[index].sessionId);
+  }
+}
+
 std::vector<HistoryRecord> visibleHistoryRecords(const std::string &kind) {
   std::vector<HistoryRecord> result;
   {
@@ -312,16 +352,28 @@ HandleGuard acquireHistorySession(std::int64_t id) {
 
 void releaseRetainedSession(std::int64_t id) {
   Handle handle = nullptr;
+  std::int32_t state = -1;
   {
     std::lock_guard<std::mutex> lock(sessionHandlesMutex);
     const auto it = retainedSessionHandles.find(id);
     if (it == retainedSessionHandles.end()) return;
     handle = it->second;
+    using StateFn = int (*)(Handle);
+    state = static_cast<std::int32_t>(
+        resolve<StateFn>("ffmpeg_kit_session_get_state")(handle));
     retainedSessionHandles.erase(it);
   }
   // Called by the JS monitor only after a terminal session state has been
   // observed and final logs/statistics have been drained.
   release(handle);
+  if (state == kCompletedSessionState || state == kFailedSessionState) {
+    markHistorySessionTerminal(id);
+    using SizeFn = std::int64_t (*)();
+    pruneTerminalHistory(
+        resolve<SizeFn>("ffmpeg_kit_get_session_history_size")());
+  } else if (state == kCreatedSessionState) {
+    removeNonTerminalHistorySession(id);
+  }
 }
 
 std::string sessionType(Handle handle) {
@@ -801,6 +853,7 @@ void setSessionHistorySize(double size) {
   ensureInitialized();
   using Fn = void (*)(std::int64_t);
   resolve<Fn>("ffmpeg_kit_set_session_history_size")(static_cast<std::int64_t>(size));
+  pruneTerminalHistory(static_cast<std::int64_t>(size));
 }
 double getSessionHistorySize() { ensureInitialized(); using Fn = std::int64_t (*)(); return static_cast<double>(resolve<Fn>("ffmpeg_kit_get_session_history_size")()); }
 void clearSessions() {

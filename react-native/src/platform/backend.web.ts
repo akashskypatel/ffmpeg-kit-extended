@@ -409,9 +409,25 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   releaseSessionHandle(sessionId: number): void {
     const pointer = this.sessions.get(sessionId);
     if (!pointer) return;
+    let state: number | undefined;
+    try {
+      state = numberResult(this.call('ffmpeg_kit_session_get_state')(pointer));
+    } catch {
+      // Preserve the release result when state reconciliation is unavailable.
+    }
     this.call('ffmpeg_kit_handle_release')(pointer);
     this.sessions.take(sessionId);
     this.executingSessions.delete(sessionId);
+    if (state === SessionState.Completed || state === SessionState.Failed) {
+      this.history.markTerminal(sessionId);
+      try {
+        this.history.setCapacity(this.getSessionHistorySize());
+      } catch {
+        // Capacity reconciliation must not replace a successful release.
+      }
+    } else if (state === SessionState.Created) {
+      this.history.removeNonTerminal(sessionId);
+    }
   }
 
   getSessionsJson(kind: string): string {
@@ -688,7 +704,10 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   getRegisteredBitstreamFilters(): string { return this.readString(this.call('ffmpeg_kit_packages_get_registered_bitstream_filters')()); }
   getBuildConfiguration(): string { return this.readString(this.call('ffmpeg_kit_packages_get_build_configuration')()); }
   getBuildDate(): string { return this.readString(this.call('ffmpeg_kit_config_get_build_date')()); }
-  setSessionHistorySize(size: number): void { this.call('ffmpeg_kit_set_session_history_size')(int64(size)); }
+  setSessionHistorySize(size: number): void {
+    this.call('ffmpeg_kit_set_session_history_size')(int64(size));
+    this.history.setCapacity(size);
+  }
   getSessionHistorySize(): number { return numberResult(this.call('ffmpeg_kit_get_session_history_size')()); }
   clearSessions(): void {
     for (const [sessionId, pointer] of this.sessions.entries()) {

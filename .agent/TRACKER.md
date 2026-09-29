@@ -12,7 +12,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R34-G1** | Ensure every Flutter public session creation/adoption path registers one history identity at true creation time | **Complete — production constructors for command, argv, sync/async, FFprobe, MediaInformation, and FFplay now share the idempotent creation-boundary registrar** |
-| **R34-G2** | Keep Flutter, React Native native, and React Native Web history metadata bounded by live identities plus terminal capacity | **Open — reconcile on completion/eviction instead of waiting for a history read** |
+| **R34-G2** | Keep Flutter, React Native native, and React Native Web history metadata bounded by live identities plus terminal capacity | **Complete — completion settlement marks terminal identities, prunes by native capacity, and removes discarded live identities without a history read** |
 | **R34-G3** | Classify React Native Web MediaInformation before FFprobe | **Open — restore typed-history and generic-reconstruction parity** |
 | **R34-G4** | Run focused regressions and ordered local validation | **Pending — Windows → Android → WSL Linux → Wasm/Web → Apple** |
 | **R34-G5** | Reconcile evidence, freeze the wrapper SHA, and create one wrapper-only source snapshot | **Pending — no builders/native snapshot** |
@@ -29,6 +29,13 @@
 - The Flutter identity index is now registered from every production native-session constructor: command and argv FFmpeg sessions, FFprobe sessions, MediaInformation command/argv sessions, and FFplay command/argv sessions. Public synchronous/asynchronous helpers and convenience APIs all funnel through these constructors, so they cannot create a native identity outside the index. History restoration constructors remain adoption-only and do not allocate a new identity.
 - `FFmpegKitExtended.registerCreatedSession` is the single semantic registration boundary. `SessionHistoryIndex.record` remains idempotent, preserving the first creation order if a live-session synchronization pass observes an already registered wrapper.
 - Elevated analytics-disabled focused validation passed: `flutter test --no-pub test/session_history_index_test.dart` (**4/4**). `flutter analyze --no-pub` completed with **0 errors**; it returned five pre-existing info/warning diagnostics in `hook/config.dart`, `ffplay_session.dart`, `ffprobe_session.dart`, `session_queue_manager.dart`, and the test import ordering. The initial dependency-resolving test invocation hung during loading and was terminated before the successful `--no-pub` retry; no task-owned Flutter/Dart orphan remained.
+
+### Review 34 completion-driven history evidence — 2026-09-28
+
+- Flutter `SessionHistoryIndex` now records terminal state at the execution-settlement boundary, prunes the oldest terminal identities to the configured native capacity, and removes non-terminal identities when a wrapper is disposed or discarded before execution. The pruning path uses the recorded terminal marker and does not enumerate or read history; it preserves live identities.
+- React Native native history metadata now marks terminal records when the owning handle is released, removes Created records that are discarded, and prunes terminal records immediately after completion or history-size reduction. The shared C++ bridge syntax check passed with `clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp`.
+- React Native Web `SessionHistoryRegistry` and `WebFFmpegKitBackend` now apply the same terminal/capacity lifecycle. The registry owns only identity metadata; Wasm pointer ownership remains in `WasmSessionRegistry`.
+- Focused elevated/local evidence passed: Flutter history-index regression **6/6**; React Native compile and typecheck passed; native bridge plus registry source/behavior tests passed **11/11**. Flutter analysis again completed with **0 errors** and the same five pre-existing info/warning diagnostics. A broader legacy Wasm-memory selection was not used as G2 evidence because five tests still assert the removed native session-array enumeration API from the earlier ownership-mirror implementation; the task-owned hung selection was terminated immediately and left no orphan process.
 
 ## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
 

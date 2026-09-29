@@ -49,4 +49,28 @@ void main() {
     expect(index.length, 1);
     expect(next.creationOrder, 0);
   });
+
+  test('completion pruning removes oldest terminal identities only', () {
+    final index = SessionHistoryIndex();
+    index.record(51, SessionHistoryType.ffmpeg);
+    index.record(52, SessionHistoryType.ffprobe);
+    index.record(53, SessionHistoryType.ffplay);
+    index.markTerminal(51);
+    index.markTerminal(52);
+
+    index.pruneTerminal(1);
+
+    expect(index[51], isNull);
+    expect(index[52], isNotNull);
+    expect(index[53], isNotNull);
+    expect(index[53]!.terminal, isFalse);
+  });
+
+  test('non-terminal disposal can remove a live identity', () {
+    final index = SessionHistoryIndex();
+    index.record(61, SessionHistoryType.mediaInformation);
+    index.remove(61);
+
+    expect(index.length, 0);
+  });
 }

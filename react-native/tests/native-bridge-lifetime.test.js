@@ -127,6 +127,10 @@ test('native session history projects recorded identities without enumerating ow
   assert.match(dynamicApi, /rememberHistorySession/);
   assert.match(dynamicApi, /visibleHistoryRecords\(kind\)/);
   assert.match(dynamicApi, /acquireHistorySession/);
+  assert.match(dynamicApi, /markHistorySessionTerminal/);
+  assert.match(dynamicApi, /pruneTerminalHistory/);
+  assert.match(dynamicApi, /removeNonTerminalHistorySession/);
+  assert.match(dynamicApi, /kCompletedSessionState/);
   assert.match(dynamicApi, /historyRecords\.clear\(\)/);
   assert.doesNotMatch(dynamicApi, /collectNativeSessionHandles/);
   assert.doesNotMatch(dynamicApi, /sessionHistoryExport\(kind\)/);

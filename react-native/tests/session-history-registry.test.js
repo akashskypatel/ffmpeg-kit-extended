@@ -40,3 +40,28 @@ test('hidden and removed identities are excluded without owning pointers', () =>
   registry.clear();
   assert.equal(registry.size, 0);
 });
+
+test('completion pruning removes oldest terminal identities without a history read', () => {
+  const registry = new SessionHistoryRegistry();
+  registry.record(41, 'ffmpeg');
+  registry.record(42, 'ffprobe');
+  registry.record(43, 'ffplay');
+  registry.markTerminal(41);
+  registry.markTerminal(42);
+  registry.setCapacity(1);
+
+  assert.deepEqual(registry.entries().map(entry => entry.sessionId), [42, 43]);
+  assert.equal(registry.entries()[0].terminal, true);
+  assert.equal(registry.entries()[1].terminal, false);
+});
+
+test('discarding a created identity does not remove a completed identity', () => {
+  const registry = new SessionHistoryRegistry();
+  registry.record(51, 'ffmpeg');
+  registry.removeNonTerminal(51);
+  registry.record(52, 'ffmpeg');
+  registry.markTerminal(52);
+  registry.removeNonTerminal(52);
+
+  assert.deepEqual(registry.entries().map(entry => entry.sessionId), [52]);
+});
