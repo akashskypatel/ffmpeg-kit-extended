@@ -6,8 +6,11 @@ import 'package:ffmpeg_kit_extended_flutter/src/session_queue_manager.dart';
 import 'package:test/test.dart';
 
 class _QueueSession extends Session {
-  _QueueSession({this.sessionIdOverride, this.throwOnDiscard = false})
-    : super.noFinalizer() {
+  _QueueSession({
+    this.sessionIdOverride,
+    this.throwOnDiscard = false,
+    this.throwOnSettlement = false,
+  }) : super.noFinalizer() {
     handle = const SessionHandle(Object());
     sessionId = sessionIdOverride ?? _nextId++;
     command = 'test';
@@ -23,8 +26,21 @@ class _QueueSession extends Session {
   int cancellationDispatches = 0;
   int cancelCalls = 0;
   bool throwOnCancel = false;
+  bool throwOnSettlement;
+  int settlementCalls = 0;
+  void Function()? duringSettlement;
 
   void submit() => claimExecutionSubmission();
+
+  @override
+  void markExecutionSettled() {
+    settlementCalls++;
+    duringSettlement?.call();
+    if (throwOnSettlement) {
+      throw StateError('settlement failed for $sessionId');
+    }
+    super.markExecutionSettled();
+  }
 
   @override
   SessionState executionStateForSubmission() {
@@ -52,6 +68,23 @@ class _QueueSession extends Session {
   void onCancelledBeforeStart() {
     discarded++;
     if (throwOnDiscard) throw StateError('discard cleanup failed');
+  }
+}
+
+class _DeferredReleaseSession extends Session {
+  _DeferredReleaseSession(int sessionId) : super.noFinalizer() {
+    handle = const SessionHandle(Object());
+    this.sessionId = sessionId;
+    command = 'test';
+  }
+
+  bool throwOnRelease = false;
+  int releases = 0;
+
+  @override
+  void releaseHandle(SessionHandle handle) {
+    releases++;
+    if (throwOnRelease) throw StateError('deferred release failed');
   }
 }
 
@@ -314,6 +347,109 @@ void main() {
       expect(queue.queueLength, 1);
       gate.complete();
       await Future.wait([firstFuture, secondFuture]);
+    },
+  );
+
+  test(
+    'settlement failure releases queue identity before rejecting and continues',
+    () async {
+      final first = _QueueSession(throwOnSettlement: true);
+      final second = _QueueSession();
+      final events = <int>[];
+      final firstFuture = queue.executeSession(first, () async {
+        events.add(first.sessionId);
+      });
+      final secondFuture = queue.executeSession(second, () async {
+        events.add(second.sessionId);
+      });
+
+      await expectLater(firstFuture, throwsStateError);
+      await secondFuture;
+
+      expect(events, [first.sessionId, second.sessionId]);
+      expect(first.settlementCalls, 1);
+      expect(queue.activeSessionCount, 0);
+      expect(queue.queueLength, 0);
+      await queue.waitForAll();
+    },
+  );
+
+  test(
+    'execution failure remains primary when settlement also fails',
+    () async {
+      final session = _QueueSession(throwOnSettlement: true);
+      final future = queue.executeSession(session, () async {
+        throw StateError('executor failed');
+      });
+
+      await expectLater(
+        future,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'executor failed',
+          ),
+        ),
+      );
+      expect(queue.activeSessionCount, 0);
+      expect(queue.queueLength, 0);
+    },
+  );
+
+  test('public Future waits until settlement has run', () async {
+    final session = _QueueSession();
+    var publicFutureCompleted = false;
+    var settlementObservedCompletion = true;
+    session.duringSettlement = () {
+      settlementObservedCompletion = publicFutureCompleted;
+    };
+
+    final future = queue.executeSession(session, () async {});
+    future.then((_) => publicFutureCompleted = true);
+    await future;
+
+    expect(settlementObservedCompletion, isFalse);
+  });
+
+  test(
+    'deferred disposal release failure remains retryable after queue cleanup',
+    () async {
+      final first = _DeferredReleaseSession(8101)..throwOnRelease = true;
+      final second = _QueueSession();
+      final events = <int>[];
+      final firstFuture = queue.executeSession(first, () async {
+        events.add(first.sessionId);
+        first.beginCompletionDispatch();
+        first.dispose();
+        first.endCompletionDispatch();
+      });
+      final secondFuture = queue.executeSession(second, () async {
+        events.add(second.sessionId);
+      });
+
+      await expectLater(
+        firstFuture,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'deferred release failed',
+          ),
+        ),
+      );
+      await secondFuture;
+
+      expect(events, [first.sessionId, second.sessionId]);
+      expect(queue.activeSessionCount, 0);
+      expect(queue.queueLength, 0);
+      expect(first.isDisposed, isFalse);
+      expect(first.releases, 1);
+
+      first.throwOnRelease = false;
+      first.dispose();
+      expect(first.isDisposed, isTrue);
+      expect(first.releases, 2);
     },
   );
 

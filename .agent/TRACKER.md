@@ -13,7 +13,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R37-G1** | Give restored Running Flutter sessions an independent terminal-completion owner and release path | **Complete — terminal observation now commits history before fan-out; restored completion settlement unregisters completion routing and releases deferred disposal independently of queue settlement. Focused Flutter lifecycle suite passed 23/23.** |
-| **R37-G2** | Make Flutter queue settlement failure-atomic and preserve primary errors | **Pending** |
+| **R37-G2** | Make Flutter queue settlement failure-atomic and preserve primary errors | **Complete — executor outcome is captured before settlement; active/reserved identity cleanup and queue progression run before the public Future completes; execution errors remain primary and settlement errors remain visible. Focused Flutter suite passed 41/41.** |
 | **R37-G3** | Make Flutter/RN native/RN Web abandonment tombstones clearable and lifecycle-bounded without Created resurrection | **Pending** |
 | **R37-G4** | Run focused and affected local cross-platform wrapper regressions in the required platform order | **Pending** |
 | **R37-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
@@ -31,6 +31,12 @@
 - Regression coverage verifies restored Running wrappers for all four session kinds: local disposal does not invalidate global observation, each handle releases exactly once, callback-manager maps are empty afterward, and terminal history is committed. Existing duplicate-dispatch and throwing-observer coverage remains active.
 - Focused command: `flutter test --no-pub test/ownership_callback_regression_test.dart` with Flutter/Dart analytics disabled; result **23/23 passed** using the frozen local Windows runtime `ffmpeg-kit-base-x86_64-lgpl-0.11.2-20260923`.
 - Environment note: the first formatting attempt used repository-root paths while already running from `flutter`; it formatted no files and made no mutation. The corrected formatter/test run passed. Elevated process enumeration was denied by the local CIM permission boundary; task-owned Flutter/Dart commands completed and no task-owned runner remained visible in the subsequent shell session.
+
+### Review 37 implementation evidence — failure-atomic queue settlement
+
+- `SessionQueueManager` now treats executor completion, session settlement, queue identity cleanup, queue progression, and public Future completion as separate phases. A settlement/release failure cannot strand `_activeSessions`, `_reservedSessionIds`, `waitForAll`, or later queued work.
+- The primary executor error is preserved when settlement also fails; a settlement error is surfaced when execution succeeds; queue-progression cleanup failures are logged without replacing the primary execution/settlement result. Deferred native release remains retryable through explicit `dispose()` after the queue has released its identity.
+- Focused command: `flutter test --no-pub test/session_queue_manager_test.dart test/ownership_callback_regression_test.dart` with Flutter/Dart analytics disabled; result **41/41 passed** using the frozen local Windows runtime. The suite includes public-Future ordering and queue-state assertions.
 
 ## Review 36 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 

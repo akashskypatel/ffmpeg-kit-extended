@@ -19,6 +19,7 @@
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:developer' as developer;
 import 'session.dart';
 
 /// Manages session execution to limit concurrent system resource usage.
@@ -98,9 +99,7 @@ class SessionQueueManager {
     }
     if (_containsSession(session)) {
       return Future<void>.error(
-        StateError(
-          'Session ${session.sessionId} is already queued or active',
-        ),
+        StateError('Session ${session.sessionId} is already queued or active'),
       );
     }
     final completer = Completer<void>();
@@ -184,21 +183,56 @@ class SessionQueueManager {
 
   /// Internal helper to execute a queued session and manage its lifecycle.
   Future<void> _executeQueuedSession(_QueuedSession queued) async {
+    Object? executionError;
+    StackTrace? executionStackTrace;
     try {
       await queued.executor();
-      if (!queued.completer.isCompleted) {
-        queued.completer.complete();
-      }
     } catch (error, stackTrace) {
-      if (!queued.completer.isCompleted) {
-        queued.completer.completeError(error, stackTrace);
-      }
-    } finally {
+      executionError = error;
+      executionStackTrace = stackTrace;
+    }
+
+    Object? settlementError;
+    StackTrace? settlementStackTrace;
+    try {
       queued.session.markExecutionSettled();
+    } catch (error, stackTrace) {
+      settlementError = error;
+      settlementStackTrace = stackTrace;
+    } finally {
+      // Queue identity is released before the public Future is completed so a
+      // settlement failure cannot strand the slot or block the next item.
       _activeSessions.remove(queued.session);
       _reservedSessionIds.remove(queued.session.sessionId);
-      // Trigger processing for the next session in queue
-      _processQueue();
+      try {
+        _processQueue();
+      } catch (error, stackTrace) {
+        developer.log(
+          'SessionQueueManager: queue progression failed after settlement',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    if (executionError != null) {
+      if (settlementError != null) {
+        developer.log(
+          'SessionQueueManager: settlement failed after an execution error '
+          'for session ${queued.session.sessionId}',
+          error: settlementError,
+          stackTrace: settlementStackTrace,
+        );
+      }
+      if (!queued.completer.isCompleted) {
+        queued.completer.completeError(executionError!, executionStackTrace!);
+      }
+    } else if (settlementError != null) {
+      if (!queued.completer.isCompleted) {
+        queued.completer.completeError(settlementError!, settlementStackTrace!);
+      }
+    } else if (!queued.completer.isCompleted) {
+      queued.completer.complete();
     }
   }
 
