@@ -17,7 +17,7 @@
 | **R35-G2** | Remove React Native Created identities through explicit pre-execution abandonment | **Complete — TypeScript, queue, native bridge, Web registry, and focused ownership regressions passed; discard now uses metadata-only abandonment; pushed in `fb1857b`** |
 | **R35-G3** | Remove Flutter identities hidden by `clearSessions()` when execution settles | **Complete — hidden-history regression passed; settlement removes invisible identities before terminal-state reconciliation; included in pushed `759d5f2`** |
 | **R35-G4** | Run focused and ordered local Windows → Android → WSL Linux → Wasm/Web → Apple wrapper regression | **Complete — local matrix passed in order after `759d5f2` and `fb1857b`; see evidence below** |
-| **R35-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+| **R35-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Complete — implementation SHA `d6afceabfe7baa9190a20342aad9e7e87a59a803` was pushed and snapshotted successfully; tracker-only metadata follows** |
 
 ### Review 35 implementation boundary
 
@@ -32,6 +32,7 @@
 - Ordered local matrix: Windows Flutter `flutter build windows --debug --no-pub` passed; Android on Windows `flutter build apk --debug --no-pub` passed after the hook’s expected rerun; WSL Linux `/usr/local/flutter/bin/flutter build linux --debug --no-pub` passed; Flutter Web and React Native Web production builds passed; React Native headless WebAssembly smoke passed; MacBook Air over SSH passed for Flutter macOS/iOS and React Native iOS/macOS/tvOS.
 - Apple artifact paths used: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-ios-universal-small-lgpl.xcframework.zip`, `bundle-base-macos-universal-small-lgpl.xcframework.zip`, and `bundle-base-appletvos-universal-small-lgpl.xcframework.zip`.
 - No GitHub Flutter/React Native test workflow, remote FFmpegKit ABI archive, native publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was used.
+- Final source snapshot: [workflow run 36521169004](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36521169004) checked out exact SHA `d6afceabfe7baa9190a20342aad9e7e87a59a803` and completed successfully. Snapshot artifact: [repo-source-snapshot-36521169004](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36521169004/artifacts/11013156574) (artifact ID `11013156574`, digest `sha256:9216d85557af470f06f4db7be41cdce519bc6f4111ac257b1c939369798815c2`, expires `2026-10-06`). Embedded `source.tar.gz` SHA-256: `2d2b8623b50b275b01e388aca68da42d1d854dfbd90bc3dcede2020c3d64f75e`; manifest contains `1,066` files and recursive submodule state `b74da2c5d1e294b87d15d73a6687393729e932b3`.
 
 ## Review 34 Flutter + React Native Cross-Platform Remediation — 2026-09-28
 
