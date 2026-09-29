@@ -158,7 +158,7 @@ class MediaInformationSession extends FFprobeSession {
     String command = 'test',
     MediaInformationSessionCompleteCallback? completeCallback,
     this._timeout = 500,
-  }) : super.internal() {
+  }) : super.internalNoFinalizer() {
     handle = const SessionHandle(Object());
     this.sessionId = sessionId;
     this.command = command;
@@ -675,6 +675,10 @@ class MediaInformationSession extends FFprobeSession {
     _mediaInfoCompleteCallback = null;
     super.onDispose();
   }
+
+  @override
+  @protected
+  void onRestoredCompletionSettled() => removeMediaInfoCompleteCallback();
 
   @override
   @protected

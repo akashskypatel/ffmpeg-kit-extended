@@ -13,6 +13,7 @@ import 'package:ffmpeg_kit_extended_flutter/src/platform/native/ffmpeg_kit_exten
 import 'package:ffmpeg_kit_extended_flutter/src/platform/native/session_finalizer_native.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/session_finalizer.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/session_history_index.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session_queue_manager.dart';
 import 'package:test/test.dart';
 
@@ -142,11 +143,15 @@ class _NoopFFmpegSession extends FFmpegSession {
 class _NoopFFprobeSession extends FFprobeSession {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
+  int releases = 0;
 
   _NoopFFprobeSession(int sessionId) : super.test(sessionId: sessionId);
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  void releaseHandle(SessionHandle handle) => releases++;
 
   @override
   SessionState executionStateForSubmission() {
@@ -171,11 +176,15 @@ class _NoopFFprobeSession extends FFprobeSession {
 class _NoopFFplaySession extends FFplaySession {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
+  int releases = 0;
 
   _NoopFFplaySession(int sessionId) : super.test(sessionId: sessionId);
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  void releaseHandle(SessionHandle handle) => releases++;
 
   @override
   SessionState executionStateForSubmission() {
@@ -200,6 +209,7 @@ class _NoopFFplaySession extends FFplaySession {
 class _NoopMediaInformationSession extends MediaInformationSession {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
+  int releases = 0;
 
   _NoopMediaInformationSession(int sessionId)
     : super.test(sessionId: sessionId);
@@ -209,6 +219,9 @@ class _NoopMediaInformationSession extends MediaInformationSession {
 
   @override
   void dispatchPendingLogs() {}
+
+  @override
+  void releaseHandle(SessionHandle handle) => releases++;
 
   @override
   SessionState executionStateForSubmission() {
@@ -461,6 +474,85 @@ void main() {
       expect(session.releases, 1);
       FFmpegKitExtended.sessionHistoryIndex.clear();
     });
+
+    test(
+      'restored terminal observations settle routing and release exactly once',
+      () {
+        FFmpegKitExtended.sessionHistoryIndex.clear();
+        final ffmpeg = _NoopFFmpegSession(362)
+          ..restoreForTest(SessionState.running);
+        final ffprobe = _NoopFFprobeSession(363)
+          ..restoreForTest(SessionState.running);
+        final ffplay = _NoopFFplaySession(364)
+          ..restoreForTest(SessionState.running);
+        final mediaInfo = _NoopMediaInformationSession(365)
+          ..restoreForTest(SessionState.running);
+        final sessions = <Session>[ffmpeg, ffprobe, ffplay, mediaInfo];
+        final types = <SessionHistoryType>[
+          SessionHistoryType.ffmpeg,
+          SessionHistoryType.ffprobe,
+          SessionHistoryType.ffplay,
+          SessionHistoryType.mediaInformation,
+        ];
+        for (var i = 0; i < sessions.length; i++) {
+          FFmpegKitExtended.sessionHistoryIndex.record(
+            sessions[i].sessionId,
+            types[i],
+            wrapper: sessions[i],
+          );
+        }
+
+        var globalCalls = 0;
+        manager.globalFFmpegSessionCompleteCallback = (session) {
+          globalCalls++;
+          expect(session.isDisposed, isFalse);
+        };
+        manager.globalFFprobeSessionCompleteCallback = (session) {
+          globalCalls++;
+          expect(session.isDisposed, isFalse);
+        };
+        manager.globalFFplaySessionCompleteCallback = (session) {
+          globalCalls++;
+          expect(session.isDisposed, isFalse);
+        };
+        manager.globalMediaInformationSessionCompleteCallback = (session) {
+          globalCalls++;
+          expect(session.isDisposed, isFalse);
+        };
+
+        ffmpeg.setCompleteCallback((session) => session.dispose());
+        ffprobe.setCompleteCallback((session) => session.dispose());
+        ffplay.setCompleteCallback((session) => session.dispose());
+        mediaInfo.setMediaInfoCompleteCallback((session) => session.dispose());
+        ffmpeg.restoredState = SessionState.completed;
+        ffprobe.restoredState = SessionState.completed;
+        ffplay.restoredState = SessionState.completed;
+        mediaInfo.restoredState = SessionState.completed;
+
+        manager.dispatchFFmpegComplete(ffmpeg.sessionId);
+        manager.dispatchFFprobeComplete(ffprobe.sessionId);
+        manager.dispatchFFplayComplete(ffplay.sessionId);
+        manager.dispatchMediaInformationComplete(mediaInfo.sessionId);
+
+        expect(globalCalls, 4);
+        expect(sessions.every((session) => session.isDisposed), isTrue);
+        expect(ffmpeg.releases, 1);
+        expect(ffprobe.releases, 1);
+        expect(ffplay.releases, 1);
+        expect(mediaInfo.releases, 1);
+        expect(manager.ffmpegSessions, isEmpty);
+        expect(manager.ffprobeSessions, isEmpty);
+        expect(manager.ffplaySessions, isEmpty);
+        expect(manager.mediaInformationSessions, isEmpty);
+        expect(
+          FFmpegKitExtended.sessionHistoryIndex.entries.every(
+            (entry) => entry.terminal,
+          ),
+          isTrue,
+        );
+        FFmpegKitExtended.sessionHistoryIndex.clear();
+      },
+    );
 
     test(
       'pre-submission cancellation remains durable across wrapper recreation',

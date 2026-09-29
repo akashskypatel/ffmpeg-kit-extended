@@ -315,6 +315,7 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
+    session.observeTerminalCompletion();
     session.beginCompletionDispatch();
     try {
       _invoke('FFmpeg session completion', sessionId, () {
@@ -324,7 +325,11 @@ class CallbackManager {
         globalFFmpegSessionCompleteCallback?.call(session);
       });
     } finally {
-      session.endCompletionDispatch();
+      try {
+        session.endCompletionDispatch();
+      } finally {
+        session.settleRestoredCompletionObservation();
+      }
     }
   }
 
@@ -336,6 +341,7 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
+    session.observeTerminalCompletion();
     session.beginCompletionDispatch();
     try {
       if (session is MediaInformationSession) {
@@ -354,7 +360,11 @@ class CallbackManager {
         });
       }
     } finally {
-      session.endCompletionDispatch();
+      try {
+        session.endCompletionDispatch();
+      } finally {
+        session.settleRestoredCompletionObservation();
+      }
     }
   }
 
@@ -365,6 +375,7 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
+    session.observeTerminalCompletion();
     session.beginCompletionDispatch();
     try {
       _invoke('FFplay session completion', sessionId, () {
@@ -374,7 +385,11 @@ class CallbackManager {
         globalFFplaySessionCompleteCallback?.call(session);
       });
     } finally {
-      session.endCompletionDispatch();
+      try {
+        session.endCompletionDispatch();
+      } finally {
+        session.settleRestoredCompletionObservation();
+      }
     }
   }
 
@@ -385,6 +400,7 @@ class CallbackManager {
       return;
     }
     if (!session.claimCompletionDispatch()) return;
+    session.observeTerminalCompletion();
     session.beginCompletionDispatch();
     try {
       _invoke('Media-information session completion', sessionId, () {
@@ -394,7 +410,11 @@ class CallbackManager {
         globalMediaInformationSessionCompleteCallback?.call(session);
       });
     } finally {
-      session.endCompletionDispatch();
+      try {
+        session.endCompletionDispatch();
+      } finally {
+        session.settleRestoredCompletionObservation();
+      }
     }
   }
 

@@ -1,5 +1,37 @@
 # Tracker
 
+## Review 37 Flutter + React Native Cross-Platform Remediation — 2026-09-29
+
+- Plan: [review37-luna-cross-platform-remediation-plan.md](./review37-luna-cross-platform-remediation-plan.md)
+- Code review: [review37-cross-platform-code-review.md](./review37-cross-platform-code-review.md)
+- Preparation status: **Ready for implementation — the latest Review 37 plan and code review were downloaded from the browser conversation, materialized locally, and reviewed.**
+- Review authority: wrapper work starts from `421946a3279e055a27a3dbd9141234e305f70e5d`; the prior wrapper-only source snapshot was workflow `36596072158`, artifact `11046296370`, artifact digest `sha256:098a410ad4fbce40283400d8fe3b9fd37b9dab44e5fe71e933e736460e6cc387` (see the Review 36 entry for the authoritative digest spelling), with embedded source SHA `30078df4081dbbcbd79fd3974a23a2b75474cfdada028c0c304f99416a4f0cdd` recorded by the Review 37 authority. Frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`.
+- Scope: Flutter and React Native wrapper lifecycle remediation only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. No remote old-binary fallback, native publication, or hosted Flutter/React Native test workflow.
+- Required validation order: Windows → Android on local Windows → Linux under WSL → Wasm/Web → Apple last through the MacBook Air SSH host. Use existing local artifacts/configuration; do not run interactive apps.
+- Findings: R37-F1 High — restored Running Flutter completion callbacks lack an independent terminal-completion owner; R37-F2 High — Flutter queue settlement can strand queue state when deferred disposal/release fails; R37-F3 Medium-High — Flutter/RN native/RN Web abandonment tombstones are append-only or clear in the wrong order.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R37-G1** | Give restored Running Flutter sessions an independent terminal-completion owner and release path | **Complete — terminal observation now commits history before fan-out; restored completion settlement unregisters completion routing and releases deferred disposal independently of queue settlement. Focused Flutter lifecycle suite passed 23/23.** |
+| **R37-G2** | Make Flutter queue settlement failure-atomic and preserve primary errors | **Pending** |
+| **R37-G3** | Make Flutter/RN native/RN Web abandonment tombstones clearable and lifecycle-bounded without Created resurrection | **Pending** |
+| **R37-G4** | Run focused and affected local cross-platform wrapper regressions in the required platform order | **Pending** |
+| **R37-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 37 implementation boundary
+
+- Review/goal identifiers are metadata only; implementation names must describe terminal observation, queue settlement, and abandonment reconciliation semantics.
+- Do not edit native ABI sources, `libs/libffmpegkit`, or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`. Do not download or re-review native binaries.
+- Use analytics-disabled Flutter/Dart commands, tag task-owned processes, terminate confirmed hangs before retrying, and clean task-owned temporary files/processes.
+- Complete goals in order G1 → G2 → G3 → focused regressions/matrix → exact-SHA snapshot. The final source snapshot is wrapper-only and is the sole permitted GitHub workflow dispatch.
+
+### Review 37 implementation evidence — restored completion ownership
+
+- Flutter implementation uses semantic terminal observation and restored completion settlement owners. The four real callback paths (FFmpeg, FFprobe, FFplay, and media-information) commit terminal history before local/global fan-out, then release completion-only routing after fan-out; callback-requested disposal remains deferred until that owner settles.
+- Regression coverage verifies restored Running wrappers for all four session kinds: local disposal does not invalidate global observation, each handle releases exactly once, callback-manager maps are empty afterward, and terminal history is committed. Existing duplicate-dispatch and throwing-observer coverage remains active.
+- Focused command: `flutter test --no-pub test/ownership_callback_regression_test.dart` with Flutter/Dart analytics disabled; result **23/23 passed** using the frozen local Windows runtime `ffmpeg-kit-base-x86_64-lgpl-0.11.2-20260923`.
+- Environment note: the first formatting attempt used repository-root paths while already running from `flutter`; it formatted no files and made no mutation. The corrected formatter/test run passed. Elevated process enumeration was denied by the local CIM permission boundary; task-owned Flutter/Dart commands completed and no task-owned runner remained visible in the subsequent shell session.
+
 ## Review 36 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
 - Plan: [review36-luna-cross-platform-remediation-plan.md](./review36-luna-cross-platform-remediation-plan.md)

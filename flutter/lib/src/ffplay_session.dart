@@ -1132,6 +1132,10 @@ class FFplaySession extends Session {
   }
 
   @override
+  @protected
+  void onRestoredCompletionSettled() => removeCompleteCallback();
+
+  @override
   void onCancelledBeforeStart() {
     _telemetryExecutionActive = false;
     _stopPositionStream();

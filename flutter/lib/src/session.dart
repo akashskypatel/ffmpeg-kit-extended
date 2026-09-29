@@ -174,6 +174,8 @@ abstract class Session {
   bool _disposing = false;
   bool _executionSettled = false;
   bool _completionDispatched = false;
+  bool _terminalCompletionObserved = false;
+  bool _restoredCompletionSettled = false;
   int _completionDispatchDepth = 0;
   bool _disposeRequested = false;
   final Completer<void> _executionSettlement = Completer<void>();
@@ -395,6 +397,18 @@ abstract class Session {
     return true;
   }
 
+  /// Commits terminal history before completion observers are invoked.
+  ///
+  /// Restored wrappers do not pass through the queue-owned execution
+  /// settlement boundary, so completion observation is an independent
+  /// lifecycle owner for those wrappers. The one-shot guard also protects
+  /// synchronous paths that reconcile history before dispatching callbacks.
+  void observeTerminalCompletion() {
+    if (_terminalCompletionObserved) return;
+    _terminalCompletionObserved = true;
+    commitTerminalHistory();
+  }
+
   /// Requires the selected backend to be initialized before direct execution.
   ///
   /// Kept as a narrow protected seam so synchronous lifecycle tests can prove
@@ -516,10 +530,33 @@ abstract class Session {
     _releaseDeferredDisposeIfReady();
   }
 
+  /// Settles the completion-observation owner for a restored wrapper.
+  ///
+  /// Queue-owned sessions remain governed by [markExecutionSettled]. Restored
+  /// sessions instead release their completion routing after observer fan-out,
+  /// allowing an explicit dispose requested from a callback to finish without
+  /// requiring a queue that never owned the restored execution.
+  void settleRestoredCompletionObservation() {
+    if (!isRestoredSession || _restoredCompletionSettled) return;
+    _restoredCompletionSettled = true;
+    try {
+      onRestoredCompletionSettled();
+    } finally {
+      _releaseDeferredDisposeIfReady();
+    }
+  }
+
+  /// Gives concrete session types a chance to release completion-only routing
+  /// while preserving any independent log/statistics sinks.
+  @protected
+  void onRestoredCompletionSettled() {}
+
   void _releaseDeferredDisposeIfReady() {
+    final completionOwnerSettled =
+        _executionSettled || (isRestoredSession && _restoredCompletionSettled);
     if (!_disposeRequested ||
         _completionDispatchDepth != 0 ||
-        !_executionSettled ||
+        !completionOwnerSettled ||
         _disposed) {
       return;
     }

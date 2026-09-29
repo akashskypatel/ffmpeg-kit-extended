@@ -757,6 +757,10 @@ class FFmpegSession extends Session {
   }
 
   @override
+  @protected
+  void onRestoredCompletionSettled() => removeCompleteCallback();
+
+  @override
   void onCancelledBeforeStart() {
     _closeLogStreams();
     _unregister();

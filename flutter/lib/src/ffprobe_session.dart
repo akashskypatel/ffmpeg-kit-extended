@@ -114,6 +114,11 @@ class FFprobeSession extends Session {
   /// constructor is responsible for filling them in before any method is called.
   FFprobeSession.internal() : super();
 
+  /// Internal no-finalizer constructor used by in-memory media-information
+  /// lifecycle tests.
+  @visibleForTesting
+  FFprobeSession.internalNoFinalizer() : super.noFinalizer();
+
   // ---------------------------------------------------------------------------
   // Static helpers
   // ---------------------------------------------------------------------------
@@ -625,6 +630,10 @@ class FFprobeSession extends Session {
     closeLogStreams();
     unregister();
   }
+
+  @override
+  @protected
+  void onRestoredCompletionSettled() => removeCompleteCallback();
 
   @override
   @protected
