@@ -60,6 +60,12 @@
 - The diagnostic artifact is `review34-final-wrapper-source-log-36510171029`, artifact ID `11008787644`, digest `sha256:1b8ea1534948d1e4c816aa4aedfc4f3b0ccc7db96c5d86b6505446de3ca725ab`; [download the snapshot diagnostic log](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11008787644/zip).
 - This was the single permitted source snapshot with `runtimeExecution=false`; no Flutter/React Native hosted test workflow, remote staged binary, native ABI publication, or ManyLinux builder edit was used.
 
+### Review 34 MacBook Air focused test follow-up — 2026-09-28
+
+- The MacBook Air checkout was fast-forwarded from stale `d97bb6c` to the pushed Review 34 closeout `f3b98e7` before testing. Over SSH with analytics disabled, Flutter `test/session_history_index_test.dart` passed **6/6**, and React Native `npm run test:unit` (including `test:compile`) passed **26/26**.
+- A package-wide Flutter `--exclude-tags native` attempt was not used as Apple acceptance evidence because the existing suite includes a Windows-specific ManyLinux path assertion and an untagged FFplay boundary setup that tries to load `libffmpegkit.dylib`; those are test-selection/environment assumptions, not Review 34 product or native-ABI blockers. The Windows package suite remains the cross-platform package-wide gate, while the Mac Apple builds and focused wrapper regressions are green.
+- The MacBook Air Flutter and React Native generated outputs were removed with the project clean commands; final SSH audit reported a clean checkout, no generated staging, and no tagged Review 34 process.
+
 ## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
 
 - Plan: [review33-luna-cross-platform-remediation-plan.md](./review33-luna-cross-platform-remediation-plan.md)
