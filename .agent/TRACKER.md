@@ -15,7 +15,7 @@
 | **R34-G2** | Keep Flutter, React Native native, and React Native Web history metadata bounded by live identities plus terminal capacity | **Complete — completion settlement marks terminal identities, prunes by native capacity, and removes discarded live identities without a history read** |
 | **R34-G3** | Classify React Native Web MediaInformation before FFprobe | **Complete — Web classification now checks the specialised predicate first and fails closed for unknown types** |
 | **R34-G4** | Run focused regressions and ordered local validation | **Complete — focused regressions and Windows → Android → WSL Linux → Wasm/Web → Apple local gates pass** |
-| **R34-G5** | Reconcile evidence, freeze the wrapper SHA, and create one wrapper-only source snapshot | **Pending — no builders/native snapshot** |
+| **R34-G5** | Reconcile evidence, freeze the wrapper SHA, and create one wrapper-only source snapshot | **Complete — exact wrapper SHA snapshotted in workflow run `36510171029`; no builders/native snapshot** |
 
 ### Review 34 implementation boundary
 
@@ -51,6 +51,14 @@
 - Wasm/Web passed locally. Flutter `build web --wasm --release --target lib/web_runtime_smoke.dart` staged the configured local Wasm archive, and the headless smoke reported `STARTING|INITIALIZED|FFMPEG_OK|LOG_OK|FFPROBE_OK|MEDIA_INFO_OK|PASS`. React Native `prepare-web`, packed type/Web consumers, `web:build`, and `npm run test:web` passed; the Web smoke covered initialization, repeated initialization, FFmpeg, FFprobe, MediaInformation, and FFplay pause/resume/stop.
 - Apple ran last over SSH to `akash@192.168.1.189` (`Akashs-MacBook-Air.local`) with UTF-8 locale. The configured universal archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/` were used. Flutter macOS Release, iOS Simulator Debug, and iOS Debug `--no-codesign` passed. React Native iOS, tvOS, and macOS `./build.sh` targets completed with **BUILD SUCCEEDED**. The initial PATH/locale diagnostics were corrected environment issues; no product or native-ABI blocker was found.
 - Cleanup and boundaries were verified: tagged local/WSL/Mac process audits were empty, generated local and remote staging was removed, the native submodule remained frozen at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev` matching `origin/dev`, and no hosted Flutter/React Native workflow, remote old binary, native publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was used. The previously observed five-test legacy Wasm-memory selection remains excluded from acceptance because it asserts the removed native session-array enumeration API; the focused G2/G3 tests and ordered runtime gates above are green.
+
+### Review 34 final wrapper freeze — 2026-09-28
+
+- All Review 34 wrapper implementation and ordered local validation work is complete. The exact final wrapper candidate is frozen at `c9682fb8a7f98141b1566374b0f7c827aedd7e1b`, pushed to `origin/dev-wasm`; this SHA is the source reference for the single permitted wrapper-only snapshot.
+- The native submodule remains frozen at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`. No native ABI or builder snapshot is part of Review 34.
+- The wrapper-only source snapshot completed successfully in [workflow run `36510171029`](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36510171029), whose checked-out `headSha` is the frozen wrapper SHA above. The primary artifact is `review34-final-wrapper-source-36510171029`, artifact ID `11008563205`, digest `sha256:d6cb8721369974a3dcd50f3c7217fa2041241621401e2ef7842cecfa4038bb2e`; [download the final wrapper source snapshot](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11008563205/zip).
+- The diagnostic artifact is `review34-final-wrapper-source-log-36510171029`, artifact ID `11008787644`, digest `sha256:1b8ea1534948d1e4c816aa4aedfc4f3b0ccc7db96c5d86b6505446de3ca725ab`; [download the snapshot diagnostic log](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11008787644/zip).
+- This was the single permitted source snapshot with `runtimeExecution=false`; no Flutter/React Native hosted test workflow, remote staged binary, native ABI publication, or ManyLinux builder edit was used.
 
 ## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
 
