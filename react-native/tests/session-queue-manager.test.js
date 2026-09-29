@@ -203,7 +203,7 @@ test('asynchronous executor rejection preserves the original error and releases 
   assert.equal(manager.activeSessionCount, 0);
 });
 
-test('handoff state rejection releases admission without discard cleanup', async () => {
+test('handoff state rejection releases admission and retained ownership', async () => {
   manager.maxConcurrentSessions = 1;
   const rejectedSession = createSession();
   let discardCalls = 0;
@@ -220,7 +220,7 @@ test('handoff state rejection releases admission without discard cleanup', async
   const next = manager.executeSession(createSession(), async () => 'next');
 
   await assert.rejects(rejected, /already terminal/);
-  assert.equal(discardCalls, 0);
+  assert.equal(discardCalls, 1);
   assert.equal(await next, 'next');
   assert.equal(manager.activeSessionCount, 0);
 });

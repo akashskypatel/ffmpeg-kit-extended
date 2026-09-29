@@ -78,3 +78,19 @@ test('created abandonment is idempotent and leaves terminal history intact', () 
 
   assert.deepEqual(registry.entries().map(entry => entry.sessionId), [62]);
 });
+
+test('abandoned Created IDs cannot be re-recorded until the authority is cleared', () => {
+  const registry = new SessionHistoryRegistry();
+  registry.record(71, 'ffmpeg');
+
+  registry.abandonCreated(71);
+  registry.record(71, 'ffmpeg');
+
+  assert.equal(registry.isAbandoned(71), true);
+  assert.deepEqual(registry.entries(), []);
+
+  registry.clear();
+  registry.record(71, 'ffmpeg');
+  assert.equal(registry.isAbandoned(71), false);
+  assert.deepEqual(registry.entries().map(entry => entry.sessionId), [71]);
+});

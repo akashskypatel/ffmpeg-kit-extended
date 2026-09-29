@@ -211,6 +211,11 @@ export class SessionQueueManager {
       try {
         item.session.prepareForExecution?.();
       } catch (error) {
+        try {
+          item.onDiscard?.();
+        } catch {
+          // Preserve the pre-execution validation failure as the primary error.
+        }
         this.releaseSessionReservation(this.executionSessionId(item.session));
         item.reject(error);
         continue;

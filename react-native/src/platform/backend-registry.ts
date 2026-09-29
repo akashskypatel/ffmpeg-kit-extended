@@ -85,6 +85,8 @@ export interface FFmpegKitBackend {
   releaseSessionHandle(sessionId: number): void;
   /** Removes a definitively discarded pre-execution Created identity. */
   abandonCreatedSession(sessionId: number): void;
+  /** Returns true for an ID durably abandoned before execution. */
+  isSessionAbandoned?(sessionId: number): boolean;
   getSessionsJson(kind: string): string;
   getLastSessionJson(kind: string): string;
   getLogsJson(sessionId: number, fromIndex: number): string;

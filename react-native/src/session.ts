@@ -245,6 +245,11 @@ export abstract class Session {
 
   /** Revalidates the native session immediately before async handoff. */
   prepareForExecution(): void {
+    if (NativeFFmpegKitExtended.isSessionAbandoned?.(this.sessionId)) {
+      throw new SessionCancelledException(
+        `Session ${this.sessionId} was abandoned before execution`,
+      );
+    }
     if (this.cancelled) {
       throw new SessionCancelledException(
         `Session ${this.sessionId} was cancelled before execution`,
@@ -664,6 +669,22 @@ export abstract class Session {
     this.createdSessionAbandoned = true;
   }
 
+  /** Tombstones and releases a retained handle when queued work is discarded. */
+  protected discardBeforeExecution(): void {
+    let firstError: unknown;
+    try {
+      this.abandonCreatedSession();
+    } catch (error) {
+      firstError = error;
+    }
+    try {
+      this.releaseOwnedHandle();
+    } catch (error) {
+      if (firstError === undefined) firstError = error;
+    }
+    if (firstError !== undefined) throw firstError;
+  }
+
   /** Submits this session once and rejects every later submission attempt. */
   protected submitOnce<T>(submit: () => Promise<T>): Promise<T> {
     if (this.submitted) {
@@ -764,7 +785,7 @@ export class FFmpegSession extends Session {
           });
         },
       ),
-      () => this.abandonCreatedSession(),
+      () => this.discardBeforeExecution(),
     ));
   }
 }
@@ -820,7 +841,7 @@ export class FFprobeSession extends Session {
           });
         },
       ),
-      () => this.abandonCreatedSession(),
+      () => this.discardBeforeExecution(),
     ));
   }
 }
@@ -892,7 +913,7 @@ export class MediaInformationSession extends Session {
           });
         },
       ),
-      () => this.abandonCreatedSession(),
+      () => this.discardBeforeExecution(),
     ));
   }
 
@@ -971,7 +992,7 @@ export class FFplaySession extends Session {
           });
         },
       ),
-      () => this.abandonCreatedSession(),
+      () => this.discardBeforeExecution(),
     ));
   }
 

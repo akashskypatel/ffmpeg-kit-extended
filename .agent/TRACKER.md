@@ -12,7 +12,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R36-G1** | Add a Flutter completion lifetime barrier/deferred disposal and idempotent terminal reconciliation | **Complete — deferred disposal now spans local/global completion fan-out through queue settlement; focused ownership and FFplay boundary tests passed (21/21 + 21/21)** |
-| **R36-G2** | Make React Native native/Web Created abandonment durable and fail closed by session ID | **In progress — native/Web ID tombstones, direct lookup/handoff guards, and retained-handle discard cleanup implemented; commit/push evidence pending** |
+| **R36-G2** | Make React Native native/Web Created abandonment durable and fail closed by session ID | **Complete — native/Web ID tombstones, direct lookup/handoff guards, retained-handle discard cleanup, and focused ownership/source tests passed; commit/push recorded below** |
 | **R36-G3** | Make Flutter pre-submission cancellation durable across history reconstruction | **Complete — ID-only abandonment survives weak-history reconstruction and blocks resubmission; focused cancellation/history tests passed** |
 | **R36-G4** | Run focused regressions and ordered Windows → Android → WSL Linux → Wasm/Web → Apple local validation | **Pending** |
 | **R36-G5** | Reconcile evidence, freeze exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
@@ -27,6 +27,8 @@
 ### Review 36 implementation evidence — wrapper goals
 
 - Flutter G1/G3 focused evidence passed with elevated analytics-disabled commands: `flutter test --no-pub test/ownership_callback_regression_test.dart` (**21/21**) and `flutter test --no-pub test/session_history_index_test.dart test/session_lifecycle_test.dart test/ffplay_execution_boundary_test.dart` (**21/21**). The completion barrier keeps the handle live through local/global callback fan-out and queue settlement; durable cancellation is ID-scoped and blocks reconstructed Created wrappers.
+- React Native G2 evidence passed locally: `npm run typecheck`, `npm run test:compile`, `npm run lint` (**0 errors; 3 pre-existing warnings**), `npm run test:unit` (**26/26**), `node --test --test-concurrency=1 --test-reporter=spec tests/wasm-session-ownership.test.js` (**39/39**), and `node --test tests/session-history-registry.test.js tests/native-bridge-lifetime.test.js tests/wasm-session-registry.test.js` (**17/17**). The Wasm queue now tombstones and releases retained handles when pre-execution validation or queue discard fails; source/native and Web history authorities reject abandoned IDs before reconstruction.
+- Goal commits pushed: Flutter lifecycle barrier and durable-cancellation support `0589712`; React Native abandonment and ownership cleanup commit follows.
 - No native ABI, `libs/libffmpegkit`, ManyLinux builder, remote binary, or hosted test workflow was changed or used.
 
 ## Review 35 Flutter + React Native Cross-Platform Remediation — 2026-09-28

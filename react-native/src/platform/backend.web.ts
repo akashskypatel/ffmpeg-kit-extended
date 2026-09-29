@@ -170,6 +170,9 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   private pointerFor(sessionId: number): number {
+    if (this.history.isAbandoned(sessionId)) {
+      throw new Error(`Session ${sessionId} was abandoned before execution`);
+    }
     const retained = this.sessions.get(sessionId);
     if (retained) return retained;
     const pointer = numberResult(this.call('ffmpeg_kit_get_session')(int64(sessionId)));
@@ -403,6 +406,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   getSessionJson(sessionId: number): string {
+    if (this.history.isAbandoned(sessionId)) return '';
     return this.withSession(sessionId, pointer => JSON.stringify(this.snapshot(pointer)));
   }
 
@@ -439,6 +443,10 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   /** Removes a queued Created identity without touching a Wasm execution pointer. */
   abandonCreatedSession(sessionId: number): void {
     this.history.abandonCreated(sessionId);
+  }
+
+  isSessionAbandoned(sessionId: number): boolean {
+    return this.history.isAbandoned(sessionId);
   }
 
   getSessionsJson(kind: string): string {

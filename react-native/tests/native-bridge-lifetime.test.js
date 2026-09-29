@@ -152,9 +152,19 @@ test('native monitor state polling uses the scalar bridge surface', () => {
   );
   assert.match(dynamicApi, /ffmpeg_kit_session_get_state/);
   assert.match(nativeBackend, /NativeFFmpegKitExtended\.getSessionState\(sessionId\)/);
-  assert.doesNotMatch(
+  const scalarStateBranch = section(
     nativeBackend,
-    /if \(property === 'getSessionState'[\s\S]*?getSessionJson\(/,
+    "if (property === 'getSessionState')",
+    "if (property === 'isSessionAbandoned')",
   );
+  assert.doesNotMatch(scalarStateBranch, /getSessionJson\(/);
   assert.match(windowsBridge, /FFmpegKitExtended::getSessionState/);
+});
+
+test('native wrapper history rejects abandoned IDs before direct reconstruction', () => {
+  assert.match(nativeBackend, /const abandonedSessionIds = new Set/);
+  assert.match(nativeBackend, /property === 'isSessionAbandoned'/);
+  assert.match(nativeBackend, /property === 'abandonCreatedSession'/);
+  assert.match(nativeBackend, /property === 'getSessionJson'[\s\S]*abandonedSessionIds/);
+  assert.match(nativeBackend, /property === 'clearSessions'[\s\S]*abandonedSessionIds\.clear/);
 });

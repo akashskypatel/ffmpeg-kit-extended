@@ -21,10 +21,12 @@ export type SessionHistoryRecord = {
  */
 export class SessionHistoryRegistry {
   private readonly recordsById = new Map<number, SessionHistoryRecord>();
+  private readonly abandonedCreatedIds = new Set<number>();
   private nextCreationOrder = 0;
   private capacity = -1;
 
   record(sessionId: number, type: SessionHistoryType): void {
+    if (this.abandonedCreatedIds.has(sessionId)) return;
     if (this.recordsById.has(sessionId)) return;
     this.recordsById.set(sessionId, {
       sessionId,
@@ -48,7 +50,14 @@ export class SessionHistoryRegistry {
 
   /** Removes a Created identity explicitly abandoned before execution. */
   abandonCreated(sessionId: number): void {
+    const record = this.recordsById.get(sessionId);
+    if (record?.terminal) return;
+    this.abandonedCreatedIds.add(sessionId);
     this.removeNonTerminal(sessionId);
+  }
+
+  isAbandoned(sessionId: number): boolean {
+    return this.abandonedCreatedIds.has(sessionId);
   }
 
   setCapacity(capacity: number): void {
@@ -64,10 +73,12 @@ export class SessionHistoryRegistry {
 
   remove(sessionId: number): void {
     this.recordsById.delete(sessionId);
+    this.abandonedCreatedIds.delete(sessionId);
   }
 
   clear(): void {
     this.recordsById.clear();
+    this.abandonedCreatedIds.clear();
     this.nextCreationOrder = 0;
   }
 
