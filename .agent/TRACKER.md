@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | **R37-G1** | Give restored Running Flutter sessions an independent terminal-completion owner and release path | **Complete — terminal observation now commits history before fan-out; restored completion settlement unregisters completion routing and releases deferred disposal independently of queue settlement. Focused Flutter lifecycle suite passed 23/23.** |
 | **R37-G2** | Make Flutter queue settlement failure-atomic and preserve primary errors | **Complete — executor outcome is captured before settlement; active/reserved identity cleanup and queue progression run before the public Future completes; execution errors remain primary and settlement errors remain visible. Focused Flutter suite passed 41/41.** |
-| **R37-G3** | Make Flutter/RN native/RN Web abandonment tombstones clearable and lifecycle-bounded without Created resurrection | **Pending** |
+| **R37-G3** | Make Flutter/RN native/RN Web abandonment tombstones clearable and lifecycle-bounded without Created resurrection | **Complete — successful clears now remove tombstones only after the backend clear commits; bounded direct-absence reconciliation remains fail-closed for identities still visible in the frozen ABI. Flutter and RN focused reconciliation/clear tests passed.** |
 | **R37-G4** | Run focused and affected local cross-platform wrapper regressions in the required platform order | **Pending** |
 | **R37-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
 
@@ -37,6 +37,14 @@
 - `SessionQueueManager` now treats executor completion, session settlement, queue identity cleanup, queue progression, and public Future completion as separate phases. A settlement/release failure cannot strand `_activeSessions`, `_reservedSessionIds`, `waitForAll`, or later queued work.
 - The primary executor error is preserved when settlement also fails; a settlement error is surfaced when execution succeeds; queue-progression cleanup failures are logged without replacing the primary execution/settlement result. Deferred native release remains retryable through explicit `dispose()` after the queue has released its identity.
 - Focused command: `flutter test --no-pub test/session_queue_manager_test.dart test/ownership_callback_regression_test.dart` with Flutter/Dart analytics disabled; result **41/41 passed** using the frozen local Windows runtime. The suite includes public-Future ordering and queue-state assertions.
+
+### Review 37 implementation evidence — bounded abandonment authorities
+
+- Flutter `SessionHistoryIndex` now exposes ID-only reconciliation operations. `FFmpegKitExtended.clearSessions()` clears abandonment authorities only after `ffmpegKitBackend.clearSessions()` succeeds; direct absence probes run once per 32 abandonment events, release non-null temporary observations, and remove a tombstone only when the backend returns no handle. Probe errors and existing IDs remain fail-closed.
+- React Native native reverses the previous clear order (`NativeFFmpegKitExtended.clearSessions()` first, then the JS tombstone set), and performs the same bounded direct native JSON-absence probe. React Native Web adds registry reconciliation APIs and a Wasm direct-handle absence probe; its existing clear transaction already preserves tombstones when retained-handle release or native clear fails.
+- Frozen local artifact oracle: a real Created Flutter session remained directly discoverable after explicit abandonment plus temporary and owner-handle release (`remainsAfterOwnerRelease=true`); two Created identities also remained at history capacity 1 (`firstRemains=true secondRemains=true`). A successful full clear then removed the tombstone. This is why normal reconciliation intentionally retains those IDs and records the native residual instead of reopening Created reconstruction.
+- Flutter command: `flutter test --no-pub test/session_history_index_test.dart test/abandonment_reconciliation_oracle_test.dart` — **12/12 passed** with analytics disabled and local Windows runtime `ffmpeg-kit-base-x86_64-lgpl-0.11.2-20260923`.
+- React Native commands: `npm run typecheck`, `npm run test:compile`, `npm run lint` (**0 errors; 3 existing warnings**), and targeted local source/Web reconciliation suite — **5/5 passed** across the native clear-order assertion, registry API, Web clear failure/success transaction, retained Created oracle, and absent-ID reclamation. The broader pre-existing Wasm-memory fixture file still contains unrelated mocks missing `session_is_media_information_session`; those baseline failures were not used as Review 37 acceptance evidence.
 
 ## Review 36 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 

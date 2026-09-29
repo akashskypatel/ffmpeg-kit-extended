@@ -41,6 +41,8 @@ enum _ExpectedSessionKind { any, ffmpeg, ffprobe, ffplay, mediaInformation }
 /// sessions, configure global settings, and retrieve version information.
 class FFmpegKitExtended {
   static final _sessionHistoryIndex = SessionHistoryIndex();
+  static const _abandonmentReconciliationThreshold = 32;
+  static int _abandonmentEventsSinceReconciliation = 0;
 
   /// Test-only access to the identity index; it does not expose ownership.
   static SessionHistoryIndex get sessionHistoryIndex => _sessionHistoryIndex;
@@ -403,6 +405,33 @@ class FFmpegKitExtended {
   /// Records ID-scoped pre-execution abandonment without retaining a wrapper.
   static void abandonCreatedSession(int sessionId) {
     _sessionHistoryIndex.abandon(sessionId);
+    _abandonmentEventsSinceReconciliation++;
+    if (_abandonmentEventsSinceReconciliation >=
+        _abandonmentReconciliationThreshold) {
+      _abandonmentEventsSinceReconciliation = 0;
+      _reconcileAbandonedCreatedSessions();
+    }
+  }
+
+  /// Reconciles only tombstones whose native identity is definitively gone.
+  ///
+  /// The direct backend lookup intentionally bypasses the public history gate.
+  /// A non-null handle is released as a temporary observation and keeps the
+  /// tombstone because the frozen ABI retains Created identities in history.
+  /// Errors keep the fail-closed tombstone in place.
+  static void _reconcileAbandonedCreatedSessions() {
+    for (final sessionId in _sessionHistoryIndex.abandonedSessionIds) {
+      try {
+        final handle = ffmpegKitBackend.getSessionById(sessionId);
+        if (handle == null) {
+          _sessionHistoryIndex.removeAbandoned(sessionId);
+        } else {
+          ffmpegKitBackend.releaseSession(handle);
+        }
+      } catch (_) {
+        // Preserve fail-closed behavior when the direct oracle is unavailable.
+      }
+    }
   }
 
   /// Returns the most recently created session, or `null`.
@@ -476,6 +505,8 @@ class FFmpegKitExtended {
   static void clearSessions() {
     requireInitialized();
     ffmpegKitBackend.clearSessions();
+    _sessionHistoryIndex.clearAbandoned();
+    _abandonmentEventsSinceReconciliation = 0;
     _synchronizeLiveSessions();
     for (final entry in _sessionHistoryIndex.entries.toList()) {
       final live = _liveSession(entry.sessionId);

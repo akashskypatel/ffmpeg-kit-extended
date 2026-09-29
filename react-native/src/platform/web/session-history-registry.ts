@@ -60,6 +60,16 @@ export class SessionHistoryRegistry {
     return this.abandonedCreatedIds.has(sessionId);
   }
 
+  /** Returns a bounded maintenance snapshot of Created tombstone IDs. */
+  abandonedIds(): number[] {
+    return [...this.abandonedCreatedIds];
+  }
+
+  /** Removes a tombstone only after an independent native absence proof. */
+  removeAbandoned(sessionId: number): void {
+    this.abandonedCreatedIds.delete(sessionId);
+  }
+
   setCapacity(capacity: number): void {
     this.capacity = capacity;
     this.pruneTerminal();

@@ -61,7 +61,6 @@ test('C++ callback bridge reuses one active state across reinstallations', () =>
   assert.match(destructor, /logBridgeRegistrationCoordinator\.uninstallIfOwned/);
   assert.match(destructor, /retainRetiredLogBridgeState\(state\)/);
 });
-
 test('Windows callback bridge reuses one active state and retires only on destruction', () => {
   const install = section(
     windowsBridge,
@@ -167,4 +166,15 @@ test('native wrapper history rejects abandoned IDs before direct reconstruction'
   assert.match(nativeBackend, /property === 'abandonCreatedSession'/);
   assert.match(nativeBackend, /property === 'getSessionJson'[\s\S]*abandonedSessionIds/);
   assert.match(nativeBackend, /property === 'clearSessions'[\s\S]*abandonedSessionIds\.clear/);
+  const clearBranch = section(
+    nativeBackend,
+    "if (property === 'clearSessions')",
+    'return Reflect.get(target, property, receiver);',
+  );
+  assert.match(
+    clearBranch,
+    /NativeFFmpegKitExtended\.clearSessions\(\)[\s\S]*abandonedSessionIds\.clear/,
+  );
+  assert.match(nativeBackend, /reconcileAbandonedSessionIds/);
+  assert.match(nativeBackend, /abandonmentReconciliationThreshold/);
 });

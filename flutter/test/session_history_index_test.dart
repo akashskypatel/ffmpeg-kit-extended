@@ -91,6 +91,30 @@ void main() {
     expect(index.isAbandoned(65), isFalse);
   });
 
+  test('independent reconciliation removes only a proven dead tombstone', () {
+    final index = SessionHistoryIndex();
+    index.record(66, SessionHistoryType.ffmpeg);
+    index.abandon(66);
+
+    expect(index.abandonedSessionIds, contains(66));
+    index.removeAbandoned(66);
+
+    expect(index.isAbandoned(66), isFalse);
+    expect(index.record(66, SessionHistoryType.ffmpeg).sessionId, 66);
+  });
+
+  test('clearAbandoned preserves live identity metadata', () {
+    final index = SessionHistoryIndex();
+    index.record(67, SessionHistoryType.ffprobe);
+    index.abandon(68);
+
+    index.clearAbandoned();
+
+    expect(index.length, 1);
+    expect(index[67], isNotNull);
+    expect(index.isAbandoned(68), isFalse);
+  });
+
   test('hidden identities are removed when their live execution settles', () {
     final index = SessionHistoryIndex();
     final entry = index.record(71, SessionHistoryType.ffmpeg);

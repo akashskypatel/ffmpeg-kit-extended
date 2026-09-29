@@ -2,6 +2,22 @@ import NativeFFmpegKitExtended from '../NativeFFmpegKitExtended';
 import type {FFmpegKitBackend} from './backend-registry';
 
 const abandonedSessionIds = new Set<number>();
+const abandonmentReconciliationThreshold = 32;
+let abandonmentEventsSinceReconciliation = 0;
+
+function reconcileAbandonedSessionIds(): void {
+  for (const sessionId of [...abandonedSessionIds]) {
+    try {
+      // This direct native lookup intentionally bypasses the JS tombstone
+      // gate. A non-empty snapshot proves the ID still exists and therefore
+      // must remain fail-closed; an empty snapshot proves safe reclamation.
+      const json = NativeFFmpegKitExtended.getSessionJson(sessionId);
+      if (!json) abandonedSessionIds.delete(sessionId);
+    } catch {
+      // Preserve the tombstone when the reconciliation oracle is unavailable.
+    }
+  }
+}
 
 function filterAbandonedHistory(json: string): string {
   if (!json) return json;
@@ -83,6 +99,11 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
         return (sessionId: number) => {
           abandonedSessionIds.add(sessionId);
           NativeFFmpegKitExtended.abandonCreatedSession(sessionId);
+          abandonmentEventsSinceReconciliation++;
+          if (abandonmentEventsSinceReconciliation >= abandonmentReconciliationThreshold) {
+            abandonmentEventsSinceReconciliation = 0;
+            reconcileAbandonedSessionIds();
+          }
         };
       }
       if (property === 'getSessionJson') {
@@ -101,8 +122,9 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
       }
       if (property === 'clearSessions') {
         return () => {
-          abandonedSessionIds.clear();
           NativeFFmpegKitExtended.clearSessions();
+          abandonedSessionIds.clear();
+          abandonmentEventsSinceReconciliation = 0;
         };
       }
       return Reflect.get(target, property, receiver);

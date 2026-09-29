@@ -62,7 +62,6 @@ function createSnapshotModule({pointers, snapshotErrors = new Map(), releaseErro
 test('Web backend registration selects the browser backend without native imports', () => {
   assert.strictEqual(getBackend(), webBackend);
 });
-
 test('Web backend emits the frozen structured log shape and frees owned memory once', () => {
   const events = [];
   const freeCalls = [];
@@ -367,6 +366,7 @@ test('Web backend clears tracked sessions transactionally', () => {
     stringToUTF8: () => {},
     ffmpeg_kit_get_session: sessionId => pointers.get(Number(sessionId)),
     ffmpeg_kit_session_get_state: () => 0,
+    session_is_media_information_session: () => false,
     session_is_ffmpeg_session: () => true,
     ffmpeg_kit_session_execute_async: () => {},
     ffmpeg_kit_handle_release: handle => {
@@ -378,6 +378,7 @@ test('Web backend clears tracked sessions transactionally', () => {
     },
   };
   const backend = new WebFFmpegKitBackend(undefined, module);
+  backend.abandonCreatedSession(99);
 
   backend.executeSessionAsync(1, 0);
   backend.executeSessionAsync(2, 0);
@@ -386,11 +387,42 @@ test('Web backend clears tracked sessions transactionally', () => {
   assert.throws(() => backend.clearSessions(), /second release failed/);
   assert.deepEqual(releaseCalls, [1024, 2048]);
   assert.equal(clearCalls, 0);
+  assert.equal(backend.isSessionAbandoned(99), true);
 
   shouldFail = false;
   backend.clearSessions();
   assert.deepEqual(releaseCalls, [1024, 2048, 2048, 3072]);
   assert.equal(clearCalls, 1);
+  assert.equal(backend.isSessionAbandoned(99), false);
+});
+
+test('Web backend retains Created tombstones when the direct oracle still finds them', () => {
+  const releaseCalls = [];
+  const module = {
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_handle_release: pointer => releaseCalls.push(pointer),
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  for (let index = 0; index < 32; index += 1) {
+    backend.abandonCreatedSession(900 + index);
+  }
+
+  assert.equal(backend.isSessionAbandoned(900), true);
+  assert.equal(releaseCalls.length, 32);
+});
+
+test('Web backend reclaims a tombstone only when the direct oracle is empty', () => {
+  const module = {
+    ffmpeg_kit_get_session: () => 0,
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  for (let index = 0; index < 32; index += 1) {
+    backend.abandonCreatedSession(901);
+  }
+
+  assert.equal(backend.isSessionAbandoned(901), false);
 });
 
 test('Web backend frees every argument allocation when encoding fails', () => {

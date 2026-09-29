@@ -48,6 +48,9 @@ final class SessionHistoryIndex {
 
   Iterable<SessionHistoryEntry> get entries => _entries.values;
 
+  /// Returns a snapshot of ID-only Created abandonment authorities.
+  Iterable<int> get abandonedSessionIds => _abandonedSessionIds.toList();
+
   SessionHistoryEntry? operator [](int sessionId) => _entries[sessionId];
 
   /// Returns whether a Created identity was explicitly abandoned before
@@ -81,6 +84,18 @@ final class SessionHistoryIndex {
   void abandon(int sessionId) {
     _entries.remove(sessionId);
     _abandonedSessionIds.add(sessionId);
+  }
+
+  /// Removes one abandonment authority after an independent backend probe has
+  /// proved that the native identity no longer exists.
+  void removeAbandoned(int sessionId) {
+    _abandonedSessionIds.remove(sessionId);
+  }
+
+  /// Clears only abandonment authorities after a successful native history
+  /// clear, preserving unrelated creation-order state for live wrappers.
+  void clearAbandoned() {
+    _abandonedSessionIds.clear();
   }
 
   /// Removes an identity that was hidden by a history clear while live.

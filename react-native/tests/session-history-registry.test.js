@@ -18,7 +18,6 @@ test('session history registry preserves semantic creation order and type filter
     [11, 13],
   );
 });
-
 test('duplicate identity does not create a second retained record', () => {
   const registry = new SessionHistoryRegistry();
   registry.record(21, 'ffplay');
@@ -93,4 +92,16 @@ test('abandoned Created IDs cannot be re-recorded until the authority is cleared
   registry.record(71, 'ffmpeg');
   assert.equal(registry.isAbandoned(71), false);
   assert.deepEqual(registry.entries().map(entry => entry.sessionId), [71]);
+});
+
+test('reconciliation APIs remove only explicitly proven dead tombstones', () => {
+  const registry = new SessionHistoryRegistry();
+  registry.abandonCreated(81);
+  registry.abandonCreated(82);
+
+  assert.deepEqual(registry.abandonedIds().sort((left, right) => left - right), [81, 82]);
+  registry.removeAbandoned(81);
+
+  assert.equal(registry.isAbandoned(81), false);
+  assert.equal(registry.isAbandoned(82), true);
 });

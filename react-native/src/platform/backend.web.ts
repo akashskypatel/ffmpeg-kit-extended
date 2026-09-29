@@ -29,7 +29,6 @@ function fn<T extends WasmFunction>(module: WasmModule, name: string): T {
   if (typeof value !== 'function') throw new Error(`Wasm export is unavailable: ${name}`);
   return value as T;
 }
-
 function numberResult(value: unknown): number {
   return typeof value === 'bigint' ? Number(value) : Number(value ?? 0);
 }
@@ -46,6 +45,8 @@ function jsonArray(value: unknown): string {
   return JSON.stringify(Array.isArray(value) ? value : []);
 }
 
+const abandonmentReconciliationThreshold = 32;
+
 export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private readonly sessions = new WasmSessionRegistry();
   private readonly history = new SessionHistoryRegistry();
@@ -54,6 +55,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private initializeOptions?: FFmpegKitInitializeOptions;
   private frameMetadataScratch?: {module: WasmModule; pointer: number};
   private readonly logEventHandlers = new Set<LogEventHandler>();
+  private abandonmentEventsSinceReconciliation = 0;
   private logCallbackPointer?: number;
   private directLogBridgeInstalled = false;
 
@@ -323,6 +325,28 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     return result;
   }
 
+  /**
+   * Reconciles only tombstones whose direct Wasm lookup proves absence.
+   * Created identities retained by the frozen ABI remain fail-closed.
+   */
+  private reconcileAbandonedSessions(): void {
+    for (const sessionId of this.history.abandonedIds()) {
+      let pointer = 0;
+      try {
+        pointer = numberResult(
+          this.call('ffmpeg_kit_get_session')(int64(sessionId)),
+        );
+        if (!pointer) {
+          this.history.removeAbandoned(sessionId);
+          continue;
+        }
+        this.call('ffmpeg_kit_handle_release')(pointer);
+      } catch {
+        // Preserve the tombstone if the absence oracle or temporary release fails.
+      }
+    }
+  }
+
   async initialize(options?: FFmpegKitInitializeOptions): Promise<void> {
     this.initializeOptions = options ?? this.initializeOptions;
     await initializeWasm(this.initializeOptions);
@@ -443,6 +467,11 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   /** Removes a queued Created identity without touching a Wasm execution pointer. */
   abandonCreatedSession(sessionId: number): void {
     this.history.abandonCreated(sessionId);
+    this.abandonmentEventsSinceReconciliation++;
+    if (this.abandonmentEventsSinceReconciliation >= abandonmentReconciliationThreshold) {
+      this.abandonmentEventsSinceReconciliation = 0;
+      this.reconcileAbandonedSessions();
+    }
   }
 
   isSessionAbandoned(sessionId: number): boolean {
@@ -736,6 +765,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     }
     this.call('ffmpeg_kit_clear_sessions')();
     this.history.clear();
+    this.abandonmentEventsSinceReconciliation = 0;
   }
   registerNewFFmpegPipe(): string { return this.readString(this.call('ffmpeg_kit_config_register_new_ffmpeg_pipe')()); }
   closeFFmpegPipe(path: string): void { this.withString(path, p => this.call('ffmpeg_kit_config_close_ffmpeg_pipe')(p)); }
