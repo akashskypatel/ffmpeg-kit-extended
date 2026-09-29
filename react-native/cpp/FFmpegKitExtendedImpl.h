@@ -52,6 +52,7 @@ class FFmpegKitExtendedImpl
   std::int32_t getSessionState(jsi::Runtime &rt, double sessionId);
   double getLogsCount(jsi::Runtime &rt, double sessionId);
   void releaseSessionHandle(jsi::Runtime &rt, double sessionId);
+  void abandonCreatedSession(jsi::Runtime &rt, double sessionId);
   std::string getSessionsJson(jsi::Runtime &rt, std::string kind);
   std::string getLastSessionJson(jsi::Runtime &rt, std::string kind);
   std::string getLogsJson(jsi::Runtime &rt, double sessionId, double fromIndex);

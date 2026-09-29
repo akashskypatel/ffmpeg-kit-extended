@@ -261,6 +261,10 @@ void FFmpegKitExtended::releaseSessionHandle(double sessionId) noexcept {
   invokeVoid("releaseSessionHandle", [&] { api::releaseSessionHandle(sessionId); });
 }
 
+void FFmpegKitExtended::abandonCreatedSession(double sessionId) noexcept {
+  invokeVoid("abandonCreatedSession", [&] { api::abandonCreatedSession(sessionId); });
+}
+
 std::string FFmpegKitExtended::getSessionsJson(std::string kind) noexcept {
   return invoke<std::string>("getSessionsJson", [&] { return api::getSessionsJson(kind); });
 }

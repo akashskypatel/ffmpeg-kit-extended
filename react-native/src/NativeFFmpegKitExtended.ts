@@ -63,6 +63,8 @@ export interface Spec extends TurboModule {
    */
   getLogsCount(sessionId: Double): Double;
   releaseSessionHandle(sessionId: Double): void;
+  /** Removes wrapper history for a queued session discarded before execution. */
+  abandonCreatedSession(sessionId: Double): void;
   getSessionsJson(kind: string): string;
   getLastSessionJson(kind: string): string;
   getLogsJson(sessionId: Double, fromIndex: Double): string;

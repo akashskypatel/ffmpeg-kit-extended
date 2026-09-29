@@ -27,6 +27,7 @@ setBackend({
   releaseSessionHandle: () => {
     calls.release += 1;
   },
+  abandonCreatedSession: () => {},
   installCompletionBridge: () => {},
   uninstallCompletionBridge: () => {},
   cancelSession: () => {},

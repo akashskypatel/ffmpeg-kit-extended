@@ -34,6 +34,7 @@ std::string getSessionJson(double sessionId);
 std::int32_t getSessionState(double sessionId);
 double getLogsCount(double sessionId);
 void releaseSessionHandle(double sessionId);
+void abandonCreatedSession(double sessionId);
 std::string getSessionsJson(const std::string &kind);
 std::string getLastSessionJson(const std::string &kind);
 std::string getLogsJson(double sessionId, double fromIndex);

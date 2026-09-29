@@ -58,10 +58,23 @@ test('completion pruning removes oldest terminal identities without a history re
 test('discarding a created identity does not remove a completed identity', () => {
   const registry = new SessionHistoryRegistry();
   registry.record(51, 'ffmpeg');
-  registry.removeNonTerminal(51);
+  registry.abandonCreated(51);
   registry.record(52, 'ffmpeg');
   registry.markTerminal(52);
-  registry.removeNonTerminal(52);
+  registry.abandonCreated(52);
 
   assert.deepEqual(registry.entries().map(entry => entry.sessionId), [52]);
+});
+
+test('created abandonment is idempotent and leaves terminal history intact', () => {
+  const registry = new SessionHistoryRegistry();
+  registry.record(61, 'ffmpeg');
+
+  registry.abandonCreated(61);
+  registry.abandonCreated(61);
+  registry.record(62, 'ffprobe');
+  registry.markTerminal(62);
+  registry.abandonCreated(62);
+
+  assert.deepEqual(registry.entries().map(entry => entry.sessionId), [62]);
 });

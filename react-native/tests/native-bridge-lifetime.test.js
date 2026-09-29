@@ -130,6 +130,8 @@ test('native session history projects recorded identities without enumerating ow
   assert.match(dynamicApi, /markHistorySessionTerminal/);
   assert.match(dynamicApi, /pruneTerminalHistory/);
   assert.match(dynamicApi, /removeNonTerminalHistorySession/);
+  assert.match(dynamicApi, /void abandonCreatedSession\(double sessionId\)/);
+  assert.match(dynamicApi, /abandonCreatedSession[\s\S]*?removeNonTerminalHistorySession/);
   assert.match(dynamicApi, /kCompletedSessionState/);
   assert.match(dynamicApi, /historyRecords\.clear\(\)/);
   assert.doesNotMatch(dynamicApi, /collectNativeSessionHandles/);

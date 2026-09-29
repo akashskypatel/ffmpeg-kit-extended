@@ -64,6 +64,7 @@ export abstract class Session {
   private cancelled = false;
   private nativeCancellationDispatched = false;
   private submitted = false;
+  private createdSessionAbandoned = false;
   private callbackDemandActive = false;
   private callbackDemandProviders?: CallbackDemandProviders;
   private readonly callbackDemandLeases = new Map<
@@ -167,6 +168,7 @@ export abstract class Session {
     }
     const state = this.getState();
     if (state === SessionState.Created) {
+      this.abandonCreatedSession();
       return;
     }
     if (state === SessionState.Running) {
@@ -655,6 +657,13 @@ export abstract class Session {
     this.handleReleased = true;
   }
 
+  /** Removes history for an explicit pre-execution discard without releasing a handle. */
+  protected abandonCreatedSession(): void {
+    if (this.createdSessionAbandoned) return;
+    NativeFFmpegKitExtended.abandonCreatedSession(this.sessionId);
+    this.createdSessionAbandoned = true;
+  }
+
   /** Submits this session once and rejects every later submission attempt. */
   protected submitOnce<T>(submit: () => Promise<T>): Promise<T> {
     if (this.submitted) {
@@ -755,7 +764,7 @@ export class FFmpegSession extends Session {
           });
         },
       ),
-      () => this.releaseOwnedHandle(),
+      () => this.abandonCreatedSession(),
     ));
   }
 }
@@ -811,7 +820,7 @@ export class FFprobeSession extends Session {
           });
         },
       ),
-      () => this.releaseOwnedHandle(),
+      () => this.abandonCreatedSession(),
     ));
   }
 }
@@ -883,7 +892,7 @@ export class MediaInformationSession extends Session {
           });
         },
       ),
-      () => this.releaseOwnedHandle(),
+      () => this.abandonCreatedSession(),
     ));
   }
 
@@ -962,7 +971,7 @@ export class FFplaySession extends Session {
           });
         },
       ),
-      () => this.releaseOwnedHandle(),
+      () => this.abandonCreatedSession(),
     ));
   }
 

@@ -44,6 +44,7 @@ setBackend({
   getLogsJson: () => '[]',
   getStatisticsJson: () => '[]',
   releaseSessionHandle: sessionId => releases.push(sessionId),
+  abandonCreatedSession: () => {},
   cancelSession: () => {},
   ffplayIsPlaying: sessionId => sessionStates.get(sessionId) === SessionState.Running,
   ffplayIsPaused: () => false,

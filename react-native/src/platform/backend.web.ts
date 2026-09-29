@@ -436,6 +436,11 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     }
   }
 
+  /** Removes a queued Created identity without touching a Wasm execution pointer. */
+  abandonCreatedSession(sessionId: number): void {
+    this.history.abandonCreated(sessionId);
+  }
+
   getSessionsJson(kind: string): string {
     const historyKind = kind === 'ffmpeg' || kind === 'ffprobe' ||
         kind === 'ffplay' || kind === 'media-information'

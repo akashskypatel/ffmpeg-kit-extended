@@ -658,6 +658,14 @@ void releaseSessionHandle(double sessionId) {
   releaseRetainedSession(toId(sessionId));
 }
 
+void abandonCreatedSession(double sessionId) {
+  ensureInitialized();
+  // The JavaScript queue has explicitly established that this identity was
+  // discarded before execution. Do not acquire or release a native handle:
+  // queued Created sessions intentionally have no retained execution handle.
+  removeNonTerminalHistorySession(toId(sessionId));
+}
+
 std::string getSessionsJson(const std::string &kind) {
   ensureInitialized();
   const auto records = visibleHistoryRecords(kind);

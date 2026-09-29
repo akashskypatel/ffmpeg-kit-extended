@@ -182,11 +182,13 @@ export class SessionQueueManager {
   }
 
   private discard(item: QueueItem<unknown>): void {
-    let rejection: unknown = new SessionCancelledException();
+    const rejection = new SessionCancelledException();
     try {
       item.onDiscard?.();
     } catch (error) {
-      rejection = error;
+      // Cancellation is the primary queue outcome. Metadata cleanup is a
+      // secondary diagnostic and must not strand later queue reservations.
+      console.warn('Session queue discard cleanup failed', error);
     } finally {
       this.releaseSessionReservation(this.executionSessionId(item.session));
     }

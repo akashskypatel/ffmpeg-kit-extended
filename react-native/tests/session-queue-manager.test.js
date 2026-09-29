@@ -272,7 +272,7 @@ test('clearQueue settles every pending item after discard cleanup failure', asyn
 
   assert.doesNotThrow(() => manager.clearQueue());
 
-  await assert.rejects(pendingA, reason => reason === cleanupError);
+  await assert.rejects(pendingA, SessionCancelledException);
   await assert.rejects(pendingB, SessionCancelledException);
   assert.equal(pendingBCleanupCount, 1);
   assert.equal(manager.queueLength, 0);
@@ -335,7 +335,7 @@ test('cancelQueued preserves later work when targeted discard cleanup fails', as
   });
 
   assert.equal(manager.cancelQueued(sessionB), true);
-  await assert.rejects(pendingB, reason => reason === cleanupError);
+  await assert.rejects(pendingB, SessionCancelledException);
   assert.equal(manager.queueLength, 1);
 
   activeGate.resolve();

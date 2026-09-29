@@ -162,6 +162,7 @@ std::string FFmpegKitExtendedImpl::getSessionJson(jsi::Runtime &, double session
 std::int32_t FFmpegKitExtendedImpl::getSessionState(jsi::Runtime &, double sessionId) { return api::getSessionState(sessionId); }
 double FFmpegKitExtendedImpl::getLogsCount(jsi::Runtime &, double sessionId) { return api::getLogsCount(sessionId); }
 void FFmpegKitExtendedImpl::releaseSessionHandle(jsi::Runtime &, double sessionId) { api::releaseSessionHandle(sessionId); }
+void FFmpegKitExtendedImpl::abandonCreatedSession(jsi::Runtime &, double sessionId) { api::abandonCreatedSession(sessionId); }
 std::string FFmpegKitExtendedImpl::getSessionsJson(jsi::Runtime &, std::string kind) { return api::getSessionsJson(kind); }
 std::string FFmpegKitExtendedImpl::getLastSessionJson(jsi::Runtime &, std::string kind) { return api::getLastSessionJson(kind); }
 std::string FFmpegKitExtendedImpl::getLogsJson(jsi::Runtime &, double sessionId, double fromIndex) { return api::getLogsJson(sessionId, fromIndex); }

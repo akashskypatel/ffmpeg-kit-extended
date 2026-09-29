@@ -46,6 +46,11 @@ export class SessionHistoryRegistry {
     if (record && !record.terminal) this.recordsById.delete(sessionId);
   }
 
+  /** Removes a Created identity explicitly abandoned before execution. */
+  abandonCreated(sessionId: number): void {
+    this.removeNonTerminal(sessionId);
+  }
+
   setCapacity(capacity: number): void {
     this.capacity = capacity;
     this.pruneTerminal();

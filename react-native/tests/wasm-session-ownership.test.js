@@ -12,6 +12,7 @@ const {
 
 const registry = new WasmSessionRegistry();
 const releases = [];
+const abandonments = [];
 const cancelCalls = [];
 let cancelAttempts = 0;
 let logEntries = [];
@@ -44,6 +45,7 @@ setBackend({
   executeSessionAsync: () => {
     if (startError) throw startError;
     executionStarts += 1;
+    if (sessionState === 0) sessionState = 1;
     if (redirectionEnabled) {
       for (const event of directLogEvents) logEventHandler?.(event);
     }
@@ -114,6 +116,9 @@ setBackend({
     if (releaseError) throw releaseError;
     registry.take(sessionId);
   },
+  abandonCreatedSession: sessionId => {
+    abandonments.push(sessionId);
+  },
 });
 
 const {FFmpegSession} = require('../.test-dist/session.js');
@@ -125,6 +130,7 @@ beforeEach(() => {
   cancelCalls.length = 0;
   cancelAttempts = 0;
   releases.length = 0;
+  abandonments.length = 0;
   logEntries = [];
   finalLogEntries = [];
   statisticsEntries = [];
@@ -162,7 +168,7 @@ afterEach(async () => {
   await manager.waitForAll();
 });
 
-test('discarded queued session releases its Wasm handle exactly once', async () => {
+test('discarded queued session abandons its identity without releasing a Wasm handle', async () => {
   manager.maxConcurrentSessions = 1;
   const activeGate = new Promise(resolve => {
     setTimeout(resolve, 0);
@@ -175,20 +181,23 @@ test('discarded queued session releases its Wasm handle exactly once', async () 
 
   await assert.rejects(pending, SessionCancelledException);
   assert.equal(executionStarts, 0);
-  assert.deepEqual(releases, [42]);
-  assert.equal(registry.has(42), false);
+  assert.deepEqual(releases, []);
+  assert.deepEqual(abandonments, [42]);
+  assert.equal(registry.has(42), true);
 
   manager.clearQueue();
-  assert.deepEqual(releases, [42]);
+  assert.deepEqual(releases, []);
+  assert.deepEqual(abandonments, [42]);
   await active;
 });
 
 test('the same session cannot be submitted twice while active', async () => {
-  sessionState = 1;
+  sessionState = 0;
   registry.retain(2048, 30);
   const session = new FFmpegSession(30, '-version');
   const execution = session.executeAsync({pollIntervalMs: 10});
   await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 1;
 
   await assert.rejects(
     session.executeAsync(),
@@ -205,6 +214,7 @@ test('the same session cannot be submitted twice while queued', async () => {
   const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
     releaseActive = resolve;
   }));
+  sessionState = 0;
   registry.retain(3072, 31);
   const session = new FFmpegSession(31, '-version');
   const pending = session.executeAsync();
@@ -213,14 +223,19 @@ test('the same session cannot be submitted twice while queued', async () => {
   await assert.rejects(session.executeAsync(), /already submitted for execution/);
   releaseActive();
   await active;
+  sessionState = 2;
   await pending;
   assert.equal(executionStarts, 1);
 });
 
 test('the same session cannot be submitted again after successful completion', async () => {
+  sessionState = 0;
   registry.retain(4096, 32);
   const session = new FFmpegSession(32, '-version');
-  await session.executeAsync({pollIntervalMs: 10});
+  const execution = session.executeAsync({pollIntervalMs: 10});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
+  await execution;
 
   await assert.rejects(
     session.executeAsync(),
@@ -229,7 +244,7 @@ test('the same session cannot be submitted again after successful completion', a
   assert.equal(executionStarts, 1);
 });
 
-test('clearing a queued session consumes its one-shot submission', async () => {
+test('clearing a queued session abandons its identity and consumes submission', async () => {
   manager.maxConcurrentSessions = 1;
   let releaseActive;
   const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
@@ -239,18 +254,27 @@ test('clearing a queued session consumes its one-shot submission', async () => {
   const session = new FFmpegSession(33, '-version');
   const pending = session.executeAsync();
 
-  manager.clearQueue();
-  await assert.rejects(pending, SessionCancelledException);
-  await assert.rejects(session.executeAsync(), /already submitted for execution/);
-  assert.equal(executionStarts, 0);
-  assert.deepEqual(releases, [33]);
-  releaseActive();
-  await active;
+  try {
+    manager.clearQueue();
+    await assert.rejects(pending, SessionCancelledException);
+    await assert.rejects(session.executeAsync(), /already submitted for execution/);
+    assert.equal(executionStarts, 0);
+    assert.deepEqual(releases, []);
+    assert.deepEqual(abandonments, [33]);
+    assert.equal(registry.has(33), true);
+  } finally {
+    releaseActive();
+    await active;
+  }
 });
 
 test('normally completed session releases its Wasm handle exactly once', async () => {
+  sessionState = 0;
   registry.retain(2048, 7);
-  await new FFmpegSession(7, '-version').executeAsync({pollIntervalMs: 10});
+  const execution = new FFmpegSession(7, '-version').executeAsync({pollIntervalMs: 10});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
+  await execution;
 
   assert.equal(executionStarts, 1);
   assert.deepEqual(releases, [7]);
@@ -432,6 +456,7 @@ test('completion before Running observation wins without late cancellation', asy
 test('native start failure releases its Wasm handle exactly once', async () => {
   const error = new Error('native start failed');
   startError = error;
+  sessionState = 0;
   registry.retain(3072, 8);
 
   const execution = new FFmpegSession(8, '-version').executeAsync();
@@ -463,8 +488,12 @@ test('active cancelled session keeps its handle until terminal state', async () 
 });
 
 test('no optional consumers skip log/statistics traffic but keep completion demand', async () => {
+  sessionState = 0;
   registry.retain(4096, 26);
-  await new FFmpegSession(26, '-version').executeAsync({pollIntervalMs: 10});
+  const execution = new FFmpegSession(26, '-version').executeAsync({pollIntervalMs: 10});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
+  await execution;
 
   assert.equal(logReads, 0);
   assert.equal(statisticsReads, 0);
@@ -696,6 +725,7 @@ test('throwing statistics callback still releases the handle after terminal stat
 });
 
 test('throwing completion callback releases the handle before rejecting', async () => {
+  sessionState = 0;
   registry.retain(7168, 13);
   const error = new Error('completion callback failed');
 
@@ -706,6 +736,8 @@ test('throwing completion callback releases the handle before rejecting', async 
     pollIntervalMs: 10,
   });
 
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
   await assert.rejects(execution, reason => reason === error);
   assert.deepEqual(releases, [13]);
   assert.equal(registry.size, 0);
@@ -736,7 +768,7 @@ test('callback failure combined with cancellation still releases once', async ()
 });
 
 test('callback failure on a failed native session still releases once', async () => {
-  sessionState = 3;
+  sessionState = 0;
   registry.retain(9216, 15);
   const error = new Error('failed-session callback failed');
 
@@ -747,6 +779,8 @@ test('callback failure on a failed native session still releases once', async ()
     pollIntervalMs: 10,
   });
 
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 3;
   await assert.rejects(execution, reason => reason === error);
   assert.deepEqual(releases, [15]);
   assert.equal(registry.size, 0);
@@ -793,13 +827,17 @@ test('state failure remains primary when handle release fails and can be retried
 });
 
 test('release failure after terminal state remains observable and retryable', async () => {
+  sessionState = 0;
   const releaseFailure = new Error('terminal release failed');
   releaseError = releaseFailure;
   registry.retain(15360, 24);
   const session = new FFmpegSession(24, '-version');
 
+  const execution = session.executeAsync({pollIntervalMs: 10});
+  await new Promise(resolve => setTimeout(resolve, 0));
+  sessionState = 2;
   await assert.rejects(
-    session.executeAsync({pollIntervalMs: 10}),
+    execution,
     error => error === releaseFailure,
   );
   assert.deepEqual(releases, [24]);
