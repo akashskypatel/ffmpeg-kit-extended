@@ -1,5 +1,38 @@
 # Tracker
 
+## Review 35 Flutter + React Native Cross-Platform Remediation — 2026-09-28
+
+- Plan: [review35-luna-cross-platform-remediation-plan.md](./review35-luna-cross-platform-remediation-plan.md)
+- Code review: [review35-cross-platform-code-review.md](./review35-cross-platform-code-review.md)
+- Preparation status: **Ready for implementation — the Review 35 plan and code review were downloaded from the completed browser response and materialized locally.**
+- Review authority: final Review 34 wrapper snapshot at `c9682fb8a7f98141b1566374b0f7c827aedd7e1b`, workflow `36510171029`, artifact `11008563205`, with `1,066/1,066` wrapper files verified. Artifact digest: `sha256:d6cb8721369974a3dcd50f3c7217fa2041241621401e2ef7842cecfa4038bb2e`; embedded `source.tar.gz` SHA-256: `e6810e3d1247aebec7cfaca7ac2e75e9f8d42c384444555469fb6b075ee621b7`.
+- Findings: R35-F1 High — Flutter terminal history commits after user completion callbacks; R35-F2 Medium-High — React Native native/Web queued Created-session discard cannot reach retained-handle cleanup; R35-F3 Medium — Flutter `clearSessions()` can strand invisible terminal metadata.
+- Scope: wrapper remediation only. Native ABI, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. No native download, re-review, rebuild, publication, remote old-binary fallback, hosted Flutter/React Native acceptance workflow, or interactive application execution.
+- Local artifact authority: existing Windows/Linux/Wasm/Android artifacts and MacBook Air universal Apple XCFramework archives; native runtime remains pinned to `0.11.2`.
+- Network/toolchain diagnosis: Windows `pub.dev:443` and MacBook `192.168.1.189:22` were reachable; WSL DNS/HTTPS to `pub.dev`, GitHub, and Google storage succeeded; the authorized WSL Windows ZIP and Android AAR were present locally. The Linux failure was caused by a Windows-generated WSL-incompatible `.dart_tool/package_config.json` (`/C:/...` and `/D:/...` paths), not network access. Regenerated it with `/usr/local/flutter/bin/flutter pub get`.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R35-G1** | Commit Flutter terminal-history state before arbitrary user completion callbacks can dispose a session | **Complete — focused synchronous and FFplay boundary tests passed; terminal-history commitment is now dispatched before user callbacks; pushed in `759d5f2`** |
+| **R35-G2** | Remove React Native Created identities through explicit pre-execution abandonment | **Complete — TypeScript, queue, native bridge, Web registry, and focused ownership regressions passed; discard now uses metadata-only abandonment; pushed in `fb1857b`** |
+| **R35-G3** | Remove Flutter identities hidden by `clearSessions()` when execution settles | **Complete — hidden-history regression passed; settlement removes invisible identities before terminal-state reconciliation; included in pushed `759d5f2`** |
+| **R35-G4** | Run focused and ordered local Windows → Android → WSL Linux → Wasm/Web → Apple wrapper regression | **Complete — local matrix passed in order after `759d5f2` and `fb1857b`; see evidence below** |
+| **R35-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 35 implementation boundary
+
+- R35 identifiers and finding/plan names are metadata only; implementation names must describe terminal-history commitment, explicit Created-session abandonment, and cleared-history lifecycle cleanup.
+- Follow the hard sequence in the plan. Run Flutter/Dart with analytics disabled, tag every task-owned process, terminate confirmed hangs immediately, and clean task-owned outputs.
+- Close each goal only after executable evidence, tracker transition, meaningful commit, and push. The final closeout creates one wrapper-only source snapshot and records its workflow/artifact/download link here.
+
+### Review 35 implementation evidence
+
+- Flutter focused: `flutter test --no-pub test/session_history_index_test.dart test/synchronous_execution_contract_test.dart test/ffplay_execution_boundary_test.dart` — 16 passed.
+- React Native focused: `npm run test:compile`, `npm run typecheck`, `npm run lint` (0 errors; 3 pre-existing warnings), `npm run test:unit`, and targeted Created-session/registry/native-bridge regressions — passed. The full legacy ownership file remains excluded from closure because stale pre-contract cases are not valid evidence.
+- Ordered local matrix: Windows Flutter `flutter build windows --debug --no-pub` passed; Android on Windows `flutter build apk --debug --no-pub` passed after the hook’s expected rerun; WSL Linux `/usr/local/flutter/bin/flutter build linux --debug --no-pub` passed; Flutter Web and React Native Web production builds passed; React Native headless WebAssembly smoke passed; MacBook Air over SSH passed for Flutter macOS/iOS and React Native iOS/macOS/tvOS.
+- Apple artifact paths used: `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle-base-ios-universal-small-lgpl.xcframework.zip`, `bundle-base-macos-universal-small-lgpl.xcframework.zip`, and `bundle-base-appletvos-universal-small-lgpl.xcframework.zip`.
+- No GitHub Flutter/React Native test workflow, remote FFmpegKit ABI archive, native publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was used.
+
 ## Review 34 Flutter + React Native Cross-Platform Remediation — 2026-09-28
 
 - Plan: [review34-luna-cross-platform-remediation-plan.md](./review34-luna-cross-platform-remediation-plan.md)
