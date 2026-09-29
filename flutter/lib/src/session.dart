@@ -480,9 +480,18 @@ abstract class Session {
   void markExecutionSettled() {
     if (_executionSettled) return;
     _executionSettled = true;
+    commitTerminalHistory();
     if (!_executionSettlement.isCompleted) {
       _executionSettlement.complete();
     }
+  }
+
+  /// Commits wrapper history after authoritative native terminal observation.
+  ///
+  /// This is intentionally separate from queue settlement so completion
+  /// callbacks cannot dispose a native-terminal session while its identity is
+  /// still classified as nonterminal.
+  void commitTerminalHistory() {
     FFmpegKitExtended.reconcileCompletedSession(this);
   }
 

@@ -3,18 +3,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session_history_index.dart';
 
 void main() {
-  test('records stable identity, type, and creation order without ownership', () {
-    final index = SessionHistoryIndex();
+  test(
+    'records stable identity, type, and creation order without ownership',
+    () {
+      final index = SessionHistoryIndex();
 
-    final first = index.record(11, SessionHistoryType.ffmpeg);
-    final second = index.record(12, SessionHistoryType.ffprobe);
+      final first = index.record(11, SessionHistoryType.ffmpeg);
+      final second = index.record(12, SessionHistoryType.ffprobe);
 
-    expect(first.sessionId, 11);
-    expect(first.type, SessionHistoryType.ffmpeg);
-    expect(first.creationOrder, lessThan(second.creationOrder));
-    expect(index.length, 2);
-    expect(first.visible, isTrue);
-  });
+      expect(first.sessionId, 11);
+      expect(first.type, SessionHistoryType.ffmpeg);
+      expect(first.creationOrder, lessThan(second.creationOrder));
+      expect(index.length, 2);
+      expect(first.visible, isTrue);
+    },
+  );
 
   test('re-recording an identity does not reorder or re-show it', () {
     final index = SessionHistoryIndex();
@@ -71,6 +74,17 @@ void main() {
     index.record(61, SessionHistoryType.mediaInformation);
     index.remove(61);
 
+    expect(index.length, 0);
+  });
+
+  test('hidden identities are removed when their live execution settles', () {
+    final index = SessionHistoryIndex();
+    final entry = index.record(71, SessionHistoryType.ffmpeg);
+    entry.visible = false;
+    entry.terminal = true;
+
+    expect(index.removeHidden(71), isTrue);
+    expect(index.removeHidden(71), isFalse);
     expect(index.length, 0);
   });
 }

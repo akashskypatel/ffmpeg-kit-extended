@@ -484,7 +484,10 @@ class FFmpegKitExtended {
   /// identities between reads.
   static void reconcileCompletedSession(Session session) {
     final entry = _sessionHistoryIndex[session.sessionId];
-    if (entry == null || entry.terminal) return;
+    if (entry == null) return;
+    if (_sessionHistoryIndex.removeHidden(session.sessionId)) {
+      return;
+    }
     try {
       final state = session.getState();
       if (state != SessionState.completed && state != SessionState.failed) {
@@ -493,6 +496,7 @@ class FFmpegKitExtended {
     } catch (_) {
       return;
     }
+    if (entry.terminal) return;
     _sessionHistoryIndex.markTerminal(session.sessionId);
     try {
       _pruneTerminalHistory(ffmpegKitBackend.getSessionHistorySize());
@@ -504,7 +508,7 @@ class FFmpegKitExtended {
   /// Removes an identity whose wrapper no longer owns a live execution.
   static void removeNonTerminalSession(Session session) {
     final entry = _sessionHistoryIndex[session.sessionId];
-    if (entry != null && !entry.terminal) {
+    if (entry != null && (!entry.terminal || !entry.visible)) {
       _sessionHistoryIndex.remove(session.sessionId);
     }
   }

@@ -67,6 +67,17 @@ final class SessionHistoryIndex {
     _entries.remove(sessionId);
   }
 
+  /// Removes an identity that was hidden by a history clear while live.
+  ///
+  /// Hidden entries are outside public retained history and must not become
+  /// invisible terminal metadata after their execution settles.
+  bool removeHidden(int sessionId) {
+    final entry = _entries[sessionId];
+    if (entry == null || entry.visible) return false;
+    _entries.remove(sessionId);
+    return true;
+  }
+
   void markTerminal(int sessionId) {
     _entries[sessionId]?.terminal = true;
   }

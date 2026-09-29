@@ -539,6 +539,7 @@ class FFplaySession extends Session {
       executeSynchronously();
       notifyPlaybackStarted();
       if (_hasLogDemand) dispatchPendingLogs();
+      commitTerminalHistory();
       CallbackManager().dispatchFFplayComplete(sessionId);
     } catch (error, stackTrace) {
       primaryError = error;
@@ -935,6 +936,7 @@ class FFplaySession extends Session {
             releaseAllBridgeLeases();
             _stopPositionStream();
             _stopVideoSizeStream();
+            commitTerminalHistory();
             CallbackManager().invokeSafely(
               'FFplay completion callback',
               sessionId,

@@ -1,18 +1,33 @@
 import 'package:ffmpeg_kit_extended_flutter/src/callback_manager.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_extended.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffplay_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffprobe_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/media_information_session.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart'
+    show SessionHandle;
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
 import 'package:test/test.dart';
 
 mixin _SynchronousFixture {
   final List<String> events = <String>[];
   SessionState state = SessionState.created;
+  bool historyCommitted = false;
   bool fail = false;
   final StateError failure = StateError('synchronous backend failed');
 
   void dispatchPendingLogs() {}
+
+  @override
+  SessionState getState() => state;
+
+  @override
+  void releaseHandle(SessionHandle handle) => events.add('release');
+
+  @override
+  void commitTerminalHistory() {
+    historyCommitted = true;
+  }
 
   bool get started;
   bool get settled;
@@ -159,20 +174,29 @@ void main() {
   test('FFmpeg synchronous execution waits, dispatches once, and settles', () {
     var localCalls = 0;
     var globalCalls = 0;
-    final session = _SynchronousFFmpegSession(
-      completeCallback: (_) => localCalls++,
+    var callbackSawCommit = false;
+    late final _SynchronousFFmpegSession session;
+    session = _SynchronousFFmpegSession(
+      completeCallback: (completed) {
+        callbackSawCommit =
+            (completed as _SynchronousFFmpegSession).historyCommitted;
+        localCalls++;
+        completed.dispose();
+      },
     );
+    FFmpegKitExtended.registerCreatedSession(session);
     callbacks.globalFFmpegSessionCompleteCallback = (_) => globalCalls++;
 
     session.execute();
 
     // No log sink is attached, so the optional process-global log bridge is
     // intentionally not installed for this synchronous execution.
-    expect(session.events, ['initialized', 'configure', 'execute']);
+    expect(session.events, ['initialized', 'configure', 'execute', 'release']);
     expect(session.state, SessionState.completed);
     expect(session.started, isTrue);
     expect(session.settled, isTrue);
     expect(localCalls, 1);
+    expect(callbackSawCommit, isTrue);
     expect(globalCalls, 1);
     expect(callbacks.ffmpegSessions.containsKey(session.sessionId), isFalse);
   });
@@ -209,13 +233,16 @@ void main() {
     expect(callbacks.ffplaySessions.containsKey(session.sessionId), isFalse);
   });
 
-  test('failed FFplay synchronous startup does not commit playback identity', () {
-    final session = _SynchronousFFplaySession()..fail = true;
+  test(
+    'failed FFplay synchronous startup does not commit playback identity',
+    () {
+      final session = _SynchronousFFplaySession()..fail = true;
 
-    expect(session.execute, throwsA(same(session.failure)));
-    expect(session.events, ['initialized', 'execute']);
-    expect(session.settled, isTrue);
-  });
+      expect(session.execute, throwsA(same(session.failure)));
+      expect(session.events, ['initialized', 'execute']);
+      expect(session.settled, isTrue);
+    },
+  );
 
   test('completion callback failure does not skip the global callback', () {
     var globalCalls = 0;

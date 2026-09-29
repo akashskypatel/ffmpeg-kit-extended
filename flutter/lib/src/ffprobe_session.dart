@@ -233,6 +233,7 @@ class FFprobeSession extends Session {
       markExecutionStarted();
       executeSynchronously();
       if (_hasLogDemand) dispatchPendingLogs();
+      commitTerminalHistory();
       CallbackManager().dispatchFFprobeComplete(sessionId);
     } catch (error, stackTrace) {
       primaryError = error;
@@ -401,6 +402,7 @@ class FFprobeSession extends Session {
             _unregister();
           } finally {
             releaseAllBridgeLeases();
+            commitTerminalHistory();
             CallbackManager().invokeSafely(
               'FFprobe completion callback',
               sessionId,

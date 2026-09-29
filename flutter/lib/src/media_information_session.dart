@@ -399,6 +399,7 @@ class MediaInformationSession extends FFprobeSession {
       markExecutionStarted();
       executeSynchronously();
       dispatchPendingLogs();
+      commitTerminalHistory();
       CallbackManager().dispatchMediaInformationComplete(sessionId);
     } catch (error, stackTrace) {
       primaryError = error;
@@ -629,6 +630,7 @@ class MediaInformationSession extends FFprobeSession {
             unregister();
           } finally {
             releaseAllBridgeLeases();
+            commitTerminalHistory();
             CallbackManager().invokeSafely(
               'Media-information completion callback',
               sessionId,

@@ -402,6 +402,7 @@ class FFmpegSession extends Session {
       markExecutionStarted();
       executeSynchronously();
       if (_hasLogDemand) dispatchPendingLogs();
+      commitTerminalHistory();
       CallbackManager().dispatchFFmpegComplete(sessionId);
     } catch (error, stackTrace) {
       primaryError = error;
@@ -582,6 +583,7 @@ class FFmpegSession extends Session {
             _unregister();
           } finally {
             releaseAllBridgeLeases();
+            commitTerminalHistory();
             CallbackManager().invokeSafely(
               'FFmpeg completion callback',
               sessionId,
