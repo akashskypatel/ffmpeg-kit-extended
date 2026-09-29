@@ -16,7 +16,7 @@
 | **R37-G2** | Make Flutter queue settlement failure-atomic and preserve primary errors | **Complete — executor outcome is captured before settlement; active/reserved identity cleanup and queue progression run before the public Future completes; execution errors remain primary and settlement errors remain visible. Focused Flutter suite passed 41/41.** |
 | **R37-G3** | Make Flutter/RN native/RN Web abandonment tombstones clearable and lifecycle-bounded without Created resurrection | **Complete — successful clears now remove tombstones only after the backend clear commits; bounded direct-absence reconciliation remains fail-closed for identities still visible in the frozen ABI. Flutter and RN focused reconciliation/clear tests passed.** |
 | **R37-G4** | Run focused and affected local cross-platform wrapper regressions in the required platform order | **Complete — the Windows → local Windows Android → WSL Linux → Wasm/Web → MacBook Air Apple matrix passed; evidence is recorded below.** |
-| **R37-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+| **R37-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Complete — exact wrapper SHA `aa3010bf335f36daeb64231ba154f9b662d496a6` was pushed and snapshotted successfully; tracker-only provenance is recorded below.** |
 
 ### Review 37 implementation boundary
 
@@ -55,6 +55,14 @@
 - Wasm/Web: Flutter `flutter build web --wasm --release --no-pub --target lib/web_runtime_smoke.dart` passed using the existing local Wasm archive; the COOP/COEP browser smoke completed `STARTING|INITIALIZED|FFMPEG_OK|LOG_OK|FFPROBE_OK|MEDIA_INFO_OK|PASS` with no page or console errors. React Native `npm run prepare-web`, `npm --prefix example run web:build`, and `npm run test:web` passed, including initialize/reinitialize, FFmpeg/FFprobe/media information, and FFplay pause/resume/stop coverage.
 - Apple last on the MacBook Air: Flutter `flutter build macos --release --no-pub`, `flutter build ios --simulator --debug --no-codesign --no-pub`, and `flutter build ios --debug --no-codesign --no-pub` all passed. React Native `./build.sh ios`, `./build.sh appletvos`, and `./build.sh macos` each ended with **BUILD SUCCEEDED**, using the existing universal XCFramework archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/` for iOS, tvOS, and macOS. The first noninteractive Flutter SSH attempt lacked Homebrew Flutter PATH; the explicit `/opt/homebrew/bin` retry passed. Apple build warnings were non-fatal deployment-target/deprecation/linker warnings.
 - Local validation used analytics-disabled Flutter/Dart commands and task-local npm cache only after the default npm cache was unwritable. The MacBook and WSL process audits were clean after the builds; repository cleanup entrypoints removed generated staging. No changes were made to `libs/libffmpegkit` or the ManyLinux builder checkout.
+
+### Review 37 frozen source snapshot evidence
+
+- Final implementation SHA: `aa3010bf335f36daeb64231ba154f9b662d496a6` on `dev-wasm`, pushed before snapshot dispatch. The frozen native submodule remained `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Sole permitted workflow: **Reusable Repository Source Snapshot**, run `36637678845`, completed successfully with exact `snapshot_sha=aa3010bf335f36daeb64231ba154f9b662d496a6`. Workflow link: https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36637678845
+- Source artifact: `review37-repo-source-snapshot-36637678845`, artifact ID `11064483674`, digest `sha256:f1966c0e8cb1832be952c764135755917e06c96522c51831011e7b22476a1852`. Download page: https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36637678845/artifacts/11064483674 . Direct API archive: https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11064483674/zip
+- Snapshot verification: `source.tar.gz` SHA-256 `d73de836c2c5bb340ddb03771aad2ffe0b00007a858d5e0963b8457445990e52`, **1,067/1,067** SHA256SUMS entries, zero symlinks, recursive `SUBMODULES.txt` materialized, and `runtimeExecution=false`. The separate diagnostic-log artifact was `11065322481` (`review37-repo-source-snapshot-log-36637678845`).
+- This tracker provenance update is a post-snapshot metadata commit only; it does not alter the frozen implementation SHA represented by the source artifact. No additional snapshot was dispatched.
 
 ## Review 36 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
