@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | **R34-G1** | Ensure every Flutter public session creation/adoption path registers one history identity at true creation time | **Complete — production constructors for command, argv, sync/async, FFprobe, MediaInformation, and FFplay now share the idempotent creation-boundary registrar** |
 | **R34-G2** | Keep Flutter, React Native native, and React Native Web history metadata bounded by live identities plus terminal capacity | **Complete — completion settlement marks terminal identities, prunes by native capacity, and removes discarded live identities without a history read** |
-| **R34-G3** | Classify React Native Web MediaInformation before FFprobe | **Open — restore typed-history and generic-reconstruction parity** |
+| **R34-G3** | Classify React Native Web MediaInformation before FFprobe | **Complete — Web classification now checks the specialised predicate first and fails closed for unknown types** |
 | **R34-G4** | Run focused regressions and ordered local validation | **Pending — Windows → Android → WSL Linux → Wasm/Web → Apple** |
 | **R34-G5** | Reconcile evidence, freeze the wrapper SHA, and create one wrapper-only source snapshot | **Pending — no builders/native snapshot** |
 
@@ -36,6 +36,11 @@
 - React Native native history metadata now marks terminal records when the owning handle is released, removes Created records that are discarded, and prunes terminal records immediately after completion or history-size reduction. The shared C++ bridge syntax check passed with `clang++ -std=c++17 -fsyntax-only -Icpp cpp/FFmpegKitDynamicApi.cpp`.
 - React Native Web `SessionHistoryRegistry` and `WebFFmpegKitBackend` now apply the same terminal/capacity lifecycle. The registry owns only identity metadata; Wasm pointer ownership remains in `WasmSessionRegistry`.
 - Focused elevated/local evidence passed: Flutter history-index regression **6/6**; React Native compile and typecheck passed; native bridge plus registry source/behavior tests passed **11/11**. Flutter analysis again completed with **0 errors** and the same five pre-existing info/warning diagnostics. A broader legacy Wasm-memory selection was not used as G2 evidence because five tests still assert the removed native session-array enumeration API from the earlier ownership-mirror implementation; the task-owned hung selection was terminated immediately and left no orphan process.
+
+### Review 34 Web MediaInformation evidence — 2026-09-28
+
+- `WebFFmpegKitBackend.sessionType` now checks `session_is_media_information_session` before the broader `session_is_ffprobe_session` predicate, matching the native bridge and Flutter wrapper classification order. Unknown native types now fail closed instead of being silently reconstructed as MediaInformation.
+- The focused Wasm regression passed: `node --test --test-name-pattern="MediaInformation before" tests/wasm-backend-memory.test.js` (**1/1**). The mocked native handle reports both MediaInformation and FFprobe predicates; the backend dispatched `media_information_session_execute_async` and never the FFprobe executor. React Native test compilation passed after the regression was added.
 
 ## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
 

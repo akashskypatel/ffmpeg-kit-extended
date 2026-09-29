@@ -249,10 +249,16 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   private sessionType(pointer: number): string {
+    // MediaInformation is represented by an FFprobe-compatible native
+    // session. Preserve its specialised wrapper before the broader FFprobe
+    // predicate, matching the native and Flutter classification order.
+    if (boolResult(this.call('session_is_media_information_session')(pointer))) {
+      return 'media-information';
+    }
     if (boolResult(this.call('session_is_ffmpeg_session')(pointer))) return 'ffmpeg';
     if (boolResult(this.call('session_is_ffprobe_session')(pointer))) return 'ffprobe';
     if (boolResult(this.call('session_is_ffplay_session')(pointer))) return 'ffplay';
-    return 'media-information';
+    throw new Error('Wasm returned an unknown session type');
   }
 
   private snapshot(pointer: number): Record<string, unknown> {

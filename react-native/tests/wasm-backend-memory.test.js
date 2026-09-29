@@ -429,6 +429,43 @@ test('Web backend frees every argument allocation when encoding fails', () => {
   );
 });
 
+test('Web backend classifies MediaInformation before the broader FFprobe predicate', () => {
+  const memory = new ArrayBuffer(1024);
+  let state = 0;
+  const calls = [];
+  const module = {
+    _malloc: () => 64,
+    _free: () => {},
+    lengthBytesUTF8: value => Buffer.byteLength(value, 'utf8'),
+    stringToUTF8: () => {},
+    media_information_create_session: () => 1024,
+    ffmpeg_kit_session_get_session_id: () => 77,
+    ffmpeg_kit_handle_release: pointer => calls.push(['release', pointer]),
+    ffmpeg_kit_get_session: () => 1024,
+    ffmpeg_kit_session_get_state: () => state,
+    session_is_media_information_session: () => true,
+    session_is_ffmpeg_session: () => false,
+    session_is_ffprobe_session: () => true,
+    session_is_ffplay_session: () => false,
+    media_information_session_execute_async: (pointer, timeout) => {
+      calls.push(['media-information', pointer, timeout]);
+      state = 2;
+    },
+    ffmpeg_kit_get_session_history_size: () => 1,
+  };
+
+  const backend = new WebFFmpegKitBackend(undefined, module);
+  assert.equal(backend.createMediaInformationSession('-i input'), 77);
+  backend.executeSessionAsync(77, 500);
+  backend.releaseSessionHandle(77);
+
+  assert.deepEqual(calls, [
+    ['release', 1024],
+    ['media-information', 1024, 500n],
+    ['release', 1024],
+  ]);
+});
+
 test('Web backend rolls back a handle when session ID extraction fails', () => {
   const releaseCalls = [];
   const sessionIdError = new Error('session ID extraction failed');
