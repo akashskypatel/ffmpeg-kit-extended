@@ -4,7 +4,7 @@
 
 - Plan: [review38-luna-cross-platform-remediation-plan.md](./review38-luna-cross-platform-remediation-plan.md)
 - Code review: [review38-cross-platform-code-review.md](./review38-cross-platform-code-review.md)
-- Preparation status: **Implemented through G4 — the downloaded Review 38 plan and code review were materialized locally, reviewed, and wrapper goals G1–G4 are complete. Exact-SHA snapshot remains open.**
+- Preparation status: **Implemented through G5 — the downloaded Review 38 plan and code review were materialized locally, reviewed, the wrapper goals are complete, and the final wrapper-only source snapshot is recorded below.**
 - Review authority: wrapper implementation starts from `aa3010bf335f36daeb64231ba154f9b662d496a6`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`.
 - Scope: Flutter and React Native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. Do not fetch remote native artifacts or use hosted Flutter/React Native acceptance workflows.
 - Required validation order: Windows → Android on local Windows → Linux under WSL → Wasm/Web → Apple last through the MacBook Air SSH host. Use existing local artifacts/configuration and do not launch interactive apps.
@@ -16,7 +16,7 @@
 | **R38-G2** | Make explicit cancellation durable by session ID before fallible state classification on Flutter restored sessions and React Native native/Web | **Complete — Flutter history and React Native native/Web backends now record ID-scoped cancellation intent before state reads, fail closed for reconstructed Created wrappers, retain intent through errors, and clear only after authoritative terminal observation or successful history clear.** |
 | **R38-G3** | Remove quadratic all-tombstone maintenance while preserving exact fail-closed Created-session anti-resurrection semantics | **Complete — Flutter, React Native native, and React Native Web reconcile only the newly abandoned candidate; present IDs remain tombstoned, absent IDs are reclaimed, probe errors remain fail-closed, and the Web 10,000-candidate oracle confirms linear probe work without the former threshold scan.** |
 | **R38-G4** | Run focused and affected local cross-platform wrapper regression using existing frozen local artifacts only | **Complete — focused gates and the ordered Windows → local Windows Android → WSL Linux → Wasm/Web → Apple-last matrix passed with local frozen artifacts only; evidence is recorded below.** |
-| **R38-G5** | Reconcile evidence, freeze exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+| **R38-G5** | Reconcile evidence, freeze exact wrapper SHA, and create one wrapper-only source snapshot | **Complete — exact wrapper SHA `0cc61d41906611f9118d8eb84a95647a7925b99d` was pushed and snapshotted successfully; tracker-only provenance is recorded below.** |
 
 ### Review 38 implementation boundary
 
@@ -43,6 +43,14 @@
 - Wasm/Web: Flutter `flutter build web --wasm --release --no-pub --target lib/web_runtime_smoke.dart` passed. The local COOP/COEP Edge smoke completed `STARTING|INITIALIZED|FFMPEG_OK|LOG_OK|FFPROBE_OK|MEDIA_INFO_OK|PASS` with no page or console errors. React Native elevated local `npm run prepare-web`, `npm run test:pack-web`, `npm run test:pack-types`, and `npm run test:web` passed; the smoke covered initialize/reinitialize, FFmpeg, FFprobe, media information, and FFplay pause/resume/stop. The example Web fixture now declares an inline favicon so the repository's no-console-error smoke does not treat the browser's implicit missing favicon as a runtime failure.
 - Apple last through `akash@192.168.1.189` (`Akashs-MacBook-Air.local`): Flutter `flutter build macos --release --no-pub`, `flutter build ios --simulator --debug --no-codesign --no-pub`, and `flutter build ios --debug --no-codesign --no-pub` all passed. React Native `./build.sh ios`, `./build.sh appletvos`, and `./build.sh macos` each ended with **BUILD SUCCEEDED**, using the existing universal XCFramework archives under `/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/`. SSH used `/opt/homebrew/bin` for Flutter/CocoaPods; no interactive simulator/device operation was performed.
 - Initial unprivileged WSL-to-Windows Web staging and npm-cache attempts returned access-denied errors; the exact same gates passed after elevated reruns. Generated Web staging and test media were removed/restored after validation, and the task-owned local Web server and temporary browser preload were terminated/removed. No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, or hosted Flutter/React Native workflow was changed or used.
+
+### Review 38 frozen source snapshot evidence
+
+- Final implementation SHA: `0cc61d41906611f9118d8eb84a95647a7925b99d` on `dev-wasm`, pushed before snapshot dispatch. The frozen native submodule remained `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Sole permitted workflow: **Reusable Repository Source Snapshot**, run `36663896671`, completed successfully with exact `snapshot_sha=0cc61d41906611f9118d8eb84a95647a7925b99d`. Workflow link: https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36663896671
+- Source artifact: `repo-source-snapshot-36663896671`, artifact ID `11075422175`, digest `sha256:1e6ffe823ee20594f0b2ed3cf476956b3e494e313fc0f689abd78e235a4a5b5f`. Download page: https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36663896671/artifacts/11075422175 . Direct API archive: https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11075422175/zip
+- Snapshot verification: embedded `source.tar.gz` SHA-256 `89776998f938540c87d33fc55d5cd9dc6d82f65350f2b21a93643cf86ece29d2`, **1,069/1,069** SHA256SUMS entries, zero symlinks, `runtimeExecution=false`, and recursive `SUBMODULES.txt` materialized with `libs/libffmpegkit` at `b74da2c5d1e294b87d15d73a6687393729e932b3`.
+- The tracker update is a post-snapshot metadata-only commit; it does not alter the frozen implementation SHA represented by the source artifact. No additional snapshot is dispatched.
 
 ## Review 37 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
