@@ -1,5 +1,30 @@
 # Tracker
 
+## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
+
+- Plan: [review38-luna-cross-platform-remediation-plan.md](./review38-luna-cross-platform-remediation-plan.md)
+- Code review: [review38-cross-platform-code-review.md](./review38-cross-platform-code-review.md)
+- Preparation status: **Ready for implementation — the downloaded Review 38 plan and code review were materialized locally and reviewed. No implementation or validation is claimed by this preparation entry.**
+- Review authority: wrapper implementation starts from `aa3010bf335f36daeb64231ba154f9b662d496a6`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`.
+- Scope: Flutter and React Native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. Do not fetch remote native artifacts or use hosted Flutter/React Native acceptance workflows.
+- Required validation order: Windows → Android on local Windows → Linux under WSL → Wasm/Web → Apple last through the MacBook Air SSH host. Use existing local artifacts/configuration and do not launch interactive apps.
+- Findings: restored Flutter observer sinks do not independently own callback bridge demand; cancellation intent can be lost when state classification throws and a later wrapper is reconstructed; Review 37 tombstone reconciliation rescans persistent IDs every 32 abandonments, causing quadratic maintenance without reclaiming the frozen-ABI residual.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R38-G1** | Give restored Running Flutter observers explicit bridge-demand ownership for completion/log/statistics delivery | **Pending** |
+| **R38-G2** | Make explicit cancellation durable by session ID before fallible state classification on Flutter restored sessions and React Native native/Web | **Pending** |
+| **R38-G3** | Remove quadratic all-tombstone maintenance while preserving exact fail-closed Created-session anti-resurrection semantics | **Pending** |
+| **R38-G4** | Run focused and affected local cross-platform wrapper regression using existing frozen local artifacts only | **Pending** |
+| **R38-G5** | Reconcile evidence, freeze exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 38 implementation boundary
+
+- Review/goal identifiers are metadata only; production names must describe observer bridge demand, cancellation intent, and candidate reconciliation semantics.
+- Do not edit native ABI sources, `libs/libffmpegkit`, or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`. Do not rebuild, publish, or download native/builders snapshots.
+- Use analytics-disabled Flutter/Dart commands, tag task-owned processes, terminate only confirmed task-owned hangs, and clean generated staging before final freeze.
+- Complete goals in order G1 → G2 → G3 → focused regressions/matrix → exact-SHA source snapshot. The final snapshot is wrapper-only and the sole permitted GitHub workflow dispatch.
+
 ## Review 37 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
 - Plan: [review37-luna-cross-platform-remediation-plan.md](./review37-luna-cross-platform-remediation-plan.md)
