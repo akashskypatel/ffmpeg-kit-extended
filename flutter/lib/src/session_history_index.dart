@@ -44,6 +44,7 @@ final class SessionHistoryEntry {
 final class SessionHistoryIndex {
   final Map<int, SessionHistoryEntry> _entries = {};
   final Set<int> _abandonedSessionIds = <int>{};
+  final Set<int> _cancellationIntentSessionIds = <int>{};
   int _nextCreationOrder = 0;
 
   Iterable<SessionHistoryEntry> get entries => _entries.values;
@@ -57,6 +58,22 @@ final class SessionHistoryIndex {
   /// execution. The tombstone is an ID-only authority; it never retains a
   /// wrapper or native handle.
   bool isAbandoned(int sessionId) => _abandonedSessionIds.contains(sessionId);
+
+  /// Returns whether cancellation was requested for this identity before a
+  /// later wrapper could observe the request.
+  bool isCancellationRequested(int sessionId) =>
+      _cancellationIntentSessionIds.contains(sessionId);
+
+  /// Records cancellation intent without retaining a wrapper or handle.
+  void recordCancellationIntent(int sessionId) {
+    _cancellationIntentSessionIds.add(sessionId);
+  }
+
+  /// Clears cancellation intent after an authoritative terminal transition or
+  /// successful history clear has committed.
+  void clearCancellationIntent(int sessionId) {
+    _cancellationIntentSessionIds.remove(sessionId);
+  }
 
   SessionHistoryEntry record(
     int sessionId,
@@ -81,9 +98,11 @@ final class SessionHistoryIndex {
 
   /// Makes a Created identity permanently non-reconstructable until the
   /// history authority is cleared.
-  void abandon(int sessionId) {
+  bool abandon(int sessionId) {
+    if (_abandonedSessionIds.contains(sessionId)) return false;
     _entries.remove(sessionId);
     _abandonedSessionIds.add(sessionId);
+    return true;
   }
 
   /// Removes one abandonment authority after an independent backend probe has
@@ -96,6 +115,11 @@ final class SessionHistoryIndex {
   /// clear, preserving unrelated creation-order state for live wrappers.
   void clearAbandoned() {
     _abandonedSessionIds.clear();
+  }
+
+  /// Clears all durable cancellation intents after a successful history clear.
+  void clearCancellationIntents() {
+    _cancellationIntentSessionIds.clear();
   }
 
   /// Removes an identity that was hidden by a history clear while live.
@@ -132,6 +156,7 @@ final class SessionHistoryIndex {
   void clear() {
     _entries.clear();
     _abandonedSessionIds.clear();
+    _cancellationIntentSessionIds.clear();
     _nextCreationOrder = 0;
   }
 

@@ -140,6 +140,25 @@ class _NoopFFmpegSession extends FFmpegSession {
   }
 }
 
+class _FailingBridgeFFmpegSession extends _NoopFFmpegSession {
+  bool failNextBridgeInstall = false;
+
+  _FailingBridgeFFmpegSession(super.sessionId);
+
+  @override
+  void acquireBridgeLease(
+    CallbackBridgeKind kind, {
+    required void Function() install,
+    required void Function() uninstall,
+  }) {
+    if (failNextBridgeInstall) {
+      failNextBridgeInstall = false;
+      throw StateError('bridge install failed');
+    }
+    super.acquireBridgeLease(kind, install: install, uninstall: uninstall);
+  }
+}
+
 class _NoopFFprobeSession extends FFprobeSession {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
@@ -247,6 +266,15 @@ void main() {
   final manager = CallbackManager();
 
   setUp(() {
+    final previousSessions = <Session>{
+      ...manager.ffmpegSessions.values,
+      ...manager.ffprobeSessions.values,
+      ...manager.ffplaySessions.values,
+      ...manager.mediaInformationSessions.values,
+    };
+    for (final session in previousSessions) {
+      session.releaseAllBridgeLeases();
+    }
     manager.ffmpegSessions.clear();
     manager.ffprobeSessions.clear();
     manager.ffplaySessions.clear();
@@ -257,6 +285,7 @@ void main() {
     manager.globalMediaInformationSessionCompleteCallback = null;
     manager.globalLogCallback = null;
     manager.globalStatisticsCallback = null;
+    FFmpegKitExtended.sessionHistoryIndex.clear();
   });
 
   tearDown(() {
@@ -555,6 +584,107 @@ void main() {
     );
 
     test(
+      'restored observers own per-kind bridge leases until terminal settlement',
+      () {
+        final ffmpeg = _NoopFFmpegSession(366)
+          ..restoreForTest(SessionState.running);
+        final ffprobe = _NoopFFprobeSession(367)
+          ..restoreForTest(SessionState.running);
+        final ffplay = _NoopFFplaySession(368)
+          ..restoreForTest(SessionState.running);
+        final mediaInfo = _NoopMediaInformationSession(369)
+          ..restoreForTest(SessionState.running);
+
+        ffmpeg.setCompleteCallback((_) {});
+        ffprobe.setCompleteCallback((_) {});
+        ffplay.setCompleteCallback((_) {});
+        mediaInfo.setMediaInfoCompleteCallback((_) {});
+
+        expect(
+          manager.bridgeLeaseCount(CallbackBridgeKind.ffmpegCompletion),
+          1,
+        );
+        expect(
+          manager.bridgeLeaseCount(CallbackBridgeKind.ffprobeCompletion),
+          1,
+        );
+        expect(
+          manager.bridgeLeaseCount(CallbackBridgeKind.ffplayCompletion),
+          1,
+        );
+        expect(
+          manager.bridgeLeaseCount(
+            CallbackBridgeKind.mediaInformationCompletion,
+          ),
+          1,
+        );
+
+        final second = _NoopFFmpegSession(370)
+          ..restoreForTest(SessionState.running);
+        second.setCompleteCallback((_) {});
+        expect(
+          manager.bridgeLeaseCount(CallbackBridgeKind.ffmpegCompletion),
+          2,
+        );
+
+        ffmpeg.restoredState = SessionState.completed;
+        ffprobe.restoredState = SessionState.completed;
+        ffplay.restoredState = SessionState.completed;
+        mediaInfo.restoredState = SessionState.completed;
+        second.restoredState = SessionState.completed;
+        manager.dispatchFFmpegComplete(ffmpeg.sessionId);
+        manager.dispatchFFprobeComplete(ffprobe.sessionId);
+        manager.dispatchFFplayComplete(ffplay.sessionId);
+        manager.dispatchMediaInformationComplete(mediaInfo.sessionId);
+        manager.dispatchFFmpegComplete(second.sessionId);
+
+        for (final kind in CallbackBridgeKind.values) {
+          expect(manager.bridgeLeaseCount(kind), 0, reason: '$kind leaked');
+        }
+      },
+    );
+
+    test(
+      'restored log and statistics demand has independent terminal cleanup',
+      () {
+        final session = _NoopFFmpegSession(371)
+          ..restoreForTest(SessionState.running);
+
+        session.setLogCallback((_) {});
+        session.setStatisticsCallback((_) {});
+        expect(manager.bridgeLeaseCount(CallbackBridgeKind.log), 1);
+        expect(manager.bridgeLeaseCount(CallbackBridgeKind.statistics), 1);
+        expect(manager.ffmpegSessions, contains(session.sessionId));
+
+        session.restoredState = SessionState.completed;
+        manager.dispatchFFmpegComplete(session.sessionId);
+
+        expect(manager.bridgeLeaseCount(CallbackBridgeKind.log), 0);
+        expect(manager.bridgeLeaseCount(CallbackBridgeKind.statistics), 0);
+      },
+    );
+
+    test(
+      'restored observer registration rolls back a failed bridge install',
+      () {
+        final session = _FailingBridgeFFmpegSession(372)
+          ..restoreForTest(SessionState.running)
+          ..failNextBridgeInstall = true;
+
+        expect(
+          () => session.setCompleteCallback((_) {}),
+          throwsA(isA<StateError>()),
+        );
+        expect(session.completeCallback, isNull);
+        expect(manager.ffmpegSessions, isNot(contains(session.sessionId)));
+        expect(
+          manager.bridgeLeaseCount(CallbackBridgeKind.ffmpegCompletion),
+          0,
+        );
+      },
+    );
+
+    test(
       'pre-submission cancellation remains durable across wrapper recreation',
       () {
         FFmpegKitExtended.sessionHistoryIndex.clear();
@@ -564,7 +694,7 @@ void main() {
         original.cancel();
         final reconstructed = _NoopFFmpegSession(361);
 
-        expect(FFmpegKitExtended.isSessionAbandoned(361), isTrue);
+        expect(FFmpegKitExtended.isCancellationRequested(361), isTrue);
         expect(
           reconstructed.submitForTest,
           throwsA(isA<SessionCancelledException>()),
@@ -572,6 +702,21 @@ void main() {
         FFmpegKitExtended.sessionHistoryIndex.clear();
       },
     );
+
+    test('state-read failure preserves ID-scoped cancellation intent', () {
+      final original = _NoopFFmpegSession(373);
+      original.restoreForTest(SessionState.running);
+      original.throwOnStateRead = true;
+
+      expect(() => original.cancel(), throwsA(isA<StateError>()));
+      expect(FFmpegKitExtended.isCancellationRequested(373), isTrue);
+
+      final reconstructed = _NoopFFmpegSession(373);
+      expect(
+        reconstructed.submitForTest,
+        throwsA(isA<SessionCancelledException>()),
+      );
+    });
 
     test('continues to global callback when local callback throws', () {
       var localCalls = 0;

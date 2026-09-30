@@ -87,6 +87,12 @@ export interface FFmpegKitBackend {
   abandonCreatedSession(sessionId: number): void;
   /** Returns true for an ID durably abandoned before execution. */
   isSessionAbandoned?(sessionId: number): boolean;
+  /** Records cancellation intent independently from Created abandonment. */
+  recordCancellationIntent?(sessionId: number): void;
+  /** Returns true when cancellation intent is durable for this ID. */
+  isCancellationRequested?(sessionId: number): boolean;
+  /** Clears cancellation intent after terminal observation or history clear. */
+  clearCancellationIntent?(sessionId: number): void;
   getSessionsJson(kind: string): string;
   getLastSessionJson(kind: string): string;
   getLogsJson(sessionId: number, fromIndex: number): string;

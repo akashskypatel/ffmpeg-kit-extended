@@ -105,3 +105,23 @@ test('reconciliation APIs remove only explicitly proven dead tombstones', () => 
   assert.equal(registry.isAbandoned(81), false);
   assert.equal(registry.isAbandoned(82), true);
 });
+
+test('cancellation intent is independent from Created abandonment', () => {
+  const registry = new SessionHistoryRegistry();
+
+  registry.recordCancellationIntent(91);
+  assert.equal(registry.isCancellationRequested(91), true);
+  assert.equal(registry.isAbandoned(91), false);
+
+  registry.abandonCreated(91);
+  assert.equal(registry.isCancellationRequested(91), true);
+  assert.equal(registry.isAbandoned(91), true);
+
+  registry.clearCancellationIntent(91);
+  assert.equal(registry.isCancellationRequested(91), false);
+  assert.equal(registry.isAbandoned(91), true);
+
+  registry.clear();
+  assert.equal(registry.isCancellationRequested(91), false);
+  assert.equal(registry.isAbandoned(91), false);
+});

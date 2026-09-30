@@ -102,14 +102,21 @@ class MediaInformationSession extends FFprobeSession {
     MediaInformationSessionCompleteCallback? cb,
   ) {
     final previous = _mediaInfoCompleteCallback;
+    final hadBridgeLease = hasBridgeLease(completionBridgeKind);
     _mediaInfoCompleteCallback = cb;
     if (cb == null) {
+      syncCompletionBridgeLease();
       unregisterIfIdle();
     } else {
       try {
         ensureRegisteredForSinkDemand();
+        syncCompletionBridgeLease();
       } catch (_) {
         _mediaInfoCompleteCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(completionBridgeKind);
+        }
+        unregisterIfIdle();
         rethrow;
       }
     }
@@ -119,6 +126,7 @@ class MediaInformationSession extends FFprobeSession {
   /// if no other log-delivery sinks remain attached.
   void removeMediaInfoCompleteCallback() {
     _mediaInfoCompleteCallback = null;
+    syncCompletionBridgeLease();
     unregisterIfIdle();
   }
 
@@ -678,7 +686,7 @@ class MediaInformationSession extends FFprobeSession {
 
   @override
   @protected
-  void onRestoredCompletionSettled() => removeMediaInfoCompleteCallback();
+  void onRestoredCompletionSettled() => super.onRestoredCompletionSettled();
 
   @override
   @protected

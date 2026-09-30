@@ -115,6 +115,26 @@ void main() {
     expect(index.isAbandoned(68), isFalse);
   });
 
+  test('cancellation intent is independent from Created abandonment', () {
+    final index = SessionHistoryIndex();
+
+    index.recordCancellationIntent(69);
+    expect(index.isCancellationRequested(69), isTrue);
+    expect(index.isAbandoned(69), isFalse);
+
+    index.abandon(69);
+    expect(index.isCancellationRequested(69), isTrue);
+    expect(index.isAbandoned(69), isTrue);
+
+    index.clearCancellationIntent(69);
+    expect(index.isCancellationRequested(69), isFalse);
+    expect(index.isAbandoned(69), isTrue);
+
+    index.clear();
+    expect(index.isCancellationRequested(69), isFalse);
+    expect(index.isAbandoned(69), isFalse);
+  });
+
   test('hidden identities are removed when their live execution settles', () {
     final index = SessionHistoryIndex();
     final entry = index.record(71, SessionHistoryType.ffmpeg);

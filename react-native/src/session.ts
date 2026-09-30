@@ -82,7 +82,10 @@ export abstract class Session {
 
   /** Whether cancellation was requested through this JavaScript object. */
   get isCancelled(): boolean {
-    return this.cancelled;
+    return (
+      this.cancelled ||
+      NativeFFmpegKitExtended.isCancellationRequested?.(this.sessionId) === true
+    );
   }
 
   /** Returns the current native lifecycle state. */
@@ -162,6 +165,7 @@ export abstract class Session {
     if (this.cancelled && this.nativeCancellationDispatched) return;
 
     this.cancelled = true;
+    NativeFFmpegKitExtended.recordCancellationIntent?.(this.sessionId);
 
     if (SessionQueueManager.shared.cancelQueued(this)) {
       return;
@@ -173,6 +177,8 @@ export abstract class Session {
     }
     if (state === SessionState.Running) {
       this.dispatchNativeCancellation();
+    } else if (state === SessionState.Completed || state === SessionState.Failed) {
+      NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
     }
   }
 
@@ -248,6 +254,11 @@ export abstract class Session {
     if (NativeFFmpegKitExtended.isSessionAbandoned?.(this.sessionId)) {
       throw new SessionCancelledException(
         `Session ${this.sessionId} was abandoned before execution`,
+      );
+    }
+    if (NativeFFmpegKitExtended.isCancellationRequested?.(this.sessionId)) {
+      throw new SessionCancelledException(
+        `Session ${this.sessionId} has a durable cancellation request`,
       );
     }
     if (this.cancelled) {
@@ -620,6 +631,10 @@ export abstract class Session {
               options.completeCallback ? () => options.completeCallback?.(self) : undefined,
             );
           }
+          // Terminal state is authoritative even when callback/log draining
+          // reported an earlier error; do not leave cancellation intent live
+          // after the native identity has settled.
+          NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
           // The first observed callback/monitoring failure is authoritative;
           // later failures affect draining but do not replace its error.
           if (firstErrorSet) {

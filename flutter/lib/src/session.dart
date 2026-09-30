@@ -366,6 +366,26 @@ abstract class Session {
   @protected
   bool get isRestoredSession => _restoredFromHandle;
 
+  /// Whether terminal observation has already ended restored observer demand.
+  @protected
+  bool get hasTerminalCompletionBeenObserved => _terminalCompletionObserved;
+
+  /// Returns whether this session currently owns a lease for [kind].
+  @protected
+  bool hasBridgeLease(CallbackBridgeKind kind) =>
+      _bridgeLeases.containsKey(kind);
+
+  /// Reads the restored session state for observer-only bridge demand.
+  ///
+  /// This never changes execution ownership. Restored observers use the same
+  /// state oracle as execution admission, but remain distinct from submission,
+  /// startup, and queue settlement.
+  @protected
+  bool get isRestoredObserverRunning =>
+      isRestoredSession &&
+      !hasTerminalCompletionBeenObserved &&
+      executionStateForSubmission() == SessionState.running;
+
   /// Registers a callback sink only when it can own live delivery.
   ///
   /// Newly-created sessions remain inert until execution is submitted. A
@@ -407,6 +427,7 @@ abstract class Session {
     if (_terminalCompletionObserved) return;
     _terminalCompletionObserved = true;
     commitTerminalHistory();
+    FFmpegKitExtended.clearCancellationIntent(sessionId);
   }
 
   /// Requires the selected backend to be initialized before direct execution.
@@ -710,6 +731,11 @@ abstract class Session {
     if (FFmpegKitExtended.isSessionAbandoned(sessionId)) {
       throw SessionCancelledException(
         'Session $sessionId was abandoned before execution',
+      );
+    }
+    if (FFmpegKitExtended.isCancellationRequested(sessionId)) {
+      throw SessionCancelledException(
+        'Session $sessionId has a durable cancellation request',
       );
     }
     if (_isCancelled) {
@@ -1091,6 +1117,7 @@ abstract class Session {
     _ensureNotDisposed();
     // Latch intent before any queue, state, or native operation can fail.
     _isCancelled = true;
+    FFmpegKitExtended.recordCancellationIntent(sessionId);
 
     if (SessionQueueManager().cancelQueued(this)) {
       return;
@@ -1119,6 +1146,7 @@ abstract class Session {
 
     if (currentState == SessionState.completed ||
         currentState == SessionState.failed) {
+      FFmpegKitExtended.clearCancellationIntent(sessionId);
       return;
     }
     if (currentState == SessionState.created && !_submitted) {
@@ -1179,6 +1207,7 @@ abstract class Session {
 
         if (_executionSettled) break;
         if (state == SessionState.completed || state == SessionState.failed) {
+          FFmpegKitExtended.clearCancellationIntent(sessionId);
           break;
         }
         if (state == SessionState.running) {

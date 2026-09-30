@@ -45,8 +45,6 @@ function jsonArray(value: unknown): string {
   return JSON.stringify(Array.isArray(value) ? value : []);
 }
 
-const abandonmentReconciliationThreshold = 32;
-
 export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private readonly sessions = new WasmSessionRegistry();
   private readonly history = new SessionHistoryRegistry();
@@ -55,7 +53,6 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   private initializeOptions?: FFmpegKitInitializeOptions;
   private frameMetadataScratch?: {module: WasmModule; pointer: number};
   private readonly logEventHandlers = new Set<LogEventHandler>();
-  private abandonmentEventsSinceReconciliation = 0;
   private logCallbackPointer?: number;
   private directLogBridgeInstalled = false;
 
@@ -329,21 +326,17 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
    * Reconciles only tombstones whose direct Wasm lookup proves absence.
    * Created identities retained by the frozen ABI remain fail-closed.
    */
-  private reconcileAbandonedSessions(): void {
-    for (const sessionId of this.history.abandonedIds()) {
-      let pointer = 0;
-      try {
-        pointer = numberResult(
-          this.call('ffmpeg_kit_get_session')(int64(sessionId)),
-        );
-        if (!pointer) {
-          this.history.removeAbandoned(sessionId);
-          continue;
-        }
-        this.call('ffmpeg_kit_handle_release')(pointer);
-      } catch {
-        // Preserve the tombstone if the absence oracle or temporary release fails.
+  private reconcileAbandonedSession(sessionId: number): void {
+    let pointer = 0;
+    try {
+      pointer = numberResult(this.call('ffmpeg_kit_get_session')(int64(sessionId)));
+      if (!pointer) {
+        this.history.removeAbandoned(sessionId);
+        return;
       }
+      this.call('ffmpeg_kit_handle_release')(pointer);
+    } catch {
+      // Preserve the tombstone if the absence oracle or temporary release fails.
     }
   }
 
@@ -422,6 +415,18 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   cancelSession(sessionId: number): void { this.withSession(sessionId, pointer => this.call('ffmpeg_kit_session_cancel')(pointer)); }
 
+  recordCancellationIntent(sessionId: number): void {
+    this.history.recordCancellationIntent(sessionId);
+  }
+
+  isCancellationRequested(sessionId: number): boolean {
+    return this.history.isCancellationRequested(sessionId);
+  }
+
+  clearCancellationIntent(sessionId: number): void {
+    this.history.clearCancellationIntent(sessionId);
+  }
+
   getSessionState(sessionId: number): number {
     return this.withSession(
       sessionId,
@@ -466,11 +471,8 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   /** Removes a queued Created identity without touching a Wasm execution pointer. */
   abandonCreatedSession(sessionId: number): void {
-    this.history.abandonCreated(sessionId);
-    this.abandonmentEventsSinceReconciliation++;
-    if (this.abandonmentEventsSinceReconciliation >= abandonmentReconciliationThreshold) {
-      this.abandonmentEventsSinceReconciliation = 0;
-      this.reconcileAbandonedSessions();
+    if (this.history.abandonCreated(sessionId)) {
+      this.reconcileAbandonedSession(sessionId);
     }
   }
 
@@ -765,7 +767,6 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     }
     this.call('ffmpeg_kit_clear_sessions')();
     this.history.clear();
-    this.abandonmentEventsSinceReconciliation = 0;
   }
   registerNewFFmpegPipe(): string { return this.readString(this.call('ffmpeg_kit_config_register_new_ffmpeg_pipe')()); }
   closeFFmpegPipe(path: string): void { this.withString(path, p => this.call('ffmpeg_kit_config_close_ffmpeg_pipe')(p)); }

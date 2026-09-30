@@ -163,14 +163,21 @@ class FFprobeSession extends Session {
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFprobeSessionCompleteCallback? completeCallback) {
     final previous = _completeCallback;
+    final hadBridgeLease = hasBridgeLease(completionBridgeKind);
     _completeCallback = completeCallback;
     if (completeCallback == null) {
+      syncCompletionBridgeLease();
       unregisterIfIdle();
     } else {
       try {
         ensureRegisteredForSinkDemand();
+        syncCompletionBridgeLease();
       } catch (_) {
         _completeCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(completionBridgeKind);
+        }
+        unregisterIfIdle();
         rethrow;
       }
     }
@@ -179,6 +186,7 @@ class FFprobeSession extends Session {
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
     final previous = _logCallback;
+    final hadBridgeLease = hasBridgeLease(CallbackBridgeKind.log);
     _logCallback = logCallback;
     if (logCallback == null) {
       _syncLogBridgeLease();
@@ -189,6 +197,10 @@ class FFprobeSession extends Session {
         _syncLogBridgeLease();
       } catch (_) {
         _logCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(CallbackBridgeKind.log);
+        }
+        unregisterIfIdle();
         rethrow;
       }
     }
@@ -197,6 +209,7 @@ class FFprobeSession extends Session {
   /// Clears the completion callback and unregisters from [CallbackManager].
   void removeCompleteCallback() {
     _completeCallback = null;
+    syncCompletionBridgeLease();
     unregisterIfIdle();
   }
 
@@ -583,10 +596,53 @@ class FFprobeSession extends Session {
   }
 
   @protected
+  void syncCompletionBridgeLease() {
+    final needsLease =
+        completeCallback != null &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
+      final kind = completionBridgeKind;
+      acquireBridgeLease(
+        kind,
+        install: () {
+          switch (kind) {
+            case CallbackBridgeKind.ffprobeCompletion:
+              ffmpegKitBackend.configureFFprobeSessionCompleteCallback();
+            case CallbackBridgeKind.mediaInformationCompletion:
+              ffmpegKitBackend
+                  .configureMediaInformationSessionCompleteCallback();
+            default:
+              throw StateError('Unsupported FFprobe completion bridge: $kind');
+          }
+        },
+        uninstall: () {
+          switch (kind) {
+            case CallbackBridgeKind.ffprobeCompletion:
+              ffmpegKitBackend.disableFFprobeSessionCompleteCallback();
+            case CallbackBridgeKind.mediaInformationCompletion:
+              ffmpegKitBackend.disableMediaInformationSessionCompleteCallback();
+            default:
+              throw StateError('Unsupported FFprobe completion bridge: $kind');
+          }
+        },
+      );
+    } else if (completeCallback == null ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
+      releaseBridgeLease(completionBridgeKind);
+    }
+  }
+
+  @protected
   void syncLogBridgeLease() {
-    if (hasLocalLogDemand && hasExecutionStarted && !hasExecutionSettled) {
+    final needsLease =
+        hasLocalLogDemand &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
       acquireOptionalBridgeLeases();
-    } else if (!hasLocalLogDemand) {
+    } else if (!hasLocalLogDemand ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
       releaseBridgeLease(CallbackBridgeKind.log);
     }
   }
@@ -633,7 +689,11 @@ class FFprobeSession extends Session {
 
   @override
   @protected
-  void onRestoredCompletionSettled() => removeCompleteCallback();
+  void onRestoredCompletionSettled() {
+    removeCompleteCallback();
+    releaseBridgeLease(completionBridgeKind);
+    releaseBridgeLease(CallbackBridgeKind.log);
+  }
 
   @override
   @protected

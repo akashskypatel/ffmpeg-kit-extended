@@ -14,6 +14,7 @@ const registry = new WasmSessionRegistry();
 const releases = [];
 const abandonments = [];
 const cancelCalls = [];
+const cancellationIntentIds = new Set();
 let cancelAttempts = 0;
 let logEntries = [];
 let finalLogEntries = [];
@@ -119,6 +120,13 @@ setBackend({
   abandonCreatedSession: sessionId => {
     abandonments.push(sessionId);
   },
+  recordCancellationIntent: sessionId => {
+    cancellationIntentIds.add(sessionId);
+  },
+  isCancellationRequested: sessionId => cancellationIntentIds.has(sessionId),
+  clearCancellationIntent: sessionId => {
+    cancellationIntentIds.delete(sessionId);
+  },
 });
 
 const {FFmpegSession} = require('../.test-dist/session.js');
@@ -131,6 +139,7 @@ beforeEach(() => {
   cancelAttempts = 0;
   releases.length = 0;
   abandonments.length = 0;
+  cancellationIntentIds.clear();
   logEntries = [];
   finalLogEntries = [];
   statisticsEntries = [];
@@ -302,12 +311,26 @@ test('state-read failure latches cancellation before exposing the error', async 
 
   assert.throws(() => session.cancel(), reason => reason === error);
   assert.equal(session.isCancelled, true);
+  assert.equal(getBackend().isCancellationRequested(20), true);
 
   stateError = undefined;
   await assert.rejects(session.executeAsync(), SessionCancelledException);
   assert.equal(executionStarts, 0);
   assert.equal(manager.queueLength, 0);
   assert.deepEqual(cancelCalls, []);
+});
+
+test('durable cancellation intent blocks a reconstructed Created wrapper', async () => {
+  sessionState = 0;
+  registry.retain(1024, 21);
+  const original = new FFmpegSession(21, '-version');
+  original.cancel();
+
+  const reconstructed = new FFmpegSession(21, '-version');
+  assert.equal(reconstructed.isCancelled, true);
+  await assert.rejects(reconstructed.executeAsync(), SessionCancelledException);
+  assert.equal(executionStarts, 0);
+  assert.equal(getBackend().isCancellationRequested(21), true);
 });
 
 test('queued cancellation removes work without native cancellation and releases ownership', async () => {

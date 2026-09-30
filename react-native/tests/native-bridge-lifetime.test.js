@@ -175,6 +175,10 @@ test('native wrapper history rejects abandoned IDs before direct reconstruction'
     clearBranch,
     /NativeFFmpegKitExtended\.clearSessions\(\)[\s\S]*abandonedSessionIds\.clear/,
   );
-  assert.match(nativeBackend, /reconcileAbandonedSessionIds/);
-  assert.match(nativeBackend, /abandonmentReconciliationThreshold/);
+  assert.match(nativeBackend, /reconcileAbandonedSessionId/);
+  assert.doesNotMatch(nativeBackend, /abandonmentReconciliationThreshold/);
+  assert.doesNotMatch(nativeBackend, /abandonmentEventsSinceReconciliation/);
+  assert.match(nativeBackend, /recordCancellationIntent/);
+  assert.match(nativeBackend, /isCancellationRequested/);
+  assert.match(nativeBackend, /clearCancellationIntent/);
 });

@@ -280,14 +280,21 @@ class FFplaySession extends Session {
   /// Sets or replaces the completion callback.
   void setCompleteCallback(FFplaySessionCompleteCallback? completeCallback) {
     final previous = _completeCallback;
+    final hadBridgeLease = hasBridgeLease(CallbackBridgeKind.ffplayCompletion);
     _completeCallback = completeCallback;
     if (completeCallback == null) {
+      _syncCompletionBridgeLease();
       _unregisterIfIdle();
     } else {
       try {
         _ensureRegisteredForSinkDemand();
+        _syncCompletionBridgeLease();
       } catch (_) {
         _completeCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(CallbackBridgeKind.ffplayCompletion);
+        }
+        _unregisterIfIdle();
         rethrow;
       }
     }
@@ -296,6 +303,7 @@ class FFplaySession extends Session {
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
     final previous = _logCallback;
+    final hadBridgeLease = hasBridgeLease(CallbackBridgeKind.log);
     _logCallback = logCallback;
     if (logCallback == null) {
       _syncLogBridgeLease();
@@ -306,6 +314,10 @@ class FFplaySession extends Session {
         _syncLogBridgeLease();
       } catch (_) {
         _logCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(CallbackBridgeKind.log);
+        }
+        _unregisterIfIdle();
         rethrow;
       }
     }
@@ -315,6 +327,7 @@ class FFplaySession extends Session {
   /// [CallbackManager] if no other callbacks remain.
   void removeCompleteCallback() {
     _completeCallback = null;
+    _syncCompletionBridgeLease();
     _unregisterIfIdle();
   }
 
@@ -1105,10 +1118,32 @@ class FFplaySession extends Session {
     );
   }
 
+  void _syncCompletionBridgeLease() {
+    final needsLease =
+        _completeCallback != null &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
+      acquireBridgeLease(
+        CallbackBridgeKind.ffplayCompletion,
+        install: ffmpegKitBackend.configureFFplaySessionCompleteCallback,
+        uninstall: ffmpegKitBackend.disableFFplaySessionCompleteCallback,
+      );
+    } else if (_completeCallback == null ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
+      releaseBridgeLease(CallbackBridgeKind.ffplayCompletion);
+    }
+  }
+
   void _syncLogBridgeLease() {
-    if (_hasLocalLogDemand && hasExecutionStarted && !hasExecutionSettled) {
+    final needsLease =
+        _hasLocalLogDemand &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
       _acquireOptionalBridgeLeases();
-    } else if (!_hasLocalLogDemand) {
+    } else if (!_hasLocalLogDemand ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
       releaseBridgeLease(CallbackBridgeKind.log);
     }
   }
@@ -1133,7 +1168,11 @@ class FFplaySession extends Session {
 
   @override
   @protected
-  void onRestoredCompletionSettled() => removeCompleteCallback();
+  void onRestoredCompletionSettled() {
+    removeCompleteCallback();
+    releaseBridgeLease(CallbackBridgeKind.ffplayCompletion);
+    releaseBridgeLease(CallbackBridgeKind.log);
+  }
 
   @override
   void onCancelledBeforeStart() {

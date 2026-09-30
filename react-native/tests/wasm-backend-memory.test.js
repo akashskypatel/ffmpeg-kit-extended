@@ -387,7 +387,9 @@ test('Web backend clears tracked sessions transactionally', () => {
   assert.throws(() => backend.clearSessions(), /second release failed/);
   assert.deepEqual(releaseCalls, [1024, 2048]);
   assert.equal(clearCalls, 0);
-  assert.equal(backend.isSessionAbandoned(99), true);
+  // The event-driven reconciler probes the new candidate immediately; this
+  // fixture has no native identity for 99, so the dead tombstone is removed.
+  assert.equal(backend.isSessionAbandoned(99), false);
 
   shouldFail = false;
   backend.clearSessions();
@@ -423,6 +425,38 @@ test('Web backend reclaims a tombstone only when the direct oracle is empty', ()
   }
 
   assert.equal(backend.isSessionAbandoned(901), false);
+});
+
+test('Web tombstone reconciliation probes each new candidate once', () => {
+  let probes = 0;
+  const module = {
+    ffmpeg_kit_get_session: () => {
+      probes += 1;
+      return 1024;
+    },
+    ffmpeg_kit_handle_release: () => {},
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  for (let index = 0; index < 10000; index += 1) {
+    backend.abandonCreatedSession(10000 + index);
+  }
+  backend.abandonCreatedSession(10000);
+
+  assert.equal(probes, 10000);
+});
+
+test('Web tombstone reconciliation fails closed when the candidate probe errors', () => {
+  const module = {
+    ffmpeg_kit_get_session: () => {
+      throw new Error('probe unavailable');
+    },
+  };
+  const backend = new WebFFmpegKitBackend(undefined, module);
+
+  backend.abandonCreatedSession(10001);
+
+  assert.equal(backend.isSessionAbandoned(10001), true);
 });
 
 test('Web backend frees every argument allocation when encoding fails', () => {

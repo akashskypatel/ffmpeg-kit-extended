@@ -293,14 +293,21 @@ class FFmpegSession extends Session {
   /// in-place (no new registration entry is created).
   void setCompleteCallback(FFmpegSessionCompleteCallback? completeCallback) {
     final previous = _completeCallback;
+    final hadBridgeLease = hasBridgeLease(CallbackBridgeKind.ffmpegCompletion);
     _completeCallback = completeCallback;
     if (completeCallback == null) {
+      _syncCompletionBridgeLease();
       _unregisterIfIdle();
     } else {
       try {
         _ensureRegisteredForSinkDemand();
+        _syncCompletionBridgeLease();
       } catch (_) {
         _completeCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(CallbackBridgeKind.ffmpegCompletion);
+        }
+        _unregisterIfIdle();
         rethrow;
       }
     }
@@ -312,12 +319,14 @@ class FFmpegSession extends Session {
   /// [CallbackManager] to prevent memory leaks.
   void removeCompleteCallback() {
     _completeCallback = null;
+    _syncCompletionBridgeLease();
     _unregisterIfIdle();
   }
 
   /// Sets or replaces the log callback.
   void setLogCallback(FFmpegLogCallback? logCallback) {
     final previous = _logCallback;
+    final hadBridgeLease = hasBridgeLease(CallbackBridgeKind.log);
     _logCallback = logCallback;
     if (logCallback == null) {
       _syncLogBridgeLease();
@@ -328,6 +337,10 @@ class FFmpegSession extends Session {
         _syncLogBridgeLease();
       } catch (_) {
         _logCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(CallbackBridgeKind.log);
+        }
+        _unregisterIfIdle();
         rethrow;
       }
     }
@@ -343,6 +356,7 @@ class FFmpegSession extends Session {
   /// Sets or replaces the statistics callback.
   void setStatisticsCallback(FFmpegStatisticsCallback? statisticsCallback) {
     final previous = _statisticsCallback;
+    final hadBridgeLease = hasBridgeLease(CallbackBridgeKind.statistics);
     _statisticsCallback = statisticsCallback;
     if (statisticsCallback == null) {
       _syncStatisticsBridgeLease();
@@ -353,6 +367,10 @@ class FFmpegSession extends Session {
         _syncStatisticsBridgeLease();
       } catch (_) {
         _statisticsCallback = previous;
+        if (!hadBridgeLease) {
+          releaseBridgeLease(CallbackBridgeKind.statistics);
+        }
+        _unregisterIfIdle();
         rethrow;
       }
     }
@@ -722,20 +740,45 @@ class FFmpegSession extends Session {
     );
   }
 
+  void _syncCompletionBridgeLease() {
+    final needsLease =
+        _completeCallback != null &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
+      acquireBridgeLease(
+        CallbackBridgeKind.ffmpegCompletion,
+        install: ffmpegKitBackend.configureFFmpegSessionCompleteCallback,
+        uninstall: ffmpegKitBackend.disableFFmpegSessionCompleteCallback,
+      );
+    } else if (_completeCallback == null ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
+      releaseBridgeLease(CallbackBridgeKind.ffmpegCompletion);
+    }
+  }
+
   void _syncLogBridgeLease() {
-    if (_hasLocalLogDemand && hasExecutionStarted && !hasExecutionSettled) {
+    final needsLease =
+        _hasLocalLogDemand &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
       _acquireOptionalBridgeLeases();
-    } else if (!_hasLocalLogDemand) {
+    } else if (!_hasLocalLogDemand ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
       releaseBridgeLease(CallbackBridgeKind.log);
     }
   }
 
   void _syncStatisticsBridgeLease() {
-    if (_statisticsCallback != null &&
-        hasExecutionStarted &&
-        !hasExecutionSettled) {
+    final needsLease =
+        _statisticsCallback != null &&
+        ((hasExecutionStarted && !hasExecutionSettled) ||
+            isRestoredObserverRunning);
+    if (needsLease) {
       _acquireOptionalBridgeLeases();
-    } else if (_statisticsCallback == null) {
+    } else if (_statisticsCallback == null ||
+        (isRestoredSession && hasTerminalCompletionBeenObserved)) {
       releaseBridgeLease(CallbackBridgeKind.statistics);
     }
   }
@@ -758,7 +801,12 @@ class FFmpegSession extends Session {
 
   @override
   @protected
-  void onRestoredCompletionSettled() => removeCompleteCallback();
+  void onRestoredCompletionSettled() {
+    removeCompleteCallback();
+    releaseBridgeLease(CallbackBridgeKind.ffmpegCompletion);
+    releaseBridgeLease(CallbackBridgeKind.log);
+    releaseBridgeLease(CallbackBridgeKind.statistics);
+  }
 
   @override
   void onCancelledBeforeStart() {

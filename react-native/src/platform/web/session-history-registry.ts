@@ -22,6 +22,7 @@ export type SessionHistoryRecord = {
 export class SessionHistoryRegistry {
   private readonly recordsById = new Map<number, SessionHistoryRecord>();
   private readonly abandonedCreatedIds = new Set<number>();
+  private readonly cancellationIntentIds = new Set<number>();
   private nextCreationOrder = 0;
   private capacity = -1;
 
@@ -49,15 +50,28 @@ export class SessionHistoryRegistry {
   }
 
   /** Removes a Created identity explicitly abandoned before execution. */
-  abandonCreated(sessionId: number): void {
+  abandonCreated(sessionId: number): boolean {
     const record = this.recordsById.get(sessionId);
-    if (record?.terminal) return;
+    if (record?.terminal || this.abandonedCreatedIds.has(sessionId)) return false;
     this.abandonedCreatedIds.add(sessionId);
     this.removeNonTerminal(sessionId);
+    return true;
   }
 
   isAbandoned(sessionId: number): boolean {
     return this.abandonedCreatedIds.has(sessionId);
+  }
+
+  recordCancellationIntent(sessionId: number): void {
+    this.cancellationIntentIds.add(sessionId);
+  }
+
+  isCancellationRequested(sessionId: number): boolean {
+    return this.cancellationIntentIds.has(sessionId);
+  }
+
+  clearCancellationIntent(sessionId: number): void {
+    this.cancellationIntentIds.delete(sessionId);
   }
 
   /** Returns a bounded maintenance snapshot of Created tombstone IDs. */
@@ -84,11 +98,13 @@ export class SessionHistoryRegistry {
   remove(sessionId: number): void {
     this.recordsById.delete(sessionId);
     this.abandonedCreatedIds.delete(sessionId);
+    this.cancellationIntentIds.delete(sessionId);
   }
 
   clear(): void {
     this.recordsById.clear();
     this.abandonedCreatedIds.clear();
+    this.cancellationIntentIds.clear();
     this.nextCreationOrder = 0;
   }
 

@@ -4,7 +4,7 @@
 
 - Plan: [review38-luna-cross-platform-remediation-plan.md](./review38-luna-cross-platform-remediation-plan.md)
 - Code review: [review38-cross-platform-code-review.md](./review38-cross-platform-code-review.md)
-- Preparation status: **Ready for implementation — the downloaded Review 38 plan and code review were materialized locally and reviewed. No implementation or validation is claimed by this preparation entry.**
+- Preparation status: **Implemented through G3 — the downloaded Review 38 plan and code review were materialized locally, reviewed, and the first three wrapper goals are complete. Ordered platform validation and exact-SHA snapshot remain open.**
 - Review authority: wrapper implementation starts from `aa3010bf335f36daeb64231ba154f9b662d496a6`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`.
 - Scope: Flutter and React Native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. Do not fetch remote native artifacts or use hosted Flutter/React Native acceptance workflows.
 - Required validation order: Windows → Android on local Windows → Linux under WSL → Wasm/Web → Apple last through the MacBook Air SSH host. Use existing local artifacts/configuration and do not launch interactive apps.
@@ -12,9 +12,9 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R38-G1** | Give restored Running Flutter observers explicit bridge-demand ownership for completion/log/statistics delivery | **Pending** |
-| **R38-G2** | Make explicit cancellation durable by session ID before fallible state classification on Flutter restored sessions and React Native native/Web | **Pending** |
-| **R38-G3** | Remove quadratic all-tombstone maintenance while preserving exact fail-closed Created-session anti-resurrection semantics | **Pending** |
+| **R38-G1** | Give restored Running Flutter observers explicit bridge-demand ownership for completion/log/statistics delivery | **Complete — restored FFmpeg, FFprobe, FFplay, and MediaInformation observer sinks now acquire independent process-global leases; refcount coexistence, optional-demand cleanup, and failed-install rollback are covered by focused tests.** |
+| **R38-G2** | Make explicit cancellation durable by session ID before fallible state classification on Flutter restored sessions and React Native native/Web | **Complete — Flutter history and React Native native/Web backends now record ID-scoped cancellation intent before state reads, fail closed for reconstructed Created wrappers, retain intent through errors, and clear only after authoritative terminal observation or successful history clear.** |
+| **R38-G3** | Remove quadratic all-tombstone maintenance while preserving exact fail-closed Created-session anti-resurrection semantics | **Complete — Flutter, React Native native, and React Native Web reconcile only the newly abandoned candidate; present IDs remain tombstoned, absent IDs are reclaimed, probe errors remain fail-closed, and the Web 10,000-candidate oracle confirms linear probe work without the former threshold scan.** |
 | **R38-G4** | Run focused and affected local cross-platform wrapper regression using existing frozen local artifacts only | **Pending** |
 | **R38-G5** | Reconcile evidence, freeze exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
 
@@ -24,6 +24,15 @@
 - Do not edit native ABI sources, `libs/libffmpegkit`, or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`. Do not rebuild, publish, or download native/builders snapshots.
 - Use analytics-disabled Flutter/Dart commands, tag task-owned processes, terminate only confirmed task-owned hangs, and clean generated staging before final freeze.
 - Complete goals in order G1 → G2 → G3 → focused regressions/matrix → exact-SHA source snapshot. The final snapshot is wrapper-only and the sole permitted GitHub workflow dispatch.
+
+### Review 38 implementation evidence — observer demand, cancellation authority, and candidate reconciliation
+
+- Flutter implementation uses semantic observer bridge demand rather than execution ownership. Restored Running wrappers acquire the matching completion bridge plus independent local log/statistics demand; terminal fan-out releases those leases after the callback lifetime closes. Setter failures roll back callback maps and newly acquired leases without disturbing unrelated owners.
+- Flutter durable cancellation is recorded by session ID before queue/state/native operations. `validateExecutionHandoff()` rejects the durable intent before reading state, state-read failures preserve it, terminal observation clears it, and the identity index keeps cancellation intent separate from the Created tombstone that candidate reconciliation may later remove after a proven native absence.
+- React Native native and Web backends expose the same ID-scoped cancellation authority. Native/Web Created abandonment now probes only a newly added candidate; a present identity is released as a temporary observation and remains fail-closed, an absent identity is reclaimed, and probe/release errors preserve the tombstone.
+- Focused Flutter command with analytics disabled: `flutter test --no-pub test/ownership_callback_regression_test.dart test/callback_bridge_demand_test.dart test/session_history_index_test.dart test/session_lifecycle_test.dart` — **53/53 passed**. `flutter config --no-analytics` and `dart --disable-analytics` were applied before the gate.
+- Focused React Native commands: `npm run typecheck`, `npm run test:compile`, and `node --test --test-concurrency=1 --test-reporter=spec --test-name-pattern "tombstone|cancellation|abandoned" tests/wasm-backend-memory.test.js tests/session-history-registry.test.js tests/wasm-session-ownership.test.js tests/native-bridge-lifetime.test.js` — **18/18 focused tests passed**. The Web candidate oracle exercised 10,000 distinct abandonments with exactly 10,000 direct probes and no repeat probe for a still-present tombstone.
+- No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, hosted Flutter/React Native workflow, or interactive application was changed or used. G4 and G5 remain pending until the ordered local matrix and exact frozen-SHA snapshot are complete.
 
 ## Review 37 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
