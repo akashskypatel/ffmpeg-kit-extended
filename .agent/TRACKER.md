@@ -12,7 +12,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R41-G1** | Make global session clear a registry-wide lifetime transaction covering retained and temporary handles plus session creation | **Pending — implement the registry operation authority and deterministic C++ concurrency coverage.** |
+| **R41-G1** | Make global session clear a registry-wide lifetime transaction covering retained and temporary handles plus session creation | **Complete — commit `3f15d8b` adds a shared registry-operation lease covering temporary reads, retained borrows/releases, creation, cancellation, history projection, and the native-clear/history commit; the executable fake-resolver harness passed the temporary-read, active-creation, exclusive-clear, retained-borrow, duplicate-release, retry, and clear-failure cases.** |
 | **R41-G2** | Make native abandonment reconciliation diagnostic-aware and fail-closed on Windows synchronous errors | **Pending — route reconciliation through the common synchronous diagnostic boundary and add behavioral backend coverage.** |
 | **R41-G3** | Re-audit every native session-handle acquisition and every Windows synchronous native read against the corrected authorities | **Pending — complete the source matrix and focused path tests.** |
 | **R41-G4** | Preserve previously clean platform-native bridge invariants and update only semantic maintenance comments | **Pending — document the corrected ownership/error contracts without unrelated prose changes.** |
