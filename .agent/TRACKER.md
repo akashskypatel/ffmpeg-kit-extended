@@ -15,7 +15,7 @@
 | **R40-G1** | Give every failure-bearing React Native Windows asynchronous native method invocation-bound error completion | **Complete — native async actions now resolve/reject their own invocation; synchronous getters retain a separate diagnostic path.** |
 | **R40-G2** | Make shared React Native handle cleanup non-throwing and retained-handle release failure-atomic across Windows/Android/Apple | **Complete — cached lifetime symbols keep RAII cleanup non-throwing, and retained entries remain retryable until native release commits.** |
 | **R40-G3** | Canonicalize Flutter Windows/Linux FFplay desktop frames to tightly packed RGBA8888 for all supported packed layouts | **Complete — both desktop plugins now use one semantic normalizer for all supported four-byte layouts and padded strides.** |
-| **R40-G4** | Run focused bridge regressions and the affected local Windows → Android → Linux → Apple matrix using existing frozen artifacts | **Pending — implementation begins after G1–G3.** |
+| **R40-G4** | Run focused bridge regressions and the affected local Windows → Android → Linux → Apple matrix using existing frozen artifacts | **Complete — focused regressions and the ordered local Windows → Android → Linux → Apple matrix passed; three Flutter Apple tests remain documented as pre-execution static-XCFramework loader diagnostics.** |
 | **R40-G5** | Perform the final bridge audit, exact wrapper SHA freeze, and wrapper-only source snapshot | **Excluded by user — do not implement, freeze, or run the source-snapshot workflow.** |
 
 ### Review 40 implementation boundary
@@ -44,6 +44,15 @@
 - The executable native regression covered all six layouts, multi-row padded input, invalid stride/format/dimensions, and null arguments. It passed under WSL with `g++ -std=c++17 -Wall -Wextra -Werror`; the temporary executable was removed immediately afterward.
 - The local Flutter Windows debug build passed after MSVC `max`-macro compatibility was handled in the normalizer; the local WSL Flutter Linux debug build passed using the configured frozen Linux archive.
 - Meaningful commit `6bf5809` (`fix: normalize desktop FFplay frames to packed RGBA`) was pushed to `origin/dev-wasm`.
+
+### Review 40 ordered local validation evidence — Windows → Android → Linux → Apple
+
+- Windows validation passed locally: Flutter Windows debug build produced the example executable; the React Native Windows example completed the MSBuild debug build. The focused React Native bridge/ownership/FFplay suite passed **123/123**, and its typecheck and test compilation gates passed.
+- Android validation passed locally on Windows: Flutter debug APK build consumed the configured local WSL AAR at `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\tools\android\build\outputs\aar\bundle-base-shared-small-lgpl-release.aar`; the React Native Android Gradle/CMake build completed with `BUILD SUCCESSFUL`. No Android build was run under WSL.
+- Linux validation passed under WSL: after refreshing only the WSL Dart package graph to remove a Windows Pub-cache reference, the focused Flutter test passed **12/12**, the packed-frame native executable passed with `g++ -std=c++17 -Wall -Wextra -Werror`, and the Flutter Linux debug build passed using the configured local archive `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle-base-linux-x86_64-shared-lgpl.zip`. React Native has no Linux example target in this repository.
+- Apple validation passed on the authorized MacBook Air over SSH using the existing local universal XCFrameworks: Flutter iOS `--no-codesign` and macOS debug builds passed; React Native iOS, tvOS, and macOS debug builds passed using the local iOS, tvOS, and macOS XCFramework archives. Flutter's serialized full suite completed **217/220**; the three pre-execution failures (`abandonment_reconciliation_oracle_test.dart`, `api_test.dart`, and `ffplay_execution_boundary_test.dart`) directly load `libffmpegkit.dylib`, while the configured Apple artifact is a static universal XCFramework. This is a test-harness loading mismatch, not an ABI-source blocker. React Native's full Mac suite passed **199/203** with **4** platform-specific tests skipped; typecheck, test compilation, and lint passed with **0 errors** and five warnings.
+- All Flutter/Dart analytics were disabled for the local gates. No Flutter/React Native CI or hosted test workflow was run, no remote native artifact was retrieved or published, and neither `libs/libffmpegkit` nor the ManyLinux builder checkout was modified. Tagged task processes were observed and the generated Mac staging candidates were absent after the builds.
+- Meaningful validation commit pending: this tracker update will be committed and pushed after the final local cleanup audit.
 
 ## Review 39 Flutter + React Native Platform-Native Remediation — 2026-09-30
 
