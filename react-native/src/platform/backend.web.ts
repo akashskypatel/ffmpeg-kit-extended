@@ -305,20 +305,32 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   private historySnapshots(kind?: SessionHistoryType): Record<string, unknown>[] {
     const result: Record<string, unknown>[] = [];
+    let primaryError: unknown;
     for (const record of this.history.entries(kind)) {
-      const handle = this.historyPointer(record);
-      if (!handle) {
-        this.history.remove(record.sessionId);
-        continue;
-      }
       try {
-        result.push(this.snapshot(handle.pointer));
-      } finally {
-        if (handle.temporary) {
-          this.call('ffmpeg_kit_handle_release')(handle.pointer);
+        const handle = this.historyPointer(record);
+        if (!handle) {
+          this.history.remove(record.sessionId);
+          continue;
         }
+        try {
+          result.push(this.snapshot(handle.pointer));
+        } catch (error) {
+          primaryError ??= error;
+        } finally {
+          if (handle.temporary) {
+            try {
+              this.call('ffmpeg_kit_handle_release')(handle.pointer);
+            } catch (error) {
+              primaryError ??= error;
+            }
+          }
+        }
+      } catch (error) {
+        primaryError ??= error;
       }
     }
+    if (primaryError !== undefined) throw primaryError;
     return result;
   }
 

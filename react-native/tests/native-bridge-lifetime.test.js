@@ -121,6 +121,39 @@ test('native session cleanup clears owning handles through the registry-aware AP
   assert.match(clearSessions, /retainedSessionHandles\.clear\(\)/);
 });
 
+test('native handle cleanup caches lifetime symbols and commits retained release atomically', () => {
+  const initialization = section(
+    dynamicApi,
+    'void ensureInitialized()',
+    'void release(Handle handle) noexcept',
+  );
+  assert.match(initialization, /resolve<HandleReleaseFn>\("ffmpeg_kit_handle_release"\)/);
+  assert.match(initialization, /resolve<FreeMemoryFn>\("ffmpeg_kit_free"\)/);
+  assert.match(initialization, /runtimeLifetimeApi = lifetimeApi/);
+
+  const guard = section(
+    dynamicApi,
+    'struct HandleGuard',
+    'std::int64_t sessionIdOf',
+  );
+  assert.match(guard, /~HandleGuard\(\) noexcept/);
+  assert.match(guard, /HandleGuard &operator=\(HandleGuard &&other\) noexcept/);
+  assert.doesNotMatch(guard, /resolve</);
+
+  const retainedRelease = section(
+    dynamicApi,
+    'void releaseRetainedSession',
+    'std::string sessionType',
+  );
+  assert.match(retainedRelease, /retainedSessionReleasesInProgress/);
+  assert.match(retainedRelease, /release\(handle\)/);
+  assert.match(retainedRelease, /retainedSessionHandles\.erase\(it\)/);
+  assert.ok(
+    retainedRelease.indexOf('release(handle)') <
+      retainedRelease.indexOf('retainedSessionHandles.erase(it)'),
+  );
+});
+
 test('native session history projects recorded identities without enumerating owning arrays', () => {
   assert.match(dynamicApi, /struct HistoryRecord/);
   assert.match(dynamicApi, /rememberHistorySession/);

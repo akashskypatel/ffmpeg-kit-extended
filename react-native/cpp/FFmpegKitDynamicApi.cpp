@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #if defined(_WIN32)
@@ -22,6 +23,17 @@ namespace {
 
 using Handle = void *;
 
+using HandleReleaseFn = void (*)(Handle);
+using FreeMemoryFn = void (*)(void *);
+
+struct RuntimeLifetimeApi {
+  HandleReleaseFn releaseHandle = nullptr;
+  FreeMemoryFn freeMemory = nullptr;
+};
+
+RuntimeLifetimeApi runtimeLifetimeApi;
+DynamicSymbolResolverForTesting dynamicSymbolResolverForTesting = nullptr;
+
 std::once_flag initFlag;
 #if defined(_WIN32)
 HMODULE libraryHandle = nullptr;
@@ -34,6 +46,7 @@ void *libraryHandle = nullptr;
 // for each session until execution has actually completed.
 std::mutex sessionHandlesMutex;
 std::unordered_map<std::int64_t, Handle> retainedSessionHandles;
+std::unordered_set<std::int64_t> retainedSessionReleasesInProgress;
 
 struct HistoryRecord {
   std::int64_t sessionId;
@@ -103,6 +116,13 @@ using RawSymbol = void *;
 #endif
 
 RawSymbol resolveRaw(const char *name) {
+  if (dynamicSymbolResolverForTesting != nullptr) {
+    const auto symbol = dynamicSymbolResolverForTesting(name);
+    if (symbol == nullptr) {
+      throw std::runtime_error(std::string("test dynamic symbol not found: ") + name);
+    }
+    return reinterpret_cast<RawSymbol>(symbol);
+  }
   ensureLibraryLoaded();
 #if defined(_WIN32)
   if (libraryHandle == nullptr) {
@@ -142,21 +162,31 @@ template <typename Fn> Fn resolve(const char *name) {
 
 void ensureInitialized() {
   std::call_once(initFlag, [] {
-    using Fn = void (*)();
-    resolve<Fn>("ffmpeg_kit_initialize")();
+    using InitializeFn = void (*)();
+    // Resolve and validate every mandatory ownership function before the
+    // native runtime can create a handle. Publish the cache only after the
+    // initialization transaction succeeds so call_once remains retryable.
+    const RuntimeLifetimeApi lifetimeApi{
+        resolve<HandleReleaseFn>("ffmpeg_kit_handle_release"),
+        resolve<FreeMemoryFn>("ffmpeg_kit_free"),
+    };
+    resolve<InitializeFn>("ffmpeg_kit_initialize")();
+    runtimeLifetimeApi = lifetimeApi;
   });
 }
 
-void release(Handle handle) {
+void release(Handle handle) noexcept {
   if (handle == nullptr) return;
-  using Fn = void (*)(Handle);
-  resolve<Fn>("ffmpeg_kit_handle_release")(handle);
+  if (runtimeLifetimeApi.releaseHandle != nullptr) {
+    runtimeLifetimeApi.releaseHandle(handle);
+  }
 }
 
-void freeNative(void *ptr) {
+void freeNative(void *ptr) noexcept {
   if (ptr == nullptr) return;
-  using Fn = void (*)(void *);
-  resolve<Fn>("ffmpeg_kit_free")(ptr);
+  if (runtimeLifetimeApi.freeMemory != nullptr) {
+    runtimeLifetimeApi.freeMemory(ptr);
+  }
 }
 
 std::string takeString(char *value) {
@@ -225,7 +255,7 @@ struct HandleGuard {
     }
     return *this;
   }
-  ~HandleGuard() {
+  ~HandleGuard() noexcept {
     if (owned) release(handle);
   }
 };
@@ -357,15 +387,32 @@ void releaseRetainedSession(std::int64_t id) {
     std::lock_guard<std::mutex> lock(sessionHandlesMutex);
     const auto it = retainedSessionHandles.find(id);
     if (it == retainedSessionHandles.end()) return;
+    if (!retainedSessionReleasesInProgress.emplace(id).second) {
+      throw std::runtime_error("Session handle release is already in progress");
+    }
     handle = it->second;
-    using StateFn = int (*)(Handle);
-    state = static_cast<std::int32_t>(
-        resolve<StateFn>("ffmpeg_kit_session_get_state")(handle));
-    retainedSessionHandles.erase(it);
+    try {
+      using StateFn = int (*)(Handle);
+      state = static_cast<std::int32_t>(
+          resolve<StateFn>("ffmpeg_kit_session_get_state")(handle));
+    } catch (...) {
+      retainedSessionReleasesInProgress.erase(id);
+      throw;
+    }
   }
   // Called by the JS monitor only after a terminal session state has been
   // observed and final logs/statistics have been drained.
   release(handle);
+  {
+    std::lock_guard<std::mutex> lock(sessionHandlesMutex);
+    const auto it = retainedSessionHandles.find(id);
+    if (it == retainedSessionHandles.end() || it->second != handle) {
+      retainedSessionReleasesInProgress.erase(id);
+      throw std::runtime_error("Retained session handle changed during release");
+    }
+    retainedSessionHandles.erase(it);
+    retainedSessionReleasesInProgress.erase(id);
+  }
   if (state == kCompletedSessionState || state == kFailedSessionState) {
     markHistorySessionTerminal(id);
     using SizeFn = std::int64_t (*)();
@@ -503,6 +550,18 @@ std::string serializeChapter(Handle chapter) {
 }
 
 } // namespace
+
+namespace testing {
+
+void setDynamicSymbolResolver(DynamicSymbolResolverForTesting resolver) {
+  dynamicSymbolResolverForTesting = resolver;
+}
+
+void resetDynamicSymbolResolver() {
+  dynamicSymbolResolverForTesting = nullptr;
+}
+
+} // namespace testing
 
 void initialize() { ensureInitialized(); }
 
@@ -873,6 +932,7 @@ void clearSessions() {
   resolve<Fn>("ffmpeg_kit_config_clear_sessions")();
   std::lock_guard<std::mutex> lock(sessionHandlesMutex);
   retainedSessionHandles.clear();
+  retainedSessionReleasesInProgress.clear();
   {
     std::lock_guard<std::mutex> historyLock(historyMutex);
     historyRecords.clear();

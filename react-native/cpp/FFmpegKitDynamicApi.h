@@ -12,6 +12,14 @@ using LogCallback = void (*)(std::int64_t sessionId,
                              char *ownedMessage,
                              void *userData);
 
+/** Test-only symbol seam; production callers should not install a resolver. */
+using DynamicSymbolResolverForTesting = void *(*)(const char *name);
+
+namespace testing {
+void setDynamicSymbolResolver(DynamicSymbolResolverForTesting resolver);
+void resetDynamicSymbolResolver();
+} // namespace testing
+
 void initialize();
 std::string getBuildStamp();
 
