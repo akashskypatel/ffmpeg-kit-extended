@@ -13,7 +13,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R40-G1** | Give every failure-bearing React Native Windows asynchronous native method invocation-bound error completion | **Complete — native async actions now resolve/reject their own invocation; synchronous getters retain a separate diagnostic path.** |
-| **R40-G2** | Make shared React Native handle cleanup non-throwing and retained-handle release failure-atomic across Windows/Android/Apple | **Pending — implementation begins after preparation.** |
+| **R40-G2** | Make shared React Native handle cleanup non-throwing and retained-handle release failure-atomic across Windows/Android/Apple | **Complete — cached lifetime symbols keep RAII cleanup non-throwing, and retained entries remain retryable until native release commits.** |
 | **R40-G3** | Canonicalize Flutter Windows/Linux FFplay desktop frames to tightly packed RGBA8888 for all supported packed layouts | **Pending — implementation begins after preparation.** |
 | **R40-G4** | Run focused bridge regressions and the affected local Windows → Android → Linux → Apple matrix using existing frozen artifacts | **Pending — implementation begins after G1–G3.** |
 | **R40-G5** | Perform the final bridge audit, exact wrapper SHA freeze, and wrapper-only source snapshot | **Excluded by user — do not implement, freeze, or run the source-snapshot workflow.** |
@@ -30,6 +30,13 @@
 - The generated Android/iOS and Windows codegen contracts were regenerated in disposable staging and confirmed `Promise<void>`/`ReactPromise<void>` action signatures. The staging directories were removed after inspection.
 - Focused bridge gates passed: callback-demand, codegen lifecycle, native bridge lifetime, Windows error transport, queue ownership, Wasm session ownership, FFplay lifecycle, and Web history cleanup; React Native typecheck and test compilation also passed.
 - Meaningful commit `c4e6436` (`fix: bind React Native action failures to invocations`) was pushed to `origin/dev-wasm` before Apple validation.
+
+### Review 40 implementation evidence — failure-atomic handle cleanup
+
+- React Native's shared C++ dynamic API resolves and caches the mandatory release/free symbols during initialization before publishing the cache. `HandleGuard` destruction and move assignment use only the cached non-throwing cleanup path; no resolver or throwing lookup remains in RAII code.
+- Retained release now serializes per-session release attempts, keeps the map entry until the native release succeeds and the handle identity is revalidated, and clears the in-progress marker on every retryable failure. Session history cleanup therefore cannot strand an unreleased handle or erase ownership before commit.
+- The Web backend snapshot path was aligned with the same primary-error policy: it releases every temporary history handle while preserving the first snapshot/release failure. The focused C++ source-contract and Web ownership suite passed **45/45**, including the new cache/commit assertions; the WSL compile-only dynamic API check also passed.
+- Meaningful commit `c39ee87` (`fix: make React Native handle cleanup failure-atomic`) was pushed to `origin/dev-wasm`.
 
 ## Review 39 Flutter + React Native Platform-Native Remediation — 2026-09-30
 
