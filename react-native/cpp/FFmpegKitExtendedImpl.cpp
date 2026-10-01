@@ -104,6 +104,7 @@ FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl() {
 }
 
 void FFmpegKitExtendedImpl::initialize(jsi::Runtime &) { api::initialize(); }
+std::string FFmpegKitExtendedImpl::consumeLastError(jsi::Runtime &) { return {}; }
 std::string FFmpegKitExtendedImpl::getBuildStamp(jsi::Runtime &) { return api::getBuildStamp(); }
 
 double FFmpegKitExtendedImpl::createFFmpegSession(jsi::Runtime &, std::string command) { return api::createFFmpegSession(command); }

@@ -48,6 +48,11 @@ struct FFmpegKitExtended {
   REACT_METHOD(initialize)
   void initialize() noexcept;
 
+  // Recoverable adapter failures are transported out-of-band because RNW
+  // requires this native boundary to remain noexcept.
+  REACT_SYNC_METHOD(consumeLastError)
+  std::string consumeLastError() noexcept;
+
   REACT_SYNC_METHOD(getBuildStamp)
   std::string getBuildStamp() noexcept;
 

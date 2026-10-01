@@ -13,7 +13,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R39-G1** | Make Flutter Windows external-texture retirement asynchronous-lifetime-safe for release, replacement, rollback, and plugin teardown | **Complete — deferred retirement now owns the callback-captured state through Flutter unregister completion; focused lifetime and local Flutter Windows build evidence is recorded below.** |
-| **R39-G2** | Replace React Native Windows blanket fail-fast operational error handling with caller-visible failure transport while keeping the native boundary `noexcept` | **Pending** |
+| **R39-G2** | Replace React Native Windows blanket fail-fast operational error handling with caller-visible failure transport while keeping the native boundary `noexcept` | **Complete — recoverable adapter failures now cross the Windows boundary through a thread-local diagnostic channel and become ordinary JavaScript errors; the deterministic native boundary oracle and local Windows build passed.** |
 | **R39-G3** | Give every Flutter Linux generated GL texture name an exactly-once context-safe final deletion path | **Pending** |
 | **R39-G4** | Run focused native regressions and the ordered local Windows → Android → Linux → Apple validation using frozen artifacts only | **Pending** |
 | **R39-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
@@ -31,6 +31,14 @@
 - Executable native regression: `clang++ -std=c++17 -O0 -g -I flutter/native flutter/test/native/registered_texture_lifetime_test.cpp` followed by the tagged test executable — **passed** for deferred completion, immediate completion, overlapping retirements, and never-registered cleanup; generated staging was removed afterward.
 - Analytics-disabled local Flutter validation: `flutter config --no-analytics`, `dart --disable-analytics`, and `flutter build windows --debug --no-pub` from `flutter/example` — **passed**, producing `flutter/example/build/windows/x64/runner/Debug/ffmpeg_kit_extended_flutter_example.exe`. No interactive application was launched.
 - No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, or hosted Flutter/React Native workflow was changed or used.
+
+### Review 39 implementation evidence — recoverable Windows error transport
+
+- The React Native Windows codegen contract remains `noexcept` for all native methods. Ordinary adapter exceptions are caught by the shared semantic dispatch helper, converted to a method-qualified diagnostic, and returned as a default value plus a thread-local error that the native JavaScript backend consumes immediately and throws as a normal `Error`.
+- The blanket operational `RaiseFailFastException`/`std::terminate` path was removed. Valid zero, false, and empty values remain valid results because the separate diagnostic channel is checked independently.
+- The executable C++ native-boundary oracle injects runtime-unavailable, required-symbol-unavailable, invalid-create-arguments, session-creation, session-not-found, and wrong-FFplay-target failures. Each returns a default result with a meaningful diagnostic, then a succeeding call returns its normal value on the same process/thread; the test passed with `clang++ -std=c++17 -O0 -g`.
+- `node --test tests/windows-error-transport.test.js`, `npm run typecheck`, and `npm run test:compile` passed. The tagged local React Native Windows build through `react-native/build.sh windows` passed using the existing local Windows archive only; no interactive app was launched.
+- The native method inventory and shared `consumeLastError` declaration are reflected in the generated Windows codegen build. No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, or hosted workflow was changed or used.
 
 ## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 

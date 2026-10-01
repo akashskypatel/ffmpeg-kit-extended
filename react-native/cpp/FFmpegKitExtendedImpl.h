@@ -34,6 +34,7 @@ class FFmpegKitExtendedImpl
                     std::string message);
 
   void initialize(jsi::Runtime &rt);
+  std::string consumeLastError(jsi::Runtime &rt);
   std::string getBuildStamp(jsi::Runtime &rt);
 
   double createFFmpegSession(jsi::Runtime &rt, std::string command);

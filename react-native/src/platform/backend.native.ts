@@ -1,9 +1,27 @@
 import NativeFFmpegKitExtended from '../NativeFFmpegKitExtended';
 import type {FFmpegKitBackend} from './backend-registry';
 
+const nativeModule = NativeFFmpegKitExtended as unknown as Record<string, unknown>;
+
 const abandonedSessionIds = new Set<number>();
 
 const cancellationIntentSessionIds = new Set<number>();
+
+function invokeNative<TResult>(method: string, args: readonly unknown[]): TResult {
+  const candidate = nativeModule[method];
+  if (typeof candidate !== 'function') {
+    throw new Error(`Native FFmpegKit method ${method} is unavailable.`);
+  }
+
+  const result = Reflect.apply(
+    candidate as (...values: unknown[]) => TResult,
+    NativeFFmpegKitExtended,
+    args as unknown[],
+  );
+  const message = NativeFFmpegKitExtended.consumeLastError();
+  if (message) throw new Error(message);
+  return result;
+}
 
 function reconcileAbandonedSessionId(sessionId: number): void {
   try {
@@ -58,7 +76,7 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
     get(target, property, receiver) {
       if (property === 'initialize') {
         return async () => {
-          NativeFFmpegKitExtended.initialize();
+          invokeNative<void>('initialize', []);
         };
       }
       if (property === 'isDirectLogBridgeActive') {
@@ -81,14 +99,15 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
       }
       if (property === 'getMediaInformationData') {
         return (sessionId: number) => {
-          const json = NativeFFmpegKitExtended.getMediaInformationJson(sessionId);
+          const json = invokeNative<string>('getMediaInformationJson', [sessionId]);
           return json
             ? (JSON.parse(json) as ReturnType<FFmpegKitBackend['getMediaInformationData']>)
             : undefined;
         };
       }
       if (property === 'getSessionState') {
-        return (sessionId: number) => NativeFFmpegKitExtended.getSessionState(sessionId);
+        return (sessionId: number) =>
+          invokeNative<number>('getSessionState', [sessionId]);
       }
       if (property === 'isSessionAbandoned') {
         return (sessionId: number) => abandonedSessionIds.has(sessionId);
@@ -97,7 +116,7 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
         return (sessionId: number) => {
           const isNewCandidate = !abandonedSessionIds.has(sessionId);
           abandonedSessionIds.add(sessionId);
-          NativeFFmpegKitExtended.abandonCreatedSession(sessionId);
+          invokeNative<void>('abandonCreatedSession', [sessionId]);
           if (isNewCandidate) reconcileAbandonedSessionId(sessionId);
         };
       }
@@ -114,24 +133,32 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
         return (sessionId: number) =>
           abandonedSessionIds.has(sessionId)
             ? ''
-            : NativeFFmpegKitExtended.getSessionJson(sessionId);
+            : invokeNative<string>('getSessionJson', [sessionId]);
       }
       if (property === 'getSessionsJson') {
         return (kind: string) =>
-          filterAbandonedHistory(NativeFFmpegKitExtended.getSessionsJson(kind));
+          filterAbandonedHistory(invokeNative<string>('getSessionsJson', [kind]));
       }
       if (property === 'getLastSessionJson') {
         return (kind: string) =>
-          filterAbandonedHistory(NativeFFmpegKitExtended.getLastSessionJson(kind));
+          filterAbandonedHistory(
+            invokeNative<string>('getLastSessionJson', [kind]),
+          );
       }
       if (property === 'clearSessions') {
         return () => {
-          NativeFFmpegKitExtended.clearSessions();
+          invokeNative<void>('clearSessions', []);
           abandonedSessionIds.clear();
           cancellationIntentSessionIds.clear();
         };
       }
-      return Reflect.get(target, property, receiver);
+
+      const nativeValue = Reflect.get(target, property, receiver);
+      if (property === 'onLogEvent' || typeof nativeValue !== 'function') {
+        return nativeValue;
+      }
+      return (...args: unknown[]) =>
+        invokeNative<unknown>(String(property), args);
     },
   },
 );

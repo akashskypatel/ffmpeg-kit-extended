@@ -32,6 +32,8 @@ export type LogEvent = {
 export interface Spec extends TurboModule {
   /** Initializes the native library selected by the consuming app configuration. */
   initialize(): void;
+  /** Consumes one Windows operational error captured at the noexcept boundary. */
+  consumeLastError(): string;
   getBuildStamp(): string;
 
   /** Session creation/execution methods. Commands omit executable names. */
