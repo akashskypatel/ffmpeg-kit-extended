@@ -18,7 +18,7 @@
 | **R40-G5.4** | Preserve invocation-bound Promise/action failures and same-call synchronous diagnostics across Windows/shared C++/TypeScript | **Complete — the existing invocation-bound completion and synchronous diagnostic transport remained intact under the final lifetime changes.** |
 | **R40-G5.5** | Add deterministic native lifetime tests with fake resolver symbols and synchronization barriers, covering release, clear, history, FFplay, debug/media, retry, and duplicate operations | **Complete — the executable fake-resolver regression covers active borrow/release, post-release rejection, clear ordering, duplicate release, pre-release retry, and clear retry; the source-contract suite passed 9/9.** |
 | **R40-G5.6** | Document the actual retained/releasing/released state machine and ordering policy in semantic technical comments | **Complete — `FFmpegKitDynamicApi.cpp` documents the retained-entry states, lease barrier, release ordering, clear ordering, and mutex/native-call boundary.** |
-| **R40-G5.7** | Run the bounded final code review across lifetime, errors, callbacks, loading, concurrency, shared C++, Flutter regressions, and Apple parity; exclude pedantic findings | **Pending — run after implementation** |
+| **R40-G5.7** | Run the bounded final code review across lifetime, errors, callbacks, loading, concurrency, shared C++, Flutter regressions, and Apple parity; exclude pedantic findings | **Complete — the bounded review found no substantive open findings; pedantic/style-only observations were excluded.** |
 | **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **Pending — run after all prior goals** |
 
 ### Review 40 G5 implementation boundary
@@ -39,6 +39,15 @@
 
 - The combined native bridge/error transport suite passed **10/10**: `node --test tests/windows-error-transport.test.js tests/native-bridge-lifetime.test.js`. The final bridge changes did not reintroduce thread-local post-call action errors, blanket process termination, or a getter/action diagnostic ambiguity.
 - `npm run typecheck` and `npm run test:compile` both passed after the lifetime-authority changes. No implementation change was needed for this already-closed error-boundary goal.
+
+### Review 40 G5 bounded final code review — substantive findings only
+
+- Lifetime/concurrency: **no open finding**. Every retained shared operation is lease-backed; release state is published before waiting; clear waits for both active borrows and release transactions; retry paths restore the registry barrier after pre-release or native-clear failure.
+- Error boundary/callbacks: **no open finding**. The invocation-bound Promise/action transport and same-call synchronous diagnostic path remained unchanged and passed the combined 10/10 suite. The final lifetime patch does not alter callback registration or callback-owned state.
+- Dynamic loading/ownership: **no open finding**. Mandatory release/free symbols remain cached before initialization publishes; RAII cleanup does not resolve symbols or throw; the lifetime test uses only the existing fake resolver seam.
+- Windows/shared C++/Android/Apple parity: **no open finding**. The implementation is in the shared dynamic C++ bridge, the Windows error contract remains covered, and the Windows/WSL native executables both passed. No platform-specific wrapper divergence was introduced.
+- Flutter regression scan: **no changed Flutter files and no open finding**. The prior app-hosted Flutter native coverage and ordered local matrix remain the applicable evidence; G5 changes are confined to the React Native shared bridge/test seam.
+- Review policy: pedantic/style-only findings were intentionally excluded. No native ABI, submodule, builder checkout, remote artifact, or hosted test workflow was involved.
 
 ## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
 
