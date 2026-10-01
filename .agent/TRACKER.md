@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | **R39-G1** | Make Flutter Windows external-texture retirement asynchronous-lifetime-safe for release, replacement, rollback, and plugin teardown | **Complete — deferred retirement now owns the callback-captured state through Flutter unregister completion; focused lifetime and local Flutter Windows build evidence is recorded below.** |
 | **R39-G2** | Replace React Native Windows blanket fail-fast operational error handling with caller-visible failure transport while keeping the native boundary `noexcept` | **Complete — recoverable adapter failures now cross the Windows boundary through a thread-local diagnostic channel and become ordinary JavaScript errors; the deterministic native boundary oracle and local Windows build passed.** |
-| **R39-G3** | Give every Flutter Linux generated GL texture name an exactly-once context-safe final deletion path | **Pending** |
+| **R39-G3** | Give every Flutter Linux generated GL texture name an exactly-once context-safe final deletion path | **Complete — the Linux plugin now uses Flutter's supported `FlPixelBufferTexture` lifecycle, so engine-owned GL texture creation/deletion stays on Flutter's render lifecycle while plugin-owned RGBA bytes remain alive through unregister.** |
 | **R39-G4** | Run focused native regressions and the ordered local Windows → Android → Linux → Apple validation using frozen artifacts only | **Pending** |
 | **R39-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
 
@@ -39,6 +39,14 @@
 - The executable C++ native-boundary oracle injects runtime-unavailable, required-symbol-unavailable, invalid-create-arguments, session-creation, session-not-found, and wrong-FFplay-target failures. Each returns a default result with a meaningful diagnostic, then a succeeding call returns its normal value on the same process/thread; the test passed with `clang++ -std=c++17 -O0 -g`.
 - `node --test tests/windows-error-transport.test.js`, `npm run typecheck`, and `npm run test:compile` passed. The tagged local React Native Windows build through `react-native/build.sh windows` passed using the existing local Windows archive only; no interactive app was launched.
 - The native method inventory and shared `consumeLastError` declaration are reflected in the generated Windows codegen build. No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, or hosted workflow was changed or used.
+
+### Review 39 implementation evidence — Linux pixel-buffer texture ownership
+
+- The custom raw `FlTextureGL` path was replaced with a semantic `FlPixelBufferTexture` subtype. Its `copy_pixels` callback runs on Flutter's render thread, and the plugin no longer calls `glGenTextures`, `glDeleteTextures`, or owns a raw `GLuint` during arbitrary GObject finalization.
+- `PixelBufferFrameStore` separates producer, pending, and render buffers. The render buffer remains stable while Flutter consumes it, release/reuse marks and resets logical state without clearing engine-visible bytes, and final disposal clears CPU buffers only after Flutter unregister returns. This preserves queued idle-callback GObject references and the existing frame coalescer.
+- Executable native lifecycle regression: `pixel_buffer_frame_store_test.cpp` passed first render, producer/render isolation, release/reuse, final unregister cleanup, and never-populated retirement. Existing FFplay-owner, texture-registration, and registered-texture lifetime tests also passed; all generated test staging was removed.
+- WSL local validation: analytics-disabled Flutter/Dart setup, `flutter test test/user_defines_config_test.dart`, and `flutter build linux --debug --no-pub` passed. The build produced `flutter/example/build/linux/x64/debug/bundle/ffmpeg_kit_extended_flutter_example` using the configured local Linux archive. The hook dependency regression test also proves inaccessible MacBook-only paths are not tracked as WSL dependencies, preventing cross-host invalidation.
+- Flutter's installed Linux API headers were inspected locally: `FlPixelBufferTexture::copy_pixels` is the supported render-thread callback and its returned buffer must outlive texture unregister. No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, or hosted workflow was changed or used.
 
 ## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 

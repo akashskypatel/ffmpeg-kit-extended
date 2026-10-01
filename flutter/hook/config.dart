@@ -78,7 +78,15 @@ ConfigResult? resolveUserDefines({
         final localPath = _filePathForCurrentHost(resolvedPath);
         if (localPath != null) {
           config[key] = localPath;
-          addDependency(resolvedPath);
+          // A shared workspace legitimately carries overrides for other
+          // hosts. Only register a dependency when this host can observe the
+          // file; otherwise a missing Mac/Windows path can make a Linux hook
+          // appear modified forever while the raw value remains available to
+          // the host that owns it.
+          if (FileSystemEntity.typeSync(localPath, followLinks: false) !=
+              FileSystemEntityType.notFound) {
+            addDependency(resolvedPath);
+          }
         }
       }
     }

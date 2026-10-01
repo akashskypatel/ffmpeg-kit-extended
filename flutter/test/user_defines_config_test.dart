@@ -150,6 +150,27 @@ void main() {
     }
   });
 
+  test('does not track an inaccessible absolute override on this host', () {
+    if (Platform.isWindows) return;
+
+    const rawMacPath =
+        '/Users/akash/Projects/ffmpeg-kit-builders/prebuilt/apple/xcframeworks/bundle.zip';
+    final dependencies = <Uri>[];
+    final macUri = Uri.file(rawMacPath);
+
+    final result = resolveUserDefines(
+      read: (key) => key == 'macos' ? rawMacPath : null,
+      readPath: (_) => macUri,
+      readBase: (_) => tempRoot.uri,
+      packageRoot: tempRoot.path,
+      addDependency: dependencies.add,
+      log: (_) {},
+    );
+
+    expect(result!.config['macos'], equals(rawMacPath));
+    expect(dependencies, isEmpty);
+  });
+
   test('explicit userDefines take precedence for native and Web overrides', () {
     final user = ConfigResult(
       {'type': 'video', 'android': 'user-android', 'web': 'user-web'},

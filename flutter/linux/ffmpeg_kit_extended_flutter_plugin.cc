@@ -4,10 +4,10 @@
 #include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
 #include "../native/frame_notification_coalescer.h"
 #include "../native/ffplay_owner_coordinator.h"
+#include "../native/pixel_buffer_frame_store.h"
 #include "../native/texture_registration_transaction.h"
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
-#include <GLES3/gl3.h>
 #include <dlfcn.h>
 #include <mutex>
 #include <string>
@@ -18,16 +18,7 @@
 #include <iomanip>
 #include <ctime>
 #include <flutter_linux/fl_texture_registrar.h>
-#include <flutter_linux/fl_texture_gl.h>
 #include <sys/time.h>
-
-// GL error checking helper
-#define GL_CHECK(msg) do { \
-  GLenum err = glGetError(); \
-  if (err != GL_NO_ERROR) { \
-    FFKIT_LOG_T("GL ERROR in %s: 0x%x", msg, err); \
-  } \
-} while(0)
 
 std::string GetCurrentDateTime() {
   time_t now = time(0);
@@ -103,136 +94,80 @@ static bool ffplay_kit_unregister_frame_callback() {
 struct TextureState {
   FlTextureRegistrar* registrar = nullptr;
   std::mutex mutex;
-  
-  std::vector<uint8_t> write_buf;
-  std::vector<uint8_t> read_buf;
-  uint32_t width = 1;
-  uint32_t height = 1;
-  
-  bool has_pending_frame = false;
+
   bool destroyed = false;
-  bool needs_gl_reset = false; // Deferred to render thread
   ffmpeg_kit_extended_flutter::FrameNotificationCoalescer frame_notification;
-  
-  GLuint gl_texture_id = 0;
+  ffmpeg_kit_extended_flutter::PixelBufferFrameStore frame_store;
   int64_t fl_texture_id = 0;
-  bool gl_initialized = false;
 };
 
-// --- FfkitGlTexture (FlTextureGL subtype) ------------------------------------
-typedef struct _FfkitGlTexture FfkitGlTexture;
-typedef struct _FfkitGlTextureClass FfkitGlTextureClass;
-struct _FfkitGlTexture {
-  FlTextureGL parent_instance;
+// --- FfkitPixelBufferTexture (FlPixelBufferTexture subtype) ------------------
+typedef struct _FfkitPixelBufferTexture FfkitPixelBufferTexture;
+typedef struct _FfkitPixelBufferTextureClass FfkitPixelBufferTextureClass;
+struct _FfkitPixelBufferTexture {
+  FlPixelBufferTexture parent_instance;
   TextureState* state = nullptr;
 };
-struct _FfkitGlTextureClass {
-  FlTextureGLClass parent_class;
+struct _FfkitPixelBufferTextureClass {
+  FlPixelBufferTextureClass parent_class;
 };
 
-static ffmpeg_kit_extended_flutter::FfplayOwnerCoordinator<FfkitGlTexture>
+static ffmpeg_kit_extended_flutter::FfplayOwnerCoordinator<FfkitPixelBufferTexture>
     g_ffplay_owner;
 
-#define FFKIT_GL_TEXTURE(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj), ffkit_gl_texture_get_type(), FfkitGlTexture))
+#define FFKIT_PIXEL_BUFFER_TEXTURE(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), ffkit_pixel_buffer_texture_get_type(), \
+                              FfkitPixelBufferTexture))
 
-G_DEFINE_TYPE(FfkitGlTexture, ffkit_gl_texture, fl_texture_gl_get_type())
+G_DEFINE_TYPE(FfkitPixelBufferTexture, ffkit_pixel_buffer_texture,
+              fl_pixel_buffer_texture_get_type())
 
-static gboolean
-ffkit_gl_texture_populate_gl_texture(FlTextureGL *texture, uint32_t *target,
-                                     uint32_t *name, uint32_t *width,
-                                     uint32_t *height, GError **error) {
+static gboolean ffkit_pixel_buffer_texture_copy_pixels(
+    FlPixelBufferTexture* texture, const uint8_t** buffer, uint32_t* width,
+    uint32_t* height, GError** error) {
   if (error && *error) return FALSE;
-  
-  FfkitGlTexture* self = FFKIT_GL_TEXTURE(texture);
+
+  FfkitPixelBufferTexture* self = FFKIT_PIXEL_BUFFER_TEXTURE(texture);
   if (!self || !self->state) return FALSE;
-  TextureState* state = self->state;
 
-  // Local copies for GL operations (minimize lock duration)
-  std::vector<uint8_t> upload_buf;
-  uint32_t w = 1, h = 1;
-  bool has_frame = false;
-  bool needs_reset = false;
-  bool init_gl = false;
-
-  {
-    std::lock_guard<std::mutex> lock(state->mutex);
-    if (state->destroyed) return FALSE;
-
-    // 1. Handle deferred GL reset (SAFE: runs on render thread)
-    if (state->needs_gl_reset) {
-      needs_reset = true;
-      state->needs_gl_reset = false;
-    }
-
-    // 2. Initialize or recreate GL texture
-    if (needs_reset || !state->gl_initialized) {
-      if (state->gl_initialized && state->gl_texture_id) {
-        glDeleteTextures(1, &state->gl_texture_id);
-      }
-      glGenTextures(1, &state->gl_texture_id);
-      glBindTexture(GL_TEXTURE_2D, state->gl_texture_id);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-      glBindTexture(GL_TEXTURE_2D, 0);
-      state->gl_initialized = true;
-      init_gl = true;
-    }
-
-    *target = GL_TEXTURE_2D;
-    *name = state->gl_texture_id;
-    *width = state->width > 0 ? state->width : 1;
-    *height = state->height > 0 ? state->height : 1;
-
-    // 3. Grab frame data if available
-    if (state->has_pending_frame) {
-      upload_buf = state->read_buf; // Copy to local
-      w = state->width;
-      h = state->height;
-      has_frame = true;
-      state->has_pending_frame = false; // Mark consumed
-    }
-  } // Mutex released
-
-  // 4. Upload texture (outside lock to prevent blocking FFmpeg thread)
-  if (has_frame && !upload_buf.empty()) {
-    glBindTexture(GL_TEXTURE_2D, state->gl_texture_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, upload_buf.data());
-    glBindTexture(GL_TEXTURE_2D, 0);
-  }
-
-  return TRUE;
+  std::lock_guard<std::mutex> lock(self->state->mutex);
+  return self->state->frame_store.copyForRender(buffer, width, height) ? TRUE
+                                                                        : FALSE;
 }
 
-static void ffkit_gl_texture_finalize(GObject* object) {
-  FfkitGlTexture* self = FFKIT_GL_TEXTURE(object);
+static void ffkit_pixel_buffer_texture_finalize(GObject* object) {
+  FfkitPixelBufferTexture* self = FFKIT_PIXEL_BUFFER_TEXTURE(object);
   if (self->state) {
-    // GL cleanup is handled by populate or engine. Safe to delete state.
+    // FlPixelBufferTexture owns the engine-side GL texture and retires it in
+    // Flutter's supported texture lifecycle. The plugin only owns CPU bytes.
     delete self->state;
+    self->state = nullptr;
   }
-  G_OBJECT_CLASS(ffkit_gl_texture_parent_class)->finalize(object);
+  G_OBJECT_CLASS(ffkit_pixel_buffer_texture_parent_class)->finalize(object);
 }
 
-static void ffkit_gl_texture_class_init(FfkitGlTextureClass *klass) {
-  FL_TEXTURE_GL_CLASS(klass)->populate = ffkit_gl_texture_populate_gl_texture;
-  G_OBJECT_CLASS(klass)->finalize = ffkit_gl_texture_finalize;
+static void ffkit_pixel_buffer_texture_class_init(
+    FfkitPixelBufferTextureClass* klass) {
+  FL_PIXEL_BUFFER_TEXTURE_CLASS(klass)->copy_pixels =
+      ffkit_pixel_buffer_texture_copy_pixels;
+  G_OBJECT_CLASS(klass)->finalize = ffkit_pixel_buffer_texture_finalize;
 }
 
-static void ffkit_gl_texture_init(FfkitGlTexture *self) {
+static void ffkit_pixel_buffer_texture_init(FfkitPixelBufferTexture* self) {
   self->state = new TextureState();
 }
 
-static FfkitGlTexture *ffkit_gl_texture_new(FlTextureRegistrar* registrar) {
-  auto tex = FFKIT_GL_TEXTURE(g_object_new(ffkit_gl_texture_get_type(), nullptr));
+static FfkitPixelBufferTexture* ffkit_pixel_buffer_texture_new(
+    FlTextureRegistrar* registrar) {
+  auto tex = FFKIT_PIXEL_BUFFER_TEXTURE(
+      g_object_new(ffkit_pixel_buffer_texture_get_type(), nullptr));
   tex->state->registrar = registrar;
   return tex;
 }
 
 // --- Main Thread Callbacks ---------------------------------------------------
 static gboolean mark_frame_idle_cb(gpointer user_data) {
-  FfkitGlTexture* tex = FFKIT_GL_TEXTURE(user_data);
+  FfkitPixelBufferTexture* tex = FFKIT_PIXEL_BUFFER_TEXTURE(user_data);
   if (!tex || !tex->state) {
     g_object_unref(tex);
     return G_SOURCE_REMOVE;
@@ -244,7 +179,7 @@ static gboolean mark_frame_idle_cb(gpointer user_data) {
   {
     std::lock_guard<std::mutex> lock(tex->state->mutex);
     tex->state->frame_notification.consume();
-    if (!tex->state->destroyed && tex->state->has_pending_frame) {
+    if (!tex->state->destroyed && tex->state->frame_store.hasPendingFrame()) {
       should_mark = true;
       registrar = tex->state->registrar;
     }
@@ -263,7 +198,7 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
                               int height, int linesize, const char* pixel_format) {
   if (!userdata || !pixels || width <= 0 || height <= 0) return;
   
-  FfkitGlTexture* tex = FFKIT_GL_TEXTURE(userdata);
+  FfkitPixelBufferTexture* tex = FFKIT_PIXEL_BUFFER_TEXTURE(userdata);
   if (!tex || !tex->state) return;
   TextureState* state = tex->state;
 
@@ -274,22 +209,19 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
     if (state->destroyed) return;
 
     size_t expected_size = static_cast<size_t>(linesize) * static_cast<size_t>(height);
-    state->write_buf.assign(pixels, pixels + expected_size);
-    state->width = width;
-    state->height = height;
+    std::vector<uint8_t> frame(pixels, pixels + expected_size);
 
-    // Fix alpha channel for rgb0
+    // Fix alpha channel for rgb0 before publishing the frame.
     bool is_rgb0 = pixel_format && (strcmp(pixel_format, "rgb0") == 0);
     if (is_rgb0) {
-      uint8_t* buf = state->write_buf.data();
+      uint8_t* buf = frame.data();
       size_t pixel_count = static_cast<size_t>(linesize / 4) * static_cast<size_t>(height);
       for (size_t i = 0; i < pixel_count; ++i) {
         if (buf[i * 4 + 3] == 0) buf[i * 4 + 3] = 0xFF;
       }
     }
 
-    std::swap(state->write_buf, state->read_buf);
-    state->has_pending_frame = true;
+    state->frame_store.publish(frame.data(), frame.size(), width, height);
     schedule_mark = state->frame_notification.request();
   }
 
@@ -304,7 +236,7 @@ struct _FfmpegKitExtendedFlutterPlugin {
   GObject parent_instance;
   FlTextureRegistrar* texture_registrar;
   FlMethodChannel* channel;
-  FfkitGlTexture* texture;
+  FfkitPixelBufferTexture* texture;
 };
 
 G_DEFINE_TYPE(FfmpegKitExtendedFlutterPlugin, ffmpeg_kit_extended_flutter_plugin, g_object_get_type())
@@ -318,12 +250,10 @@ static void release_texture(FfmpegKitExtendedFlutterPlugin *self, int64_t textur
   {
     std::lock_guard<std::mutex> lock(self->texture->state->mutex);
     self->texture->state->destroyed = true;
-    self->texture->state->has_pending_frame = false;
-    self->texture->state->read_buf.clear();
-    self->texture->state->write_buf.clear();
-    self->texture->state->needs_gl_reset = true; // Defer GL cleanup to render thread
+    self->texture->state->frame_store.markDestroyed();
   }
-  // NOTE: Intentionally NOT unregistering from Flutter. Reuse same registration.
+  // Keep the registration and render bytes for reuse. FlPixelBufferTexture
+  // owns the engine-side GL name and handles its context-safe retirement.
 }
 
 static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethodCall* method_call) {
@@ -342,10 +272,7 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethod
     {
       std::lock_guard<std::mutex> lock(self->texture->state->mutex);
       self->texture->state->destroyed = false;
-      self->texture->state->has_pending_frame = false;
-      self->texture->state->read_buf.clear();
-      self->texture->state->write_buf.clear();
-      self->texture->state->needs_gl_reset = true; // Safe reset on next populate call
+      self->texture->state->frame_store.resetForReuse();
     }
 
     if (!g_ffplay_owner.install(self->texture, [self] {
@@ -353,6 +280,7 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethod
     })) {
       std::lock_guard<std::mutex> lock(self->texture->state->mutex);
       self->texture->state->destroyed = true;
+      self->texture->state->frame_store.markDestroyed();
       fl_method_call_respond_error(
           method_call, "FFPLAY_UNAVAILABLE",
           "FFplay frame callback API could not be registered", nullptr, nullptr);
@@ -366,7 +294,8 @@ static void handle_create_texture(FfmpegKitExtendedFlutterPlugin* self, FlMethod
   }
 
   // First time: Create & Register
-  FfkitGlTexture* tex = ffkit_gl_texture_new(self->texture_registrar);
+  FfkitPixelBufferTexture* tex =
+      ffkit_pixel_buffer_texture_new(self->texture_registrar);
   if (!fl_texture_registrar_register_texture(self->texture_registrar,
                                              FL_TEXTURE(tex))) {
     g_object_unref(tex);
@@ -439,7 +368,7 @@ static void method_call_cb(FlMethodChannel* channel, FlMethodCall* method_call, 
 static void ffmpeg_kit_extended_flutter_plugin_dispose(GObject* object) {
   auto* self = FFMPEG_KIT_EXTENDED_FLUTTER_PLUGIN(object);
   if (self->texture) {
-    FfkitGlTexture* texture = self->texture;
+    FfkitPixelBufferTexture* texture = self->texture;
     self->texture = nullptr;
 
     // Only the current process-global owner may unregister the callback.
@@ -457,15 +386,17 @@ static void ffmpeg_kit_extended_flutter_plugin_dispose(GObject* object) {
         [texture] {
           std::lock_guard<std::mutex> lock(texture->state->mutex);
           texture->state->destroyed = true;
-          texture->state->has_pending_frame = false;
-          texture->state->read_buf.clear();
-          texture->state->write_buf.clear();
+          texture->state->frame_store.markDestroyed();
         },
         [self, texture] {
           fl_texture_registrar_unregister_texture(self->texture_registrar,
                                                   FL_TEXTURE(texture));
         },
-        [texture] { g_object_unref(texture); });
+        [texture] {
+          std::lock_guard<std::mutex> lock(texture->state->mutex);
+          texture->state->frame_store.clearAfterUnregister();
+          g_object_unref(texture);
+        });
   }
   self->texture_registrar = nullptr;
   g_clear_object(&self->channel);
