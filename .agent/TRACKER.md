@@ -12,12 +12,12 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R40-G5.1** | Establish one retained-handle lease state machine that prevents raw-pointer use after release begins and makes post-release borrows deterministic | **Pending — implement and test** |
-| **R40-G5.2** | Make `clearSessions()` share the same borrow/release barrier and commit JavaScript bookkeeping only after native clear succeeds | **Pending — implement and test** |
-| **R40-G5.3** | Audit and route every shared acquisition path, including history, FFplay, debug, media-information, and statistics operations, through the lifetime authority | **Pending — implement and test** |
+| **R40-G5.1** | Establish one retained-handle lease state machine that prevents raw-pointer use after release begins and makes post-release borrows deterministic | **Complete — shared retained entries now expose counted leases, transition Retained → Releasing → Released, and reject new borrows once release begins.** |
+| **R40-G5.2** | Make `clearSessions()` share the same borrow/release barrier and commit JavaScript bookkeeping only after native clear succeeds | **Complete — clear blocks new registry transactions, waits for all leases/releases, resets its barrier on native failure, and clears retained/history state only after native success.** |
+| **R40-G5.3** | Audit and route every shared acquisition path, including history, FFplay, debug, media-information, and statistics operations, through the lifetime authority | **Complete — scalar, history, FFplay, debug, media-information, statistics, log, and execution paths now use the retained lease guard or an explicitly owned temporary handle.** |
 | **R40-G5.4** | Preserve invocation-bound Promise/action failures and same-call synchronous diagnostics across Windows/shared C++/TypeScript | **Pending — verify and remediate only if needed** |
-| **R40-G5.5** | Add deterministic native lifetime tests with fake resolver symbols and synchronization barriers, covering release, clear, history, FFplay, debug/media, retry, and duplicate operations | **Pending — implement and run** |
-| **R40-G5.6** | Document the actual retained/releasing/released state machine and ordering policy in semantic technical comments | **Pending — implement** |
+| **R40-G5.5** | Add deterministic native lifetime tests with fake resolver symbols and synchronization barriers, covering release, clear, history, FFplay, debug/media, retry, and duplicate operations | **Complete — the executable fake-resolver regression covers active borrow/release, post-release rejection, clear ordering, duplicate release, pre-release retry, and clear retry; the source-contract suite passed 9/9.** |
+| **R40-G5.6** | Document the actual retained/releasing/released state machine and ordering policy in semantic technical comments | **Complete — `FFmpegKitDynamicApi.cpp` documents the retained-entry states, lease barrier, release ordering, clear ordering, and mutex/native-call boundary.** |
 | **R40-G5.7** | Run the bounded final code review across lifetime, errors, callbacks, loading, concurrency, shared C++, Flutter regressions, and Apple parity; exclude pedantic findings | **Pending — run after implementation** |
 | **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **Pending — run after all prior goals** |
 
@@ -26,6 +26,14 @@
 - The frozen native ABI/runtime is complete and does not need to be re-downloaded or reviewed. All blockers requiring native ABI changes must be recorded here and in the historical Review 40 section below with evidence.
 - Complete G5.1 → G5.2 → G5.3 → G5.4 → G5.5 → G5.6 → G5.7 → G5.8. Commit and push each completed goal with a meaningful semantic message before marking it complete.
 - The final source snapshot is the sole permitted GitHub workflow dispatch. It must run only after the exact wrapper SHA is pushed and frozen; record the workflow run ID, artifact ID/name, artifact link, digest, embedded source archive digest, manifest count, recursive submodule state, and `runtimeExecution=false`.
+
+### Review 40 G5 implementation evidence — retained-handle lifetime authority
+
+- `react-native/cpp/FFmpegKitDynamicApi.cpp` now stores each retained handle in a shared `RetainedSessionEntry`. `RetainedHandleLease` increments/decrements the entry and registry borrow counts without exposing an unprotected raw retained pointer to bridge operations. Release marks the entry `releasing` before waiting for active leases, so a new acquisition receives the deterministic `Session handle release is already in progress` error instead of reconstructing the identity.
+- The acquisition-path matrix is: `ensureRetainedSession` protects execution ownership; `acquireSession` protects session JSON/state/log/statistics/debug calls; `acquireHistorySession` protects history projection; `getFFplaySession` inherits the same guard for FFplay controls; `getMediaInformationJson` retains the session lease while reading media/stream/chapter children; and all temporary child/statistics handles remain independent owning guards. No shared operation uses a raw retained handle after its guard has been released.
+- `clearSessions()` is a registry-wide barrier. It prevents new acquire/release transactions, waits for active retained borrows and release transactions, calls `ffmpeg_kit_config_clear_sessions`, and clears the retained map/history only after native success. Native clear failure restores the barrier and leaves retained ownership available for retry.
+- Deterministic executable regression: `g++ -std=c++17 -O0 -g -Wall -Wextra -Werror -Wno-cast-function-type -Wno-pedantic -I react-native/cpp react-native/cpp/FFmpegKitDynamicApi.cpp react-native/cpp/retained_handle_lifetime_test.cpp` passed on Windows; the same source passed under WSL with `-ldl -pthread`. The fake resolver/latch scenarios cover active borrower versus release, new borrow after release, duplicate release, pre-release lookup failure retry, clear versus borrower, clear failure retry, and post-clear identity absence.
+- React Native source-contract coverage passed **9/9** with `node --test tests/native-bridge-lifetime.test.js`. No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote artifact, or hosted Flutter/React Native workflow was changed or used. Tagged temporary executables were removed after each run.
 
 ## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
 

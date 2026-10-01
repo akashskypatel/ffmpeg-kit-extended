@@ -4,6 +4,10 @@ const test = require('node:test');
 
 const cppBridge = fs.readFileSync('cpp/FFmpegKitExtendedImpl.cpp', 'utf8');
 const dynamicApi = fs.readFileSync('cpp/FFmpegKitDynamicApi.cpp', 'utf8');
+const nativeLifetimeTest = fs.readFileSync(
+  'cpp/retained_handle_lifetime_test.cpp',
+  'utf8',
+);
 const registrationCoordinator = fs.readFileSync(
   'cpp/LogBridgeRegistrationCoordinator.h',
   'utf8',
@@ -136,6 +140,8 @@ test('native handle cleanup caches lifetime symbols and commits retained release
     'struct HandleGuard',
     'std::int64_t sessionIdOf',
   );
+  assert.match(guard, /RetainedHandleLease/);
+  assert.match(guard, /retainedLease/);
   assert.match(guard, /~HandleGuard\(\) noexcept/);
   assert.match(guard, /HandleGuard &operator=\(HandleGuard &&other\) noexcept/);
   assert.doesNotMatch(guard, /resolve</);
@@ -145,13 +151,33 @@ test('native handle cleanup caches lifetime symbols and commits retained release
     'void releaseRetainedSession',
     'std::string sessionType',
   );
-  assert.match(retainedRelease, /retainedSessionReleasesInProgress/);
-  assert.match(retainedRelease, /release\(handle\)/);
+  assert.match(retainedRelease, /entry->releasing/);
+  assert.match(retainedRelease, /activeRetainedReleases/);
+  assert.match(retainedRelease, /sessionHandlesCondition\.wait/);
+  assert.match(retainedRelease, /release\(entry->handle\)/);
   assert.match(retainedRelease, /retainedSessionHandles\.erase\(it\)/);
   assert.ok(
-    retainedRelease.indexOf('release(handle)') <
+    retainedRelease.indexOf('release(entry->handle)') <
       retainedRelease.indexOf('retainedSessionHandles.erase(it)'),
   );
+});
+
+test('native handle acquisition uses one borrow/release/clear lifetime authority', () => {
+  assert.match(dynamicApi, /struct RetainedSessionEntry/);
+  assert.match(dynamicApi, /activeBorrows/);
+  assert.match(dynamicApi, /activeRetainedBorrows/);
+  assert.match(dynamicApi, /clearSessionsInProgress/);
+  assert.match(dynamicApi, /Session handle release is already in progress/);
+  assert.match(dynamicApi, /HandleGuard\(RetainedHandleLease/);
+  assert.match(dynamicApi, /acquireHistorySession/);
+  assert.match(dynamicApi, /getFFplaySession/);
+  assert.match(dynamicApi, /getMediaInformationJson/);
+  assert.match(dynamicApi, /getStatisticsJson/);
+  assert.match(dynamicApi, /clearSessions\(\)[\s\S]*activeRetainedBorrows == 0/);
+  assert.match(dynamicApi, /clearSessions\(\)[\s\S]*activeRetainedReleases == 0/);
+  assert.match(nativeLifetimeTest, /a new borrow was admitted after release began/);
+  assert.match(nativeLifetimeTest, /clear crossed an active borrower/);
+  assert.match(nativeLifetimeTest, /duplicate release was admitted/);
 });
 
 test('native session history projects recorded identities without enumerating owning arrays', () => {

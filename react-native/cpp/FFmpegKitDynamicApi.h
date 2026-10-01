@@ -18,6 +18,8 @@ using DynamicSymbolResolverForTesting = void *(*)(const char *name);
 namespace testing {
 void setDynamicSymbolResolver(DynamicSymbolResolverForTesting resolver);
 void resetDynamicSymbolResolver();
+bool isRetainedSessionReleasing(std::int64_t sessionId);
+bool isSessionClearInProgress();
 } // namespace testing
 
 void initialize();
