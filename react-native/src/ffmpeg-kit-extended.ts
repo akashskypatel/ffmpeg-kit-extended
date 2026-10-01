@@ -112,15 +112,15 @@ export class FFmpegKitExtended {
   }
 
   /** Requests cancellation by native session ID. */
-  static cancelSession(sessionId: number): void {
+  static async cancelSession(sessionId: number): Promise<void> {
     this.requireInitialized();
-    NativeFFmpegKitExtended.cancelSession(sessionId);
+    await NativeFFmpegKitExtended.cancelSession(sessionId);
   }
 
   /** Clears queued work and requests cancellation of all active sessions. */
-  static cancelAllSessions(): void {
+  static async cancelAllSessions(): Promise<void> {
     this.requireInitialized();
-    SessionQueueManager.shared.cancelAll();
+    await SessionQueueManager.shared.cancelAll();
   }
 
   /** Returns all sessions retained in native history. */
@@ -210,18 +210,18 @@ export class FFmpegKitExtended {
   }
 
   /** Enables native log redirection used by per-session callbacks. */
-  static enableRedirection(): void {
-    NativeFFmpegKitExtended.enableRedirection();
+  static async enableRedirection(): Promise<void> {
+    await NativeFFmpegKitExtended.enableRedirection();
   }
 
   /** Disables native log redirection. */
-  static disableRedirection(): void {
-    NativeFFmpegKitExtended.disableRedirection();
+  static async disableRedirection(): Promise<void> {
+    await NativeFFmpegKitExtended.disableRedirection();
   }
 
   /** Sets the process-wide FFmpeg log level. */
-  static setLogLevel(level: LogLevel): void {
-    NativeFFmpegKitExtended.setLogLevel(level);
+  static async setLogLevel(level: LogLevel): Promise<void> {
+    await NativeFFmpegKitExtended.setLogLevel(level);
   }
 
   /** Returns the process-wide FFmpeg log level. */
@@ -230,16 +230,16 @@ export class FFmpegKitExtended {
   }
 
   /** Registers fonts for FFmpeg filters, with an optional family-to-file map. */
-  static setFontDirectory(path: string, mapping?: Record<string, string>): void {
-    NativeFFmpegKitExtended.setFontDirectory(
+  static async setFontDirectory(path: string, mapping?: Record<string, string>): Promise<void> {
+    await NativeFFmpegKitExtended.setFontDirectory(
       path,
       mapping ? JSON.stringify(mapping) : '',
     );
   }
 
   /** Selects a native audio output device by backend-provided name. */
-  static setAudioOutputDevice(deviceName: string): void {
-    NativeFFmpegKitExtended.setAudioOutputDevice(deviceName);
+  static async setAudioOutputDevice(deviceName: string): Promise<void> {
+    await NativeFFmpegKitExtended.setAudioOutputDevice(deviceName);
   }
 
   /** Lists native audio output devices in backend-defined text form. */
@@ -248,13 +248,13 @@ export class FFmpegKitExtended {
   }
 
   /** Sets a native environment variable for FFmpeg and linked libraries. */
-  static setEnvironmentVariable(name: string, value: string): void {
-    NativeFFmpegKitExtended.setEnvironmentVariable(name, value);
+  static async setEnvironmentVariable(name: string, value: string): Promise<void> {
+    await NativeFFmpegKitExtended.setEnvironmentVariable(name, value);
   }
 
   /** Configures the native runtime to ignore a supported signal. */
-  static ignoreSignal(signal: Signal): void {
-    NativeFFmpegKitExtended.ignoreSignal(signal);
+  static async ignoreSignal(signal: Signal): Promise<void> {
+    await NativeFFmpegKitExtended.ignoreSignal(signal);
   }
 
   /** Returns the bundled upstream FFmpeg version. */
@@ -348,8 +348,8 @@ export class FFmpegKitExtended {
   }
 
   /** Sets the number of sessions retained in native history. */
-  static setSessionHistorySize(size: number): void {
-    NativeFFmpegKitExtended.setSessionHistorySize(size);
+  static async setSessionHistorySize(size: number): Promise<void> {
+    await NativeFFmpegKitExtended.setSessionHistorySize(size);
   }
 
   /** Returns the native session-history capacity. */
@@ -364,8 +364,8 @@ export class FFmpegKitExtended {
    * cancel/invalidate active session handles, and Session getters for cleared
    * IDs may subsequently fail.
    */
-  static clearSessions(): void {
-    NativeFFmpegKitExtended.clearSessions();
+  static async clearSessions(): Promise<void> {
+    await NativeFFmpegKitExtended.clearSessions();
   }
 
   /** Creates a native FFmpeg FIFO/pipe and returns its path when supported. */
@@ -374,8 +374,8 @@ export class FFmpegKitExtended {
   }
 
   /** Closes/removes a pipe created by `registerNewFFmpegPipe()`. */
-  static closeFFmpegPipe(path: string): void {
-    NativeFFmpegKitExtended.closeFFmpegPipe(path);
+  static async closeFFmpegPipe(path: string): Promise<void> {
+    await NativeFFmpegKitExtended.closeFFmpegPipe(path);
   }
 
   /** Returns native callback messages still in transit for a session. */

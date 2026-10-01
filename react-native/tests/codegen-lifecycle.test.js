@@ -125,8 +125,8 @@ test('structured log bridge keeps native and Web event ownership explicit', () =
   const session = read('src/session.ts');
 
   assert.match(nativeSpec, /readonly onLogEvent: EventEmitter<LogEvent>/);
-  assert.match(nativeSpec, /installLogBridge\(\): void/);
-  assert.match(nativeSpec, /uninstallLogBridge\(\): void/);
+  assert.match(nativeSpec, /installLogBridge\(\): Promise<void>/);
+  assert.match(nativeSpec, /uninstallLogBridge\(\): Promise<void>/);
   assert.match(nativeSpec, /getLogsCount\(sessionId: Double\): Double/);
   assert.match(nativeApi, /std::int64_t sessionId/);
   assert.match(nativeApi, /std::int64_t sequence/);

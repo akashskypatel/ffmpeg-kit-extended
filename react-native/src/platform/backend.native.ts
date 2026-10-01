@@ -7,7 +7,18 @@ const abandonedSessionIds = new Set<number>();
 
 const cancellationIntentSessionIds = new Set<number>();
 
-function invokeNative<TResult>(method: string, args: readonly unknown[]): TResult {
+const asyncNativeMethods = new Set([
+  'executeSessionAsync', 'cancelSession', 'installLogBridge',
+  'uninstallLogBridge', 'releaseSessionHandle', 'abandonCreatedSession',
+  'ffplayStart', 'ffplayPause', 'ffplayResume', 'ffplayStop',
+  'ffplaySeek', 'ffplaySetPosition', 'ffplaySetVolume',
+  'enableRedirection', 'disableRedirection', 'setLogLevel',
+  'setFontDirectory', 'setEnvironmentVariable', 'ignoreSignal',
+  'setAudioOutputDevice', 'setSessionHistorySize', 'clearSessions',
+  'closeFFmpegPipe', 'enableDebugLog', 'disableDebugLog', 'clearDebugLog',
+]);
+
+function invokeSynchronousNative<TResult>(method: string, args: readonly unknown[]): TResult {
   const candidate = nativeModule[method];
   if (typeof candidate !== 'function') {
     throw new Error(`Native FFmpegKit method ${method} is unavailable.`);
@@ -18,9 +29,18 @@ function invokeNative<TResult>(method: string, args: readonly unknown[]): TResul
     NativeFFmpegKitExtended,
     args as unknown[],
   );
-  const message = NativeFFmpegKitExtended.consumeLastError();
+  const message = NativeFFmpegKitExtended.consumeSynchronousError();
   if (message) throw new Error(message);
   return result;
+}
+
+async function invokeAsyncNative(method: string, args: readonly unknown[]): Promise<void> {
+  const candidate = nativeModule[method];
+  if (typeof candidate !== 'function') {
+    throw new Error(`Native FFmpegKit method ${method} is unavailable.`);
+  }
+  await Reflect.apply(candidate as (...values: unknown[]) => unknown,
+    NativeFFmpegKitExtended, args as unknown[]);
 }
 
 function reconcileAbandonedSessionId(sessionId: number): void {
@@ -76,7 +96,7 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
     get(target, property, receiver) {
       if (property === 'initialize') {
         return async () => {
-          invokeNative<void>('initialize', []);
+          await invokeAsyncNative('initialize', []);
         };
       }
       if (property === 'isDirectLogBridgeActive') {
@@ -99,7 +119,7 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
       }
       if (property === 'getMediaInformationData') {
         return (sessionId: number) => {
-          const json = invokeNative<string>('getMediaInformationJson', [sessionId]);
+          const json = invokeSynchronousNative<string>('getMediaInformationJson', [sessionId]);
           return json
             ? (JSON.parse(json) as ReturnType<FFmpegKitBackend['getMediaInformationData']>)
             : undefined;
@@ -107,16 +127,16 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
       }
       if (property === 'getSessionState') {
         return (sessionId: number) =>
-          invokeNative<number>('getSessionState', [sessionId]);
+          invokeSynchronousNative<number>('getSessionState', [sessionId]);
       }
       if (property === 'isSessionAbandoned') {
         return (sessionId: number) => abandonedSessionIds.has(sessionId);
       }
       if (property === 'abandonCreatedSession') {
-        return (sessionId: number) => {
+        return async (sessionId: number) => {
           const isNewCandidate = !abandonedSessionIds.has(sessionId);
           abandonedSessionIds.add(sessionId);
-          invokeNative<void>('abandonCreatedSession', [sessionId]);
+          await invokeAsyncNative('abandonCreatedSession', [sessionId]);
           if (isNewCandidate) reconcileAbandonedSessionId(sessionId);
         };
       }
@@ -133,21 +153,21 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
         return (sessionId: number) =>
           abandonedSessionIds.has(sessionId)
             ? ''
-            : invokeNative<string>('getSessionJson', [sessionId]);
+            : invokeSynchronousNative<string>('getSessionJson', [sessionId]);
       }
       if (property === 'getSessionsJson') {
         return (kind: string) =>
-          filterAbandonedHistory(invokeNative<string>('getSessionsJson', [kind]));
+          filterAbandonedHistory(invokeSynchronousNative<string>('getSessionsJson', [kind]));
       }
       if (property === 'getLastSessionJson') {
         return (kind: string) =>
           filterAbandonedHistory(
-            invokeNative<string>('getLastSessionJson', [kind]),
+            invokeSynchronousNative<string>('getLastSessionJson', [kind]),
           );
       }
       if (property === 'clearSessions') {
-        return () => {
-          invokeNative<void>('clearSessions', []);
+        return async () => {
+          await invokeAsyncNative('clearSessions', []);
           abandonedSessionIds.clear();
           cancellationIntentSessionIds.clear();
         };
@@ -157,8 +177,11 @@ export const nativeBackend: FFmpegKitBackend = new Proxy(
       if (property === 'onLogEvent' || typeof nativeValue !== 'function') {
         return nativeValue;
       }
-      return (...args: unknown[]) =>
-        invokeNative<unknown>(String(property), args);
+      return (...args: unknown[]) => {
+        return asyncNativeMethods.has(String(property))
+          ? invokeAsyncNative(String(property), args)
+          : invokeSynchronousNative<unknown>(String(property), args);
+      };
     },
   },
 );

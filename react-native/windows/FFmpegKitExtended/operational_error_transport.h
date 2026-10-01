@@ -5,33 +5,31 @@
 
 namespace winrt::FFmpegKitExtended {
 
-// RNW requires every native module method to be noexcept, including methods
-// whose shared adapter can report ordinary runtime, argument, or session
-// failures. Keep one error per calling thread so the JS proxy can consume it
-// immediately after the native method returns.
-inline thread_local std::string lastOperationalError;
+// Synchronous RNW getters still need a same-call scalar-result diagnostic
+// because their generated contract cannot carry a Promise. Asynchronous
+// actions never write this channel; they reject their invocation-bound Promise
+// directly.
+inline thread_local std::string synchronousOperationalError;
 
-inline void clearOperationalError() noexcept {
-  lastOperationalError.clear();
+inline void clearSynchronousError() noexcept {
+  synchronousOperationalError.clear();
 }
 
-inline void recordOperationalError(const char *method,
+inline void recordSynchronousError(const char *method,
                                    const char *message) noexcept {
   try {
-    lastOperationalError = "FFmpegKitExtended Windows native call failed in ";
-    lastOperationalError += method ? method : "unknown method";
-    lastOperationalError += ": ";
-    lastOperationalError += message ? message : "unknown native error";
+    synchronousOperationalError = "FFmpegKitExtended Windows synchronous call failed in ";
+    synchronousOperationalError += method ? method : "unknown method";
+    synchronousOperationalError += ": ";
+    synchronousOperationalError += message ? message : "unknown native error";
   } catch (...) {
-    // Error reporting must never become a second exception at the noexcept
-    // boundary. An empty result still leaves the host process alive.
-    lastOperationalError.clear();
+    synchronousOperationalError.clear();
   }
 }
 
-inline std::string consumeOperationalError() noexcept {
-  std::string result = std::move(lastOperationalError);
-  lastOperationalError.clear();
+inline std::string consumeSynchronousErrorValue() noexcept {
+  std::string result = std::move(synchronousOperationalError);
+  synchronousOperationalError.clear();
   return result;
 }
 

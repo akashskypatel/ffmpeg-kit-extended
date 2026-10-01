@@ -36,6 +36,7 @@ REACT_TURBO_MODULE(FFmpegKitExtended)
 struct FFmpegKitExtended {
   using ModuleSpec = FFmpegKitExtendedCodegen::FFmpegKitExtendedSpec;
   using LogEvent = FFmpegKitExtendedCodegen::FFmpegKitExtendedSpec_LogEvent;
+  using Completion = winrt::Microsoft::ReactNative::ReactPromise<void>;
 
   ~FFmpegKitExtended() noexcept;
 
@@ -46,12 +47,12 @@ struct FFmpegKitExtended {
 
   // Native bundle lifecycle and diagnostics.
   REACT_METHOD(initialize)
-  void initialize() noexcept;
+  void initialize(Completion &&result) noexcept;
 
-  // Recoverable adapter failures are transported out-of-band because RNW
-  // requires this native boundary to remain noexcept.
-  REACT_SYNC_METHOD(consumeLastError)
-  std::string consumeLastError() noexcept;
+  // Synchronous scalar results retain a same-call diagnostic channel. Actions
+  // use the invocation-bound Completion parameter below instead.
+  REACT_SYNC_METHOD(consumeSynchronousError)
+  std::string consumeSynchronousError() noexcept;
 
   REACT_SYNC_METHOD(getBuildStamp)
   std::string getBuildStamp() noexcept;
@@ -79,16 +80,17 @@ struct FFmpegKitExtended {
   double createMediaInformationSessionFromPath(std::string path) noexcept;
 
   REACT_METHOD(executeSessionAsync)
-  void executeSessionAsync(double sessionId, double timeoutMs) noexcept;
+  void executeSessionAsync(double sessionId, double timeoutMs,
+                           Completion &&result) noexcept;
 
   REACT_METHOD(cancelSession)
-  void cancelSession(double sessionId) noexcept;
+  void cancelSession(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(installLogBridge)
-  void installLogBridge() noexcept;
+  void installLogBridge(Completion &&result) noexcept;
 
   REACT_METHOD(uninstallLogBridge)
-  void uninstallLogBridge() noexcept;
+  void uninstallLogBridge(Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(getSessionJson)
   std::string getSessionJson(double sessionId) noexcept;
@@ -100,10 +102,10 @@ struct FFmpegKitExtended {
   double getLogsCount(double sessionId) noexcept;
 
   REACT_METHOD(releaseSessionHandle)
-  void releaseSessionHandle(double sessionId) noexcept;
+  void releaseSessionHandle(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(abandonCreatedSession)
-  void abandonCreatedSession(double sessionId) noexcept;
+  void abandonCreatedSession(double sessionId, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(getSessionsJson)
   std::string getSessionsJson(std::string kind) noexcept;
@@ -122,25 +124,26 @@ struct FFmpegKitExtended {
 
   // Session-scoped playback controls; position/duration values are seconds.
   REACT_METHOD(ffplayStart)
-  void ffplayStart(double sessionId) noexcept;
+  void ffplayStart(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(ffplayPause)
-  void ffplayPause(double sessionId) noexcept;
+  void ffplayPause(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(ffplayResume)
-  void ffplayResume(double sessionId) noexcept;
+  void ffplayResume(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(ffplayStop)
-  void ffplayStop(double sessionId) noexcept;
+  void ffplayStop(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(ffplaySeek)
-  void ffplaySeek(double sessionId, double seconds) noexcept;
+  void ffplaySeek(double sessionId, double seconds, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(ffplayGetPosition)
   double ffplayGetPosition(double sessionId) noexcept;
 
   REACT_METHOD(ffplaySetPosition)
-  void ffplaySetPosition(double sessionId, double seconds) noexcept;
+  void ffplaySetPosition(double sessionId, double seconds,
+                         Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(ffplayGetDuration)
   double ffplayGetDuration(double sessionId) noexcept;
@@ -158,7 +161,8 @@ struct FFmpegKitExtended {
   bool ffplayIsPaused(double sessionId) noexcept;
 
   REACT_METHOD(ffplaySetVolume)
-  void ffplaySetVolume(double sessionId, double volume) noexcept;
+  void ffplaySetVolume(double sessionId, double volume,
+                       Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(ffplayGetVolume)
   double ffplayGetVolume(double sessionId) noexcept;
@@ -168,13 +172,13 @@ struct FFmpegKitExtended {
 
   // Process-wide logging, fonts, environment, signals, and audio output.
   REACT_METHOD(enableRedirection)
-  void enableRedirection() noexcept;
+  void enableRedirection(Completion &&result) noexcept;
 
   REACT_METHOD(disableRedirection)
-  void disableRedirection() noexcept;
+  void disableRedirection(Completion &&result) noexcept;
 
   REACT_METHOD(setLogLevel)
-  void setLogLevel(std::int32_t level) noexcept;
+  void setLogLevel(std::int32_t level, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(getLogLevel)
   std::int32_t getLogLevel() noexcept;
@@ -183,16 +187,18 @@ struct FFmpegKitExtended {
   std::string logLevelToString(std::int32_t level) noexcept;
 
   REACT_METHOD(setFontDirectory)
-  void setFontDirectory(std::string path, std::string mappingJson) noexcept;
+  void setFontDirectory(std::string path, std::string mappingJson,
+                        Completion &&result) noexcept;
 
   REACT_METHOD(setEnvironmentVariable)
-  void setEnvironmentVariable(std::string name, std::string value) noexcept;
+  void setEnvironmentVariable(std::string name, std::string value,
+                              Completion &&result) noexcept;
 
   REACT_METHOD(ignoreSignal)
-  void ignoreSignal(std::int32_t signal) noexcept;
+  void ignoreSignal(std::int32_t signal, Completion &&result) noexcept;
 
   REACT_METHOD(setAudioOutputDevice)
-  void setAudioOutputDevice(std::string deviceName) noexcept;
+  void setAudioOutputDevice(std::string deviceName, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(listAudioOutputDevices)
   std::string listAudioOutputDevices() noexcept;
@@ -254,28 +260,28 @@ struct FFmpegKitExtended {
 
   // Session history, pipes, callback diagnostics, and debug logs.
   REACT_METHOD(setSessionHistorySize)
-  void setSessionHistorySize(double size) noexcept;
+  void setSessionHistorySize(double size, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(getSessionHistorySize)
   double getSessionHistorySize() noexcept;
 
   REACT_METHOD(clearSessions)
-  void clearSessions() noexcept;
+  void clearSessions(Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(registerNewFFmpegPipe)
   std::string registerNewFFmpegPipe() noexcept;
 
   REACT_METHOD(closeFFmpegPipe)
-  void closeFFmpegPipe(std::string path) noexcept;
+  void closeFFmpegPipe(std::string path, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(messagesInTransmit)
   double messagesInTransmit(double sessionId) noexcept;
 
   REACT_METHOD(enableDebugLog)
-  void enableDebugLog(double sessionId) noexcept;
+  void enableDebugLog(double sessionId, Completion &&result) noexcept;
 
   REACT_METHOD(disableDebugLog)
-  void disableDebugLog(double sessionId) noexcept;
+  void disableDebugLog(double sessionId, Completion &&result) noexcept;
 
   REACT_SYNC_METHOD(isDebugLogEnabled)
   bool isDebugLogEnabled(double sessionId) noexcept;
@@ -284,7 +290,7 @@ struct FFmpegKitExtended {
   std::string getDebugLog(double sessionId) noexcept;
 
   REACT_METHOD(clearDebugLog)
-  void clearDebugLog(double sessionId) noexcept;
+  void clearDebugLog(double sessionId, Completion &&result) noexcept;
 
  private:
   // Kept alive after unregistering because the frozen native callback may be

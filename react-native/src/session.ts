@@ -38,7 +38,7 @@ type MonitorOptions<T extends Session> = {
     | ((statistics: Statistics, session: T) => void)
     | undefined;
   pollIntervalMs?: number;
-  start?: () => void;
+  start?: () => void | Promise<void>;
 };
 
 /**
@@ -161,35 +161,35 @@ export abstract class Session {
    * does not erase the recorded request, so an executing session can still
    * deliver it when Running is observed again.
    */
-  cancel(): void {
+  async cancel(): Promise<void> {
     if (this.cancelled && this.nativeCancellationDispatched) return;
 
     this.cancelled = true;
     NativeFFmpegKitExtended.recordCancellationIntent?.(this.sessionId);
 
-    if (SessionQueueManager.shared.cancelQueued(this)) {
+    if (await SessionQueueManager.shared.cancelQueued(this)) {
       return;
     }
     const state = this.getState();
     if (state === SessionState.Created) {
-      this.abandonCreatedSession();
+      await this.abandonCreatedSession();
       return;
     }
     if (state === SessionState.Running) {
-      this.dispatchNativeCancellation();
+      await this.dispatchNativeCancellation();
     } else if (state === SessionState.Completed || state === SessionState.Failed) {
       NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
     }
   }
 
   /** Enables additional native debug-log capture for this session. */
-  enableDebugLog(): void {
-    NativeFFmpegKitExtended.enableDebugLog(this.sessionId);
+  async enableDebugLog(): Promise<void> {
+    await NativeFFmpegKitExtended.enableDebugLog(this.sessionId);
   }
 
   /** Disables additional native debug-log capture for this session. */
-  disableDebugLog(): void {
-    NativeFFmpegKitExtended.disableDebugLog(this.sessionId);
+  async disableDebugLog(): Promise<void> {
+    await NativeFFmpegKitExtended.disableDebugLog(this.sessionId);
   }
 
   /** Whether additional debug-log capture is enabled for this session. */
@@ -203,8 +203,8 @@ export abstract class Session {
   }
 
   /** Clears the session-specific native debug log buffer. */
-  clearDebugLog(): void {
-    NativeFFmpegKitExtended.clearDebugLog(this.sessionId);
+  async clearDebugLog(): Promise<void> {
+    await NativeFFmpegKitExtended.clearDebugLog(this.sessionId);
   }
 
   /** Type guard for FFmpeg processing sessions. */
@@ -235,15 +235,36 @@ export abstract class Session {
   }
 
   /** Starts native execution and releases the owning handle if start fails. */
-  protected startNativeExecution(timeoutMs: number): void {
+  protected startNativeExecution(timeoutMs: number): void | Promise<void> {
     try {
       this.prepareForExecution();
-      NativeFFmpegKitExtended.executeSessionAsync(this.sessionId, timeoutMs);
+      const completion = NativeFFmpegKitExtended.executeSessionAsync(
+        this.sessionId,
+        timeoutMs,
+      );
+      if (completion instanceof Promise) {
+        return completion.catch(async error => {
+          try {
+            await this.releaseOwnedHandle();
+          } catch {
+            // Preserve the native start failure as the primary error.
+          }
+          throw error;
+        });
+      }
+      return;
     } catch (error) {
+      let release: void | Promise<void>;
       try {
-        this.releaseOwnedHandle();
+        release = this.releaseOwnedHandle();
       } catch {
-        // Preserve the native start failure as the primary error.
+        throw error;
+      }
+      if (release instanceof Promise) {
+        return release.then(
+          () => Promise.reject(error),
+          () => Promise.reject(error),
+        );
       }
       throw error;
     }
@@ -273,9 +294,14 @@ export abstract class Session {
   }
 
   /** Forwards cancellation and records successful native dispatch exactly once. */
-  private dispatchNativeCancellation(): void {
+  private dispatchNativeCancellation(): void | Promise<void> {
     if (this.nativeCancellationDispatched) return;
-    NativeFFmpegKitExtended.cancelSession(this.sessionId);
+    const completion = NativeFFmpegKitExtended.cancelSession(this.sessionId);
+    if (completion instanceof Promise) {
+      return completion.then(() => {
+        this.nativeCancellationDispatched = true;
+      });
+    }
     this.nativeCancellationDispatched = true;
   }
 
@@ -295,15 +321,17 @@ export abstract class Session {
     let primaryErrorSet = false;
     let primaryError: unknown;
     try {
-      this.acquireCallbackDemand('completion');
-      this.refreshCallbackDemand();
+      const completionDemand = this.acquireCallbackDemand('completion');
+      if (completionDemand instanceof Promise) await completionDemand;
+      const callbackDemand = this.refreshCallbackDemand();
+      if (callbackDemand instanceof Promise) await callbackDemand;
       result = await operation();
     } catch (error) {
       primaryErrorSet = true;
       primaryError = error;
     }
 
-    const cleanupError = this.releaseAllCallbackDemand();
+    const cleanupError = await this.releaseAllCallbackDemand();
     this.callbackDemandActive = false;
     this.callbackDemandProviders = undefined;
 
@@ -313,32 +341,45 @@ export abstract class Session {
   }
 
   /** Reconciles optional leases with the currently visible callback sinks. */
-  protected refreshCallbackDemand(): void {
+  protected refreshCallbackDemand(): void | Promise<void> {
     if (!this.callbackDemandActive || !this.callbackDemandProviders) return;
-    this.syncCallbackDemand('log', this.callbackDemandProviders.log());
-    this.syncCallbackDemand(
+    const logDemand = this.syncCallbackDemand('log', this.callbackDemandProviders.log());
+    if (logDemand instanceof Promise) {
+      return logDemand.then(() => this.syncCallbackDemand(
+        'statistics',
+        this.callbackDemandProviders?.statistics?.() ?? false,
+      )).then(() => undefined);
+    }
+    const statisticsDemand = this.syncCallbackDemand(
       'statistics',
       this.callbackDemandProviders.statistics?.() ?? false,
     );
+    return statisticsDemand;
   }
 
-  private syncCallbackDemand(kind: 'log' | 'statistics', needed: boolean): void {
+  private syncCallbackDemand(kind: 'log' | 'statistics', needed: boolean): void | Promise<void> {
     const existing = this.callbackDemandLeases.get(kind);
     if (needed) {
-      if (!existing) this.acquireCallbackDemand(kind);
+      if (!existing) return this.acquireCallbackDemand(kind);
       return;
     }
     if (!existing) return;
     this.callbackDemandLeases.delete(kind);
-    existing.release();
+    return existing.release();
   }
 
-  private acquireCallbackDemand(kind: CallbackDemandKind): void {
+  private acquireCallbackDemand(kind: CallbackDemandKind): void | Promise<void> {
     if (this.callbackDemandLeases.has(kind)) return;
-    this.callbackDemandLeases.set(
+    const acquired = callbackDemandAuthority.acquire(
       kind,
-      callbackDemandAuthority.acquire(kind, this.callbackDemandHooks(kind)),
+      this.callbackDemandHooks(kind),
     );
+    if (acquired instanceof Promise) {
+      return acquired.then(lease => {
+        this.callbackDemandLeases.set(kind, lease);
+      });
+    }
+    this.callbackDemandLeases.set(kind, acquired);
   }
 
   private callbackDemandHooks(kind: CallbackDemandKind): CallbackDemandHooks {
@@ -361,14 +402,14 @@ export abstract class Session {
     }
   }
 
-  private releaseAllCallbackDemand(): unknown {
+  private async releaseAllCallbackDemand(): Promise<unknown> {
     let firstError: unknown;
     for (const kind of [...this.callbackDemandLeases.keys()].reverse()) {
       const lease = this.callbackDemandLeases.get(kind);
       this.callbackDemandLeases.delete(kind);
       if (!lease) continue;
       try {
-        lease.release();
+        await lease.release();
       } catch (error) {
         if (firstError === undefined) firstError = error;
       }
@@ -501,7 +542,8 @@ export abstract class Session {
     }
 
     try {
-      options.start?.();
+      const start = options.start?.();
+      if (start instanceof Promise) await start;
     } catch (error) {
       try {
         removeLogEventSubscription();
@@ -517,7 +559,8 @@ export abstract class Session {
     for (;;) {
       if (!monitorFailed) {
         try {
-          this.refreshCallbackDemand();
+          const callbackDemand = this.refreshCallbackDemand();
+          if (callbackDemand instanceof Promise) await callbackDemand;
           const logCallback = options.getLogCallback();
           if (logCallback && !directLogEvents) {
             const logs = parseJsonArray<Log>(
@@ -562,7 +605,7 @@ export abstract class Session {
           // Preserve the state-read failure as the primary error.
         }
         try {
-          this.releaseOwnedHandle();
+          await this.releaseOwnedHandle();
         } catch {
           // Preserve the state-read failure as the primary error.
         }
@@ -574,7 +617,7 @@ export abstract class Session {
         !this.nativeCancellationDispatched
       ) {
         try {
-          this.dispatchNativeCancellation();
+          await this.dispatchNativeCancellation();
         } catch (error) {
           monitorFailed = true;
           recordError(error);
@@ -588,7 +631,8 @@ export abstract class Session {
         try {
           if (!monitorFailed) {
             try {
-              this.refreshCallbackDemand();
+              const callbackDemand = this.refreshCallbackDemand();
+              if (callbackDemand instanceof Promise) await callbackDemand;
               const logCallback = options.getLogCallback();
               if (directLogEvents) {
                 reconcileDirectLogEvents();
@@ -655,7 +699,7 @@ export abstract class Session {
           // alive for the whole execution, then release it after every
           // terminal-state finalization exit.
           try {
-            this.releaseOwnedHandle();
+            await this.releaseOwnedHandle();
           } catch (error) {
             releaseErrorSet = true;
             releaseError = error;
@@ -671,29 +715,39 @@ export abstract class Session {
   }
 
   /** Releases this session's owning native handle at most once. */
-  protected releaseOwnedHandle(): void {
+  protected releaseOwnedHandle(): void | Promise<void> {
     if (this.handleReleased) return;
-    NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
+    const completion = NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
+    if (completion instanceof Promise) {
+      return completion.then(() => {
+        this.handleReleased = true;
+      });
+    }
     this.handleReleased = true;
   }
 
   /** Removes history for an explicit pre-execution discard without releasing a handle. */
-  protected abandonCreatedSession(): void {
+  protected abandonCreatedSession(): void | Promise<void> {
     if (this.createdSessionAbandoned) return;
-    NativeFFmpegKitExtended.abandonCreatedSession(this.sessionId);
+    const completion = NativeFFmpegKitExtended.abandonCreatedSession(this.sessionId);
+    if (completion instanceof Promise) {
+      return completion.then(() => {
+        this.createdSessionAbandoned = true;
+      });
+    }
     this.createdSessionAbandoned = true;
   }
 
   /** Tombstones and releases a retained handle when queued work is discarded. */
-  protected discardBeforeExecution(): void {
+  protected async discardBeforeExecution(): Promise<void> {
     let firstError: unknown;
     try {
-      this.abandonCreatedSession();
+      await this.abandonCreatedSession();
     } catch (error) {
       firstError = error;
     }
     try {
-      this.releaseOwnedHandle();
+      await this.releaseOwnedHandle();
     } catch (error) {
       if (firstError === undefined) firstError = error;
     }
@@ -749,29 +803,29 @@ export class FFmpegSession extends Session {
   }
 
   /** Sets the default callback for newly buffered log entries. */
-  setLogCallback(callback?: (log: Log, session: FFmpegSession) => void): void {
+  async setLogCallback(callback?: (log: Log, session: FFmpegSession) => void): Promise<void> {
     this.logCallback = callback;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
-  removeLogCallback(): void {
+  async removeLogCallback(): Promise<void> {
     this.logCallback = undefined;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Sets the default callback for FFmpeg progress/statistics updates. */
-  setStatisticsCallback(
+  async setStatisticsCallback(
     callback?: (statistics: Statistics, session: FFmpegSession) => void,
-  ): void {
+  ): Promise<void> {
     this.statisticsCallback = callback;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Removes the stored statistics callback. */
-  removeStatisticsCallback(): void {
+  async removeStatisticsCallback(): Promise<void> {
     this.statisticsCallback = undefined;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /**
@@ -825,15 +879,15 @@ export class FFprobeSession extends Session {
   }
 
   /** Sets the default log callback. */
-  setLogCallback(callback?: (log: Log, session: FFprobeSession) => void): void {
+  async setLogCallback(callback?: (log: Log, session: FFprobeSession) => void): Promise<void> {
     this.logCallback = callback;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
-  removeLogCallback(): void {
+  async removeLogCallback(): Promise<void> {
     this.logCallback = undefined;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /**
@@ -888,17 +942,17 @@ export class MediaInformationSession extends Session {
   }
 
   /** Sets the default log callback. */
-  setLogCallback(
+  async setLogCallback(
     callback?: (log: Log, session: MediaInformationSession) => void,
-  ): void {
+  ): Promise<void> {
     this.logCallback = callback;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
-  removeLogCallback(): void {
+  async removeLogCallback(): Promise<void> {
     this.logCallback = undefined;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Sets the native probe timeout in milliseconds before execution. */
@@ -971,15 +1025,15 @@ export class FFplaySession extends Session {
   }
 
   /** Sets the default playback log callback. */
-  setLogCallback(callback?: (log: Log, session: FFplaySession) => void): void {
+  async setLogCallback(callback?: (log: Log, session: FFplaySession) => void): Promise<void> {
     this.logCallback = callback;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Removes the stored log callback. */
-  removeLogCallback(): void {
+  async removeLogCallback(): Promise<void> {
     this.logCallback = undefined;
-    this.refreshCallbackDemand();
+    await this.refreshCallbackDemand();
   }
 
   /** Sets the native playback timeout in milliseconds before execution. */
@@ -1012,28 +1066,28 @@ export class FFplaySession extends Session {
   }
 
   /** Starts native playback for this session. */
-  start(): void {
-    NativeFFmpegKitExtended.ffplayStart(this.sessionId);
+  async start(): Promise<void> {
+    await NativeFFmpegKitExtended.ffplayStart(this.sessionId);
   }
 
   /** Pauses playback while retaining the current position. */
-  pause(): void {
-    NativeFFmpegKitExtended.ffplayPause(this.sessionId);
+  async pause(): Promise<void> {
+    await NativeFFmpegKitExtended.ffplayPause(this.sessionId);
   }
 
   /** Resumes a paused session. */
-  resume(): void {
-    NativeFFmpegKitExtended.ffplayResume(this.sessionId);
+  async resume(): Promise<void> {
+    await NativeFFmpegKitExtended.ffplayResume(this.sessionId);
   }
 
   /** Stops playback and drives the session toward completion. */
-  stop(): void {
-    NativeFFmpegKitExtended.ffplayStop(this.sessionId);
+  async stop(): Promise<void> {
+    await NativeFFmpegKitExtended.ffplayStop(this.sessionId);
   }
 
   /** Seeks relative/according to native FFplay semantics to seconds. */
-  seek(seconds: number): void {
-    NativeFFmpegKitExtended.ffplaySeek(this.sessionId, seconds);
+  async seek(seconds: number): Promise<void> {
+    await NativeFFmpegKitExtended.ffplaySeek(this.sessionId, seconds);
   }
 
   /** Returns the current playback position in seconds. */
@@ -1042,8 +1096,8 @@ export class FFplaySession extends Session {
   }
 
   /** Sets the playback position in seconds. */
-  setPosition(seconds: number): void {
-    NativeFFmpegKitExtended.ffplaySetPosition(this.sessionId, seconds);
+  async setPosition(seconds: number): Promise<void> {
+    await NativeFFmpegKitExtended.ffplaySetPosition(this.sessionId, seconds);
   }
 
   /** Returns the detected media duration in seconds. */
@@ -1072,10 +1126,10 @@ export class FFplaySession extends Session {
   }
 
   /** Sets volume; values are clamped to the inclusive `0..1` range. */
-  setVolume(volume: number): void {
+  async setVolume(volume: number): Promise<void> {
     const clamped = Math.max(0, Math.min(1, volume));
     this.cachedVolume = clamped;
-    NativeFFmpegKitExtended.ffplaySetVolume(this.sessionId, clamped);
+    await NativeFFmpegKitExtended.ffplaySetVolume(this.sessionId, clamped);
   }
 
   /** Returns normalized volume, using the last set value if native state is unavailable. */

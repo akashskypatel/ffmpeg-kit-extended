@@ -21,6 +21,7 @@ const dispatchSource = fs.readFileSync(
 test('Windows operational dispatch does not use blanket process termination', () => {
   assert.doesNotMatch(windowsSource, /RaiseFailFastException/);
   assert.doesNotMatch(windowsSource, /std::terminate\s*\(/);
-  assert.match(dispatchSource, /recordOperationalError\(method, error\.what\(\)\)/);
+  assert.match(dispatchSource, /recordSynchronousError\(method, error\.what\(\)\)/);
+  assert.match(dispatchSource, /invokeWithCompletion/);
   assert.match(dispatchSource, /return Result\{\};/);
 });

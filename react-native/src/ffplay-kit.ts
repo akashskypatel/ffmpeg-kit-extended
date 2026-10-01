@@ -81,8 +81,8 @@ export class FFplayKit {
   }
 
   /** Requests cancellation of a created, queued, or running playback session. */
-  static cancel(session: FFplaySession): void {
-    session.cancel();
+  static cancel(session: FFplaySession): Promise<void> {
+    return session.cancel();
   }
 
   /**

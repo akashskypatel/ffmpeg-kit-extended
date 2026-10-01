@@ -32,12 +32,12 @@ function section(source, startMarker, endMarker) {
 test('C++ callback bridge reuses one active state across reinstallations', () => {
   const install = section(
     cppBridge,
-    'void FFmpegKitExtendedImpl::installLogBridge',
-    'void FFmpegKitExtendedImpl::uninstallLogBridge',
+    'FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::installLogBridge',
+    'FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::uninstallLogBridge',
   );
   const uninstall = section(
     cppBridge,
-    'void FFmpegKitExtendedImpl::uninstallLogBridge',
+    'FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::uninstallLogBridge',
     'std::string FFmpegKitExtendedImpl::getSessionJson',
   );
 
@@ -56,7 +56,7 @@ test('C++ callback bridge reuses one active state across reinstallations', () =>
   const destructor = section(
     cppBridge,
     'FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl()',
-    'void FFmpegKitExtendedImpl::initialize',
+    'FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::initialize',
   );
   assert.match(destructor, /logBridgeRegistrationCoordinator\.uninstallIfOwned/);
   assert.match(destructor, /retainRetiredLogBridgeState\(state\)/);
@@ -150,7 +150,7 @@ test('native monitor state polling uses the scalar bridge surface', () => {
     /getSessionState\(double sessionId\)[\s\S]*?acquireSession\(toId\(sessionId\)\)/,
   );
   assert.match(dynamicApi, /ffmpeg_kit_session_get_state/);
-  assert.match(nativeBackend, /NativeFFmpegKitExtended\.getSessionState\(sessionId\)/);
+  assert.match(nativeBackend, /invokeSynchronousNative<number>\('getSessionState', \[sessionId\]\)/);
   const scalarStateBranch = section(
     nativeBackend,
     "if (property === 'getSessionState')",
@@ -169,11 +169,11 @@ test('native wrapper history rejects abandoned IDs before direct reconstruction'
   const clearBranch = section(
     nativeBackend,
     "if (property === 'clearSessions')",
-    'return Reflect.get(target, property, receiver);',
+    'const nativeValue = Reflect.get(target, property, receiver);',
   );
   assert.match(
     clearBranch,
-    /NativeFFmpegKitExtended\.clearSessions\(\)[\s\S]*abandonedSessionIds\.clear/,
+    /invokeAsyncNative\('clearSessions', \[\]\)[\s\S]*abandonedSessionIds\.clear/,
   );
   assert.match(nativeBackend, /reconcileAbandonedSessionId/);
   assert.doesNotMatch(nativeBackend, /abandonmentReconciliationThreshold/);

@@ -38,6 +38,9 @@ export interface LogEventSubscription {
 
 export type LogEventHandler = (event: LogEvent) => void;
 
+/** A native action may complete synchronously on Web or asynchronously natively. */
+export type ActionCompletion = void | Promise<void>;
+
 export interface FFplayFrameMetadata {
   width: number;
   height: number;
@@ -65,12 +68,12 @@ export interface FFmpegKitBackend {
   createFFplaySessionFromArguments(arguments_: readonly string[]): number;
   createMediaInformationSession(command: string): number;
   createMediaInformationSessionFromPath(path: string): number;
-  executeSessionAsync(sessionId: number, timeoutMs: number): void;
+  executeSessionAsync(sessionId: number, timeoutMs: number): ActionCompletion;
   /** Internal callback-demand seams; direct v2 transports may implement them. */
-  installCompletionBridge?(): void;
-  uninstallCompletionBridge?(): void;
-  installLogBridge?(): void;
-  uninstallLogBridge?(): void;
+  installCompletionBridge?(): ActionCompletion;
+  uninstallCompletionBridge?(): ActionCompletion;
+  installLogBridge?(): ActionCompletion;
+  uninstallLogBridge?(): ActionCompletion;
   /** Structured v2 log events; buffered polling is the compatibility fallback. */
   onLogEvent?(handler: LogEventHandler): LogEventSubscription;
   isDirectLogBridgeActive?(): boolean;
@@ -78,13 +81,13 @@ export interface FFmpegKitBackend {
   getLogsCount?(sessionId: number): number;
   installStatisticsBridge?(): void;
   uninstallStatisticsBridge?(): void;
-  cancelSession(sessionId: number): void;
+  cancelSession(sessionId: number): ActionCompletion;
   /** Lightweight scalar state read used by the execution monitor. */
   getSessionState(sessionId: number): number;
   getSessionJson(sessionId: number): string;
-  releaseSessionHandle(sessionId: number): void;
+  releaseSessionHandle(sessionId: number): ActionCompletion;
   /** Removes a definitively discarded pre-execution Created identity. */
-  abandonCreatedSession(sessionId: number): void;
+  abandonCreatedSession(sessionId: number): ActionCompletion;
   /** Returns true for an ID durably abandoned before execution. */
   isSessionAbandoned?(sessionId: number): boolean;
   /** Records cancellation intent independently from Created abandonment. */
@@ -98,32 +101,32 @@ export interface FFmpegKitBackend {
   getLogsJson(sessionId: number, fromIndex: number): string;
   getStatisticsJson(sessionId: number, fromIndex: number): string;
   getMediaInformationJson(sessionId: number): string;
-  ffplayStart(sessionId: number): void;
-  ffplayPause(sessionId: number): void;
-  ffplayResume(sessionId: number): void;
-  ffplayStop(sessionId: number): void;
-  ffplaySeek(sessionId: number, seconds: number): void;
+  ffplayStart(sessionId: number): ActionCompletion;
+  ffplayPause(sessionId: number): ActionCompletion;
+  ffplayResume(sessionId: number): ActionCompletion;
+  ffplayStop(sessionId: number): ActionCompletion;
+  ffplaySeek(sessionId: number, seconds: number): ActionCompletion;
   ffplayGetPosition(sessionId: number): number;
-  ffplaySetPosition(sessionId: number, seconds: number): void;
+  ffplaySetPosition(sessionId: number, seconds: number): ActionCompletion;
   ffplayGetDuration(sessionId: number): number;
   ffplayGetVideoWidth(sessionId: number): number;
   ffplayGetVideoHeight(sessionId: number): number;
   ffplayIsPlaying(sessionId: number): boolean;
   ffplayIsPaused(sessionId: number): boolean;
-  ffplaySetVolume(sessionId: number, volume: number): void;
+  ffplaySetVolume(sessionId: number, volume: number): ActionCompletion;
   ffplayGetVolume(sessionId: number): number;
   ffplayHasVideoStream(path: string): boolean;
   getFrameBufferSize(): number;
   copyFrame(destination: number, destinationSize: number): FFplayFrameCopyResult;
-  enableRedirection(): void;
-  disableRedirection(): void;
-  setLogLevel(level: number): void;
+  enableRedirection(): ActionCompletion;
+  disableRedirection(): ActionCompletion;
+  setLogLevel(level: number): ActionCompletion;
   getLogLevel(): number;
   logLevelToString(level: number): string;
-  setFontDirectory(path: string, mappingJson: string): void;
-  setEnvironmentVariable(name: string, value: string): void;
-  ignoreSignal(signal: number): void;
-  setAudioOutputDevice(deviceName: string): void;
+  setFontDirectory(path: string, mappingJson: string): ActionCompletion;
+  setEnvironmentVariable(name: string, value: string): ActionCompletion;
+  ignoreSignal(signal: number): ActionCompletion;
+  setAudioOutputDevice(deviceName: string): ActionCompletion;
   listAudioOutputDevices(): string;
   getFFmpegVersion(): string;
   getFFmpegArchitecture(): string;
@@ -143,17 +146,17 @@ export interface FFmpegKitBackend {
   getRegisteredBitstreamFilters(): string;
   getBuildConfiguration(): string;
   getBuildDate(): string;
-  setSessionHistorySize(size: number): void;
+  setSessionHistorySize(size: number): ActionCompletion;
   getSessionHistorySize(): number;
-  clearSessions(): void;
+  clearSessions(): ActionCompletion;
   registerNewFFmpegPipe(): string;
-  closeFFmpegPipe(path: string): void;
+  closeFFmpegPipe(path: string): ActionCompletion;
   messagesInTransmit(sessionId: number): number;
-  enableDebugLog(sessionId: number): void;
-  disableDebugLog(sessionId: number): void;
+  enableDebugLog(sessionId: number): ActionCompletion;
+  disableDebugLog(sessionId: number): ActionCompletion;
   isDebugLogEnabled(sessionId: number): boolean;
   getDebugLog(sessionId: number): string;
-  clearDebugLog(sessionId: number): void;
+  clearDebugLog(sessionId: number): ActionCompletion;
   getMediaInformationData(sessionId: number): MediaInformationData | undefined;
 }
 

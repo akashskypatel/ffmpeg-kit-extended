@@ -2,6 +2,7 @@
 
 #include "operational_error_transport.h"
 
+#include <string>
 #include <stdexcept>
 #include <utility>
 
@@ -62,29 +63,61 @@ inline void throwInjectedDispatchFailure(const char *method) {
       std::string(method ? method : "unknown method") + ": " + reason);
 }
 
+template <typename Reject>
+void rejectInvocation(const char *method, const char *message,
+                      Reject &&reject) noexcept {
+  try {
+    std::string qualified = "FFmpegKitExtended Windows native call failed in ";
+    qualified += method ? method : "unknown method";
+    qualified += ": ";
+    qualified += message ? message : "unknown native error";
+    std::forward<Reject>(reject)(qualified.c_str());
+  } catch (...) {
+    try {
+      std::forward<Reject>(reject)(
+          "FFmpegKitExtended Windows native call failed: error formatting failed");
+    } catch (...) {
+    }
+  }
+}
+
+template <typename Fn, typename Resolve, typename Reject>
+void invokeWithCompletion(const char *method, Fn &&fn, Resolve &&resolve,
+                          Reject &&reject) noexcept {
+  try {
+    throwInjectedDispatchFailure(method);
+    std::forward<Fn>(fn)();
+    std::forward<Resolve>(resolve)();
+  } catch (const std::exception &error) {
+    rejectInvocation(method, error.what(), std::forward<Reject>(reject));
+  } catch (...) {
+    rejectInvocation(method, "non-standard exception", std::forward<Reject>(reject));
+  }
+}
+
 template <typename Fn>
-void invokeRecoverably(const char *method, Fn &&fn) noexcept {
-  clearOperationalError();
+void invokeSynchronous(const char *method, Fn &&fn) noexcept {
+  clearSynchronousError();
   try {
     throwInjectedDispatchFailure(method);
     std::forward<Fn>(fn)();
   } catch (const std::exception &error) {
-    recordOperationalError(method, error.what());
+    recordSynchronousError(method, error.what());
   } catch (...) {
-    recordOperationalError(method, "non-standard exception");
+    recordSynchronousError(method, "non-standard exception");
   }
 }
 
 template <typename Result, typename Fn>
-Result invokeRecoverably(const char *method, Fn &&fn) noexcept {
-  clearOperationalError();
+Result invokeSynchronous(const char *method, Fn &&fn) noexcept {
+  clearSynchronousError();
   try {
     throwInjectedDispatchFailure(method);
     return std::forward<Fn>(fn)();
   } catch (const std::exception &error) {
-    recordOperationalError(method, error.what());
+    recordSynchronousError(method, error.what());
   } catch (...) {
-    recordOperationalError(method, "non-standard exception");
+    recordSynchronousError(method, "non-standard exception");
   }
   return Result{};
 }

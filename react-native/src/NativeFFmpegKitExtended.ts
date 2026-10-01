@@ -31,9 +31,9 @@ export type LogEvent = {
 /** Native Codegen surface. Prefer the public wrappers unless integrating a framework. */
 export interface Spec extends TurboModule {
   /** Initializes the native library selected by the consuming app configuration. */
-  initialize(): void;
-  /** Consumes one Windows operational error captured at the noexcept boundary. */
-  consumeLastError(): string;
+  initialize(): Promise<void>;
+  /** Consumes a synchronous Windows result diagnostic from the same call boundary. */
+  consumeSynchronousError(): string;
   getBuildStamp(): string;
 
   /** Session creation/execution methods. Commands omit executable names. */
@@ -47,13 +47,13 @@ export interface Spec extends TurboModule {
   createMediaInformationSession(command: string): Double;
   /** Creates the standard media-information probe without command-string reparsing. */
   createMediaInformationSessionFromPath(path: string): Double;
-  executeSessionAsync(sessionId: Double, timeoutMs: Double): void;
-  cancelSession(sessionId: Double): void;
+  executeSessionAsync(sessionId: Double, timeoutMs: Double): Promise<void>;
+  cancelSession(sessionId: Double): Promise<void>;
 
   /** Process-wide structured v2 log stream; history polling is the fallback. */
   readonly onLogEvent: EventEmitter<LogEvent>;
-  installLogBridge(): void;
-  uninstallLogBridge(): void;
+  installLogBridge(): Promise<void>;
+  uninstallLogBridge(): Promise<void>;
 
   /** Session snapshots and buffered callback payloads are serialized as JSON. */
   getSessionJson(sessionId: Double): string;
@@ -64,9 +64,9 @@ export interface Spec extends TurboModule {
    * reconciliation. Normal direct delivery does not call indexed getters.
    */
   getLogsCount(sessionId: Double): Double;
-  releaseSessionHandle(sessionId: Double): void;
+  releaseSessionHandle(sessionId: Double): Promise<void>;
   /** Removes wrapper history for a queued session discarded before execution. */
-  abandonCreatedSession(sessionId: Double): void;
+  abandonCreatedSession(sessionId: Double): Promise<void>;
   getSessionsJson(kind: string): string;
   getLastSessionJson(kind: string): string;
   getLogsJson(sessionId: Double, fromIndex: Double): string;
@@ -74,32 +74,32 @@ export interface Spec extends TurboModule {
   getMediaInformationJson(sessionId: Double): string;
 
   /** Session-scoped FFplay controls; positions and durations use seconds. */
-  ffplayStart(sessionId: Double): void;
-  ffplayPause(sessionId: Double): void;
-  ffplayResume(sessionId: Double): void;
-  ffplayStop(sessionId: Double): void;
-  ffplaySeek(sessionId: Double, seconds: Double): void;
+  ffplayStart(sessionId: Double): Promise<void>;
+  ffplayPause(sessionId: Double): Promise<void>;
+  ffplayResume(sessionId: Double): Promise<void>;
+  ffplayStop(sessionId: Double): Promise<void>;
+  ffplaySeek(sessionId: Double, seconds: Double): Promise<void>;
   ffplayGetPosition(sessionId: Double): Double;
-  ffplaySetPosition(sessionId: Double, seconds: Double): void;
+  ffplaySetPosition(sessionId: Double, seconds: Double): Promise<void>;
   ffplayGetDuration(sessionId: Double): Double;
   ffplayGetVideoWidth(sessionId: Double): Int32;
   ffplayGetVideoHeight(sessionId: Double): Int32;
   ffplayIsPlaying(sessionId: Double): boolean;
   ffplayIsPaused(sessionId: Double): boolean;
-  ffplaySetVolume(sessionId: Double, volume: Double): void;
+  ffplaySetVolume(sessionId: Double, volume: Double): Promise<void>;
   ffplayGetVolume(sessionId: Double): Double;
   ffplayHasVideoStream(path: string): boolean;
 
   /** Process-wide runtime configuration. */
-  enableRedirection(): void;
-  disableRedirection(): void;
-  setLogLevel(level: Int32): void;
+  enableRedirection(): Promise<void>;
+  disableRedirection(): Promise<void>;
+  setLogLevel(level: Int32): Promise<void>;
   getLogLevel(): Int32;
   logLevelToString(level: Int32): string;
-  setFontDirectory(path: string, mappingJson: string): void;
-  setEnvironmentVariable(name: string, value: string): void;
-  ignoreSignal(signal: Int32): void;
-  setAudioOutputDevice(deviceName: string): void;
+  setFontDirectory(path: string, mappingJson: string): Promise<void>;
+  setEnvironmentVariable(name: string, value: string): Promise<void>;
+  ignoreSignal(signal: Int32): Promise<void>;
+  setAudioOutputDevice(deviceName: string): Promise<void>;
   listAudioOutputDevices(): string;
 
   /** Build, license, and compiled-feature introspection. */
@@ -123,18 +123,18 @@ export interface Spec extends TurboModule {
   getBuildDate(): string;
 
   /** Session history, pipes, callback diagnostics, and per-session debug logs. */
-  setSessionHistorySize(size: Double): void;
+  setSessionHistorySize(size: Double): Promise<void>;
   getSessionHistorySize(): Double;
-  clearSessions(): void;
+  clearSessions(): Promise<void>;
   registerNewFFmpegPipe(): string;
-  closeFFmpegPipe(path: string): void;
+  closeFFmpegPipe(path: string): Promise<void>;
   messagesInTransmit(sessionId: Double): Double;
 
-  enableDebugLog(sessionId: Double): void;
-  disableDebugLog(sessionId: Double): void;
+  enableDebugLog(sessionId: Double): Promise<void>;
+  disableDebugLog(sessionId: Double): Promise<void>;
   isDebugLogEnabled(sessionId: Double): boolean;
   getDebugLog(sessionId: Double): string;
-  clearDebugLog(sessionId: Double): void;
+  clearDebugLog(sessionId: Double): Promise<void>;
 }
 
 /**

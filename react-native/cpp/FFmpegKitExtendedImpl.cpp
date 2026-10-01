@@ -2,6 +2,7 @@
 #include "FFmpegKitDynamicApi.h"
 #include "LogBridgeRegistrationCoordinator.h"
 
+#include <exception>
 #include <mutex>
 #include <utility>
 #include <vector>
@@ -84,6 +85,22 @@ void deactivateLogBridge(const std::shared_ptr<LogBridgeState> &state) noexcept 
   state->jsInvoker.reset();
 }
 
+template <typename Fn>
+FFmpegKitExtendedImpl::Completion completeAction(
+    jsi::Runtime &runtime, const std::shared_ptr<CallInvoker> &jsInvoker,
+    Fn &&fn) {
+  FFmpegKitExtendedImpl::Completion result(runtime, jsInvoker);
+  try {
+    std::forward<Fn>(fn)();
+    result.resolve();
+  } catch (const std::exception &error) {
+    result.reject(Error(error.what()));
+  } catch (...) {
+    result.reject(Error("non-standard native exception"));
+  }
+  return result;
+}
+
 } // namespace
 
 FFmpegKitExtendedImpl::FFmpegKitExtendedImpl(std::shared_ptr<CallInvoker> jsInvoker)
@@ -103,8 +120,13 @@ FFmpegKitExtendedImpl::~FFmpegKitExtendedImpl() {
   retainRetiredLogBridgeState(state);
 }
 
-void FFmpegKitExtendedImpl::initialize(jsi::Runtime &) { api::initialize(); }
-std::string FFmpegKitExtendedImpl::consumeLastError(jsi::Runtime &) { return {}; }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::initialize(
+    jsi::Runtime &runtime) {
+  return completeAction(runtime, jsInvoker_, [] { api::initialize(); });
+}
+std::string FFmpegKitExtendedImpl::consumeSynchronousError(jsi::Runtime &) {
+  return {};
+}
 std::string FFmpegKitExtendedImpl::getBuildStamp(jsi::Runtime &) { return api::getBuildStamp(); }
 
 double FFmpegKitExtendedImpl::createFFmpegSession(jsi::Runtime &, std::string command) { return api::createFFmpegSession(command); }
@@ -114,8 +136,15 @@ double FFmpegKitExtendedImpl::createFFplaySession(jsi::Runtime &, std::string co
 double FFmpegKitExtendedImpl::createFFplaySessionFromArguments(jsi::Runtime &, std::vector<std::string> arguments) { return api::createFFplaySessionFromArguments(arguments); }
 double FFmpegKitExtendedImpl::createMediaInformationSession(jsi::Runtime &, std::string command) { return api::createMediaInformationSession(command); }
 double FFmpegKitExtendedImpl::createMediaInformationSessionFromPath(jsi::Runtime &, std::string path) { return api::createMediaInformationSessionFromPath(path); }
-void FFmpegKitExtendedImpl::executeSessionAsync(jsi::Runtime &, double sessionId, double timeoutMs) { api::executeSessionAsync(sessionId, timeoutMs); }
-void FFmpegKitExtendedImpl::cancelSession(jsi::Runtime &, double sessionId) { api::cancelSession(sessionId); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::executeSessionAsync(
+    jsi::Runtime &runtime, double sessionId, double timeoutMs) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::executeSessionAsync(sessionId, timeoutMs); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::cancelSession(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_, [&] { api::cancelSession(sessionId); });
+}
 
 void FFmpegKitExtendedImpl::emitLogEvent(double sessionId,
                                          double sequence,
@@ -125,76 +154,138 @@ void FFmpegKitExtendedImpl::emitLogEvent(double sessionId,
       sessionId, sequence, level, std::move(message)});
 }
 
-void FFmpegKitExtendedImpl::installLogBridge(jsi::Runtime &) {
-  if (activeLogBridge_ == nullptr) {
-    activeLogBridge_ = std::make_shared<LogBridgeState>();
-  }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::installLogBridge(
+    jsi::Runtime &runtime) {
+  return completeAction(runtime, jsInvoker_, [&] {
+    if (activeLogBridge_ == nullptr) {
+      activeLogBridge_ = std::make_shared<LogBridgeState>();
+    }
 
-  const auto state = activeLogBridge_;
-  {
-    std::lock_guard<std::mutex> lock(state->mutex);
-    state->owner = shared_from_this();
-    state->jsInvoker = jsInvoker_;
-  }
-  try {
-    logBridgeRegistrationCoordinator.install(
-        state.get(), [&] { api::enableLogCallback(&handleLogEvent, state.get()); });
-  } catch (...) {
-    deactivateLogBridge(state);
-    throw;
-  }
+    const auto state = activeLogBridge_;
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->owner = shared_from_this();
+      state->jsInvoker = jsInvoker_;
+    }
+    try {
+      logBridgeRegistrationCoordinator.install(
+          state.get(), [&] { api::enableLogCallback(&handleLogEvent, state.get()); });
+    } catch (...) {
+      deactivateLogBridge(state);
+      throw;
+    }
+  });
 }
 
-void FFmpegKitExtendedImpl::uninstallLogBridge(jsi::Runtime &) {
-  const auto state = activeLogBridge_;
-  if (state == nullptr) return;
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::uninstallLogBridge(
+    jsi::Runtime &runtime) {
+  return completeAction(runtime, jsInvoker_, [&] {
+    const auto state = activeLogBridge_;
+    if (state == nullptr) return;
 
-  try {
-    logBridgeRegistrationCoordinator.uninstallIfOwned(
-        state.get(), [&] { api::enableLogCallback(nullptr, nullptr); });
-  } catch (...) {
+    try {
+      logBridgeRegistrationCoordinator.uninstallIfOwned(
+          state.get(), [&] { api::enableLogCallback(nullptr, nullptr); });
+    } catch (...) {
+      deactivateLogBridge(state);
+      throw;
+    }
     deactivateLogBridge(state);
-    throw;
-  }
-  deactivateLogBridge(state);
+  });
 }
 
 std::string FFmpegKitExtendedImpl::getSessionJson(jsi::Runtime &, double sessionId) { return api::getSessionJson(sessionId); }
 std::int32_t FFmpegKitExtendedImpl::getSessionState(jsi::Runtime &, double sessionId) { return api::getSessionState(sessionId); }
 double FFmpegKitExtendedImpl::getLogsCount(jsi::Runtime &, double sessionId) { return api::getLogsCount(sessionId); }
-void FFmpegKitExtendedImpl::releaseSessionHandle(jsi::Runtime &, double sessionId) { api::releaseSessionHandle(sessionId); }
-void FFmpegKitExtendedImpl::abandonCreatedSession(jsi::Runtime &, double sessionId) { api::abandonCreatedSession(sessionId); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::releaseSessionHandle(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::releaseSessionHandle(sessionId); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::abandonCreatedSession(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::abandonCreatedSession(sessionId); });
+}
 std::string FFmpegKitExtendedImpl::getSessionsJson(jsi::Runtime &, std::string kind) { return api::getSessionsJson(kind); }
 std::string FFmpegKitExtendedImpl::getLastSessionJson(jsi::Runtime &, std::string kind) { return api::getLastSessionJson(kind); }
 std::string FFmpegKitExtendedImpl::getLogsJson(jsi::Runtime &, double sessionId, double fromIndex) { return api::getLogsJson(sessionId, fromIndex); }
 std::string FFmpegKitExtendedImpl::getStatisticsJson(jsi::Runtime &, double sessionId, double fromIndex) { return api::getStatisticsJson(sessionId, fromIndex); }
 std::string FFmpegKitExtendedImpl::getMediaInformationJson(jsi::Runtime &, double sessionId) { return api::getMediaInformationJson(sessionId); }
 
-void FFmpegKitExtendedImpl::ffplayStart(jsi::Runtime &, double sessionId) { api::ffplayStart(sessionId); }
-void FFmpegKitExtendedImpl::ffplayPause(jsi::Runtime &, double sessionId) { api::ffplayPause(sessionId); }
-void FFmpegKitExtendedImpl::ffplayResume(jsi::Runtime &, double sessionId) { api::ffplayResume(sessionId); }
-void FFmpegKitExtendedImpl::ffplayStop(jsi::Runtime &, double sessionId) { api::ffplayStop(sessionId); }
-void FFmpegKitExtendedImpl::ffplaySeek(jsi::Runtime &, double sessionId, double seconds) { api::ffplaySeek(sessionId, seconds); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplayStart(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_, [&] { api::ffplayStart(sessionId); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplayPause(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_, [&] { api::ffplayPause(sessionId); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplayResume(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_, [&] { api::ffplayResume(sessionId); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplayStop(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_, [&] { api::ffplayStop(sessionId); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplaySeek(
+    jsi::Runtime &runtime, double sessionId, double seconds) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::ffplaySeek(sessionId, seconds); });
+}
 double FFmpegKitExtendedImpl::ffplayGetPosition(jsi::Runtime &, double sessionId) { return api::ffplayGetPosition(sessionId); }
-void FFmpegKitExtendedImpl::ffplaySetPosition(jsi::Runtime &, double sessionId, double seconds) { api::ffplaySetPosition(sessionId, seconds); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplaySetPosition(
+    jsi::Runtime &runtime, double sessionId, double seconds) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::ffplaySetPosition(sessionId, seconds); });
+}
 double FFmpegKitExtendedImpl::ffplayGetDuration(jsi::Runtime &, double sessionId) { return api::ffplayGetDuration(sessionId); }
 std::int32_t FFmpegKitExtendedImpl::ffplayGetVideoWidth(jsi::Runtime &, double sessionId) { return api::ffplayGetVideoWidth(sessionId); }
 std::int32_t FFmpegKitExtendedImpl::ffplayGetVideoHeight(jsi::Runtime &, double sessionId) { return api::ffplayGetVideoHeight(sessionId); }
 bool FFmpegKitExtendedImpl::ffplayIsPlaying(jsi::Runtime &, double sessionId) { return api::ffplayIsPlaying(sessionId); }
 bool FFmpegKitExtendedImpl::ffplayIsPaused(jsi::Runtime &, double sessionId) { return api::ffplayIsPaused(sessionId); }
-void FFmpegKitExtendedImpl::ffplaySetVolume(jsi::Runtime &, double sessionId, double volume) { api::ffplaySetVolume(sessionId, volume); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ffplaySetVolume(
+    jsi::Runtime &runtime, double sessionId, double volume) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::ffplaySetVolume(sessionId, volume); });
+}
 double FFmpegKitExtendedImpl::ffplayGetVolume(jsi::Runtime &, double sessionId) { return api::ffplayGetVolume(sessionId); }
 bool FFmpegKitExtendedImpl::ffplayHasVideoStream(jsi::Runtime &, std::string path) { return api::ffplayHasVideoStream(path); }
 
-void FFmpegKitExtendedImpl::enableRedirection(jsi::Runtime &) { api::enableRedirection(); }
-void FFmpegKitExtendedImpl::disableRedirection(jsi::Runtime &) { api::disableRedirection(); }
-void FFmpegKitExtendedImpl::setLogLevel(jsi::Runtime &, std::int32_t level) { api::setLogLevel(level); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::enableRedirection(
+    jsi::Runtime &runtime) {
+  return completeAction(runtime, jsInvoker_, [] { api::enableRedirection(); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::disableRedirection(
+    jsi::Runtime &runtime) {
+  return completeAction(runtime, jsInvoker_, [] { api::disableRedirection(); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::setLogLevel(
+    jsi::Runtime &runtime, std::int32_t level) {
+  return completeAction(runtime, jsInvoker_, [&] { api::setLogLevel(level); });
+}
 std::int32_t FFmpegKitExtendedImpl::getLogLevel(jsi::Runtime &) { return api::getLogLevel(); }
 std::string FFmpegKitExtendedImpl::logLevelToString(jsi::Runtime &, std::int32_t level) { return api::logLevelToString(level); }
-void FFmpegKitExtendedImpl::setFontDirectory(jsi::Runtime &, std::string path, std::string mappingJson) { api::setFontDirectory(path, mappingJson); }
-void FFmpegKitExtendedImpl::setEnvironmentVariable(jsi::Runtime &, std::string name, std::string value) { api::setEnvironmentVariable(name, value); }
-void FFmpegKitExtendedImpl::ignoreSignal(jsi::Runtime &, std::int32_t signal) { api::ignoreSignal(signal); }
-void FFmpegKitExtendedImpl::setAudioOutputDevice(jsi::Runtime &, std::string deviceName) { api::setAudioOutputDevice(deviceName); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::setFontDirectory(
+    jsi::Runtime &runtime, std::string path, std::string mappingJson) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::setFontDirectory(path, mappingJson); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::setEnvironmentVariable(
+    jsi::Runtime &runtime, std::string name, std::string value) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::setEnvironmentVariable(name, value); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::ignoreSignal(
+    jsi::Runtime &runtime, std::int32_t signal) {
+  return completeAction(runtime, jsInvoker_, [&] { api::ignoreSignal(signal); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::setAudioOutputDevice(
+    jsi::Runtime &runtime, std::string deviceName) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::setAudioOutputDevice(deviceName); });
+}
 std::string FFmpegKitExtendedImpl::listAudioOutputDevices(jsi::Runtime &) { return api::listAudioOutputDevices(); }
 
 std::string FFmpegKitExtendedImpl::getFFmpegVersion(jsi::Runtime &) { return api::getFFmpegVersion(); }
@@ -216,17 +307,39 @@ std::string FFmpegKitExtendedImpl::getRegisteredBitstreamFilters(jsi::Runtime &)
 std::string FFmpegKitExtendedImpl::getBuildConfiguration(jsi::Runtime &) { return api::getBuildConfiguration(); }
 std::string FFmpegKitExtendedImpl::getBuildDate(jsi::Runtime &) { return api::getBuildDate(); }
 
-void FFmpegKitExtendedImpl::setSessionHistorySize(jsi::Runtime &, double size) { api::setSessionHistorySize(size); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::setSessionHistorySize(
+    jsi::Runtime &runtime, double size) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::setSessionHistorySize(size); });
+}
 double FFmpegKitExtendedImpl::getSessionHistorySize(jsi::Runtime &) { return api::getSessionHistorySize(); }
-void FFmpegKitExtendedImpl::clearSessions(jsi::Runtime &) { api::clearSessions(); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::clearSessions(
+    jsi::Runtime &runtime) {
+  return completeAction(runtime, jsInvoker_, [] { api::clearSessions(); });
+}
 std::string FFmpegKitExtendedImpl::registerNewFFmpegPipe(jsi::Runtime &) { return api::registerNewFFmpegPipe(); }
-void FFmpegKitExtendedImpl::closeFFmpegPipe(jsi::Runtime &, std::string path) { api::closeFFmpegPipe(path); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::closeFFmpegPipe(
+    jsi::Runtime &runtime, std::string path) {
+  return completeAction(runtime, jsInvoker_, [&] { api::closeFFmpegPipe(path); });
+}
 double FFmpegKitExtendedImpl::messagesInTransmit(jsi::Runtime &, double sessionId) { return api::messagesInTransmit(sessionId); }
 
-void FFmpegKitExtendedImpl::enableDebugLog(jsi::Runtime &, double sessionId) { api::enableDebugLog(sessionId); }
-void FFmpegKitExtendedImpl::disableDebugLog(jsi::Runtime &, double sessionId) { api::disableDebugLog(sessionId); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::enableDebugLog(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::enableDebugLog(sessionId); });
+}
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::disableDebugLog(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::disableDebugLog(sessionId); });
+}
 bool FFmpegKitExtendedImpl::isDebugLogEnabled(jsi::Runtime &, double sessionId) { return api::isDebugLogEnabled(sessionId); }
 std::string FFmpegKitExtendedImpl::getDebugLog(jsi::Runtime &, double sessionId) { return api::getDebugLog(sessionId); }
-void FFmpegKitExtendedImpl::clearDebugLog(jsi::Runtime &, double sessionId) { api::clearDebugLog(sessionId); }
+FFmpegKitExtendedImpl::Completion FFmpegKitExtendedImpl::clearDebugLog(
+    jsi::Runtime &runtime, double sessionId) {
+  return completeAction(runtime, jsInvoker_,
+                        [&] { api::clearDebugLog(sessionId); });
+}
 
 } // namespace facebook::react

@@ -294,7 +294,7 @@ test('Created cancellation prevents later submission', async () => {
   registry.retain(1024, 6);
   const session = new FFmpegSession(6, '-version');
 
-  session.cancel();
+  await session.cancel();
 
   assert.equal(session.isCancelled, true);
   await assert.rejects(session.executeAsync(), SessionCancelledException);
@@ -309,7 +309,7 @@ test('state-read failure latches cancellation before exposing the error', async 
   registry.retain(1024, 20);
   const session = new FFmpegSession(20, '-version');
 
-  assert.throws(() => session.cancel(), reason => reason === error);
+  await assert.rejects(session.cancel(), reason => reason === error);
   assert.equal(session.isCancelled, true);
   assert.equal(getBackend().isCancellationRequested(20), true);
 
@@ -324,7 +324,7 @@ test('durable cancellation intent blocks a reconstructed Created wrapper', async
   sessionState = 0;
   registry.retain(1024, 21);
   const original = new FFmpegSession(21, '-version');
-  original.cancel();
+  await original.cancel();
 
   const reconstructed = new FFmpegSession(21, '-version');
   assert.equal(reconstructed.isCancelled, true);
@@ -344,7 +344,7 @@ test('queued cancellation removes work without native cancellation and releases 
   const pending = session.executeAsync();
 
   assert.equal(manager.queueLength, 1);
-  session.cancel();
+  await session.cancel();
 
   await assert.rejects(pending, SessionCancelledException);
   assert.equal(executionStarts, 0);
@@ -356,12 +356,12 @@ test('queued cancellation removes work without native cancellation and releases 
   await active;
 });
 
-test('a running history wrapper forwards cancellation despite not being submitted', () => {
+test('a running history wrapper forwards cancellation despite not being submitted', async () => {
   sessionState = 1;
   const session = new FFmpegSession(16, '-version');
 
-  session.cancel();
-  session.cancel();
+  await session.cancel();
+  await session.cancel();
 
   assert.equal(session.isCancelled, true);
   assert.deepEqual(cancelCalls, [16]);
@@ -378,7 +378,7 @@ test('immediate native cancellation failure preserves intent and allows monitor 
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(executionStarts, 1);
 
-  assert.throws(() => session.cancel(), reason => reason === error);
+  await assert.rejects(session.cancel(), reason => reason === error);
   assert.equal(session.isCancelled, true);
   assert.equal(cancelAttempts, 1);
   assert.deepEqual(cancelCalls, []);
@@ -404,7 +404,7 @@ test('startup cancellation dispatches once after execution enters Running', asyn
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(executionStarts, 1);
 
-  session.cancel();
+  await session.cancel();
 
   assert.equal(session.isCancelled, true);
   assert.equal(cancelAttempts, 1);
@@ -438,7 +438,7 @@ test('deferred native cancellation failure preserves ownership and error authori
   await new Promise(resolve => setTimeout(resolve, 0));
   // Keep the handoff boundary in Created until the monitor observes Running.
   sessionState = 0;
-  session.cancel();
+  await session.cancel();
   sessionState = 1;
   await new Promise(resolve => setTimeout(resolve, 25));
   const failedCancellationAttempts = cancelAttempts;
@@ -469,7 +469,7 @@ test('completion before Running observation wins without late cancellation', asy
   await new Promise(resolve => setTimeout(resolve, 0));
   // Exercise cancellation before the asynchronous handoff reports Running.
   sessionState = 0;
-  session.cancel();
+  await session.cancel();
   sessionState = 2;
 
   await execution;
@@ -503,7 +503,7 @@ test('active cancelled session keeps its handle until terminal state', async () 
   registry.retain(4096, 10);
   const execution = session.executeAsync({pollIntervalMs: 10});
   await new Promise(resolve => setTimeout(resolve, 0));
-  session.cancel();
+  await session.cancel();
   assert.deepEqual(cancelCalls, [10]);
 
   assert.deepEqual(releases, []);

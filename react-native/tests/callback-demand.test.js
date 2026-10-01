@@ -5,7 +5,7 @@ const test = require('node:test');
 
 const {CallbackDemandAuthority} = require('../.test-dist/callback-demand.js');
 
-test('installs one bridge and keeps it through the last concurrent lease', () => {
+test('installs one bridge and keeps it through the last concurrent lease', async () => {
   const authority = new CallbackDemandAuthority();
   let installs = 0;
   let uninstalls = 0;
@@ -14,47 +14,47 @@ test('installs one bridge and keeps it through the last concurrent lease', () =>
     uninstall: () => { uninstalls += 1; },
   };
 
-  const first = authority.acquire('log', hooks);
-  const second = authority.acquire('log', hooks);
+  const first = await authority.acquire('log', hooks);
+  const second = await authority.acquire('log', hooks);
 
   assert.equal(installs, 1);
   assert.equal(authority.leaseCount('log'), 2);
   assert.equal(authority.isActive('log'), true);
 
-  first.release();
-  first.release();
+  await first.release();
+  await first.release();
   assert.equal(uninstalls, 0);
   assert.equal(authority.leaseCount('log'), 1);
 
-  second.release();
+  await second.release();
   assert.equal(uninstalls, 1);
   assert.equal(authority.leaseCount('log'), 0);
   assert.equal(authority.isActive('log'), false);
 });
 
-test('completion, log, and statistics demand are independent', () => {
+test('completion, log, and statistics demand are independent', async () => {
   const authority = new CallbackDemandAuthority();
-  const completion = authority.acquire('completion');
-  const log = authority.acquire('log');
-  const statistics = authority.acquire('statistics');
+  const completion = await authority.acquire('completion');
+  const log = await authority.acquire('log');
+  const statistics = await authority.acquire('statistics');
 
-  log.release();
+  await log.release();
   assert.equal(authority.isActive('completion'), true);
   assert.equal(authority.isActive('log'), false);
   assert.equal(authority.isActive('statistics'), true);
 
-  statistics.release();
-  completion.release();
+  await statistics.release();
+  await completion.release();
   assert.equal(authority.isActive('completion'), false);
   assert.equal(authority.isActive('statistics'), false);
 });
 
-test('failed installation leaves demand unowned and retryable', () => {
+test('failed installation leaves demand unowned and retryable', async () => {
   const authority = new CallbackDemandAuthority();
   const installError = new Error('install failed');
 
-  assert.throws(
-    () => authority.acquire('statistics', {
+  await assert.rejects(
+    authority.acquire('statistics', {
       install: () => { throw installError; },
       uninstall: () => {},
     }),
@@ -63,16 +63,16 @@ test('failed installation leaves demand unowned and retryable', () => {
   assert.equal(authority.leaseCount('statistics'), 0);
   assert.equal(authority.isActive('statistics'), false);
 
-  const retry = authority.acquire('statistics');
+  const retry = await authority.acquire('statistics');
   assert.equal(authority.leaseCount('statistics'), 1);
-  retry.release();
+  await retry.release();
 });
 
-test('failed uninstall clears ownership without corrupting a later acquire', () => {
+test('failed uninstall clears ownership without corrupting a later acquire', async () => {
   const authority = new CallbackDemandAuthority();
   let installs = 0;
   let shouldFail = true;
-  const lease = authority.acquire('completion', {
+  const lease = await authority.acquire('completion', {
     install: () => { installs += 1; },
     uninstall: () => {
       if (shouldFail) {
@@ -82,14 +82,14 @@ test('failed uninstall clears ownership without corrupting a later acquire', () 
     },
   });
 
-  assert.throws(() => lease.release(), /uninstall failed/);
+  await assert.rejects(lease.release(), /uninstall failed/);
   assert.equal(authority.leaseCount('completion'), 0);
   assert.equal(authority.isActive('completion'), false);
 
-  const retry = authority.acquire('completion', {
+  const retry = await authority.acquire('completion', {
     install: () => { installs += 1; },
     uninstall: () => {},
   });
   assert.equal(installs, 2);
-  retry.release();
+  await retry.release();
 });

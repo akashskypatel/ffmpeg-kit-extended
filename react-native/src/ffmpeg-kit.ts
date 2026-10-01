@@ -73,8 +73,8 @@ export class FFmpegKit {
   }
 
   /** Requests cancellation of a created, queued, or running FFmpeg session. */
-  static cancel(session: FFmpegSession): void {
-    session.cancel();
+  static cancel(session: FFmpegSession): Promise<void> {
+    return session.cancel();
   }
 
   /** Returns the newest FFmpeg session retained in native history. */

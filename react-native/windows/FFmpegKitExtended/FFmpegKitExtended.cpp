@@ -14,6 +14,7 @@
 #include "operational_error_transport.h"
 #include "recoverable_native_dispatch.h"
 
+#include <exception>
 #include <mutex>
 #include <vector>
 #include <string>
@@ -109,6 +110,16 @@ void handleLogEvent(
 
 } // namespace
 
+namespace {
+template <typename Fn>
+void completeAction(const char *method, FFmpegKitExtended::Completion &&result,
+                    Fn &&fn) noexcept {
+  invokeWithCompletion(
+      method, std::forward<Fn>(fn), [&result] { result.Resolve(); },
+      [&result](const char *message) { result.Reject(message); });
+}
+} // namespace
+
 FFmpegKitExtended::~FFmpegKitExtended() noexcept {
   auto state = std::move(activeLogBridge_);
   if (!state) return;
@@ -128,62 +139,65 @@ FFmpegKitExtended::~FFmpegKitExtended() noexcept {
   retainLogBridgeState(std::move(state));
 }
 
-void FFmpegKitExtended::initialize() noexcept {
-  invokeRecoverably("initialize", [&] { api::initialize(); });
+void FFmpegKitExtended::initialize(Completion &&result) noexcept {
+  completeAction("initialize", std::move(result), [&] { api::initialize(); });
 }
 
-std::string FFmpegKitExtended::consumeLastError() noexcept {
-  return consumeOperationalError();
+std::string FFmpegKitExtended::consumeSynchronousError() noexcept {
+  return consumeSynchronousErrorValue();
 }
 
 std::string FFmpegKitExtended::getBuildStamp() noexcept {
-  return invokeRecoverably<std::string>("getBuildStamp", [&] { return api::getBuildStamp(); });
+  return invokeSynchronous<std::string>("getBuildStamp", [&] { return api::getBuildStamp(); });
 }
 
 double FFmpegKitExtended::createFFmpegSession(std::string command) noexcept {
-  return invokeRecoverably<double>("createFFmpegSession", [&] { return api::createFFmpegSession(command); });
+  return invokeSynchronous<double>("createFFmpegSession", [&] { return api::createFFmpegSession(command); });
 }
 
 double FFmpegKitExtended::createFFmpegSessionFromArguments(std::vector<std::string> arguments) noexcept {
-  return invokeRecoverably<double>("createFFmpegSessionFromArguments", [&] {
+  return invokeSynchronous<double>("createFFmpegSessionFromArguments", [&] {
     return api::createFFmpegSessionFromArguments(arguments);
   });
 }
 
 double FFmpegKitExtended::createFFprobeSession(std::string command) noexcept {
-  return invokeRecoverably<double>("createFFprobeSession", [&] { return api::createFFprobeSession(command); });
+  return invokeSynchronous<double>("createFFprobeSession", [&] { return api::createFFprobeSession(command); });
 }
 
 double FFmpegKitExtended::createFFplaySession(std::string command) noexcept {
-  return invokeRecoverably<double>("createFFplaySession", [&] { return api::createFFplaySession(command); });
+  return invokeSynchronous<double>("createFFplaySession", [&] { return api::createFFplaySession(command); });
 }
 
 double FFmpegKitExtended::createFFplaySessionFromArguments(std::vector<std::string> arguments) noexcept {
-  return invokeRecoverably<double>("createFFplaySessionFromArguments", [&] {
+  return invokeSynchronous<double>("createFFplaySessionFromArguments", [&] {
     return api::createFFplaySessionFromArguments(arguments);
   });
 }
 
 double FFmpegKitExtended::createMediaInformationSession(std::string command) noexcept {
-  return invokeRecoverably<double>("createMediaInformationSession", [&] { return api::createMediaInformationSession(command); });
+  return invokeSynchronous<double>("createMediaInformationSession", [&] { return api::createMediaInformationSession(command); });
 }
 
 double FFmpegKitExtended::createMediaInformationSessionFromPath(std::string path) noexcept {
-  return invokeRecoverably<double>("createMediaInformationSessionFromPath", [&] {
+  return invokeSynchronous<double>("createMediaInformationSessionFromPath", [&] {
     return api::createMediaInformationSessionFromPath(path);
   });
 }
 
-void FFmpegKitExtended::executeSessionAsync(double sessionId, double timeoutMs) noexcept {
-  invokeRecoverably("executeSessionAsync", [&] { api::executeSessionAsync(sessionId, timeoutMs); });
+void FFmpegKitExtended::executeSessionAsync(double sessionId, double timeoutMs,
+                                             Completion &&result) noexcept {
+  completeAction("executeSessionAsync", std::move(result),
+                 [&] { api::executeSessionAsync(sessionId, timeoutMs); });
 }
 
-void FFmpegKitExtended::cancelSession(double sessionId) noexcept {
-  invokeRecoverably("cancelSession", [&] { api::cancelSession(sessionId); });
+void FFmpegKitExtended::cancelSession(double sessionId, Completion &&result) noexcept {
+  completeAction("cancelSession", std::move(result),
+                 [&] { api::cancelSession(sessionId); });
 }
 
-void FFmpegKitExtended::installLogBridge() noexcept {
-  invokeRecoverably("installLogBridge", [&] {
+void FFmpegKitExtended::installLogBridge(Completion &&result) noexcept {
+  completeAction("installLogBridge", std::move(result), [&] {
     if (!activeLogBridge_) {
       activeLogBridge_ = std::make_shared<LogBridgeState>();
     }
@@ -203,8 +217,8 @@ void FFmpegKitExtended::installLogBridge() noexcept {
   });
 }
 
-void FFmpegKitExtended::uninstallLogBridge() noexcept {
-  invokeRecoverably("uninstallLogBridge", [&] {
+void FFmpegKitExtended::uninstallLogBridge(Completion &&result) noexcept {
+  completeAction("uninstallLogBridge", std::move(result), [&] {
     const auto state = activeLogBridge_;
     if (!state) return;
 
@@ -218,259 +232,295 @@ void FFmpegKitExtended::uninstallLogBridge() noexcept {
 }
 
 std::string FFmpegKitExtended::getSessionJson(double sessionId) noexcept {
-  return invokeRecoverably<std::string>("getSessionJson", [&] { return api::getSessionJson(sessionId); });
+  return invokeSynchronous<std::string>("getSessionJson", [&] { return api::getSessionJson(sessionId); });
 }
 
 std::int32_t FFmpegKitExtended::getSessionState(double sessionId) noexcept {
-  return invokeRecoverably<std::int32_t>("getSessionState", [&] { return api::getSessionState(sessionId); });
+  return invokeSynchronous<std::int32_t>("getSessionState", [&] { return api::getSessionState(sessionId); });
 }
 
 double FFmpegKitExtended::getLogsCount(double sessionId) noexcept {
-  return invokeRecoverably<double>("getLogsCount", [&] { return api::getLogsCount(sessionId); });
+  return invokeSynchronous<double>("getLogsCount", [&] { return api::getLogsCount(sessionId); });
 }
 
-void FFmpegKitExtended::releaseSessionHandle(double sessionId) noexcept {
-  invokeRecoverably("releaseSessionHandle", [&] { api::releaseSessionHandle(sessionId); });
+void FFmpegKitExtended::releaseSessionHandle(double sessionId,
+                                               Completion &&result) noexcept {
+  completeAction("releaseSessionHandle", std::move(result),
+                 [&] { api::releaseSessionHandle(sessionId); });
 }
 
-void FFmpegKitExtended::abandonCreatedSession(double sessionId) noexcept {
-  invokeRecoverably("abandonCreatedSession", [&] { api::abandonCreatedSession(sessionId); });
+void FFmpegKitExtended::abandonCreatedSession(double sessionId,
+                                                Completion &&result) noexcept {
+  completeAction("abandonCreatedSession", std::move(result),
+                 [&] { api::abandonCreatedSession(sessionId); });
 }
 
 std::string FFmpegKitExtended::getSessionsJson(std::string kind) noexcept {
-  return invokeRecoverably<std::string>("getSessionsJson", [&] { return api::getSessionsJson(kind); });
+  return invokeSynchronous<std::string>("getSessionsJson", [&] { return api::getSessionsJson(kind); });
 }
 
 std::string FFmpegKitExtended::getLastSessionJson(std::string kind) noexcept {
-  return invokeRecoverably<std::string>("getLastSessionJson", [&] { return api::getLastSessionJson(kind); });
+  return invokeSynchronous<std::string>("getLastSessionJson", [&] { return api::getLastSessionJson(kind); });
 }
 
 std::string FFmpegKitExtended::getLogsJson(double sessionId, double fromIndex) noexcept {
-  return invokeRecoverably<std::string>("getLogsJson", [&] { return api::getLogsJson(sessionId, fromIndex); });
+  return invokeSynchronous<std::string>("getLogsJson", [&] { return api::getLogsJson(sessionId, fromIndex); });
 }
 
 std::string FFmpegKitExtended::getStatisticsJson(double sessionId, double fromIndex) noexcept {
-  return invokeRecoverably<std::string>("getStatisticsJson", [&] { return api::getStatisticsJson(sessionId, fromIndex); });
+  return invokeSynchronous<std::string>("getStatisticsJson", [&] { return api::getStatisticsJson(sessionId, fromIndex); });
 }
 
 std::string FFmpegKitExtended::getMediaInformationJson(double sessionId) noexcept {
-  return invokeRecoverably<std::string>("getMediaInformationJson", [&] { return api::getMediaInformationJson(sessionId); });
+  return invokeSynchronous<std::string>("getMediaInformationJson", [&] { return api::getMediaInformationJson(sessionId); });
 }
 
-void FFmpegKitExtended::ffplayStart(double sessionId) noexcept {
-  invokeRecoverably("ffplayStart", [&] { api::ffplayStart(sessionId); });
+void FFmpegKitExtended::ffplayStart(double sessionId, Completion &&result) noexcept {
+  completeAction("ffplayStart", std::move(result),
+                 [&] { api::ffplayStart(sessionId); });
 }
 
-void FFmpegKitExtended::ffplayPause(double sessionId) noexcept {
-  invokeRecoverably("ffplayPause", [&] { api::ffplayPause(sessionId); });
+void FFmpegKitExtended::ffplayPause(double sessionId, Completion &&result) noexcept {
+  completeAction("ffplayPause", std::move(result),
+                 [&] { api::ffplayPause(sessionId); });
 }
 
-void FFmpegKitExtended::ffplayResume(double sessionId) noexcept {
-  invokeRecoverably("ffplayResume", [&] { api::ffplayResume(sessionId); });
+void FFmpegKitExtended::ffplayResume(double sessionId, Completion &&result) noexcept {
+  completeAction("ffplayResume", std::move(result),
+                 [&] { api::ffplayResume(sessionId); });
 }
 
-void FFmpegKitExtended::ffplayStop(double sessionId) noexcept {
-  invokeRecoverably("ffplayStop", [&] { api::ffplayStop(sessionId); });
+void FFmpegKitExtended::ffplayStop(double sessionId, Completion &&result) noexcept {
+  completeAction("ffplayStop", std::move(result),
+                 [&] { api::ffplayStop(sessionId); });
 }
 
-void FFmpegKitExtended::ffplaySeek(double sessionId, double seconds) noexcept {
-  invokeRecoverably("ffplaySeek", [&] { api::ffplaySeek(sessionId, seconds); });
+void FFmpegKitExtended::ffplaySeek(double sessionId, double seconds,
+                                   Completion &&result) noexcept {
+  completeAction("ffplaySeek", std::move(result),
+                 [&] { api::ffplaySeek(sessionId, seconds); });
 }
 
 double FFmpegKitExtended::ffplayGetPosition(double sessionId) noexcept {
-  return invokeRecoverably<double>("ffplayGetPosition", [&] { return api::ffplayGetPosition(sessionId); });
+  return invokeSynchronous<double>("ffplayGetPosition", [&] { return api::ffplayGetPosition(sessionId); });
 }
 
-void FFmpegKitExtended::ffplaySetPosition(double sessionId, double seconds) noexcept {
-  invokeRecoverably("ffplaySetPosition", [&] { api::ffplaySetPosition(sessionId, seconds); });
+void FFmpegKitExtended::ffplaySetPosition(double sessionId, double seconds,
+                                           Completion &&result) noexcept {
+  completeAction("ffplaySetPosition", std::move(result),
+                 [&] { api::ffplaySetPosition(sessionId, seconds); });
 }
 
 double FFmpegKitExtended::ffplayGetDuration(double sessionId) noexcept {
-  return invokeRecoverably<double>("ffplayGetDuration", [&] { return api::ffplayGetDuration(sessionId); });
+  return invokeSynchronous<double>("ffplayGetDuration", [&] { return api::ffplayGetDuration(sessionId); });
 }
 
 std::int32_t FFmpegKitExtended::ffplayGetVideoWidth(double sessionId) noexcept {
-  return invokeRecoverably<std::int32_t>("ffplayGetVideoWidth", [&] { return api::ffplayGetVideoWidth(sessionId); });
+  return invokeSynchronous<std::int32_t>("ffplayGetVideoWidth", [&] { return api::ffplayGetVideoWidth(sessionId); });
 }
 
 std::int32_t FFmpegKitExtended::ffplayGetVideoHeight(double sessionId) noexcept {
-  return invokeRecoverably<std::int32_t>("ffplayGetVideoHeight", [&] { return api::ffplayGetVideoHeight(sessionId); });
+  return invokeSynchronous<std::int32_t>("ffplayGetVideoHeight", [&] { return api::ffplayGetVideoHeight(sessionId); });
 }
 
 bool FFmpegKitExtended::ffplayIsPlaying(double sessionId) noexcept {
-  return invokeRecoverably<bool>("ffplayIsPlaying", [&] { return api::ffplayIsPlaying(sessionId); });
+  return invokeSynchronous<bool>("ffplayIsPlaying", [&] { return api::ffplayIsPlaying(sessionId); });
 }
 
 bool FFmpegKitExtended::ffplayIsPaused(double sessionId) noexcept {
-  return invokeRecoverably<bool>("ffplayIsPaused", [&] { return api::ffplayIsPaused(sessionId); });
+  return invokeSynchronous<bool>("ffplayIsPaused", [&] { return api::ffplayIsPaused(sessionId); });
 }
 
-void FFmpegKitExtended::ffplaySetVolume(double sessionId, double volume) noexcept {
-  invokeRecoverably("ffplaySetVolume", [&] { api::ffplaySetVolume(sessionId, volume); });
+void FFmpegKitExtended::ffplaySetVolume(double sessionId, double volume,
+                                         Completion &&result) noexcept {
+  completeAction("ffplaySetVolume", std::move(result),
+                 [&] { api::ffplaySetVolume(sessionId, volume); });
 }
 
 double FFmpegKitExtended::ffplayGetVolume(double sessionId) noexcept {
-  return invokeRecoverably<double>("ffplayGetVolume", [&] { return api::ffplayGetVolume(sessionId); });
+  return invokeSynchronous<double>("ffplayGetVolume", [&] { return api::ffplayGetVolume(sessionId); });
 }
 
 bool FFmpegKitExtended::ffplayHasVideoStream(std::string path) noexcept {
-  return invokeRecoverably<bool>("ffplayHasVideoStream", [&] { return api::ffplayHasVideoStream(path); });
+  return invokeSynchronous<bool>("ffplayHasVideoStream", [&] { return api::ffplayHasVideoStream(path); });
 }
 
-void FFmpegKitExtended::enableRedirection() noexcept {
-  invokeRecoverably("enableRedirection", [&] { api::enableRedirection(); });
+void FFmpegKitExtended::enableRedirection(Completion &&result) noexcept {
+  completeAction("enableRedirection", std::move(result),
+                 [&] { api::enableRedirection(); });
 }
 
-void FFmpegKitExtended::disableRedirection() noexcept {
-  invokeRecoverably("disableRedirection", [&] { api::disableRedirection(); });
+void FFmpegKitExtended::disableRedirection(Completion &&result) noexcept {
+  completeAction("disableRedirection", std::move(result),
+                 [&] { api::disableRedirection(); });
 }
 
-void FFmpegKitExtended::setLogLevel(std::int32_t level) noexcept {
-  invokeRecoverably("setLogLevel", [&] { api::setLogLevel(level); });
+void FFmpegKitExtended::setLogLevel(std::int32_t level,
+                                    Completion &&result) noexcept {
+  completeAction("setLogLevel", std::move(result),
+                 [&] { api::setLogLevel(level); });
 }
 
 std::int32_t FFmpegKitExtended::getLogLevel() noexcept {
-  return invokeRecoverably<std::int32_t>("getLogLevel", [&] { return api::getLogLevel(); });
+  return invokeSynchronous<std::int32_t>("getLogLevel", [&] { return api::getLogLevel(); });
 }
 
 std::string FFmpegKitExtended::logLevelToString(std::int32_t level) noexcept {
-  return invokeRecoverably<std::string>("logLevelToString", [&] { return api::logLevelToString(level); });
+  return invokeSynchronous<std::string>("logLevelToString", [&] { return api::logLevelToString(level); });
 }
 
-void FFmpegKitExtended::setFontDirectory(std::string path, std::string mappingJson) noexcept {
-  invokeRecoverably("setFontDirectory", [&] { api::setFontDirectory(path, mappingJson); });
+void FFmpegKitExtended::setFontDirectory(std::string path, std::string mappingJson,
+                                         Completion &&result) noexcept {
+  completeAction("setFontDirectory", std::move(result),
+                 [&] { api::setFontDirectory(path, mappingJson); });
 }
 
-void FFmpegKitExtended::setEnvironmentVariable(std::string name, std::string value) noexcept {
-  invokeRecoverably("setEnvironmentVariable", [&] { api::setEnvironmentVariable(name, value); });
+void FFmpegKitExtended::setEnvironmentVariable(std::string name, std::string value,
+                                               Completion &&result) noexcept {
+  completeAction("setEnvironmentVariable", std::move(result),
+                 [&] { api::setEnvironmentVariable(name, value); });
 }
 
-void FFmpegKitExtended::ignoreSignal(std::int32_t signal) noexcept {
-  invokeRecoverably("ignoreSignal", [&] { api::ignoreSignal(signal); });
+void FFmpegKitExtended::ignoreSignal(std::int32_t signal,
+                                     Completion &&result) noexcept {
+  completeAction("ignoreSignal", std::move(result),
+                 [&] { api::ignoreSignal(signal); });
 }
 
-void FFmpegKitExtended::setAudioOutputDevice(std::string deviceName) noexcept {
-  invokeRecoverably("setAudioOutputDevice", [&] { api::setAudioOutputDevice(deviceName); });
+void FFmpegKitExtended::setAudioOutputDevice(std::string deviceName,
+                                              Completion &&result) noexcept {
+  completeAction("setAudioOutputDevice", std::move(result),
+                 [&] { api::setAudioOutputDevice(deviceName); });
 }
 
 std::string FFmpegKitExtended::listAudioOutputDevices() noexcept {
-  return invokeRecoverably<std::string>("listAudioOutputDevices", [&] { return api::listAudioOutputDevices(); });
+  return invokeSynchronous<std::string>("listAudioOutputDevices", [&] { return api::listAudioOutputDevices(); });
 }
 
 std::string FFmpegKitExtended::getFFmpegVersion() noexcept {
-  return invokeRecoverably<std::string>("getFFmpegVersion", [&] { return api::getFFmpegVersion(); });
+  return invokeSynchronous<std::string>("getFFmpegVersion", [&] { return api::getFFmpegVersion(); });
 }
 
 std::string FFmpegKitExtended::getFFmpegArchitecture() noexcept {
-  return invokeRecoverably<std::string>("getFFmpegArchitecture", [&] { return api::getFFmpegArchitecture(); });
+  return invokeSynchronous<std::string>("getFFmpegArchitecture", [&] { return api::getFFmpegArchitecture(); });
 }
 
 std::string FFmpegKitExtended::getVersion() noexcept {
-  return invokeRecoverably<std::string>("getVersion", [&] { return api::getVersion(); });
+  return invokeSynchronous<std::string>("getVersion", [&] { return api::getVersion(); });
 }
 
 std::string FFmpegKitExtended::getPackageName() noexcept {
-  return invokeRecoverably<std::string>("getPackageName", [&] { return api::getPackageName(); });
+  return invokeSynchronous<std::string>("getPackageName", [&] { return api::getPackageName(); });
 }
 
 std::string FFmpegKitExtended::getExternalLibraries() noexcept {
-  return invokeRecoverably<std::string>("getExternalLibraries", [&] { return api::getExternalLibraries(); });
+  return invokeSynchronous<std::string>("getExternalLibraries", [&] { return api::getExternalLibraries(); });
 }
 
 std::string FFmpegKitExtended::getBundleType() noexcept {
-  return invokeRecoverably<std::string>("getBundleType", [&] { return api::getBundleType(); });
+  return invokeSynchronous<std::string>("getBundleType", [&] { return api::getBundleType(); });
 }
 
 bool FFmpegKitExtended::isGpl() noexcept {
-  return invokeRecoverably<bool>("isGpl", [&] { return api::isGpl(); });
+  return invokeSynchronous<bool>("isGpl", [&] { return api::isGpl(); });
 }
 
 bool FFmpegKitExtended::isNonfree() noexcept {
-  return invokeRecoverably<bool>("isNonfree", [&] { return api::isNonfree(); });
+  return invokeSynchronous<bool>("isNonfree", [&] { return api::isNonfree(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredCodecs() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredCodecs", [&] { return api::getRegisteredCodecs(); });
+  return invokeSynchronous<std::string>("getRegisteredCodecs", [&] { return api::getRegisteredCodecs(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredEncoders() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredEncoders", [&] { return api::getRegisteredEncoders(); });
+  return invokeSynchronous<std::string>("getRegisteredEncoders", [&] { return api::getRegisteredEncoders(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredDecoders() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredDecoders", [&] { return api::getRegisteredDecoders(); });
+  return invokeSynchronous<std::string>("getRegisteredDecoders", [&] { return api::getRegisteredDecoders(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredMuxers() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredMuxers", [&] { return api::getRegisteredMuxers(); });
+  return invokeSynchronous<std::string>("getRegisteredMuxers", [&] { return api::getRegisteredMuxers(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredDemuxers() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredDemuxers", [&] { return api::getRegisteredDemuxers(); });
+  return invokeSynchronous<std::string>("getRegisteredDemuxers", [&] { return api::getRegisteredDemuxers(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredFilters() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredFilters", [&] { return api::getRegisteredFilters(); });
+  return invokeSynchronous<std::string>("getRegisteredFilters", [&] { return api::getRegisteredFilters(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredProtocols() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredProtocols", [&] { return api::getRegisteredProtocols(); });
+  return invokeSynchronous<std::string>("getRegisteredProtocols", [&] { return api::getRegisteredProtocols(); });
 }
 
 std::string FFmpegKitExtended::getRegisteredBitstreamFilters() noexcept {
-  return invokeRecoverably<std::string>("getRegisteredBitstreamFilters", [&] { return api::getRegisteredBitstreamFilters(); });
+  return invokeSynchronous<std::string>("getRegisteredBitstreamFilters", [&] { return api::getRegisteredBitstreamFilters(); });
 }
 
 std::string FFmpegKitExtended::getBuildConfiguration() noexcept {
-  return invokeRecoverably<std::string>("getBuildConfiguration", [&] { return api::getBuildConfiguration(); });
+  return invokeSynchronous<std::string>("getBuildConfiguration", [&] { return api::getBuildConfiguration(); });
 }
 
 std::string FFmpegKitExtended::getBuildDate() noexcept {
-  return invokeRecoverably<std::string>("getBuildDate", [&] { return api::getBuildDate(); });
+  return invokeSynchronous<std::string>("getBuildDate", [&] { return api::getBuildDate(); });
 }
 
-void FFmpegKitExtended::setSessionHistorySize(double size) noexcept {
-  invokeRecoverably("setSessionHistorySize", [&] { api::setSessionHistorySize(size); });
+void FFmpegKitExtended::setSessionHistorySize(double size,
+                                               Completion &&result) noexcept {
+  completeAction("setSessionHistorySize", std::move(result),
+                 [&] { api::setSessionHistorySize(size); });
 }
 
 double FFmpegKitExtended::getSessionHistorySize() noexcept {
-  return invokeRecoverably<double>("getSessionHistorySize", [&] { return api::getSessionHistorySize(); });
+  return invokeSynchronous<double>("getSessionHistorySize", [&] { return api::getSessionHistorySize(); });
 }
 
-void FFmpegKitExtended::clearSessions() noexcept {
-  invokeRecoverably("clearSessions", [&] { api::clearSessions(); });
+void FFmpegKitExtended::clearSessions(Completion &&result) noexcept {
+  completeAction("clearSessions", std::move(result), [&] { api::clearSessions(); });
 }
 
 std::string FFmpegKitExtended::registerNewFFmpegPipe() noexcept {
-  return invokeRecoverably<std::string>("registerNewFFmpegPipe", [&] { return api::registerNewFFmpegPipe(); });
+  return invokeSynchronous<std::string>("registerNewFFmpegPipe", [&] { return api::registerNewFFmpegPipe(); });
 }
 
-void FFmpegKitExtended::closeFFmpegPipe(std::string path) noexcept {
-  invokeRecoverably("closeFFmpegPipe", [&] { api::closeFFmpegPipe(path); });
+void FFmpegKitExtended::closeFFmpegPipe(std::string path,
+                                         Completion &&result) noexcept {
+  completeAction("closeFFmpegPipe", std::move(result),
+                 [&] { api::closeFFmpegPipe(path); });
 }
 
 double FFmpegKitExtended::messagesInTransmit(double sessionId) noexcept {
-  return invokeRecoverably<double>("messagesInTransmit", [&] { return api::messagesInTransmit(sessionId); });
+  return invokeSynchronous<double>("messagesInTransmit", [&] { return api::messagesInTransmit(sessionId); });
 }
 
-void FFmpegKitExtended::enableDebugLog(double sessionId) noexcept {
-  invokeRecoverably("enableDebugLog", [&] { api::enableDebugLog(sessionId); });
+void FFmpegKitExtended::enableDebugLog(double sessionId,
+                                        Completion &&result) noexcept {
+  completeAction("enableDebugLog", std::move(result),
+                 [&] { api::enableDebugLog(sessionId); });
 }
 
-void FFmpegKitExtended::disableDebugLog(double sessionId) noexcept {
-  invokeRecoverably("disableDebugLog", [&] { api::disableDebugLog(sessionId); });
+void FFmpegKitExtended::disableDebugLog(double sessionId,
+                                         Completion &&result) noexcept {
+  completeAction("disableDebugLog", std::move(result),
+                 [&] { api::disableDebugLog(sessionId); });
 }
 
 bool FFmpegKitExtended::isDebugLogEnabled(double sessionId) noexcept {
-  return invokeRecoverably<bool>("isDebugLogEnabled", [&] { return api::isDebugLogEnabled(sessionId); });
+  return invokeSynchronous<bool>("isDebugLogEnabled", [&] { return api::isDebugLogEnabled(sessionId); });
 }
 
 std::string FFmpegKitExtended::getDebugLog(double sessionId) noexcept {
-  return invokeRecoverably<std::string>("getDebugLog", [&] { return api::getDebugLog(sessionId); });
+  return invokeSynchronous<std::string>("getDebugLog", [&] { return api::getDebugLog(sessionId); });
 }
 
-void FFmpegKitExtended::clearDebugLog(double sessionId) noexcept {
-  invokeRecoverably("clearDebugLog", [&] { api::clearDebugLog(sessionId); });
+void FFmpegKitExtended::clearDebugLog(double sessionId,
+                                       Completion &&result) noexcept {
+  completeAction("clearDebugLog", std::move(result),
+                 [&] { api::clearDebugLog(sessionId); });
 }
 
 } // namespace winrt::FFmpegKitExtended
