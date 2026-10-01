@@ -6,6 +6,7 @@
 #include "../native/ffplay_owner_coordinator.h"
 #include "../native/pixel_buffer_frame_store.h"
 #include "../native/texture_registration_transaction.h"
+#include "../native/packed_rgba_frame.h"
 #include <flutter_linux/flutter_linux.h>
 #include <gtk/gtk.h>
 #include <dlfcn.h>
@@ -202,26 +203,20 @@ static void on_frame_callback(void* userdata, const uint8_t* pixels, int width,
   if (!tex || !tex->state) return;
   TextureState* state = tex->state;
 
+  ffmpeg_kit_extended_flutter::PackedRgbaFrame frame;
+  if (!ffmpeg_kit_extended_flutter::NormalizePackedRgbaFrame(
+          pixels, width, height, linesize, pixel_format, &frame)) {
+    return;
+  }
+
   bool schedule_mark = false;
 
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     if (state->destroyed) return;
 
-    size_t expected_size = static_cast<size_t>(linesize) * static_cast<size_t>(height);
-    std::vector<uint8_t> frame(pixels, pixels + expected_size);
-
-    // Fix alpha channel for rgb0 before publishing the frame.
-    bool is_rgb0 = pixel_format && (strcmp(pixel_format, "rgb0") == 0);
-    if (is_rgb0) {
-      uint8_t* buf = frame.data();
-      size_t pixel_count = static_cast<size_t>(linesize / 4) * static_cast<size_t>(height);
-      for (size_t i = 0; i < pixel_count; ++i) {
-        if (buf[i * 4 + 3] == 0) buf[i * 4 + 3] = 0xFF;
-      }
-    }
-
-    state->frame_store.publish(frame.data(), frame.size(), width, height);
+    state->frame_store.publish(frame.bytes.data(), frame.bytes.size(),
+                                frame.width, frame.height);
     schedule_mark = state->frame_notification.request();
   }
 

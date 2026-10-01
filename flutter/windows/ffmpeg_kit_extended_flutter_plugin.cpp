@@ -10,6 +10,7 @@
 #include "../native/ffplay_owner_coordinator.h"
 #include "../native/registered_texture_lifetime.h"
 #include "../native/texture_registration_transaction.h"
+#include "../native/packed_rgba_frame.h"
 
 #include <flutter/standard_method_codec.h>
 #include <windows.h>
@@ -108,25 +109,21 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
   auto* state = reinterpret_cast<TextureState*>(userdata);
   if (!state || !pixels || width <= 0 || height <= 0) return;
 
+  ffmpeg_kit_extended_flutter::PackedRgbaFrame frame;
+  if (!ffmpeg_kit_extended_flutter::NormalizePackedRgbaFrame(
+          pixels, width, height, linesize, pixel_format, &frame)) {
+    return;
+  }
+
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     // Early exit if texture is being destroyed
     if (state->destroyed) {
       return;
     }
-    size_t row_bytes = static_cast<size_t>(linesize);
-    state->write_buf.resize(row_bytes * static_cast<size_t>(height));
-    memcpy(state->write_buf.data(), pixels, state->write_buf.size());
-    if (pixel_format && strcmp(pixel_format, "rgb0") == 0) {
-      uint8_t* buf = state->write_buf.data();
-      for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-          buf[y * linesize + x * 4 + 3] = 0xFF;
-        }
-      }
-    }
-    state->width = static_cast<uint32_t>(width);
-    state->height = static_cast<uint32_t>(height);
+    state->write_buf.swap(frame.bytes);
+    state->width = frame.width;
+    state->height = frame.height;
     // Swap write_buf <-> read_buf so the render callback always gets the latest
     // complete frame without blocking the decoder thread.
     std::swap(state->write_buf, state->read_buf);
