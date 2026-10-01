@@ -4,7 +4,7 @@
 
 - Plan: [review39-luna-platform-native-remediation-plan.md](./review39-luna-platform-native-remediation-plan.md)
 - Code review: [review39-platform-native-code-review.md](./review39-platform-native-code-review.md)
-- Preparation status: **Ready for implementation — the latest Review 39 plan and code review were downloaded from the browser conversation and materialized locally.**
+- Preparation status: **Implemented through G5 — the latest Review 39 plan and code review were materialized locally, all wrapper goals are complete, and the final wrapper-only source snapshot is recorded below.**
 - Review authority: wrapper implementation starts from `0cc61d41906611f9118d8eb84a95647a7925b99d`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Scope: Flutter and React Native platform-native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` remain frozen/read-only. Do not retrieve remote native artifacts or run hosted Flutter/React Native validation workflows.
 - Required validation order: Windows → Android on local Windows → Linux under WSL → Apple last through the MacBook Air SSH host. Use the existing configured local artifacts and do not launch interactive apps.
@@ -16,7 +16,7 @@
 | **R39-G2** | Replace React Native Windows blanket fail-fast operational error handling with caller-visible failure transport while keeping the native boundary `noexcept` | **Complete — recoverable adapter failures now cross the Windows boundary through a thread-local diagnostic channel and become ordinary JavaScript errors; the deterministic native boundary oracle and local Windows build passed.** |
 | **R39-G3** | Give every Flutter Linux generated GL texture name an exactly-once context-safe final deletion path | **Complete — the Linux plugin now uses Flutter's supported `FlPixelBufferTexture` lifecycle, so engine-owned GL texture creation/deletion stays on Flutter's render lifecycle while plugin-owned RGBA bytes remain alive through unregister.** |
 | **R39-G4** | Run focused native regressions and the ordered local Windows → Android → Linux → Apple validation using frozen artifacts only | **Complete — focused regressions and the required Windows → local Windows Android → WSL Linux → Apple-last matrix passed; diagnostic broad-suite failures are reconciled below and do not change the platform-native acceptance result.** |
-| **R39-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+| **R39-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Complete — exact wrapper SHA `8725426e55baac78ad8ba8f45dfd6a0bfc0cc2b8` was pushed and snapshotted successfully; tracker-only provenance is recorded below.** |
 
 ### Review 39 implementation boundary
 
@@ -58,6 +58,14 @@
 - Apple React Native focused gates passed: `npm run typecheck`, `npm run test:compile`, lint (**0 errors, 3 existing warnings**), native-lifecycle/codegen/error-transport checks (**14/14**), C++ callback bridge (**1/1**), Windows callback bridge (**1/1**), registration coordinator (**1/1**), native-session cleanup/history (**2/2**), cancellation (**11/11**), and tombstone (**2/2**). No interactive simulator/device application was launched.
 - Diagnostic broad-suite reconciliation: serialized Flutter `flutter test --no-pub --concurrency=1` completed **217/220**, with only three native host tests failing before execution because they directly open `libffmpegkit.dylib`, while the configured Apple artifact is the validated static universal XCFramework consumed by the build hook. React Native `npm test` completed **182/202** with 16 stale cross-review source/Wasm oracle assumptions; the Review 39 focused gates above passed. These diagnostics do not identify a Review 39 implementation failure or require a native ABI change, so they are not substituted for the focused acceptance evidence.
 - No hosted Flutter/React Native validation workflow, remote old binary, native ABI publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was used. Task-owned staging/processes were cleaned after each gate; no interactive runtime validation is claimed.
+
+### Review 39 frozen source snapshot evidence
+
+- Final implementation SHA: `8725426e55baac78ad8ba8f45dfd6a0bfc0cc2b8` on `dev-wasm`, pushed before snapshot dispatch. The frozen native submodule remained `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Sole permitted workflow: **Reusable Repository Source Snapshot**, run [36806954755](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36806954755), completed successfully with exact `snapshot_sha=8725426e55baac78ad8ba8f45dfd6a0bfc0cc2b8`. Workflow link: https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36806954755
+- Source artifact: `repo-source-snapshot-36806954755`, artifact ID `11138276225`, digest `sha256:fc5eabd237eb4ce2c36310969475fc82435430003501ec28b9a92774d2d98b3f`. Download page: https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36806954755/artifacts/11138276225 . Direct API archive: https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11138276225/zip
+- The companion diagnostic-log artifact is `repo-source-snapshot-log-36806954755`, artifact ID `11138460416`; it is not the source snapshot artifact.
+- This tracker update is a post-snapshot metadata-only commit; it does not alter the frozen implementation SHA represented by the source artifact. No additional snapshot or hosted Flutter/React Native validation workflow was dispatched.
 
 ## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
