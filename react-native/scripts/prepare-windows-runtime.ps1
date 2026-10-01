@@ -135,6 +135,62 @@ function Remove-DirectoryContents {
   }
 }
 
+function Read-DirectoryLockOwner {
+  param([Parameter(Mandatory)][string]$LockPath)
+
+  $ownerPath = Join-Path $LockPath 'owner'
+  if (-not (Test-Path -LiteralPath $ownerPath -PathType Leaf)) {
+    return @()
+  }
+
+  $stream = $null
+  $reader = $null
+  try {
+    # Allow a waiter to inspect the owner while the releasing process removes
+    # the lock directory. Get-Content's default sharing can otherwise keep the
+    # owner file open long enough for the owner's Remove-Item to fail on Windows.
+    $stream = [IO.File]::Open(
+      $ownerPath,
+      [IO.FileMode]::Open,
+      [IO.FileAccess]::Read,
+      ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete)
+    )
+    $reader = [IO.StreamReader]::new($stream)
+    $contents = $reader.ReadToEnd()
+    if ([string]::IsNullOrEmpty($contents)) {
+      return @()
+    }
+    return @($contents -split "\r?\n")
+  } catch {
+    # A partially-created owner file belongs to the current lock attempt. Keep
+    # waiting rather than treating an unreadable owner as stale.
+    return $null
+  } finally {
+    if ($null -ne $reader) {
+      $reader.Dispose()
+    } elseif ($null -ne $stream) {
+      $stream.Dispose()
+    }
+  }
+}
+
+function Remove-DetachedDirectory {
+  param([Parameter(Mandatory)][string]$Directory)
+
+  for ($attempt = 0; $attempt -lt 200; $attempt++) {
+    if (-not (Test-Path -LiteralPath $Directory -PathType Container)) {
+      return
+    }
+    try {
+      Remove-Item -LiteralPath $Directory -Recurse -Force -ErrorAction Stop
+      return
+    } catch {
+      Start-Sleep -Milliseconds 25
+    }
+  }
+  throw "Timed out removing detached staging directory: $Directory"
+}
+
 function Enter-DirectoryLock {
   param([Parameter(Mandatory)][string]$LockPath)
 
@@ -151,7 +207,7 @@ function Enter-DirectoryLock {
       $ownerPath = Join-Path $LockPath 'owner'
       $ownerAlive = $true
       if (Test-Path -LiteralPath $ownerPath -PathType Leaf) {
-        $owner = @(Get-Content -LiteralPath $ownerPath -ErrorAction SilentlyContinue)
+        $owner = @(Read-DirectoryLockOwner -LockPath $LockPath)
         $ownerPid = 0
         if ($owner.Count -gt 0 -and [int]::TryParse($owner[0], [ref]$ownerPid)) {
           try {
@@ -166,7 +222,15 @@ function Enter-DirectoryLock {
         }
       }
       if (-not $ownerAlive -or ((Get-Date) - $lockInfo.LastWriteTimeUtc).TotalMinutes -gt 30) {
-        Remove-Item -LiteralPath $LockPath -Recurse -Force
+        $cleanupPath = "$LockPath.stale.$PID.$([guid]::NewGuid().ToString('N'))"
+        try {
+          Move-Item -LiteralPath $LockPath -Destination $cleanupPath -ErrorAction Stop
+          Remove-DetachedDirectory -Directory $cleanupPath
+        } catch {
+          if (Test-Path -LiteralPath $cleanupPath -PathType Container) {
+            Remove-DetachedDirectory -Directory $cleanupPath
+          }
+        }
         continue
       }
       Start-Sleep -Milliseconds 25
@@ -178,16 +242,42 @@ function Enter-DirectoryLock {
 function Exit-DirectoryLock {
   param([Parameter(Mandatory)][string]$LockPath)
 
-  $ownerPath = Join-Path $LockPath 'owner'
-  if (Test-Path -LiteralPath $ownerPath -PathType Leaf) {
-    $owner = @(Get-Content -LiteralPath $ownerPath -ErrorAction SilentlyContinue)
-    if ($owner.Count -gt 0 -and $owner[0] -ne "$PID") {
+  for ($attempt = 0; $attempt -lt 200; $attempt++) {
+    if (-not (Test-Path -LiteralPath $LockPath -PathType Container)) {
       return
     }
+
+    $owner = Read-DirectoryLockOwner -LockPath $LockPath
+    if ($null -eq $owner) {
+      Start-Sleep -Milliseconds 25
+      continue
+    }
+    if ($owner.Count -eq 0) {
+      return
+    }
+    if ($owner[0] -ne "$PID") {
+      return
+    }
+
+    # Detach the owned directory before deleting it. A waiter may create a
+    # replacement lock immediately after the original disappears; deleting a
+    # detached path ensures cleanup cannot remove that new owner's lock.
+    $cleanupPath = "$LockPath.releasing.$PID.$([guid]::NewGuid().ToString('N'))"
+    try {
+      Move-Item -LiteralPath $LockPath -Destination $cleanupPath -ErrorAction Stop
+    } catch {
+      if (-not (Test-Path -LiteralPath $LockPath -PathType Container)) {
+        return
+      }
+      Start-Sleep -Milliseconds 25
+      continue
+    }
+
+    Remove-DetachedDirectory -Directory $cleanupPath
+    return
   }
-  if (Test-Path -LiteralPath $LockPath -PathType Container) {
-    Remove-Item -LiteralPath $LockPath -Recurse -Force
-  }
+
+  throw "Timed out releasing staging lock: $LockPath"
 }
 
 function Invoke-WithDirectoryLock {
@@ -320,7 +410,17 @@ if ($resolution.override -and $resolution.override.kind -eq 'local') {
           if ((Get-FileSha256 $temporaryArchive) -ne $archiveHash) {
             throw "Local FFmpegKit Extended archive changed while copying: $localArchive"
           }
-          Move-Item -LiteralPath $temporaryArchive -Destination $archive
+          try {
+            Move-Item -LiteralPath $temporaryArchive -Destination $archive -ErrorAction Stop
+          } catch {
+            # A concurrent worker may have published the same content after
+            # the lock was detached. Reuse it only after verifying identity;
+            # never mask a destination collision with different bytes.
+            if (-not (Test-Path -LiteralPath $archive -PathType Leaf) -or
+                (Get-FileSha256 $archive) -ne $archiveHash) {
+              throw
+            }
+          }
         } finally {
           if (Test-Path -LiteralPath $temporaryArchive) {
             Remove-Item -LiteralPath $temporaryArchive -Force

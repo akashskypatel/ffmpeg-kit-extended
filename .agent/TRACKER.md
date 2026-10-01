@@ -1,5 +1,12 @@
 # Tracker
 
+## Windows runtime packaging cleanup race — 2026-10-01
+
+- Status: **Complete**. This follow-up resolves the previously documented concurrent PowerShell staging cleanup diagnostic without changing the frozen native ABI or React Native native bridge.
+- Implementation: `react-native/scripts/prepare-windows-runtime.ps1` now reads lock ownership with delete-sharing, atomically detaches owned and stale lock directories before cleanup, retries detached-directory deletion, and safely reuses a concurrently published archive only after verifying its SHA-256 identity. A mismatched destination remains fatal.
+- Validation: `node --test tests/windows-runtime-packaging.test.js` passed **6/6** after the fix; the elevated `npm run check` gate passed typecheck, lint (five pre-existing warnings, zero errors), test compilation, and the full Node suite **204/204**.
+- Cleanup: tagged runtime-packaging processes exited and their temporary staging roots were removed by the test harness. No native ABI, `libs/libffmpegkit`, builder checkout, or hosted workflow was changed.
+
 ## Review 40 G5 Flutter + React Native Native-Bridge Closure — 2026-10-01
 
 - Plan: [review-40-g5-luna-platform-native-bridge-closure-plan.md](./review-40-g5-luna-platform-native-bridge-closure-plan.md)
