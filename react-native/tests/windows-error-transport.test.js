@@ -7,10 +7,20 @@ const windowsSource = fs.readFileSync(
   path.join(__dirname, '..', 'windows', 'FFmpegKitExtended', 'FFmpegKitExtended.cpp'),
   'utf8',
 );
+const dispatchSource = fs.readFileSync(
+  path.join(
+    __dirname,
+    '..',
+    'windows',
+    'FFmpegKitExtended',
+    'recoverable_native_dispatch.h',
+  ),
+  'utf8',
+);
 
 test('Windows operational dispatch does not use blanket process termination', () => {
   assert.doesNotMatch(windowsSource, /RaiseFailFastException/);
   assert.doesNotMatch(windowsSource, /std::terminate\s*\(/);
-  assert.match(windowsSource, /recordOperationalError\(method, error\.what\(\)\)/);
-  assert.match(windowsSource, /return Result\{\};/);
+  assert.match(dispatchSource, /recordOperationalError\(method, error\.what\(\)\)/);
+  assert.match(dispatchSource, /return Result\{\};/);
 });
