@@ -1,5 +1,29 @@
 # Tracker
 
+## Review 39 Flutter + React Native Platform-Native Remediation — 2026-09-30
+
+- Plan: [review39-luna-platform-native-remediation-plan.md](./review39-luna-platform-native-remediation-plan.md)
+- Code review: [review39-platform-native-code-review.md](./review39-platform-native-code-review.md)
+- Preparation status: **Ready for implementation — the latest Review 39 plan and code review were downloaded from the browser conversation and materialized locally.**
+- Review authority: wrapper implementation starts from `0cc61d41906611f9118d8eb84a95647a7925b99d`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Scope: Flutter and React Native platform-native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` remain frozen/read-only. Do not retrieve remote native artifacts or run hosted Flutter/React Native validation workflows.
+- Required validation order: Windows → Android on local Windows → Linux under WSL → Apple last through the MacBook Air SSH host. Use the existing configured local artifacts and do not launch interactive apps.
+- Findings: R39-F1 High — Flutter Windows destroys callback-captured external-texture state before asynchronous unregister completion; R39-F2 High — React Native Windows converts recoverable adapter errors into host-process termination; R39-F3 Medium — Flutter Linux does not explicitly retire the final generated GL texture in a context-safe lifecycle.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R39-G1** | Make Flutter Windows external-texture retirement asynchronous-lifetime-safe for release, replacement, rollback, and plugin teardown | **Pending** |
+| **R39-G2** | Replace React Native Windows blanket fail-fast operational error handling with caller-visible failure transport while keeping the native boundary `noexcept` | **Pending** |
+| **R39-G3** | Give every Flutter Linux generated GL texture name an exactly-once context-safe final deletion path | **Pending** |
+| **R39-G4** | Run focused native regressions and the ordered local Windows → Android → Linux → Apple validation using frozen artifacts only | **Pending** |
+| **R39-G5** | Reconcile evidence, freeze the exact wrapper SHA, and create one wrapper-only source snapshot | **Pending** |
+
+### Review 39 implementation boundary
+
+- Review/goal identifiers are metadata only; production and test names must describe texture retirement, recoverable error transport, and GL resource ownership semantics.
+- Complete goals in order G1 → G2 → G3 → focused regressions/matrix → exact-SHA source snapshot. Per-goal evidence, meaningful commits, pushes, process cleanup, and final snapshot provenance belong below this section.
+- Do not edit native ABI sources, `libs/libffmpegkit`, or the ManyLinux builder checkout. Use analytics-disabled Flutter/Dart commands, tag task-owned processes, terminate confirmed task-owned hangs before retrying, and clean generated staging.
+
 ## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
 - Plan: [review38-luna-cross-platform-remediation-plan.md](./review38-luna-cross-platform-remediation-plan.md)
