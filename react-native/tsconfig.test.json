@@ -19,6 +19,7 @@
     "src/platform/web/session-history-registry.ts",
     "src/platform/web/ffplay-frame-reader.ts",
     "src/platform/backend-registry.ts",
+    "src/platform/native-session-reconciliation.ts",
     "src/platform/backend.web.ts",
     "src/platform/backend.web.register.ts",
     "src/ffplay-kit.ts",

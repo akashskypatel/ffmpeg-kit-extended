@@ -1,5 +1,6 @@
 import NativeFFmpegKitExtended from '../NativeFFmpegKitExtended';
 import type {FFmpegKitBackend} from './backend-registry';
+import {reconcileAbandonedSession} from './native-session-reconciliation';
 
 const nativeModule = NativeFFmpegKitExtended as unknown as Record<string, unknown>;
 
@@ -44,15 +45,11 @@ async function invokeAsyncNative(method: string, args: readonly unknown[]): Prom
 }
 
 function reconcileAbandonedSessionId(sessionId: number): void {
-  try {
-    // This direct native lookup intentionally bypasses the JS tombstone gate.
-    // A non-empty snapshot proves the ID still exists and must remain
-    // fail-closed; an empty snapshot proves safe reclamation.
-    const json = NativeFFmpegKitExtended.getSessionJson(sessionId);
-    if (!json) abandonedSessionIds.delete(sessionId);
-  } catch {
-    // Preserve the tombstone when the reconciliation oracle is unavailable.
-  }
+  reconcileAbandonedSession(
+    sessionId,
+    abandonedSessionIds,
+    candidate => invokeSynchronousNative<string>('getSessionJson', [candidate]),
+  );
 }
 
 function filterAbandonedHistory(json: string): string {

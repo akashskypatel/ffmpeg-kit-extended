@@ -123,6 +123,15 @@ test('native session cleanup clears owning handles through the registry-aware AP
     /resolve<Fn>\("ffmpeg_kit_clear_sessions"\)\(\)/,
   );
   assert.match(clearSessions, /retainedSessionHandles\.clear\(\)/);
+  assert.match(clearSessions, /activeSessionOperations == 0/);
+  assert.ok(
+    clearSessions.indexOf('retainedSessionHandles.clear()') <
+      clearSessions.indexOf('historyRecords.clear()'),
+  );
+  assert.ok(
+    clearSessions.indexOf('historyRecords.clear()') <
+      clearSessions.lastIndexOf('clearSessionsInProgress = false'),
+  );
 });
 
 test('native handle cleanup caches lifetime symbols and commits retained release atomically', () => {
@@ -166,6 +175,7 @@ test('native handle acquisition uses one borrow/release/clear lifetime authority
   assert.match(dynamicApi, /struct RetainedSessionEntry/);
   assert.match(dynamicApi, /activeBorrows/);
   assert.match(dynamicApi, /activeRetainedBorrows/);
+  assert.match(dynamicApi, /activeSessionOperations/);
   assert.match(dynamicApi, /clearSessionsInProgress/);
   assert.match(dynamicApi, /Session handle release is already in progress/);
   assert.match(dynamicApi, /HandleGuard\(RetainedHandleLease/);
@@ -173,8 +183,10 @@ test('native handle acquisition uses one borrow/release/clear lifetime authority
   assert.match(dynamicApi, /getFFplaySession/);
   assert.match(dynamicApi, /getMediaInformationJson/);
   assert.match(dynamicApi, /getStatisticsJson/);
-  assert.match(dynamicApi, /clearSessions\(\)[\s\S]*activeRetainedBorrows == 0/);
-  assert.match(dynamicApi, /clearSessions\(\)[\s\S]*activeRetainedReleases == 0/);
+  assert.match(dynamicApi, /clearSessions\(\)[\s\S]*activeSessionOperations == 0/);
+  assert.match(dynamicApi, /createSessionWith[\s\S]*acquireSessionOperation/);
+  assert.match(dynamicApi, /getSessionsJson[\s\S]*acquireSessionOperation/);
+  assert.match(dynamicApi, /getLastSessionJson[\s\S]*acquireSessionOperation/);
   assert.match(nativeLifetimeTest, /a new borrow was admitted after release began/);
   assert.match(nativeLifetimeTest, /clear crossed an active borrower/);
   assert.match(nativeLifetimeTest, /duplicate release was admitted/);
@@ -235,6 +247,14 @@ test('native wrapper history rejects abandoned IDs before direct reconstruction'
     /invokeAsyncNative\('clearSessions', \[\]\)[\s\S]*abandonedSessionIds\.clear/,
   );
   assert.match(nativeBackend, /reconcileAbandonedSessionId/);
+  assert.match(
+    nativeBackend,
+    /invokeSynchronousNative<string>\('getSessionJson', \[candidate\]\)/,
+  );
+  assert.doesNotMatch(
+    nativeBackend,
+    /const json = NativeFFmpegKitExtended\.getSessionJson\(sessionId\)/,
+  );
   assert.doesNotMatch(nativeBackend, /abandonmentReconciliationThreshold/);
   assert.doesNotMatch(nativeBackend, /abandonmentEventsSinceReconciliation/);
   assert.match(nativeBackend, /recordCancellationIntent/);
