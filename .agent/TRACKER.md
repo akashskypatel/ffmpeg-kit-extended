@@ -1,5 +1,36 @@
 # Tracker
 
+## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
+
+- Plan: [review-40-luna-platform-native-bridge-closure-plan.md](./review-40-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-40-platform-native-bridge-closure-review.md](./review-40-platform-native-bridge-closure-review.md)
+- Preparation status: **Prepared for implementation — the downloaded Review 40 plan and code review are materialized locally, with the requested G5 final-audit/source-snapshot goal explicitly excluded.**
+- Review authority: wrapper implementation starts from `8725426e55baac78ad8ba9dfd6a0bfc0cc2b8`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Scope: Flutter and React Native platform-native bridge behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` remain frozen/read-only. Use existing configured local artifacts; do not retrieve remote native artifacts or run hosted Flutter/React Native validation workflows.
+- Required validation order: Windows → Android on local Windows → Linux under WSL → Apple last through the MacBook Air SSH host. Do not launch interactive applications or infer runtime correctness from compilation.
+- Findings: R40-F1 High — React Native Windows failure-bearing asynchronous methods use a thread-local post-call error channel; R40-F2 High — shared C++ handle cleanup can throw from RAII/noexcept paths and retained release is not failure-atomic; R40-F3 Medium-High — Flutter Windows/Linux FFplay frames do not normalize all supported packed layouts and padded strides to canonical RGBA8888.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R40-G1** | Give every failure-bearing React Native Windows asynchronous native method invocation-bound error completion | **Complete — native async actions now resolve/reject their own invocation; synchronous getters retain a separate diagnostic path.** |
+| **R40-G2** | Make shared React Native handle cleanup non-throwing and retained-handle release failure-atomic across Windows/Android/Apple | **Pending — implementation begins after preparation.** |
+| **R40-G3** | Canonicalize Flutter Windows/Linux FFplay desktop frames to tightly packed RGBA8888 for all supported packed layouts | **Pending — implementation begins after preparation.** |
+| **R40-G4** | Run focused bridge regressions and the affected local Windows → Android → Linux → Apple matrix using existing frozen artifacts | **Pending — implementation begins after G1–G3.** |
+| **R40-G5** | Perform the final bridge audit, exact wrapper SHA freeze, and wrapper-only source snapshot | **Excluded by user — do not implement, freeze, or run the source-snapshot workflow.** |
+
+### Review 40 implementation boundary
+
+- Review/goal identifiers are tracker metadata only; production and test names must describe invocation-bound completion, non-throwing ownership cleanup, and canonical packed-frame conversion.
+- Preserve Review 39's asynchronous Flutter Windows texture retirement, Linux `FlPixelBufferTexture` ownership, accepted FFplay owner semantics, and accepted log-bridge design unless directly required by these fixes.
+- Use analytics-disabled Flutter/Dart commands, tag and observe task-owned processes, terminate only confirmed task-owned hangs/orphans, and clean generated staging after each gate. Record retries and partial evidence below.
+
+### Review 40 implementation evidence — invocation-bound action completion
+
+- React Native failure-bearing native actions now return invocation-bound completion objects: Windows uses `ReactPromise<void>` and Android/Apple C++ uses `AsyncPromise<>`; ordinary exceptions reject the corresponding invocation and are never read through a post-call thread-local channel. Synchronous getters retain the separately named synchronous diagnostic transport.
+- The generated Android/iOS and Windows codegen contracts were regenerated in disposable staging and confirmed `Promise<void>`/`ReactPromise<void>` action signatures. The staging directories were removed after inspection.
+- Focused bridge gates passed: callback-demand, codegen lifecycle, native bridge lifetime, Windows error transport, queue ownership, Wasm session ownership, FFplay lifecycle, and Web history cleanup; React Native typecheck and test compilation also passed.
+- Meaningful commit `c4e6436` (`fix: bind React Native action failures to invocations`) was pushed to `origin/dev-wasm` before Apple validation.
+
 ## Review 39 Flutter + React Native Platform-Native Remediation — 2026-09-30
 
 - Plan: [review39-luna-platform-native-remediation-plan.md](./review39-luna-platform-native-remediation-plan.md)
