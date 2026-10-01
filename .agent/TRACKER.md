@@ -19,7 +19,7 @@
 | **R40-G5.5** | Add deterministic native lifetime tests with fake resolver symbols and synchronization barriers, covering release, clear, history, FFplay, debug/media, retry, and duplicate operations | **Complete — the executable fake-resolver regression covers active borrow/release, post-release rejection, clear ordering, duplicate release, pre-release retry, and clear retry; the source-contract suite passed 9/9.** |
 | **R40-G5.6** | Document the actual retained/releasing/released state machine and ordering policy in semantic technical comments | **Complete — `FFmpegKitDynamicApi.cpp` documents the retained-entry states, lease barrier, release ordering, clear ordering, and mutex/native-call boundary.** |
 | **R40-G5.7** | Run the bounded final code review across lifetime, errors, callbacks, loading, concurrency, shared C++, Flutter regressions, and Apple parity; exclude pedantic findings | **Complete — the bounded review found no substantive open findings; pedantic/style-only observations were excluded.** |
-| **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **In progress — all ordered local platform gates are complete; exact-SHA freeze and the required source snapshot remain.** |
+| **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **Complete — ordered local gates passed with the documented non-blocking host diagnostics; exact source SHA `ceb290999a637ed670ab84687865834c6c7a2813` was pushed and the wrapper-only source snapshot completed successfully.** |
 
 ### Review 40 G5 implementation boundary
 
@@ -56,6 +56,14 @@
 - Linux under WSL completed next with the configured local Linux native archive. Flutter Linux debug build completed and the full Flutter suite passed **220/220**; the WSL native lifetime executable also passed. No remote native artifact or hosted test workflow was used.
 - Apple completed last through `akash@192.168.1.189` (`Akashs-MacBook-Air.local`) with UTF-8 locale settings after the first React Native CocoaPods attempt exposed the Mac's ASCII locale. Flutter macOS release and iOS simulator/device debug builds produced the expected app artifacts. Flutter app-hosted suites passed **71/71** (API), **2/2** (abandonment/history), and **3/3** (FFplay boundary). React Native iOS, tvOS, and macOS builds each completed with `** BUILD SUCCEEDED **`; the Mac typecheck, compile, lint, and test run passed **199/203**, with four Windows PowerShell runtime-packaging cases skipped by platform.
 - All Flutter/Dart commands used analytics-disabled configuration. Remote task processes were tagged with `FFKIT_TASK`, observed with bounded polling, and cleaned up; no Review 40 task-owned process or temporary status/log file remained on the Mac after validation. `libs/libffmpegkit` stayed on `dev` at the frozen origin-matching SHA, and the ManyLinux builder checkout was not modified.
+
+### Review 40 G5.8 frozen source snapshot evidence — 2026-10-01
+
+- Final pushed source SHA: `ceb290999a637ed670ab84687865834c6c7a2813`.
+- Successful workflow: [run 36915811331](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36915811331). The run performed only exact-source checkout, recursive submodule verification, source archiving, and artifact upload; `runtimeExecution=false`.
+- Source artifact: `review40-g5-source-snapshot-36915811331`, artifact ID `11189438038`, digest `sha256:f6dea3abb03ddfe56661bebd002f6d46bd8a897c10f6d64a7600ce181294aeee`. [Artifact page](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36915811331/artifacts/11189438038) · [direct artifact download](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11189438038/zip).
+- Downloaded artifact verification passed: `source.tar.gz` SHA-256 `e15db87f5c3d6b02e3d594407b7d8272e8862ba80b2c10cd92abc0638025827d`, matching `source.tar.gz.sha256`; `SHA256SUMS` contains **1083** entries; no `.git` metadata is present; `SUBMODULES.txt` records `b74da2c5d1e294b87d15d73a6687393729e932b3 libs/libffmpegkit (b74da2c)`.
+- A preliminary dispatch (`36915658526`) failed before archive creation because the workflow received a short SHA and checkout treated it as a ref pattern. It produced no source artifact and no runtime/native validation; the successful retry used the full 40-character SHA above. Its diagnostic artifact was not used as the source snapshot.
 
 ## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
 
