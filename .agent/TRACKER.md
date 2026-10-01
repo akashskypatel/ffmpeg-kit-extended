@@ -1,5 +1,23 @@
 # Tracker
 
+## Review 41 Platform-Native Bridge Final Closure — 2026-10-01
+
+- Plan: [review-41-luna-platform-native-bridge-closure-plan.md](./review-41-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-41-platform-native-bridge-code-review.md](./review-41-platform-native-bridge-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 41 documents were read, hashed, and materialized locally. The review identified two substantive open findings; no Review 41 tests had been executed before this implementation.**
+- Starting source authority: `7ba4a60621c77ac9add7328e8c27b7394f2cdb11`; the current branch also contains only the prior tracker metadata commit after that authority. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Downloaded plan SHA-256: `A5047A0192AD5B92D632F4823DF2FB3D2207638386C7AFF1224704A058EA6C68`; downloaded review SHA-256: `4E9F3F8E240B4B67EA3D60C0350415F46E3326000A93E425D5A859ECBB43CA7F`.
+- Scope: shared React Native C++ session-registry lifetime, native-backend synchronous diagnostic handling, semantic comments/tests, and affected local validation. Do not edit `libs/libffmpegkit` or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`, download/publish native ABI artifacts, or use hosted acceptance workflows. Review 41 explicitly requires Windows → Android on Windows → WSL shared C++ → Apple last; Flutter remains covered by the accepted Review 40 evidence unless a concrete Flutter regression is found.
+- Semantic naming boundary: Review 41, goal, and finding identifiers are metadata only. Production/test names must describe registry operation leases, clear barriers, diagnostic-aware reconciliation, and fail-closed tombstones.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R41-G1** | Make global session clear a registry-wide lifetime transaction covering retained and temporary handles plus session creation | **Pending — implement the registry operation authority and deterministic C++ concurrency coverage.** |
+| **R41-G2** | Make native abandonment reconciliation diagnostic-aware and fail-closed on Windows synchronous errors | **Pending — route reconciliation through the common synchronous diagnostic boundary and add behavioral backend coverage.** |
+| **R41-G3** | Re-audit every native session-handle acquisition and every Windows synchronous native read against the corrected authorities | **Pending — complete the source matrix and focused path tests.** |
+| **R41-G4** | Preserve previously clean platform-native bridge invariants and update only semantic maintenance comments | **Pending — document the corrected ownership/error contracts without unrelated prose changes.** |
+| **R41-G5** | Perform the final bounded audit, affected local validation, exact-SHA freeze, and one wrapper-only source snapshot | **Pending — run only after G1–G4 are complete.** |
+
 ## Windows runtime packaging cleanup race — 2026-10-01
 
 - Status: **Complete**. This follow-up resolves the previously documented concurrent PowerShell staging cleanup diagnostic without changing the frozen native ABI or React Native native bridge.
