@@ -30,6 +30,12 @@ bool failNextStateLookup = false;
 bool blockNativeRelease = false;
 bool nativeReleaseEntered = false;
 bool allowNativeRelease = false;
+bool blockNativeClear = false;
+bool nativeClearEntered = false;
+bool allowNativeClear = false;
+bool blockSessionCreation = false;
+bool sessionCreationEntered = false;
+bool allowSessionCreation = false;
 std::size_t releaseCount = 0;
 
 FakeSession &sessionFor(void *handle) {
@@ -47,6 +53,10 @@ void fakeRelease(void *handle) {
   nativeReleaseEntered = true;
   fakeCondition.notify_all();
   fakeCondition.wait(lock, [] { return allowNativeRelease; });
+}
+
+std::int64_t fakeSessionId(void *handle) {
+  return sessionFor(handle).id;
 }
 
 void *fakeGetSession(std::int64_t id) {
@@ -68,7 +78,8 @@ int fakeGetState(void *handle) {
     failNextStateLookup = false;
     throw std::runtime_error("synthetic state lookup failure");
   }
-  if (blockBorrowState && !borrowBlockConsumed && session.id <= 2) {
+  if (blockBorrowState && !borrowBlockConsumed &&
+      (session.id <= 2 || session.id == 6)) {
     borrowEntered = true;
     fakeCondition.notify_all();
     fakeCondition.wait(lock, [] { return allowBorrow; });
@@ -77,16 +88,35 @@ int fakeGetState(void *handle) {
   return 2;
 }
 
+void *fakeCreateSession(const char *) {
+  std::unique_lock<std::mutex> lock(fakeMutex);
+  auto &session = sessions[8];
+  session.created = true;
+  session.visible = true;
+  session.id = 8;
+  if (blockSessionCreation) {
+    sessionCreationEntered = true;
+    fakeCondition.notify_all();
+    fakeCondition.wait(lock, [] { return allowSessionCreation; });
+  }
+  return &session;
+}
+
 void fakeExecute(void *) {}
 std::int64_t fakeHistorySize() { return 0; }
 bool fakeFalse(void *) { return false; }
 bool fakeFfmpeg(void *) { return true; }
 
 void fakeClearSessions() {
-  std::lock_guard<std::mutex> lock(fakeMutex);
+  std::unique_lock<std::mutex> lock(fakeMutex);
   if (failNextClear) {
     failNextClear = false;
     throw std::runtime_error("synthetic clear failure");
+  }
+  if (blockNativeClear) {
+    nativeClearEntered = true;
+    fakeCondition.notify_all();
+    fakeCondition.wait(lock, [] { return allowNativeClear; });
   }
   clearCalled = true;
   for (auto &session : sessions) {
@@ -101,6 +131,8 @@ void *resolve(const char *name) {
   MATCH("ffmpeg_kit_handle_release", fakeRelease);
   MATCH("ffmpeg_kit_free", fakeFree);
   MATCH("ffmpeg_kit_get_session", fakeGetSession);
+  MATCH("ffmpeg_kit_create_session", fakeCreateSession);
+  MATCH("ffmpeg_kit_session_get_session_id", fakeSessionId);
   MATCH("ffmpeg_kit_session_get_state", fakeGetState);
   MATCH("ffmpeg_kit_session_execute_async", fakeExecute);
   MATCH("ffmpeg_kit_get_session_history_size", fakeHistorySize);
@@ -132,6 +164,11 @@ void waitForClearBarrier() {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
   throw std::runtime_error("clear barrier did not become visible");
+}
+
+void waitForNativeClear() {
+  std::unique_lock<std::mutex> lock(fakeMutex);
+  fakeCondition.wait(lock, [] { return nativeClearEntered; });
 }
 
 void require(bool condition, const char *message) {
@@ -225,6 +262,74 @@ int main() {
   requireThrows([] { clearSessions(); }, "native clear failure was hidden");
   require(getSessionState(5) == 2, "failed clear discarded retained ownership");
   clearSessions();
+
+  blockBorrowState = true;
+  borrowBlockConsumed = false;
+  allowBorrow = false;
+  borrowEntered = false;
+  clearCalled = false;
+  std::thread temporaryReader([] {
+    require(getSessionState(6) == 2, "temporary read failed");
+  });
+  waitFor(borrowEntered);
+  std::thread temporaryClear([] { clearSessions(); });
+  waitForClearBarrier();
+  {
+    std::unique_lock<std::mutex> lock(fakeMutex);
+    require(!fakeCondition.wait_for(lock, std::chrono::milliseconds(100),
+                                    [] { return clearCalled; }),
+            "clear crossed a temporary native read");
+    allowBorrow = true;
+  }
+  fakeCondition.notify_all();
+  temporaryReader.join();
+  temporaryClear.join();
+
+  blockSessionCreation = true;
+  sessionCreationEntered = false;
+  allowSessionCreation = false;
+  clearCalled = false;
+  std::thread creator([] {
+    require(createFFmpegSession("synthetic") == 8, "session creation failed");
+  });
+  waitFor(sessionCreationEntered);
+  std::thread creationClear([] { clearSessions(); });
+  waitForClearBarrier();
+  {
+    std::unique_lock<std::mutex> lock(fakeMutex);
+    require(!fakeCondition.wait_for(lock, std::chrono::milliseconds(100),
+                                    [] { return clearCalled; }),
+            "clear crossed an active session creation");
+    allowSessionCreation = true;
+  }
+  fakeCondition.notify_all();
+  creator.join();
+  creationClear.join();
+
+  blockNativeClear = true;
+  nativeClearEntered = false;
+  allowNativeClear = false;
+  blockSessionCreation = false;
+  sessionCreationEntered = false;
+  clearCalled = false;
+  std::thread exclusiveClear([] { clearSessions(); });
+  waitForClearBarrier();
+  waitForNativeClear();
+  std::thread blockedCreator([] {
+    require(createFFmpegSession("after-clear-start") == 8,
+            "post-clear session creation failed");
+  });
+  {
+    std::unique_lock<std::mutex> lock(fakeMutex);
+    require(!fakeCondition.wait_for(lock, std::chrono::milliseconds(100),
+                                    [] { return sessionCreationEntered; }),
+            "session creation crossed an exclusive clear");
+    allowNativeClear = true;
+  }
+  fakeCondition.notify_all();
+  exclusiveClear.join();
+  blockedCreator.join();
+  blockNativeClear = false;
 
   testing::resetDynamicSymbolResolver();
   return 0;
