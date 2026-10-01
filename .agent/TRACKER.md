@@ -19,7 +19,7 @@
 | **R40-G5.5** | Add deterministic native lifetime tests with fake resolver symbols and synchronization barriers, covering release, clear, history, FFplay, debug/media, retry, and duplicate operations | **Complete — the executable fake-resolver regression covers active borrow/release, post-release rejection, clear ordering, duplicate release, pre-release retry, and clear retry; the source-contract suite passed 9/9.** |
 | **R40-G5.6** | Document the actual retained/releasing/released state machine and ordering policy in semantic technical comments | **Complete — `FFmpegKitDynamicApi.cpp` documents the retained-entry states, lease barrier, release ordering, clear ordering, and mutex/native-call boundary.** |
 | **R40-G5.7** | Run the bounded final code review across lifetime, errors, callbacks, loading, concurrency, shared C++, Flutter regressions, and Apple parity; exclude pedantic findings | **Complete — the bounded review found no substantive open findings; pedantic/style-only observations were excluded.** |
-| **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **Pending — run after all prior goals** |
+| **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **In progress — all ordered local platform gates are complete; exact-SHA freeze and the required source snapshot remain.** |
 
 ### Review 40 G5 implementation boundary
 
@@ -48,6 +48,14 @@
 - Windows/shared C++/Android/Apple parity: **no open finding**. The implementation is in the shared dynamic C++ bridge, the Windows error contract remains covered, and the Windows/WSL native executables both passed. No platform-specific wrapper divergence was introduced.
 - Flutter regression scan: **no changed Flutter files and no open finding**. The prior app-hosted Flutter native coverage and ordered local matrix remain the applicable evidence; G5 changes are confined to the React Native shared bridge/test seam.
 - Review policy: pedantic/style-only findings were intentionally excluded. No native ABI, submodule, builder checkout, remote artifact, or hosted test workflow was involved.
+
+### Review 40 G5.8 ordered local validation evidence — 2026-10-01
+
+- Windows completed first. The Windows native lifetime executable and the combined React Native bridge/error suite passed; Flutter Windows and React Native Windows example builds completed successfully. Android then completed on local Windows: Flutter produced `flutter/example/build/app/outputs/flutter-apk/app-debug.apk`, and the React Native Gradle/CMake build produced `react-native/example/android/app/build/outputs/apk/debug/app-debug.apk`.
+- The full Windows Flutter package suite reported **218/219**: one existing host-conditional `user_defines_config_test.dart` expectation still assumes the WSL foreign-host URI while executing on Windows. The full Windows React Native suite reported **203/204**: the existing concurrent PowerShell runtime-staging lock-owner cleanup test failed again under normal and elevated execution. Neither diagnostic touches the G5 files or native ABI; both are retained as non-blocking evidence rather than hidden.
+- Linux under WSL completed next with the configured local Linux native archive. Flutter Linux debug build completed and the full Flutter suite passed **220/220**; the WSL native lifetime executable also passed. No remote native artifact or hosted test workflow was used.
+- Apple completed last through `akash@192.168.1.189` (`Akashs-MacBook-Air.local`) with UTF-8 locale settings after the first React Native CocoaPods attempt exposed the Mac's ASCII locale. Flutter macOS release and iOS simulator/device debug builds produced the expected app artifacts. Flutter app-hosted suites passed **71/71** (API), **2/2** (abandonment/history), and **3/3** (FFplay boundary). React Native iOS, tvOS, and macOS builds each completed with `** BUILD SUCCEEDED **`; the Mac typecheck, compile, lint, and test run passed **199/203**, with four Windows PowerShell runtime-packaging cases skipped by platform.
+- All Flutter/Dart commands used analytics-disabled configuration. Remote task processes were tagged with `FFKIT_TASK`, observed with bounded polling, and cleaned up; no Review 40 task-owned process or temporary status/log file remained on the Mac after validation. `libs/libffmpegkit` stayed on `dev` at the frozen origin-matching SHA, and the ManyLinux builder checkout was not modified.
 
 ## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
 
