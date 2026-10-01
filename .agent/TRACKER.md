@@ -12,7 +12,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R39-G1** | Make Flutter Windows external-texture retirement asynchronous-lifetime-safe for release, replacement, rollback, and plugin teardown | **Pending** |
+| **R39-G1** | Make Flutter Windows external-texture retirement asynchronous-lifetime-safe for release, replacement, rollback, and plugin teardown | **Complete — deferred retirement now owns the callback-captured state through Flutter unregister completion; focused lifetime and local Flutter Windows build evidence is recorded below.** |
 | **R39-G2** | Replace React Native Windows blanket fail-fast operational error handling with caller-visible failure transport while keeping the native boundary `noexcept` | **Pending** |
 | **R39-G3** | Give every Flutter Linux generated GL texture name an exactly-once context-safe final deletion path | **Pending** |
 | **R39-G4** | Run focused native regressions and the ordered local Windows → Android → Linux → Apple validation using frozen artifacts only | **Pending** |
@@ -23,6 +23,14 @@
 - Review/goal identifiers are metadata only; production and test names must describe texture retirement, recoverable error transport, and GL resource ownership semantics.
 - Complete goals in order G1 → G2 → G3 → focused regressions/matrix → exact-SHA source snapshot. Per-goal evidence, meaningful commits, pushes, process cleanup, and final snapshot provenance belong below this section.
 - Do not edit native ABI sources, `libs/libffmpegkit`, or the ManyLinux builder checkout. Use analytics-disabled Flutter/Dart commands, tag task-owned processes, terminate confirmed task-owned hangs before retrying, and clean generated staging.
+
+### Review 39 implementation evidence — asynchronous external-texture retirement
+
+- Flutter Windows now separates logical detach from physical retirement. `CopyPixelBuffer` remains safe while unregister completion is pending, and a semantic `RetireRegisteredTexture` owner keeps the `TextureState` and its `TextureVariant` alive until Flutter invokes the asynchronous completion callback. The completion is independent of the plugin object, supports immediate completion, and gives every overlapping retirement an independent owner.
+- The FFplay owner-install rollback uses the same completion-owned retirement path without capturing plugin `this`. Explicit release, replacement, and plugin destruction all drain the producer callback first, mark the state destroyed, and then request asynchronous Flutter unregister.
+- Executable native regression: `clang++ -std=c++17 -O0 -g -I flutter/native flutter/test/native/registered_texture_lifetime_test.cpp` followed by the tagged test executable — **passed** for deferred completion, immediate completion, overlapping retirements, and never-registered cleanup; generated staging was removed afterward.
+- Analytics-disabled local Flutter validation: `flutter config --no-analytics`, `dart --disable-analytics`, and `flutter build windows --debug --no-pub` from `flutter/example` — **passed**, producing `flutter/example/build/windows/x64/runner/Debug/ffmpeg_kit_extended_flutter_example.exe`. No interactive application was launched.
+- No native ABI source, `libs/libffmpegkit`, ManyLinux builder checkout, remote binary, or hosted Flutter/React Native workflow was changed or used.
 
 ## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 

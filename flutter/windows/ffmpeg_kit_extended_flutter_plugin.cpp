@@ -8,6 +8,7 @@
 
 #include "include/ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter_plugin.h"
 #include "../native/ffplay_owner_coordinator.h"
+#include "../native/registered_texture_lifetime.h"
 #include "../native/texture_registration_transaction.h"
 
 #include <flutter/standard_method_codec.h>
@@ -136,11 +137,13 @@ static void OnFrameCallback(void* userdata, const uint8_t* pixels, int width,
 // --- CopyPixelBuffer callback (Flutter render thread) ------------------------
 
 static const FlutterDesktopPixelBuffer* CopyPixelBuffer(size_t /*width*/,
-                                                         size_t /*height*/,
-                                                         void* userdata) {
+                                                          size_t /*height*/,
+                                                          void* userdata) {
   auto* state = reinterpret_cast<TextureState*>(userdata);
+  if (!state) return nullptr;
   std::lock_guard<std::mutex> lock(state->mutex);
-  if (state->read_buf.empty() || state->width == 0 || state->height == 0)
+  if (state->destroyed || state->read_buf.empty() || state->width == 0 ||
+      state->height == 0)
     return nullptr;
 
   // Copy under the mutex so render_buf.data() remains stable after we return
@@ -206,9 +209,8 @@ void FfmpegKitExtendedFlutterPlugin::HandleCreateTexture(
   auto state = std::make_unique<TextureState>();
   state->texture_registrar = texture_registrar_;
 
-  // Build the TextureVariant with a PixelBufferTexture.  The lambda captures
-  // the raw state pointer; the TextureVariant is owned by the TextureState so
-  // it is always destroyed before the state itself.
+  // Build the TextureVariant with a PixelBufferTexture. The retirement owner
+  // keeps the state and callback object alive until Flutter unregisters it.
   TextureState* state_ptr = state.get();
   state->texture_variant = std::make_unique<flutter::TextureVariant>(
       flutter::PixelBufferTexture(
@@ -236,9 +238,10 @@ void FfmpegKitExtendedFlutterPlugin::HandleCreateTexture(
                                                             state_ptr);
                 });
           },
-          [this](int64_t texture_id) {
-            texture_registrar_->UnregisterTexture(texture_id);
-          })) {
+           [registrar = texture_registrar_, &state](int64_t texture_id) mutable {
+             if (state) state->texture_id = texture_id;
+             RetireRegisteredTexture(registrar, std::move(state));
+           })) {
     result->Error("FFPLAY_OWNER", "Could not claim FFplay output ownership");
     return;
   }
@@ -310,14 +313,10 @@ void FfmpegKitExtendedFlutterPlugin::ReleaseTextureState() {
     state_to_release->height = 0;
   }
 
-  // 3. Unregister the texture from Flutter's TextureRegistrar.
-  if (state_to_release->texture_id >= 0) {
-    texture_registrar_->UnregisterTexture(state_to_release->texture_id);
-    state_to_release->texture_id = -1;
-  }
-
-  // 4. Destroy the state (and the TextureVariant inside it).
-  // state_to_release goes out of scope here, automatically destroying the TextureState
+  // 3. Keep the callback-captured state and TextureVariant alive until Flutter
+  // confirms that external-texture retirement is complete. This callback does
+  // not capture the plugin, so plugin destruction is safe.
+  RetireRegisteredTexture(texture_registrar_, std::move(state_to_release));
 }
 
 }  // namespace ffmpeg_kit_extended_flutter
