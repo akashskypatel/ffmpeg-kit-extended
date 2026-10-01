@@ -296,6 +296,11 @@ String resolveLocalOverridePath({
     return '/$linuxPath';
   }
 
+  // A Windows UNC path is already rooted even when this helper is exercised
+  // by a non-Windows host (for example, in a cross-platform unit test). Do
+  // not reinterpret it as a relative path under the current package root.
+  if (overridePath.startsWith(r'\\')) return overridePath;
+
   return p.isAbsolute(overridePath)
       ? overridePath
       : p.join(configBaseDir, overridePath);
