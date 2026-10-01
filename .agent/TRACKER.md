@@ -1,11 +1,38 @@
 # Tracker
 
+## Review 40 G5 Flutter + React Native Native-Bridge Closure — 2026-10-01
+
+- Plan: [review-40-g5-luna-platform-native-bridge-closure-plan.md](./review-40-g5-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-40-platform-native-bridge-closure-review.md](./review-40-platform-native-bridge-closure-review.md)
+- Preparation status: **Prepared for implementation — the downloaded G5 plan and Review 40 code review are materialized locally and reviewed. The previously excluded G5 final-audit/source-snapshot goal is explicitly authorized by the current user request.**
+- Review authority: implementation is audited against wrapper SHA `7ad146981461fa5509bf781b49b51db01fc15f04`; frozen native ABI/runtime `0.11.2` and `libs/libffmpegkit` remain at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Scope: React Native shared native-handle lifetime and bridge error-boundary closure, plus the final Flutter/React Native regression and local platform matrix. Do not edit `libs/libffmpegkit` or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`, download or publish native artifacts, or run hosted Flutter/React Native test workflows.
+- Required validation order: Windows → Android on local Windows → Linux under WSL → Apple last through the MacBook Air SSH host. Use the existing configured local artifacts, analytics-disabled Flutter/Dart commands, tagged task-owned processes, bounded observation, and cleanup.
+- Semantic naming boundary: Review/G5 identifiers are metadata only. Implementation and test names must describe retained-handle leases, release/clear barriers, invocation-bound errors, and deterministic lifetime behavior.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R40-G5.1** | Establish one retained-handle lease state machine that prevents raw-pointer use after release begins and makes post-release borrows deterministic | **Pending — implement and test** |
+| **R40-G5.2** | Make `clearSessions()` share the same borrow/release barrier and commit JavaScript bookkeeping only after native clear succeeds | **Pending — implement and test** |
+| **R40-G5.3** | Audit and route every shared acquisition path, including history, FFplay, debug, media-information, and statistics operations, through the lifetime authority | **Pending — implement and test** |
+| **R40-G5.4** | Preserve invocation-bound Promise/action failures and same-call synchronous diagnostics across Windows/shared C++/TypeScript | **Pending — verify and remediate only if needed** |
+| **R40-G5.5** | Add deterministic native lifetime tests with fake resolver symbols and synchronization barriers, covering release, clear, history, FFplay, debug/media, retry, and duplicate operations | **Pending — implement and run** |
+| **R40-G5.6** | Document the actual retained/releasing/released state machine and ordering policy in semantic technical comments | **Pending — implement** |
+| **R40-G5.7** | Run the bounded final code review across lifetime, errors, callbacks, loading, concurrency, shared C++, Flutter regressions, and Apple parity; exclude pedantic findings | **Pending — run after implementation** |
+| **R40-G5.8** | Execute the ordered local platform gates, freeze the exact wrapper SHA, and create the required wrapper-only source snapshot | **Pending — run after all prior goals** |
+
+### Review 40 G5 implementation boundary
+
+- The frozen native ABI/runtime is complete and does not need to be re-downloaded or reviewed. All blockers requiring native ABI changes must be recorded here and in the historical Review 40 section below with evidence.
+- Complete G5.1 → G5.2 → G5.3 → G5.4 → G5.5 → G5.6 → G5.7 → G5.8. Commit and push each completed goal with a meaningful semantic message before marking it complete.
+- The final source snapshot is the sole permitted GitHub workflow dispatch. It must run only after the exact wrapper SHA is pushed and frozen; record the workflow run ID, artifact ID/name, artifact link, digest, embedded source archive digest, manifest count, recursive submodule state, and `runtimeExecution=false`.
+
 ## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
 
 - Plan: [review-40-luna-platform-native-bridge-closure-plan.md](./review-40-luna-platform-native-bridge-closure-plan.md)
 - Code review: [review-40-platform-native-bridge-closure-review.md](./review-40-platform-native-bridge-closure-review.md)
-- Preparation status: **Prepared for implementation — the downloaded Review 40 plan and code review are materialized locally, with the requested G5 final-audit/source-snapshot goal explicitly excluded.**
-- Review authority: wrapper implementation starts from `8725426e55baac78ad8ba9dfd6a0bfc0cc2b8`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Preparation status: **G1–G4 complete; G5 is tracked in the dedicated execution section above and is now authorized for implementation.**
+- Review authority: G1–G4 wrapper work is recorded through `7ad146981461fa5509bf781b49b51db01fc15f04`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Scope: Flutter and React Native platform-native bridge behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` remain frozen/read-only. Use existing configured local artifacts; do not retrieve remote native artifacts or run hosted Flutter/React Native validation workflows.
 - Required validation order: Windows → Android on local Windows → Linux under WSL → Apple last through the MacBook Air SSH host. Do not launch interactive applications or infer runtime correctness from compilation.
 - Findings: R40-F1 High — React Native Windows failure-bearing asynchronous methods use a thread-local post-call error channel; R40-F2 High — shared C++ handle cleanup can throw from RAII/noexcept paths and retained release is not failure-atomic; R40-F3 Medium-High — Flutter Windows/Linux FFplay frames do not normalize all supported packed layouts and padded strides to canonical RGBA8888.
@@ -16,7 +43,7 @@
 | **R40-G2** | Make shared React Native handle cleanup non-throwing and retained-handle release failure-atomic across Windows/Android/Apple | **Complete — cached lifetime symbols keep RAII cleanup non-throwing, and retained entries remain retryable until native release commits.** |
 | **R40-G3** | Canonicalize Flutter Windows/Linux FFplay desktop frames to tightly packed RGBA8888 for all supported packed layouts | **Complete — both desktop plugins now use one semantic normalizer for all supported four-byte layouts and padded strides.** |
 | **R40-G4** | Run focused bridge regressions and the affected local Windows → Android → Linux → Apple matrix using existing frozen artifacts | **Complete — focused regressions and the ordered local Windows → Android → Linux → Apple matrix passed; three Flutter Apple tests remain documented as pre-execution static-XCFramework loader diagnostics.** |
-| **R40-G5** | Perform the final bridge audit, exact wrapper SHA freeze, and wrapper-only source snapshot | **Excluded by user — do not implement, freeze, or run the source-snapshot workflow.** |
+| **R40-G5** | Perform the final bridge audit, exact wrapper SHA freeze, and wrapper-only source snapshot | **Authorized and tracked in the dedicated G5 execution section above.** |
 
 ### Review 40 implementation boundary
 
@@ -52,7 +79,7 @@
 - Linux validation passed under WSL: after refreshing only the WSL Dart package graph to remove a Windows Pub-cache reference, the focused Flutter test passed **12/12**, the packed-frame native executable passed with `g++ -std=c++17 -Wall -Wextra -Werror`, and the Flutter Linux debug build passed using the configured local archive `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle-base-linux-x86_64-shared-lgpl.zip`. React Native has no Linux example target in this repository.
 - Apple validation passed on the authorized MacBook Air over SSH using the existing local universal XCFrameworks: Flutter iOS `--no-codesign` and macOS debug builds passed; React Native iOS, tvOS, and macOS debug builds passed using the local iOS, tvOS, and macOS XCFramework archives. Flutter's initial serialized host suite completed **217/220**; its three pre-execution loader failures are superseded by the app-hosted integration results recorded below. React Native's full Mac suite passed **199/203** with **4** platform-specific tests skipped; typecheck, test compilation, and lint passed with **0 errors** and five warnings.
 - All Flutter/Dart analytics were disabled for the local gates. No Flutter/React Native CI or hosted test workflow was run, no remote native artifact was retrieved or published, and neither `libs/libffmpegkit` nor the ManyLinux builder checkout was modified. Tagged task processes were observed and the generated Mac staging candidates were absent after the builds.
-- The ordered validation and app-hosted conversion evidence below are the final non-G5 Review 40 record; no source-snapshot workflow is authorized because G5 remains explicitly excluded.
+- The ordered validation and app-hosted conversion evidence below are the completed G1–G4 record. G5 execution and final snapshot provenance are tracked in the dedicated section above.
 
 ### Review 40 app-hosted Flutter native-test conversion — 2026-10-01
 
