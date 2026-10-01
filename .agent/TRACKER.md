@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | **R40-G1** | Give every failure-bearing React Native Windows asynchronous native method invocation-bound error completion | **Complete — native async actions now resolve/reject their own invocation; synchronous getters retain a separate diagnostic path.** |
 | **R40-G2** | Make shared React Native handle cleanup non-throwing and retained-handle release failure-atomic across Windows/Android/Apple | **Complete — cached lifetime symbols keep RAII cleanup non-throwing, and retained entries remain retryable until native release commits.** |
-| **R40-G3** | Canonicalize Flutter Windows/Linux FFplay desktop frames to tightly packed RGBA8888 for all supported packed layouts | **Pending — implementation begins after preparation.** |
+| **R40-G3** | Canonicalize Flutter Windows/Linux FFplay desktop frames to tightly packed RGBA8888 for all supported packed layouts | **Complete — both desktop plugins now use one semantic normalizer for all supported four-byte layouts and padded strides.** |
 | **R40-G4** | Run focused bridge regressions and the affected local Windows → Android → Linux → Apple matrix using existing frozen artifacts | **Pending — implementation begins after G1–G3.** |
 | **R40-G5** | Perform the final bridge audit, exact wrapper SHA freeze, and wrapper-only source snapshot | **Excluded by user — do not implement, freeze, or run the source-snapshot workflow.** |
 
@@ -37,6 +37,13 @@
 - Retained release now serializes per-session release attempts, keeps the map entry until the native release succeeds and the handle identity is revalidated, and clears the in-progress marker on every retryable failure. Session history cleanup therefore cannot strand an unreleased handle or erase ownership before commit.
 - The Web backend snapshot path was aligned with the same primary-error policy: it releases every temporary history handle while preserving the first snapshot/release failure. The focused C++ source-contract and Web ownership suite passed **45/45**, including the new cache/commit assertions; the WSL compile-only dynamic API check also passed.
 - Meaningful commit `c39ee87` (`fix: make React Native handle cleanup failure-atomic`) was pushed to `origin/dev-wasm`.
+
+### Review 40 implementation evidence — canonical packed desktop frames
+
+- Flutter Windows and Linux now pass every FFplay frame through the shared semantic `NormalizePackedRgbaFrame` helper. It accepts `rgba`, `rgb0`, `bgra`, `bgr0`, `argb`, and `abgr`, converts each to canonical RGBA8888, strips row padding, validates dimensions/stride/overflow, and supplies opaque alpha for the `*0` layouts.
+- The executable native regression covered all six layouts, multi-row padded input, invalid stride/format/dimensions, and null arguments. It passed under WSL with `g++ -std=c++17 -Wall -Wextra -Werror`; the temporary executable was removed immediately afterward.
+- The local Flutter Windows debug build passed after MSVC `max`-macro compatibility was handled in the normalizer; the local WSL Flutter Linux debug build passed using the configured frozen Linux archive.
+- Meaningful commit `6bf5809` (`fix: normalize desktop FFplay frames to packed RGBA`) was pushed to `origin/dev-wasm`.
 
 ## Review 39 Flutter + React Native Platform-Native Remediation — 2026-09-30
 
