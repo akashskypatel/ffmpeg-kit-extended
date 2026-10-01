@@ -6,6 +6,8 @@
 - Implementation: `react-native/scripts/prepare-windows-runtime.ps1` now reads lock ownership with delete-sharing, atomically detaches owned and stale lock directories before cleanup, retries detached-directory deletion, and safely reuses a concurrently published archive only after verifying its SHA-256 identity. A mismatched destination remains fatal.
 - Validation: `node --test tests/windows-runtime-packaging.test.js` passed **6/6** after the fix; the elevated `npm run check` gate passed typecheck, lint (five pre-existing warnings, zero errors), test compilation, and the full Node suite **204/204**.
 - Cleanup: tagged runtime-packaging processes exited and their temporary staging roots were removed by the test harness. No native ABI, `libs/libffmpegkit`, builder checkout, or hosted workflow was changed.
+- Final source snapshot: commit `7ba4a60621c77ac9add7328e8c27b7394f2cdb11`; [workflow run 36923122934](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36923122934); artifact `runtime-lock-race-source-snapshot-36923122934`, ID `11192891900`, [artifact page](https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/36923122934/artifacts/11192891900), [direct download](https://api.github.com/repos/akashskypatel/ffmpeg-kit-extended/actions/artifacts/11192891900/zip), artifact digest `sha256:11d36d8cf5b99514fec03a060a8c9017ec33ec484ddc4bd9f0920bcfa0e56f07`.
+- Snapshot verification: `source.tar.gz` SHA-256 `c931871b883012e50c99c01dcbf17cdc22f4167daf11b00ff0561f79466cd6cb`, matching its recorded checksum; `SHA256SUMS` contains **1083** entries; `runtimeExecution=false`; recursive submodule state records frozen `b74da2c5d1e294b87d15d73a6687393729e932b3`.
 
 ## Review 40 G5 Flutter + React Native Native-Bridge Closure — 2026-10-01
 
