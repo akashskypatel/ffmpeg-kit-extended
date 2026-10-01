@@ -37,8 +37,8 @@ import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:path/path.dart' as path;
 
 void main() async {
-  await FFmpegKitExtended.initialize();
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  await FFmpegKitExtended.initialize();
 
   // Set SDL drivers to dummy to avoid window creation issues and ensure reliability
   FFmpegKitConfig.setEnvironmentVariable("SDL_VIDEODRIVER", "dummy");

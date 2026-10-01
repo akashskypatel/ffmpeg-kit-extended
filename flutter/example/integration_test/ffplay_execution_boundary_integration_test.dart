@@ -1,12 +1,12 @@
-import 'dart:async';
-
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/callback_manager.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart'
     show SessionHandle;
-import 'package:test/test.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
 
 class _AsyncBoundarySession extends FFplaySession {
+  // ignore: use_super_parameters
   _AsyncBoundarySession({
     this.fail = false,
     FFplaySessionCompleteCallback? completeCallback,
@@ -47,6 +47,7 @@ class _AsyncBoundarySession extends FFplaySession {
 }
 
 void main() {
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(FFmpegKitExtended.initialize);
 
   tearDown(() {

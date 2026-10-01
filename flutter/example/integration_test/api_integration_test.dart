@@ -17,6 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+// ignore_for_file: deprecated_member_use
+
 @Tags(['native'])
 library;
 
@@ -30,6 +32,7 @@ import 'package:ffmpeg_kit_extended_flutter/src/generated/ffmpeg_kit_bindings_na
     as ffmpeg;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:integration_test/integration_test.dart';
 import 'package:path/path.dart' as path;
 
 // Callback Signatures
@@ -133,7 +136,7 @@ class _GlobalCapturer {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   final tempDir = Directory.systemTemp.createTempSync('ffmpeg_kit_native_test');
   final testVideoFile = path.join(tempDir.path, 'dummy_video.mp4');
