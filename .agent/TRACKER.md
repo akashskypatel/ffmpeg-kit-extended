@@ -1,5 +1,31 @@
 # Tracker
 
+## Review 43 Flutter iOS Texture Registration Closure — 2026-10-02
+
+- Plan: [review-43-luna-platform-native-bridge-closure-plan.md](./review-43-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-43-platform-native-bridge-code-review.md](./review-43-platform-native-bridge-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 43 documents were read completely, SHA-256 verified, and materialized locally. The code review is code-review-only and identifies one substantive Medium-severity wrapper defect: Flutter iOS ignores the Darwin `registerTexture:` failure sentinel in both CocoaPods and SwiftPM FFplay source copies.**
+- Starting source authority: `e798d1b07f55e07a042cb33faf4fc55867d70493`; the current branch contains only subsequent tracker metadata commits after that wrapper source. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Downloaded plan SHA-256: `7D6E9A91DA34414148A03E6E4B2E8AD5E16CFBD78A9E3E6CED550F4BB425AF3A` (**1068 lines**); downloaded review SHA-256: `32837492BC9024574AF8F0941E9EE275BC82EBF2BCD568125C9E53E99ECE728C` (**666 lines**).
+- Finding disposition: R43-F1 requires an immediate `tid == 0` failure branch after iOS `registerTexture:` in both source copies, with the established `TEXTURE_REGISTRATION_FAILED` error contract, before callback, texture, bridge-retain, FFplay-owner, or success-result publication. No native ABI, submodule, ManyLinux builder, React Native, or non-iOS Flutter production change is authorized absent contradictory evidence.
+- Validation order: affected Windows/source checks → Android on local Windows → WSL source/shared-C++ audit → Apple Flutter iOS build and affected Apple gates last. Do not use hosted test/build workflows; only the final exact-SHA wrapper source snapshot is permitted.
+- Semantic naming boundary: Review 43, goal, and finding identifiers are metadata only. Production/test names must describe Darwin texture-registration failure, failure-atomic publication, and Apple packaging parity.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R43-G1** | Make Flutter iOS FFplay texture creation failure-atomic in both Apple packaging source copies | **Pending — implementation not started.** |
+| **R43-G2** | Prove CocoaPods/SwiftPM iOS parity for the failure path with focused semantic coverage | **Pending — implementation not started.** |
+| **R43-G3** | Preserve accepted platform-native ownership/concurrency/error invariants and audit duplicate Apple sources | **Pending — implementation not started.** |
+| **R43-G4** | Run affected local noninteractive validation against frozen local ABI `0.11.2` | **Pending — run after implementation and focused regression.** |
+| **R43-G5** | Perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot | **Pending — run after R43-G1 through R43-G4.** |
+
+### Review 43 implementation boundary
+
+- Review 43 is wrapper-only. Do not edit `libs/libffmpegkit`, `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`, native ABI exports, or native artifact publication/configuration.
+- Expected production change is limited to `flutter/ios/Classes/FfplayKitPlugin.m` and `flutter/ios/ffmpeg_kit_extended_flutter/Classes/ffmpeg_kit_native/FfplayKitPlugin.m`; the focused semantic regression may add one Flutter test file.
+- The required branch must return `TEXTURE_REGISTRATION_FAILED` when `registerTexture:` returns `0`, before `onFrameAvailable`, `_texture`/`_textureId`, bridge-retained userdata, FFplay owner installation, native callback registration, or the success result.
+- Preserve the existing macOS `tid == 0` branch, Flutter Windows/Linux/Android ownership, React Native Review 42 operation-token behavior, and all unrelated platform code. Do not launch interactive apps or simulators.
+
 ## Review 42 Platform-Native Bridge Final Closure — 2026-10-01
 
 - Plan: [review-42-luna-platform-native-bridge-final-closure-plan.md](./review-42-luna-platform-native-bridge-final-closure-plan.md)
