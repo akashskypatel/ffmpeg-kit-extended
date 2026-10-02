@@ -204,6 +204,7 @@ test('discarded queued session abandons its identity and releases its Wasm handl
     { cancel() {} },
     async () => activeGate
   );
+  sessionState = 0;
   registry.retain(1024, 42);
   const pending = new FFmpegSession(42, '-version').executeAsync();
 
@@ -291,6 +292,7 @@ test('clearing a queued session abandons its identity and consumes submission', 
         releaseActive = resolve;
       })
   );
+  sessionState = 0;
   registry.retain(5120, 33);
   const session = new FFmpegSession(33, '-version');
   const pending = session.executeAsync();
@@ -380,6 +382,7 @@ test('queued cancellation removes work without native cancellation and releases 
         releaseActive = resolve;
       })
   );
+  sessionState = 0;
   registry.retain(2048, 7);
   const session = new FFmpegSession(7, '-version');
   const pending = session.executeAsync();

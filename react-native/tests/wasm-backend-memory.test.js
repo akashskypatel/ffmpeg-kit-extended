@@ -224,6 +224,25 @@ test('Web backend reads session state without full snapshot getters', () => {
   ]);
 });
 
+test('Web backend normalizes only a proven missing session lookup', () => {
+  const backend = new WebFFmpegKitBackend(undefined, {
+    ffmpeg_kit_get_session: () => 0,
+  });
+
+  assert.equal(backend.getSessionJson(77), '');
+});
+
+test('Web backend preserves real session lookup failures', () => {
+  const lookupError = new Error('session lookup failed');
+  const backend = new WebFFmpegKitBackend(undefined, {
+    ffmpeg_kit_get_session: () => {
+      throw lookupError;
+    },
+  });
+
+  assert.throws(() => backend.getSessionJson(77), (error) => error === lookupError);
+});
+
 test('Web backend copies FFplay frame metadata through mocked Wasm memory', () => {
   const memory = new ArrayBuffer(4096);
   let allocations = 0;

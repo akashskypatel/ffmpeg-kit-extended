@@ -1,5 +1,11 @@
-import { SessionState } from './types';
+import { getBackend } from './platform/backend-registry';
+import { SessionQueueManager } from './session-queue-manager';
+import {
+  clearCancellationDispatch,
+  dispatchCancellationSerialized,
+} from './session-cancellation';
 import { releaseSessionHandleSerialized } from './session-lifetime';
+import { SessionState } from './types';
 
 export interface RestoredSessionObservationTarget {
   readonly sessionId: number;
@@ -13,7 +19,7 @@ export interface RestoredSessionObservationTarget {
 
 type ObservationEntry = {
   readonly sessionId: number;
-  readonly targets: Set<RestoredSessionObservationTarget>;
+  readonly callbackTargets: Set<RestoredSessionObservationTarget>;
   invalidated: boolean;
   terminalSettled: boolean;
   run?: Promise<void>;
@@ -24,22 +30,42 @@ const POLL_INTERVAL_MS = 50;
 /** One non-executing terminal observer per restored native session ID. */
 export class RestoredSessionObservationCoordinator {
   private readonly entries = new Map<number, ObservationEntry>();
+  private readonly invalidatedSessionIds = new Set<number>();
 
-  observe(target: RestoredSessionObservationTarget): void {
-    let entry = this.entries.get(target.sessionId);
-    if (!entry) {
-      entry = {
-        sessionId: target.sessionId,
-        targets: new Set(),
-        invalidated: false,
-        terminalSettled: false,
-      };
-      this.entries.set(target.sessionId, entry);
+  /** Ensures one lightweight lifetime observer exists for a native ID. */
+  ensureObserved(sessionId: number): void {
+    if (this.invalidatedSessionIds.has(sessionId)) return;
+    const entry = this.getOrCreateEntry(sessionId);
+    if (!entry.run) entry.run = this.run(entry);
+  }
+
+  /** Retains a wrapper only while it owns a restored callback sink. */
+  attachCallbackTarget(
+    sessionId: number,
+    target: RestoredSessionObservationTarget
+  ): void {
+    if (target.sessionId !== sessionId) {
+      throw new Error(
+        `Restored callback target ${target.sessionId} does not match ${sessionId}`
+      );
     }
-    entry.targets.add(target);
-    if (!entry.run) {
-      entry.run = this.run(entry);
-    }
+    if (this.invalidatedSessionIds.has(sessionId)) return;
+    const entry = this.getOrCreateEntry(sessionId);
+    entry.callbackTargets.add(target);
+    if (!entry.run) entry.run = this.run(entry);
+  }
+
+  /** Drops a wrapper target without stopping the ID-level lifetime observer. */
+  detachCallbackTarget(
+    sessionId: number,
+    target: RestoredSessionObservationTarget
+  ): void {
+    this.entries.get(sessionId)?.callbackTargets.delete(target);
+  }
+
+  /** Internal test seam for bounded target-retention assertions. */
+  getTargetCount(sessionId: number): number {
+    return this.entries.get(sessionId)?.callbackTargets.size ?? 0;
   }
 
   /** Stops all restored observers after a successful backend-wide clear. */
@@ -49,10 +75,11 @@ export class RestoredSessionObservationCoordinator {
     await Promise.all(
       entries.map(async (entry) => {
         entry.invalidated = true;
+        this.invalidatedSessionIds.add(entry.sessionId);
+        const targets = [...entry.callbackTargets];
+        entry.callbackTargets.clear();
         await Promise.all(
-          [...entry.targets].map((target) =>
-            target.invalidateRestoredObservation()
-          )
+          targets.map((target) => target.invalidateRestoredObservation())
         );
       })
     );
@@ -62,60 +89,114 @@ export class RestoredSessionObservationCoordinator {
     return this.entries.size;
   }
 
+  private getOrCreateEntry(sessionId: number): ObservationEntry {
+    let entry = this.entries.get(sessionId);
+    if (!entry) {
+      entry = {
+        sessionId,
+        callbackTargets: new Set(),
+        invalidated: false,
+        terminalSettled: false,
+      };
+      this.entries.set(sessionId, entry);
+    }
+    return entry;
+  }
+
   private async run(entry: ObservationEntry): Promise<void> {
     for (;;) {
       if (entry.invalidated || this.entries.get(entry.sessionId) !== entry)
         return;
-      const target = [...entry.targets][0];
-      if (!target) {
-        this.entries.delete(entry.sessionId);
-        return;
-      }
 
       let state: SessionState;
       try {
-        state = target.getState();
+        state = getBackend().getSessionState(entry.sessionId) as SessionState;
       } catch (error) {
-        for (const observer of entry.targets)
-          observer.reportRestoredObserverError(error);
+        this.reportTargets(entry, error);
         await sleep(POLL_INTERVAL_MS);
         continue;
       }
 
       if (state === SessionState.Completed || state === SessionState.Failed) {
-        if (!entry.terminalSettled) {
-          entry.terminalSettled = true;
-          for (const observer of entry.targets) {
-            try {
-              await observer.settleRestoredObservation();
-            } catch (error) {
-              observer.reportRestoredObserverError(error);
-            }
-          }
-        }
-        try {
-          await releaseSessionHandleSerialized(entry.sessionId);
-          this.entries.delete(entry.sessionId);
-          return;
-        } catch (error) {
-          for (const observer of entry.targets)
-            observer.reportRestoredObserverError(error);
-          await sleep(POLL_INTERVAL_MS);
-          continue;
-        }
+        await this.settleTerminalEntry(entry);
+        return;
       }
 
       if (state === SessionState.Running) {
-        for (const observer of entry.targets) {
+        try {
+          if (getBackend().isCancellationRequested?.(entry.sessionId)) {
+            await dispatchCancellationSerialized(entry.sessionId);
+          }
+        } catch (error) {
+          // Keep durable intent and retry on the next Running observation.
+          this.reportTargets(entry, error);
+        }
+
+        for (const target of [...entry.callbackTargets]) {
           try {
-            await observer.pollRestoredCallbacks();
+            await target.pollRestoredCallbacks();
           } catch (error) {
-            observer.reportRestoredObserverError(error);
+            this.reportTargetIfAttached(entry, target, error);
           }
         }
       }
       await sleep(POLL_INTERVAL_MS);
     }
+  }
+
+  private async settleTerminalEntry(entry: ObservationEntry): Promise<void> {
+    if (!entry.terminalSettled) {
+      entry.terminalSettled = true;
+      for (const target of [...entry.callbackTargets]) {
+        try {
+          await target.settleRestoredObservation();
+        } catch (error) {
+          this.reportTargetIfAttached(entry, target, error);
+        } finally {
+          entry.callbackTargets.delete(target);
+        }
+      }
+    }
+
+    try {
+      getBackend().clearCancellationIntent?.(entry.sessionId);
+    } catch (error) {
+      this.reportTargets(entry, error);
+    }
+    clearCancellationDispatch(entry.sessionId);
+
+    // An active executor owns final callback-drain retirement. The restored
+    // observer only retires promoted history ownership when no active monitor
+    // remains for this native session ID.
+    if (SessionQueueManager.shared.isSessionActiveById(entry.sessionId)) {
+      this.entries.delete(entry.sessionId);
+      return;
+    }
+
+    try {
+      await releaseSessionHandleSerialized(entry.sessionId);
+      this.entries.delete(entry.sessionId);
+    } catch (error) {
+      this.reportTargets(entry, error);
+      await sleep(POLL_INTERVAL_MS);
+      if (this.entries.get(entry.sessionId) === entry && !entry.invalidated) {
+        await this.settleTerminalEntry(entry);
+      }
+    }
+  }
+
+  private reportTargets(entry: ObservationEntry, error: unknown): void {
+    for (const target of entry.callbackTargets)
+      target.reportRestoredObserverError(error);
+  }
+
+  private reportTargetIfAttached(
+    entry: ObservationEntry,
+    target: RestoredSessionObservationTarget,
+    error: unknown
+  ): void {
+    if (entry.callbackTargets.has(target))
+      target.reportRestoredObserverError(error);
   }
 }
 

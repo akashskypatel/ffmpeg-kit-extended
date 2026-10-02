@@ -32,6 +32,10 @@ import {
   type RestoredSessionObservationTarget,
 } from './session-observation';
 import {
+  clearCancellationDispatch,
+  dispatchCancellationSerialized,
+} from './session-cancellation';
+import {
   registerSessionWrapper,
   releaseSessionHandleSerialized,
 } from './session-lifetime';
@@ -39,6 +43,14 @@ import {
 const NativeFFmpegKitExtended = getBackend();
 
 const DEFAULT_POLL_INTERVAL_MS = 50;
+
+/** Non-destructive rejection for an identity that is no longer Created. */
+class SessionNotCreatedError extends Error {
+  constructor(sessionId: number, state: SessionState) {
+    super(`Session ${sessionId} cannot start from state ${state}`);
+    this.name = 'SessionNotCreatedError';
+  }
+}
 
 type CallbackDemandProviders = {
   log: () => boolean;
@@ -104,6 +116,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
   private restoredLogEventSubscription?: LogEventSubscription;
   private restoredNextExpectedLogSequence = 0;
   private readonly restoredPendingLogEvents = new Map<number, Log>();
+  private restoredTransition: Promise<void> = Promise.resolve();
 
   protected constructor(sessionId: number, command: string, type: SessionType) {
     this.sessionId = sessionId;
@@ -151,7 +164,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
       log: () => Boolean(this.restoredCallbackReaders.log?.()),
       statistics: () => Boolean(this.restoredCallbackReaders.statistics?.()),
     };
-    restoredSessionObserver.observe(this);
+    restoredSessionObserver.ensureObserved(this.sessionId);
   }
 
   /** Supplies callback readers without coupling the coordinator to subclasses. */
@@ -162,6 +175,11 @@ export abstract class Session implements RestoredSessionObservationTarget {
   /** Verifies that a restored callback setter still has a live target. */
   protected assertRestoredCallbackState(): void {
     if (!this.restoredRunning) return;
+    if (this.restoredTerminalSettled) {
+      throw new Error(
+        `Session ${this.sessionId} is no longer Running and cannot accept an observer callback`
+      );
+    }
     const state = this.getState();
     if (state !== SessionState.Running) {
       throw new Error(
@@ -175,22 +193,65 @@ export abstract class Session implements RestoredSessionObservationTarget {
     update: () => void,
     rollback: () => void
   ): Promise<void> {
+    if (!this.restoredRunning)
+      return this.updateCallbackAtomicallyWithinTransition(update, rollback);
+    return this.runRestoredTransition(() =>
+      this.updateCallbackAtomicallyWithinTransition(update, rollback)
+    );
+  }
+
+  private async updateCallbackAtomicallyWithinTransition(
+    update: () => void,
+    rollback: () => void
+  ): Promise<void> {
     this.assertRestoredCallbackState();
     update();
     try {
       const demand = this.refreshCallbackDemand();
       if (demand instanceof Promise) await demand;
+      this.assertRestoredCallbackState();
       this.syncRestoredLogEventSubscription();
+      this.syncRestoredCallbackTarget();
     } catch (error) {
       rollback();
       try {
         const rollbackDemand = this.refreshCallbackDemand();
         if (rollbackDemand instanceof Promise) await rollbackDemand;
         this.syncRestoredLogEventSubscription();
+        this.syncRestoredCallbackTarget();
       } catch {
         // Preserve the bridge-install failure as the primary setter error.
       }
       throw error;
+    }
+  }
+
+  private runRestoredTransition<T>(operation: () => Promise<T>): Promise<T> {
+    const next = this.restoredTransition.then(operation, operation);
+    this.restoredTransition = next.then(
+      () => undefined,
+      () => undefined
+    );
+    return next;
+  }
+
+  private hasRestoredObserverSinks(): boolean {
+    return Boolean(
+      this.restoredCallbackReaders.complete?.() ||
+        this.restoredCallbackReaders.log?.() ||
+        this.restoredCallbackReaders.statistics?.()
+    );
+  }
+
+  protected syncRestoredCallbackTarget(): void {
+    if (
+      this.restoredRunning &&
+      !this.restoredTerminalSettled &&
+      this.hasRestoredObserverSinks()
+    ) {
+      restoredSessionObserver.attachCallbackTarget(this.sessionId, this);
+    } else {
+      restoredSessionObserver.detachCallbackTarget(this.sessionId, this);
     }
   }
 
@@ -273,6 +334,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
       state === SessionState.Failed
     ) {
       NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
+      clearCancellationDispatch(this.sessionId);
     }
   }
 
@@ -331,6 +393,9 @@ export abstract class Session implements RestoredSessionObservationTarget {
   /** Starts native execution and releases the owning handle if start fails. */
   protected startNativeExecution(timeoutMs: number): void | Promise<void> {
     try {
+      // Queue handoff already performs this check. Keep a direct guard for the
+      // executor seam, but validation rejection must not retire existing history
+      // or restored ownership.
       this.prepareForExecution();
       const completion = NativeFFmpegKitExtended.executeSessionAsync(
         this.sessionId,
@@ -348,6 +413,12 @@ export abstract class Session implements RestoredSessionObservationTarget {
       }
       return;
     } catch (error) {
+      if (
+        error instanceof SessionNotCreatedError ||
+        error instanceof SessionCancelledException
+      ) {
+        throw error;
+      }
       let release: void | Promise<void>;
       try {
         release = this.releaseOwnedHandle();
@@ -364,8 +435,8 @@ export abstract class Session implements RestoredSessionObservationTarget {
     }
   }
 
-  /** Revalidates the native session immediately before async handoff. */
-  prepareForExecution(): void {
+  /** Performs the non-mutating authoritative preflight before queue admission. */
+  protected validateInitialSubmission(): void {
     if (NativeFFmpegKitExtended.isSessionAbandoned?.(this.sessionId)) {
       throw new SessionCancelledException(
         `Session ${this.sessionId} was abandoned before execution`
@@ -383,21 +454,19 @@ export abstract class Session implements RestoredSessionObservationTarget {
     }
     const state = this.getState();
     if (state !== SessionState.Created) {
-      throw new Error(
-        `Session ${this.sessionId} cannot start from state ${state}`
-      );
+      throw new SessionNotCreatedError(this.sessionId, state);
     }
   }
 
-  /** Forwards cancellation and records successful native dispatch exactly once. */
-  private dispatchNativeCancellation(): void | Promise<void> {
+  /** Revalidates the native session immediately before async handoff. */
+  prepareForExecution(): void {
+    this.validateInitialSubmission();
+  }
+
+  /** Forwards cancellation through the shared per-ID delivery authority. */
+  private async dispatchNativeCancellation(): Promise<void> {
     if (this.nativeCancellationDispatched) return;
-    const completion = NativeFFmpegKitExtended.cancelSession(this.sessionId);
-    if (completion instanceof Promise) {
-      return completion.then(() => {
-        this.nativeCancellationDispatched = true;
-      });
-    }
+    await dispatchCancellationSerialized(this.sessionId);
     this.nativeCancellationDispatched = true;
   }
 
@@ -529,6 +598,12 @@ export abstract class Session implements RestoredSessionObservationTarget {
 
   /** Polls callback buffers for an observer-owned Running history wrapper. */
   async pollRestoredCallbacks(): Promise<void> {
+    return this.runRestoredTransition(() =>
+      this.pollRestoredCallbacksWithinTransition()
+    );
+  }
+
+  private async pollRestoredCallbacksWithinTransition(): Promise<void> {
     if (!this.restoredRunning || this.restoredTerminalSettled) return;
     const demand = this.refreshCallbackDemand();
     if (demand instanceof Promise) await demand;
@@ -573,10 +648,16 @@ export abstract class Session implements RestoredSessionObservationTarget {
 
   /** Settles callbacks and observer demand after terminal state is authoritative. */
   async settleRestoredObservation(): Promise<void> {
+    return this.runRestoredTransition(() =>
+      this.settleRestoredObservationWithinTransition()
+    );
+  }
+
+  private async settleRestoredObservationWithinTransition(): Promise<void> {
     if (this.restoredTerminalSettled) return;
     let firstError: unknown;
     try {
-      await this.pollRestoredCallbacks();
+      await this.pollRestoredCallbacksWithinTransition();
       const logCallback = this.restoredCallbackReaders.log?.();
       if (logCallback && this.restoredLogEventSubscription) {
         this.reconcileRestoredLogEvents(logCallback);
@@ -598,6 +679,8 @@ export abstract class Session implements RestoredSessionObservationTarget {
     this.callbackDemandActive = false;
     this.callbackDemandProviders = undefined;
     this.restoredTerminalSettled = true;
+    this.syncRestoredCallbackTarget();
+    clearCancellationDispatch(this.sessionId);
     if (firstError !== undefined) throw firstError;
     if (cleanupError !== undefined) throw cleanupError;
   }
@@ -609,12 +692,20 @@ export abstract class Session implements RestoredSessionObservationTarget {
 
   /** Stops observer callback demand after a successful global history clear. */
   async invalidateRestoredObservation(): Promise<void> {
+    return this.runRestoredTransition(() =>
+      this.invalidateRestoredObservationWithinTransition()
+    );
+  }
+
+  private async invalidateRestoredObservationWithinTransition(): Promise<void> {
     if (!this.restoredRunning || this.restoredTerminalSettled) return;
     const cleanupError = await this.releaseAllCallbackDemand();
     this.removeRestoredLogEventSubscription();
     this.callbackDemandActive = false;
     this.callbackDemandProviders = undefined;
     this.restoredTerminalSettled = true;
+    this.syncRestoredCallbackTarget();
+    clearCancellationDispatch(this.sessionId);
     if (cleanupError !== undefined) throw cleanupError;
   }
 
@@ -631,6 +722,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
   private syncRestoredLogEventSubscription(): void {
     const shouldSubscribe = Boolean(
       this.restoredRunning &&
+        !this.restoredTerminalSettled &&
         this.restoredCallbackReaders.log?.() &&
         NativeFFmpegKitExtended.isDirectLogBridgeActive?.()
     );
@@ -994,6 +1086,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
           // reported an earlier error; do not leave cancellation intent live
           // after the native identity has settled.
           NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
+          clearCancellationDispatch(this.sessionId);
           // The first observed callback/monitoring failure is authoritative;
           // later failures affect draining but do not replace its error.
           if (firstErrorSet) {
@@ -1084,6 +1177,29 @@ export abstract class Session implements RestoredSessionObservationTarget {
         )
       );
     }
+    try {
+      this.validateInitialSubmission();
+    } catch (error) {
+      if (
+        error instanceof SessionNotCreatedError ||
+        error instanceof SessionCancelledException
+      ) {
+        return Promise.reject(error);
+      }
+      let release: void | Promise<void>;
+      try {
+        release = this.releaseOwnedHandle();
+      } catch {
+        return Promise.reject(error);
+      }
+      if (release instanceof Promise) {
+        return release.then(
+          () => Promise.reject(error),
+          () => Promise.reject(error)
+        );
+      }
+      return Promise.reject(error);
+    }
     this.submitted = true;
     return submit();
   }
@@ -1128,11 +1244,13 @@ export class FFmpegSession extends Session {
   setCompleteCallback(callback?: (session: FFmpegSession) => void): void {
     this.assertRestoredCallbackState();
     this.completeCallback = callback;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Removes the stored completion callback. */
   removeCompleteCallback(): void {
     this.completeCallback = undefined;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Sets the default callback for newly buffered log entries. */
@@ -1236,11 +1354,13 @@ export class FFprobeSession extends Session {
   setCompleteCallback(callback?: (session: FFprobeSession) => void): void {
     this.assertRestoredCallbackState();
     this.completeCallback = callback;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Removes the stored completion callback. */
   removeCompleteCallback(): void {
     this.completeCallback = undefined;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Sets the default log callback. */
@@ -1324,11 +1444,13 @@ export class MediaInformationSession extends Session {
   ): void {
     this.assertRestoredCallbackState();
     this.completeCallback = callback;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Removes the stored completion callback. */
   removeCompleteCallback(): void {
     this.completeCallback = undefined;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Sets the default log callback. */
@@ -1430,11 +1552,13 @@ export class FFplaySession extends Session {
   setCompleteCallback(callback?: (session: FFplaySession) => void): void {
     this.assertRestoredCallbackState();
     this.completeCallback = callback;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Removes the stored completion callback. */
   removeCompleteCallback(): void {
     this.completeCallback = undefined;
+    this.syncRestoredCallbackTarget();
   }
 
   /** Sets the default playback log callback. */

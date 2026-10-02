@@ -24,6 +24,13 @@ import { SessionState } from '../types';
 
 type WasmFunction = (...args: unknown[]) => unknown;
 
+class MissingSessionLookupError extends Error {
+  constructor(sessionId: number) {
+    super(`Session ${sessionId} no longer exists`);
+    this.name = 'MissingSessionLookupError';
+  }
+}
+
 function fn<T extends WasmFunction>(module: WasmModule, name: string): T {
   const value = module[name] ?? module[`_${name}`];
   if (typeof value !== 'function')
@@ -187,7 +194,7 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     const pointer = numberResult(
       this.call('ffmpeg_kit_get_session')(int64(sessionId))
     );
-    if (!pointer) throw new Error(`Session ${sessionId} no longer exists`);
+    if (!pointer) throw new MissingSessionLookupError(sessionId);
     return pointer;
   }
 
@@ -594,9 +601,16 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
 
   getSessionJson(sessionId: number): string {
     if (this.history.isAbandoned(sessionId)) return '';
-    return this.withSession(sessionId, (pointer) =>
-      JSON.stringify(this.snapshot(pointer))
-    );
+    try {
+      return this.withSession(sessionId, (pointer) =>
+        JSON.stringify(this.snapshot(pointer))
+      );
+    } catch (error) {
+      // Normalize only a proven zero-pointer history lookup. State, snapshot,
+      // and release/runtime failures remain visible to cancellation callers.
+      if (error instanceof MissingSessionLookupError) return '';
+      throw error;
+    }
   }
 
   getLogsCount(sessionId: number): number {

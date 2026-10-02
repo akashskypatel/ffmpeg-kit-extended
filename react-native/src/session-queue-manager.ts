@@ -210,6 +210,14 @@ export class SessionQueueManager {
     )?.session;
   }
 
+  /** Whether an executor is active for the requested native session ID. */
+  isSessionActiveById(sessionId: number): boolean {
+    for (const session of this.active) {
+      if (this.executionSessionId(session) === sessionId) return true;
+    }
+    return false;
+  }
+
   /** Cancels the managed session with the requested ID through its object API. */
   cancelBySessionId(sessionId: number): MaybePromise<boolean> {
     const session = this.findManagedSessionById(sessionId);
@@ -266,7 +274,7 @@ export class SessionQueueManager {
       try {
         item.session.prepareForExecution?.();
       } catch (error) {
-        void this.discardAfterPreparationFailure(item, error);
+        void this.rejectPreparationFailure(item, error);
         continue;
       }
 
@@ -290,22 +298,17 @@ export class SessionQueueManager {
     }
   }
 
-  private discardAfterPreparationFailure(
+  /**
+   * Rejects a race-time handoff validation failure without treating it as an
+   * explicit queued discard. The native identity may already be Running or
+   * terminal, so only the JavaScript reservation is released here.
+   */
+  private rejectPreparationFailure(
     item: QueueItem<unknown>,
     primaryError: unknown
   ): MaybePromise<void> {
-    const finish = (): void => {
-      this.releaseSessionReservation(this.executionSessionId(item.session));
-      item.reject(primaryError);
-    };
-    try {
-      const cleanup = item.onDiscard?.();
-      if (cleanup instanceof Promise)
-        return cleanup.catch(() => {}).then(finish);
-    } catch {
-      // Preserve the pre-execution validation failure as the primary error.
-    }
-    finish();
+    this.releaseSessionReservation(this.executionSessionId(item.session));
+    item.reject(primaryError);
   }
 
   private completeActiveItem(item: QueueItem<unknown>): void {

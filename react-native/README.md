@@ -248,12 +248,27 @@ Session objects are single-use execution objects. Create a new `Session` object 
 
 On React Native Web, a session reconstructed from history can be submitted only while its native state is `Created`. Running or terminal Web history sessions are intended for inspection and control rather than re-execution.
 
+Execution preflight is authoritative at both initial submission and queue
+handoff. If a restored or queued session is no longer `Created`, execution is
+rejected without abandoning the native history identity or invoking discard
+cleanup. Explicit queue cancellation still performs its requested discard
+cleanup.
+
 A Running session returned from history is an observation/control wrapper around
 an existing execution. It is never re-executed. The wrapper observes terminal
 state so retained native or Wasm ownership can be retired when execution
 finishes. Completion, log, and statistics callbacks attached to that restored
 wrapper observe the existing execution; they do not claim queue or execution
 ownership and may fail if live observer routing cannot be established.
+
+Restored cancellation records a durable per-session intent before reading
+state. A state-read or native cancellation failure is returned to the caller,
+while the ID observer retries delivery when the session is still `Running`.
+Terminal observation clears the intent and releases history ownership only when
+no active execution monitor owns the same native ID. Callback-bearing wrappers
+are retained only while they have a live completion, log, or statistics sink;
+history-only reconstruction keeps an ID-level observer without retaining each
+wrapper target.
 
 ```ts
 import {

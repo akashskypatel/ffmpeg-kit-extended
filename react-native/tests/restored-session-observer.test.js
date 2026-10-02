@@ -4,7 +4,6 @@ const assert = require('node:assert/strict');
 const { afterEach, beforeEach, test } = require('node:test');
 
 const {
-  getBackend,
   setBackend,
 } = require('../.test-dist/platform/backend-registry.js');
 const {
@@ -19,6 +18,7 @@ const snapshots = new Map();
 const releases = [];
 const abandonments = [];
 const cancellations = [];
+const cancellationIntents = new Set();
 const bridgeInstalls = { completion: 0, log: 0, statistics: 0 };
 const bridgeUninstalls = { completion: 0, log: 0, statistics: 0 };
 const completedCallbacks = [];
@@ -29,6 +29,10 @@ let logs = [];
 let statistics = [];
 let stateReadError;
 let logBridgeError;
+let cancelFailure;
+let deferredLogInstall;
+let deferredStatisticsInstall;
+let clearRequested = false;
 
 function snapshotFor(
   sessionId,
@@ -67,9 +71,11 @@ setBackend({
   },
   getSessionState: (sessionId) => {
     if (stateReadError) throw stateReadError;
+    if (clearRequested) return SessionState.Completed;
     return states.get(sessionId) ?? SessionState.Created;
   },
   getSessionJson: (sessionId) => {
+    if (!states.has(sessionId) && !snapshots.has(sessionId)) return '';
     const snapshot = snapshots.get(sessionId) ?? snapshotFor(sessionId);
     return states.has(sessionId)
       ? JSON.stringify({ ...snapshot, state: states.get(sessionId) })
@@ -93,12 +99,19 @@ setBackend({
   getStatisticsJson: (_sessionId, fromIndex) =>
     JSON.stringify(fromIndex === 0 ? statistics : []),
   getMediaInformationJson: () => '',
-  cancelSession: (sessionId) => cancellations.push(sessionId),
+  cancelSession: (sessionId) => {
+    cancellations.push(sessionId);
+    if (cancelFailure) {
+      const error = cancelFailure;
+      cancelFailure = undefined;
+      throw error;
+    }
+  },
   releaseSessionHandle: (sessionId) => releases.push(sessionId),
   abandonCreatedSession: (sessionId) => abandonments.push(sessionId),
-  recordCancellationIntent: () => {},
-  isCancellationRequested: () => false,
-  clearCancellationIntent: () => {},
+  recordCancellationIntent: (sessionId) => cancellationIntents.add(sessionId),
+  isCancellationRequested: (sessionId) => cancellationIntents.has(sessionId),
+  clearCancellationIntent: (sessionId) => cancellationIntents.delete(sessionId),
   installCompletionBridge: () => {
     bridgeInstalls.completion += 1;
   },
@@ -107,6 +120,11 @@ setBackend({
   },
   installLogBridge: () => {
     if (logBridgeError) throw logBridgeError;
+    if (deferredLogInstall) {
+      return deferredLogInstall.then(() => {
+        bridgeInstalls.log += 1;
+      });
+    }
     bridgeInstalls.log += 1;
   },
   uninstallLogBridge: () => {
@@ -119,12 +137,20 @@ setBackend({
   isDirectLogBridgeActive: () =>
     bridgeInstalls.log > bridgeUninstalls.log,
   installStatisticsBridge: () => {
+    if (deferredStatisticsInstall) {
+      return deferredStatisticsInstall.then(() => {
+        bridgeInstalls.statistics += 1;
+      });
+    }
     bridgeInstalls.statistics += 1;
   },
   uninstallStatisticsBridge: () => {
     bridgeUninstalls.statistics += 1;
   },
-  clearSessions: () => {},
+  clearSessions: () => {
+    clearRequested = true;
+    cancellationIntents.clear();
+  },
 });
 
 const { FFmpegKitExtended } = require('../.test-dist/ffmpeg-kit-extended.js');
@@ -132,6 +158,26 @@ const {
   FFmpegSession,
   sessionFromSnapshot,
 } = require('../.test-dist/session.js');
+const {
+  restoredSessionObserver,
+} = require('../.test-dist/session-observation.js');
+const {
+  releaseSessionHandleSerialized,
+} = require('../.test-dist/session-lifetime.js');
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function waitForObservation() {
+  return new Promise((resolve) => setTimeout(resolve, 125));
+}
 
 beforeEach(async () => {
   states.clear();
@@ -145,6 +191,11 @@ beforeEach(async () => {
   statistics = [];
   stateReadError = undefined;
   logBridgeError = undefined;
+  cancelFailure = undefined;
+  deferredLogInstall = undefined;
+  deferredStatisticsInstall = undefined;
+  clearRequested = false;
+  cancellationIntents.clear();
   logHandlers.clear();
   bridgeInstalls.completion = 0;
   bridgeInstalls.log = 0;
@@ -293,4 +344,199 @@ test('successful clear invalidates a restored observer without releasing after c
   await FFmpegKitExtended.clearSessions();
   await new Promise((resolve) => setTimeout(resolve, 75));
   assert.deepEqual(releases, []);
+});
+
+test('restored execution preflight rejects without destructive history cleanup', async () => {
+  const sessionId = 1009;
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+
+  await assert.rejects(
+    session.executeAsync(),
+    /cannot start from state 1/
+  );
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(abandonments, []);
+  assert.deepEqual(releases, []);
+  assert.equal(restoredSessionObserver.size, 1);
+
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('missing public cancellation remains a no-op without hiding real failures', async () => {
+  await FFmpegKitExtended.cancelSession(1099);
+  assert.deepEqual(cancellations, []);
+  assert.deepEqual(abandonments, []);
+  assert.deepEqual(releases, []);
+});
+
+test('restored cancellation survives a state-read failure and retries while Running', async () => {
+  const sessionId = 1010;
+  const stateError = new Error('state probe failed during cancellation');
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+
+  stateReadError = stateError;
+  await assert.rejects(session.cancel(), (error) => error === stateError);
+  assert.equal(cancellationIntents.has(sessionId), true);
+
+  stateReadError = undefined;
+  await waitForObservation();
+  assert.deepEqual(cancellations, [sessionId]);
+  assert.equal(cancellationIntents.has(sessionId), true);
+
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.equal(cancellationIntents.has(sessionId), false);
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('restored cancellation retries a failed native dispatch exactly once after recovery', async () => {
+  const sessionId = 1011;
+  const cancelError = new Error('native cancellation failed');
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+
+  cancelFailure = cancelError;
+  await assert.rejects(session.cancel(), (error) => error === cancelError);
+  assert.equal(cancellationIntents.has(sessionId), true);
+
+  cancelFailure = undefined;
+  await waitForObservation();
+  const successfulDispatchCount = cancellations.length;
+  assert.ok(successfulDispatchCount >= 2);
+  assert.equal(cancellations.every((id) => id === sessionId), true);
+  await waitForObservation();
+  assert.equal(cancellations.length, successfulDispatchCount);
+
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.equal(cancellationIntents.has(sessionId), false);
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('active execution remains the sole owner while restored observation sees terminal state', async () => {
+  const sessionId = 1012;
+  const gate = deferred();
+  states.set(sessionId, SessionState.Running);
+  const activeSession = {
+    getSessionId: () => sessionId,
+    cancel() {},
+  };
+  const active = manager.executeSession(activeSession, async () => {
+    await gate.promise;
+    states.set(sessionId, SessionState.Completed);
+    await releaseSessionHandleSerialized(sessionId);
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+  restoredSessionObserver.ensureObserved(sessionId);
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.deepEqual(releases, []);
+
+  gate.resolve();
+  await active;
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('history reconstruction keeps one ID observer and no retained callback targets', async () => {
+  const sessionId = 1013;
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+
+  for (let index = 0; index < 1000; index += 1)
+    FFmpegKitExtended.getSession(sessionId);
+
+  assert.equal(restoredSessionObserver.size, 1);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('restored callback targets attach only for live sinks and detach independently', async () => {
+  const sessionId = 1014;
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const first = FFmpegKitExtended.getSession(sessionId);
+  const second = FFmpegKitExtended.getSession(sessionId);
+
+  first.setCompleteCallback?.(() => {});
+  await second.setLogCallback?.(() => {});
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 2);
+
+  first.removeCompleteCallback?.();
+  await second.setLogCallback?.(undefined);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('deferred restored log setup rolls back after terminal transition', async () => {
+  const sessionId = 1015;
+  const installGate = deferred();
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  deferredLogInstall = installGate.promise;
+  const session = FFmpegKitExtended.getSession(sessionId);
+  const update = session.setLogCallback?.(() => {});
+
+  await new Promise((resolve) => setImmediate(resolve));
+  states.set(sessionId, SessionState.Completed);
+  installGate.resolve();
+  await assert.rejects(update, /no longer Running/);
+  await waitForObservation();
+
+  assert.equal(bridgeInstalls.log, 1);
+  assert.equal(bridgeUninstalls.log, 1);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('deferred restored statistics setup rolls back after terminal transition', async () => {
+  const sessionId = 1016;
+  const installGate = deferred();
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  deferredStatisticsInstall = installGate.promise;
+  const session = FFmpegKitExtended.getSession(sessionId);
+  const update = session.setStatisticsCallback?.(() => {});
+
+  await new Promise((resolve) => setImmediate(resolve));
+  states.set(sessionId, SessionState.Completed);
+  installGate.resolve();
+  await assert.rejects(update, /no longer Running/);
+  await waitForObservation();
+
+  assert.equal(bridgeInstalls.statistics, 1);
+  assert.equal(bridgeUninstalls.statistics, 1);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+  assert.deepEqual(releases, [sessionId]);
+});
+
+test('clear invalidates a callback setup that is still awaiting bridge installation', async () => {
+  const sessionId = 1017;
+  const installGate = deferred();
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  deferredLogInstall = installGate.promise;
+  const session = FFmpegKitExtended.getSession(sessionId);
+  const update = session.setLogCallback?.(() => {});
+
+  await new Promise((resolve) => setImmediate(resolve));
+  const clear = FFmpegKitExtended.clearSessions();
+  installGate.resolve();
+  await clear;
+  await assert.rejects(update, /no longer Running/);
+  assert.equal(restoredSessionObserver.size, 0);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
 });

@@ -13,6 +13,7 @@ import {
 } from './session';
 import { SessionQueueManager } from './session-queue-manager';
 import { restoredSessionObserver } from './session-observation';
+import { clearAllCancellationDispatches } from './session-cancellation';
 import { LogLevel, Signal } from './types';
 
 const NativeFFmpegKitExtended = getBackend();
@@ -118,6 +119,8 @@ export class FFmpegKitExtended {
    * ID `0` cancels all queued and active managed sessions. A matching managed
    * session uses the same durable-intent transaction as object cancellation;
    * an unsubmitted history wrapper is used only when no managed object exists.
+   * Missing IDs are compatibility no-ops, while lookup/state/native failures for
+   * an existing identity are propagated to the caller.
    */
   static async cancelSession(sessionId: number): Promise<void> {
     this.requireInitialized();
@@ -132,14 +135,8 @@ export class FFmpegKitExtended {
       return;
     }
 
-    try {
-      const restored = this.getSession(sessionId);
-      if (restored) {
-        await restored.cancel();
-      }
-    } catch {
-      // Unknown IDs retain the historical no-op behavior of the public API.
-    }
+    const restored = this.getSession(sessionId);
+    if (restored) await restored.cancel();
   }
 
   /** Clears queued work and requests cancellation of all active sessions. */
@@ -398,7 +395,11 @@ export class FFmpegKitExtended {
    */
   static async clearSessions(): Promise<void> {
     await NativeFFmpegKitExtended.clearSessions();
-    await restoredSessionObserver.invalidateAll();
+    try {
+      await restoredSessionObserver.invalidateAll();
+    } finally {
+      clearAllCancellationDispatches();
+    }
   }
 
   /** Creates a native FFmpeg FIFO/pipe and returns its path when supported. */
