@@ -870,44 +870,50 @@ test('callback failure on a failed native session still releases once', async ()
   assert.equal(manager.activeSessionCount, 0);
 });
 
-test('state retrieval failure releases the owning handle and rejects', async () => {
+test('state retrieval failure before admission preserves ownership and can retry', async () => {
   sessionState = 0;
   const error = new Error('state read failed');
   stateError = error;
   registry.retain(10240, 20);
+  const session = new FFmpegSession(20, '-version');
 
-  const execution = new FFmpegSession(20, '-version').executeAsync({
-    pollIntervalMs: 10,
-  });
-
-  await assert.rejects(execution, (reason) => reason === error);
-  assert.deepEqual(releases, [20]);
-  assert.equal(registry.has(20), false);
+  await assert.rejects(session.executeAsync(), (reason) => reason === error);
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(releases, []);
+  assert.equal(registry.has(20), true);
   assert.equal(manager.activeSessionCount, 0);
   assert.equal(manager.queueLength, 0);
+
+  stateError = undefined;
+  const retry = session.executeAsync({ pollIntervalMs: 10 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  sessionState = 2;
+  await retry;
+  assert.equal(executionStarts, 1);
+  assert.deepEqual(releases, [20]);
+  assert.equal(registry.has(20), false);
 });
 
-test('state failure remains primary when handle release fails and can be retried', async () => {
+test('preflight state failure does not consume a later native start failure', async () => {
   sessionState = 0;
   const stateFailure = new Error('state read failed first');
-  const releaseFailure = new Error('release failed second');
   stateError = stateFailure;
-  releaseError = releaseFailure;
   registry.retain(14336, 23);
   const session = new FFmpegSession(23, '-version');
 
   await assert.rejects(
-    session.executeAsync({ pollIntervalMs: 10 }),
+    session.executeAsync(),
     (error) => error === stateFailure
   );
-  assert.deepEqual(releases, [23]);
+  assert.deepEqual(releases, []);
   assert.equal(registry.has(23), true);
 
   stateError = undefined;
-  releaseError = undefined;
-  sessionState = 2;
-  getBackend().releaseSessionHandle(23);
-  assert.deepEqual(releases, [23, 23]);
+  startError = new Error('native start failed after retry');
+  await assert.rejects(session.executeAsync(), (error) =>
+    error === startError
+  );
+  assert.deepEqual(releases, [23]);
   assert.equal(registry.has(23), false);
 });
 

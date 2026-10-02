@@ -1180,24 +1180,8 @@ export abstract class Session implements RestoredSessionObservationTarget {
     try {
       this.validateInitialSubmission();
     } catch (error) {
-      if (
-        error instanceof SessionNotCreatedError ||
-        error instanceof SessionCancelledException
-      ) {
-        return Promise.reject(error);
-      }
-      let release: void | Promise<void>;
-      try {
-        release = this.releaseOwnedHandle();
-      } catch {
-        return Promise.reject(error);
-      }
-      if (release instanceof Promise) {
-        return release.then(
-          () => Promise.reject(error),
-          () => Promise.reject(error)
-        );
-      }
+      // Admission never started. A failed state/runtime observation does not
+      // own cleanup of an existing native or restored history identity.
       return Promise.reject(error);
     }
     this.submitted = true;

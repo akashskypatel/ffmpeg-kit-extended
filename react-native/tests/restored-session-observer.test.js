@@ -366,6 +366,30 @@ test('restored execution preflight rejects without destructive history cleanup',
   assert.deepEqual(releases, [sessionId]);
 });
 
+test('restored state probe failure before admission preserves observation ownership', async () => {
+  const sessionId = 1018;
+  const stateFailure = new Error('restored state probe failed');
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+
+  stateReadError = stateFailure;
+  await assert.rejects(
+    session.executeAsync(),
+    (error) => error === stateFailure
+  );
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(abandonments, []);
+  assert.deepEqual(releases, []);
+  assert.equal(restoredSessionObserver.size, 1);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+
+  stateReadError = undefined;
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.deepEqual(releases, [sessionId]);
+});
+
 test('missing public cancellation remains a no-op without hiding real failures', async () => {
   await FFmpegKitExtended.cancelSession(1099);
   assert.deepEqual(cancellations, []);
