@@ -453,6 +453,14 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
   FfkitPixelTexture *tex = [[FfkitPixelTexture alloc] init];
   int64_t tid = [_textureRegistry registerTexture:tex];
 
+  // FlutterTextureRegistry uses 0 as the Darwin registration-failure sentinel.
+  if (tid == 0) {
+    result([FlutterError errorWithCode:@"TEXTURE_REGISTRATION_FAILED"
+                               message:@"Flutter could not register the FFplay texture"
+                                details:nil]);
+    return;
+  }
+
   __weak NSObject<FlutterTextureRegistry> *weakReg = _textureRegistry;
   tex.onFrameAvailable = ^{
     [weakReg textureFrameAvailable:tid];
