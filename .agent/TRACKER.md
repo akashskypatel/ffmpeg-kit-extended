@@ -1,5 +1,38 @@
 # Tracker
 
+## Review 47 React Native Wrapper Clear-Lifecycle Closure — 2026-10-02
+
+- Plan: [review-47-luna-flutter-react-native-closure-plan.md](./review-47-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-47-flutter-react-native-code-review.md](./review-47-flutter-react-native-code-review.md)
+- Preparation status: **Prepared for implementation — the authenticated Review 47 document previews were read, the two working copies were materialized locally, and the stale Review 30–46 review/archive and Gradle staging artifacts were removed from `.agent`. The browser download controls did not expose an OS download path during this run, so the local working-copy hashes below are hashes of the materialized files, not claimed upstream attachment hashes.**
+- Review authority: wrapper SHA `a0d38c9374091174cb560651e6a36d62378ada2b`; source-snapshot workflow `37071751090`; artifact `review46-final-source-snapshot-37071751090`, ID `11253859692`; outer digest `sha256:ef6fe740716daa55279ca5152da53153d76d9d2758305d25d1fa957135053499`; embedded `source.tar.gz` digest `428fcb53e9ab051f8d7070055c921f10e48da1b1abaf32184ddfff959379191e`; `1111/1111` manifest entries; zero symlinks; `runtimeExecution=false`.
+- Materialized working-copy SHA-256: plan `97B58F0C549A492A2A50BCE403B8092D6D2D622546C1CD4B4063B04C73412073` (**194 lines**); review `44E3A165950341FBA945AB116AE4E7FFE1F75A85949C42E02EE369EA7EF3BB0A` (**122 lines**).
+- Finding disposition: platform-native bridge **closed**; audited Flutter wrapper **closed**; two React Native wrapper-lifecycle findings remain: the public configuration clear bypasses lifecycle cleanup, and callback rollback can recreate an observer after clear.
+- Frozen boundaries: native ABI/runtime `0.11.2`; `libs/libffmpegkit` `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev` matching `origin/dev`; ManyLinux builders unchanged. No native ABI publication/download, builder edit, Flutter/platform-native production change, or hosted Flutter/React Native test workflow is authorized.
+- Implementation boundary: `react-native/src/ffmpeg-kit-config.ts`, `react-native/src/session-observation.ts`, semantic React Native documentation, and deterministic existing Node tests only unless source evidence proves otherwise. Production/test names must describe clear lifecycle parity, observer attachment, rollback, and cleanup semantics; review/goal/finding identifiers remain metadata only.
+- Validation order: Windows → Android on local Windows → Linux/WSL where affected → Apple iOS/tvOS/macOS last over the authorized MacBook Air SSH connection. Use existing local ABI configuration, analytics-disabled Dart/Flutter commands if Flutter is inspected, tagged task-owned processes, bounded observation, and cleanup. The only permitted hosted action after exact source freeze is the wrapper-only source snapshot workflow.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R47-G1** | Make both public React Native clear facades use one lifecycle-aware transaction | **Pending — delegate `FFmpegKitConfig.clearSessions()` to `FFmpegKitExtended.clearSessions()`; preserve backend-first failure semantics and add parity/failure regressions.** |
+| **R47-G2** | Prevent callback attachment from recreating a cleared ID-level observer | **Pending — keep `ensureObserved()` as the sole entry-creation authority; make `attachCallbackTarget()` attach only to an existing live entry; add deterministic deferred-install/clear race coverage.** |
+| **R47-G3** | Add semantic documentation and deterministic regression coverage without weakening prior lifecycle fixes | **Pending.** |
+| **R47-G4** | Run affected local validation, perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending.** |
+
+### Review 47 stale-artifact cleanup
+
+- Removed superseded review documents from `.agent/archive/reviews` (Review 30 through Review 45).
+- Removed superseded active Review 46 working copies from `.agent`.
+- Removed stale `.agent/gradle-review23-g62` and `.agent/gradle-review23-g63` staging/cache trees.
+- Preserved `.agent/knowledge`, `.agent/rules`, `.agent/skills`, and this tracker because they are support instructions or active project metadata rather than stale review output.
+
+### Review 47 implementation notes
+
+- G1 is a surgical import/delegation change. Do not duplicate backend clear, restored-observer invalidation, or cancellation-dispatch cleanup in the configuration facade.
+- G2 is an authority split, not a permanent cleared-ID tombstone: `ensureObserved(id)` may create; `attachCallbackTarget(id, target)` may only attach to an existing non-invalidated entry; detach never creates.
+- The mandatory race regression must retain an independent completion/statistics sink while a different optional bridge installation is deferred; otherwise rollback can take the detach path and fail to exercise observer resurrection.
+- Do not claim closure from static inspection or skipped/timeout/killed commands. Record exact pass/fail/skip counts and each environment limitation.
+
 ## Review 46 Flutter + React Native Final Wrapper Closure — 2026-10-02
 
 - Plan: [review-46-luna-flutter-react-native-closure-plan.md](./review-46-luna-flutter-react-native-closure-plan.md)
