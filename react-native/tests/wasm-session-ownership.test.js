@@ -1,10 +1,15 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const {afterEach, beforeEach, test} = require('node:test');
+const { afterEach, beforeEach, test } = require('node:test');
 
-const {getBackend, setBackend} = require('../.test-dist/platform/backend-registry.js');
-const {WasmSessionRegistry} = require('../.test-dist/platform/web/session-registry.js');
+const {
+  getBackend,
+  setBackend,
+} = require('../.test-dist/platform/backend-registry.js');
+const {
+  WasmSessionRegistry,
+} = require('../.test-dist/platform/web/session-registry.js');
 const {
   SessionCancelledException,
   SessionQueueManager,
@@ -30,8 +35,8 @@ let redirectionEnabled = true;
 let redirectionEnableCalls = 0;
 let redirectionDisableCalls = 0;
 let statisticsReads = 0;
-const bridgeInstalls = {completion: 0, log: 0, statistics: 0};
-const bridgeUninstalls = {completion: 0, log: 0, statistics: 0};
+const bridgeInstalls = { completion: 0, log: 0, statistics: 0 };
+const bridgeUninstalls = { completion: 0, log: 0, statistics: 0 };
 let preTerminalLogsError;
 let preTerminalStatisticsError;
 let finalLogsError;
@@ -56,7 +61,9 @@ setBackend({
     if (!redirectionEnabled) return JSON.stringify([]);
     if (preTerminalLogsError && logReads === 1) throw preTerminalLogsError;
     if (finalLogsError && logReads === 2) throw finalLogsError;
-    return JSON.stringify(logReads === 1 && fromIndex === 0 ? logEntries : finalLogEntries);
+    return JSON.stringify(
+      logReads === 1 && fromIndex === 0 ? logEntries : finalLogEntries
+    );
   },
   getLogsCount: () => {
     logCountReads += 1;
@@ -68,11 +75,16 @@ setBackend({
     if (preTerminalStatisticsError && statisticsReads === 1) {
       throw preTerminalStatisticsError;
     }
-    if (finalStatisticsError && statisticsReads === 2) throw finalStatisticsError;
+    if (finalStatisticsError && statisticsReads === 2)
+      throw finalStatisticsError;
     return JSON.stringify(fromIndex === 0 ? statisticsEntries : []);
   },
-  installCompletionBridge: () => { bridgeInstalls.completion += 1; },
-  uninstallCompletionBridge: () => { bridgeUninstalls.completion += 1; },
+  installCompletionBridge: () => {
+    bridgeInstalls.completion += 1;
+  },
+  uninstallCompletionBridge: () => {
+    bridgeUninstalls.completion += 1;
+  },
   installLogBridge: () => {
     bridgeInstalls.log += 1;
     directLogBridgeActive = useDirectLogBridge;
@@ -82,7 +94,7 @@ setBackend({
     directLogBridgeActive = false;
   },
   isDirectLogBridgeActive: () => directLogBridgeActive,
-  onLogEvent: handler => {
+  onLogEvent: (handler) => {
     logEventHandler = handler;
     return {
       // The router keeps one process-wide backend subscription; individual
@@ -90,8 +102,12 @@ setBackend({
       remove: () => {},
     };
   },
-  installStatisticsBridge: () => { bridgeInstalls.statistics += 1; },
-  uninstallStatisticsBridge: () => { bridgeUninstalls.statistics += 1; },
+  installStatisticsBridge: () => {
+    bridgeInstalls.statistics += 1;
+  },
+  uninstallStatisticsBridge: () => {
+    bridgeUninstalls.statistics += 1;
+  },
   enableRedirection: () => {
     redirectionEnableCalls += 1;
     redirectionEnabled = true;
@@ -105,32 +121,34 @@ setBackend({
     return sessionState;
   },
   getSessionJson: () => {
-    throw new Error('full session snapshot must not be used by monitor state reads');
+    throw new Error(
+      'full session snapshot must not be used by monitor state reads'
+    );
   },
-  cancelSession: sessionId => {
+  cancelSession: (sessionId) => {
     cancelAttempts += 1;
     if (cancelError) throw cancelError;
     cancelCalls.push(sessionId);
   },
-  releaseSessionHandle: sessionId => {
+  releaseSessionHandle: (sessionId) => {
     releases.push(sessionId);
     if (releaseError) throw releaseError;
     registry.take(sessionId);
   },
-  abandonCreatedSession: sessionId => {
+  abandonCreatedSession: (sessionId) => {
     abandonments.push(sessionId);
   },
-  recordCancellationIntent: sessionId => {
+  recordCancellationIntent: (sessionId) => {
     cancellationIntentIds.add(sessionId);
   },
-  isCancellationRequested: sessionId => cancellationIntentIds.has(sessionId),
-  clearCancellationIntent: sessionId => {
+  isCancellationRequested: (sessionId) => cancellationIntentIds.has(sessionId),
+  clearCancellationIntent: (sessionId) => {
     cancellationIntentIds.delete(sessionId);
   },
 });
 
-const {FFmpegSession} = require('../.test-dist/session.js');
-const {FFmpegKitExtended} = require('../.test-dist/ffmpeg-kit-extended.js');
+const { FFmpegSession } = require('../.test-dist/session.js');
+const { FFmpegKitExtended } = require('../.test-dist/ffmpeg-kit-extended.js');
 const manager = SessionQueueManager.shared;
 
 beforeEach(() => {
@@ -179,10 +197,13 @@ afterEach(async () => {
 
 test('discarded queued session abandons its identity and releases its Wasm handle', async () => {
   manager.maxConcurrentSessions = 1;
-  const activeGate = new Promise(resolve => {
+  const activeGate = new Promise((resolve) => {
     setTimeout(resolve, 0);
   });
-  const active = manager.executeSession({cancel() {}}, async () => activeGate);
+  const active = manager.executeSession(
+    { cancel() {} },
+    async () => activeGate
+  );
   registry.retain(1024, 42);
   const pending = new FFmpegSession(42, '-version').executeAsync();
 
@@ -204,13 +225,13 @@ test('the same session cannot be submitted twice while active', async () => {
   sessionState = 0;
   registry.retain(2048, 30);
   const session = new FFmpegSession(30, '-version');
-  const execution = session.executeAsync({pollIntervalMs: 10});
-  await new Promise(resolve => setTimeout(resolve, 0));
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 1;
 
   await assert.rejects(
     session.executeAsync(),
-    /already submitted for execution/,
+    /already submitted for execution/
   );
   assert.equal(executionStarts, 1);
   sessionState = 2;
@@ -220,16 +241,23 @@ test('the same session cannot be submitted twice while active', async () => {
 test('the same session cannot be submitted twice while queued', async () => {
   manager.maxConcurrentSessions = 1;
   let releaseActive;
-  const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
-    releaseActive = resolve;
-  }));
+  const active = manager.executeSession(
+    { cancel() {} },
+    () =>
+      new Promise((resolve) => {
+        releaseActive = resolve;
+      })
+  );
   sessionState = 0;
   registry.retain(3072, 31);
   const session = new FFmpegSession(31, '-version');
   const pending = session.executeAsync();
 
   assert.equal(manager.queueLength, 1);
-  await assert.rejects(session.executeAsync(), /already submitted for execution/);
+  await assert.rejects(
+    session.executeAsync(),
+    /already submitted for execution/
+  );
   releaseActive();
   await active;
   sessionState = 2;
@@ -241,14 +269,14 @@ test('the same session cannot be submitted again after successful completion', a
   sessionState = 0;
   registry.retain(4096, 32);
   const session = new FFmpegSession(32, '-version');
-  const execution = session.executeAsync({pollIntervalMs: 10});
-  await new Promise(resolve => setTimeout(resolve, 0));
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
   await execution;
 
   await assert.rejects(
     session.executeAsync(),
-    /already submitted for execution/,
+    /already submitted for execution/
   );
   assert.equal(executionStarts, 1);
 });
@@ -256,9 +284,13 @@ test('the same session cannot be submitted again after successful completion', a
 test('clearing a queued session abandons its identity and consumes submission', async () => {
   manager.maxConcurrentSessions = 1;
   let releaseActive;
-  const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
-    releaseActive = resolve;
-  }));
+  const active = manager.executeSession(
+    { cancel() {} },
+    () =>
+      new Promise((resolve) => {
+        releaseActive = resolve;
+      })
+  );
   registry.retain(5120, 33);
   const session = new FFmpegSession(33, '-version');
   const pending = session.executeAsync();
@@ -266,7 +298,10 @@ test('clearing a queued session abandons its identity and consumes submission', 
   try {
     manager.clearQueue();
     await assert.rejects(pending, SessionCancelledException);
-    await assert.rejects(session.executeAsync(), /already submitted for execution/);
+    await assert.rejects(
+      session.executeAsync(),
+      /already submitted for execution/
+    );
     assert.equal(executionStarts, 0);
     assert.deepEqual(releases, [33]);
     assert.deepEqual(abandonments, [33]);
@@ -280,8 +315,10 @@ test('clearing a queued session abandons its identity and consumes submission', 
 test('normally completed session releases its Wasm handle exactly once', async () => {
   sessionState = 0;
   registry.retain(2048, 7);
-  const execution = new FFmpegSession(7, '-version').executeAsync({pollIntervalMs: 10});
-  await new Promise(resolve => setTimeout(resolve, 0));
+  const execution = new FFmpegSession(7, '-version').executeAsync({
+    pollIntervalMs: 10,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
   await execution;
 
@@ -309,7 +346,7 @@ test('state-read failure latches cancellation before exposing the error', async 
   registry.retain(1024, 20);
   const session = new FFmpegSession(20, '-version');
 
-  await assert.rejects(session.cancel(), reason => reason === error);
+  await assert.rejects(session.cancel(), (reason) => reason === error);
   assert.equal(session.isCancelled, true);
   assert.equal(getBackend().isCancellationRequested(20), true);
 
@@ -336,9 +373,13 @@ test('durable cancellation intent blocks a reconstructed Created wrapper', async
 test('queued cancellation removes work without native cancellation and releases ownership', async () => {
   manager.maxConcurrentSessions = 1;
   let releaseActive;
-  const active = manager.executeSession({cancel() {}}, () => new Promise(resolve => {
-    releaseActive = resolve;
-  }));
+  const active = manager.executeSession(
+    { cancel() {} },
+    () =>
+      new Promise((resolve) => {
+        releaseActive = resolve;
+      })
+  );
   registry.retain(2048, 7);
   const session = new FFmpegSession(7, '-version');
   const pending = session.executeAsync();
@@ -373,18 +414,18 @@ test('immediate native cancellation failure preserves intent and allows monitor 
   cancelError = error;
   registry.retain(14336, 20);
   const session = new FFmpegSession(20, '-version');
-  const execution = session.executeAsync({pollIntervalMs: 10});
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(executionStarts, 1);
 
-  await assert.rejects(session.cancel(), reason => reason === error);
+  await assert.rejects(session.cancel(), (reason) => reason === error);
   assert.equal(session.isCancelled, true);
   assert.equal(cancelAttempts, 1);
   assert.deepEqual(cancelCalls, []);
 
   cancelError = undefined;
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(cancelAttempts, 2);
   assert.deepEqual(cancelCalls, [20]);
 
@@ -399,9 +440,9 @@ test('startup cancellation dispatches once after execution enters Running', asyn
   sessionState = 0;
   registry.retain(11264, 17);
   const session = new FFmpegSession(17, '-version');
-  const execution = session.executeAsync({pollIntervalMs: 10});
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(executionStarts, 1);
 
   await session.cancel();
@@ -412,11 +453,11 @@ test('startup cancellation dispatches once after execution enters Running', asyn
   assert.equal(manager.activeSessionCount, 1);
 
   sessionState = 1;
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(cancelAttempts, 1);
   assert.deepEqual(cancelCalls, [17]);
 
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(cancelAttempts, 1);
   assert.deepEqual(cancelCalls, [17]);
 
@@ -433,28 +474,29 @@ test('deferred native cancellation failure preserves ownership and error authori
   cancelError = error;
   registry.retain(12288, 18);
   const session = new FFmpegSession(18, '-version');
-  const execution = session.executeAsync({pollIntervalMs: 10});
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   // Keep the handoff boundary in Created until the monitor observes Running.
   sessionState = 0;
   await session.cancel();
+  assert.deepEqual(abandonments, []);
   sessionState = 1;
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   const failedCancellationAttempts = cancelAttempts;
   assert.ok(failedCancellationAttempts >= 1);
   assert.deepEqual(releases, []);
   assert.equal(registry.has(18), true);
 
   cancelError = undefined;
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(cancelAttempts, failedCancellationAttempts + 1);
   assert.deepEqual(cancelCalls, [18]);
   assert.deepEqual(releases, []);
   assert.equal(registry.has(18), true);
 
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [18]);
   assert.equal(registry.has(18), false);
   assert.equal(manager.activeSessionCount, 0);
@@ -464,12 +506,13 @@ test('completion before Running observation wins without late cancellation', asy
   sessionState = 0;
   registry.retain(13312, 19);
   const session = new FFmpegSession(19, '-version');
-  const execution = session.executeAsync({pollIntervalMs: 10});
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   // Exercise cancellation before the asynchronous handoff reports Running.
   sessionState = 0;
   await session.cancel();
+  assert.deepEqual(abandonments, []);
   sessionState = 2;
 
   await execution;
@@ -488,7 +531,7 @@ test('native start failure releases its Wasm handle exactly once', async () => {
 
   const execution = new FFmpegSession(8, '-version').executeAsync();
 
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   await manager.waitForAll();
   assert.equal(executionStarts, 0);
   assert.deepEqual(releases, [8]);
@@ -501,8 +544,8 @@ test('active cancelled session keeps its handle until terminal state', async () 
   sessionState = 0;
   const session = new FFmpegSession(10, '-version');
   registry.retain(4096, 10);
-  const execution = session.executeAsync({pollIntervalMs: 10});
-  await new Promise(resolve => setTimeout(resolve, 0));
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   await session.cancel();
   assert.deepEqual(cancelCalls, [10]);
 
@@ -517,22 +560,24 @@ test('active cancelled session keeps its handle until terminal state', async () 
 test('no optional consumers skip log/statistics traffic but keep completion demand', async () => {
   sessionState = 0;
   registry.retain(4096, 26);
-  const execution = new FFmpegSession(26, '-version').executeAsync({pollIntervalMs: 10});
-  await new Promise(resolve => setTimeout(resolve, 0));
+  const execution = new FFmpegSession(26, '-version').executeAsync({
+    pollIntervalMs: 10,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
   await execution;
 
   assert.equal(logReads, 0);
   assert.equal(statisticsReads, 0);
-  assert.deepEqual(bridgeInstalls, {completion: 1, log: 0, statistics: 0});
-  assert.deepEqual(bridgeUninstalls, {completion: 1, log: 0, statistics: 0});
+  assert.deepEqual(bridgeInstalls, { completion: 1, log: 0, statistics: 0 });
+  assert.deepEqual(bridgeUninstalls, { completion: 1, log: 0, statistics: 0 });
   assert.deepEqual(releases, [26]);
   assert.equal(registry.size, 0);
 });
 
 test('removing the last session log sink releases optional demand immediately', async () => {
   sessionState = 0;
-  logEntries = [{sessionId: 27, level: 32, message: 'remove-me'}];
+  logEntries = [{ sessionId: 27, level: 32, message: 'remove-me' }];
   registry.retain(5120, 27);
   const session = new FFmpegSession(27, '-version');
   let callbacks = 0;
@@ -542,7 +587,7 @@ test('removing the last session log sink releases optional demand immediately', 
     sessionState = 2;
   });
 
-  await session.executeAsync({pollIntervalMs: 10});
+  await session.executeAsync({ pollIntervalMs: 10 });
 
   assert.equal(callbacks, 1);
   assert.equal(logReads, 1);
@@ -555,8 +600,10 @@ test('disabled redirection preserves completion without log or statistics delive
   useDirectLogBridge = true;
   sessionState = 0;
   sessionLogCount = 1;
-  directLogEvents = [{sessionId: 29, sequence: 0, level: 32, message: 'hidden'}];
-  statisticsEntries = [{time: 1}];
+  directLogEvents = [
+    { sessionId: 29, sequence: 0, level: 32, message: 'hidden' },
+  ];
+  statisticsEntries = [{ time: 1 }];
   registry.retain(17920, 29);
   const logs = [];
   const statistics = [];
@@ -564,12 +611,12 @@ test('disabled redirection preserves completion without log or statistics delive
   FFmpegKitExtended.disableRedirection();
   try {
     const execution = new FFmpegSession(29, '-version').executeAsync({
-      logCallback: log => logs.push(log),
-      statisticsCallback: value => statistics.push(value),
+      logCallback: (log) => logs.push(log),
+      statisticsCallback: (value) => statistics.push(value),
       pollIntervalMs: 10,
     });
 
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
     sessionState = 2;
     await execution;
 
@@ -585,21 +632,23 @@ test('disabled redirection preserves completion without log or statistics delive
 test('explicitly enabled redirection delivers direct logs without wrapper reconfiguration', async () => {
   useDirectLogBridge = true;
   sessionState = 0;
-  directLogEvents = [{sessionId: 32, sequence: 0, level: 32, message: 'visible'}];
+  directLogEvents = [
+    { sessionId: 32, sequence: 0, level: 32, message: 'visible' },
+  ];
   registry.retain(18432, 32);
   const logs = [];
 
   FFmpegKitExtended.enableRedirection();
   const execution = new FFmpegSession(32, '-version').executeAsync({
-    logCallback: log => logs.push(log),
+    logCallback: (log) => logs.push(log),
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
   await execution;
 
-  assert.deepEqual(logs, [{sessionId: 32, level: 32, message: 'visible'}]);
+  assert.deepEqual(logs, [{ sessionId: 32, level: 32, message: 'visible' }]);
   assert.equal(redirectionEnableCalls, 1);
   assert.equal(redirectionDisableCalls, 0);
 });
@@ -609,21 +658,21 @@ test('direct v2 logs preserve sequence order without live history reads', async 
   sessionState = 0;
   sessionLogCount = 2;
   directLogEvents = [
-    {sessionId: 28, sequence: 1, level: 33, message: 'second'},
-    {sessionId: 28, sequence: 0, level: 32, message: 'first'},
-    {sessionId: 28, sequence: 0, level: 34, message: 'duplicate'},
+    { sessionId: 28, sequence: 1, level: 33, message: 'second' },
+    { sessionId: 28, sequence: 0, level: 32, message: 'first' },
+    { sessionId: 28, sequence: 0, level: 34, message: 'duplicate' },
   ];
   registry.retain(17408, 28);
   const received = [];
   const execution = new FFmpegSession(28, '-version').executeAsync({
-    logCallback: log => received.push(log),
+    logCallback: (log) => received.push(log),
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(received, [
-    {sessionId: 28, level: 32, message: 'first'},
-    {sessionId: 28, level: 33, message: 'second'},
+    { sessionId: 28, level: 32, message: 'first' },
+    { sessionId: 28, level: 33, message: 'second' },
   ]);
   assert.equal(logReads, 0);
   assert.equal(bridgeInstalls.log, 1);
@@ -639,28 +688,30 @@ test('terminal reconciliation recovers a direct-log gap with one bounded history
   useDirectLogBridge = true;
   sessionState = 0;
   sessionLogCount = 3;
-  directLogEvents = [{sessionId: 30, sequence: 2, level: 34, message: 'third'}];
+  directLogEvents = [
+    { sessionId: 30, sequence: 2, level: 34, message: 'third' },
+  ];
   finalLogEntries = [
-    {sessionId: 30, level: 32, message: 'first'},
-    {sessionId: 30, level: 33, message: 'second'},
-    {sessionId: 30, level: 34, message: 'third'},
+    { sessionId: 30, level: 32, message: 'first' },
+    { sessionId: 30, level: 33, message: 'second' },
+    { sessionId: 30, level: 34, message: 'third' },
   ];
   logEntries = finalLogEntries;
   registry.retain(19456, 30);
   const received = [];
   const execution = new FFmpegSession(30, '-version').executeAsync({
-    logCallback: log => received.push(log),
+    logCallback: (log) => received.push(log),
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
   await execution;
 
   assert.deepEqual(received, [
-    {sessionId: 30, level: 32, message: 'first'},
-    {sessionId: 30, level: 33, message: 'second'},
-    {sessionId: 30, level: 34, message: 'third'},
+    { sessionId: 30, level: 32, message: 'first' },
+    { sessionId: 30, level: 33, message: 'second' },
+    { sessionId: 30, level: 34, message: 'third' },
   ]);
   assert.equal(logCountReads, 1);
   assert.equal(logReads, 1);
@@ -682,9 +733,9 @@ test('terminal reconciliation preserves a getter error as the first failure', as
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
-  await assert.rejects(execution, error => error === reconciliationError);
+  await assert.rejects(execution, (error) => error === reconciliationError);
   getBackend().getLogsCount = originalGetLogsCount;
   assert.deepEqual(releases, [31]);
 });
@@ -693,7 +744,9 @@ test('direct v2 callback failure keeps the existing first-error policy', async (
   useDirectLogBridge = true;
   sessionState = 0;
   const callbackError = new Error('direct callback failed');
-  directLogEvents = [{sessionId: 29, sequence: 0, level: 32, message: 'throws'}];
+  directLogEvents = [
+    { sessionId: 29, sequence: 0, level: 32, message: 'throws' },
+  ];
   registry.retain(18432, 29);
 
   const execution = new FFmpegSession(29, '-version').executeAsync({
@@ -703,17 +756,17 @@ test('direct v2 callback failure keeps the existing first-error policy', async (
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(logReads, 0);
   sessionState = 2;
-  await assert.rejects(execution, error => error === callbackError);
+  await assert.rejects(execution, (error) => error === callbackError);
   assert.deepEqual(releases, [29]);
   assert.equal(bridgeUninstalls.log, 1);
 });
 
 test('throwing log callback still releases the handle after terminal state', async () => {
   sessionState = 0;
-  logEntries = [{sessionId: 11, level: 32, message: 'log'}];
+  logEntries = [{ sessionId: 11, level: 32, message: 'log' }];
   registry.retain(5120, 11);
   const error = new Error('log callback failed');
 
@@ -725,7 +778,7 @@ test('throwing log callback still releases the handle after terminal state', asy
     pollIntervalMs: 10,
   });
 
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [11]);
   assert.equal(registry.size, 0);
   assert.equal(manager.activeSessionCount, 0);
@@ -733,7 +786,7 @@ test('throwing log callback still releases the handle after terminal state', asy
 
 test('throwing statistics callback still releases the handle after terminal state', async () => {
   sessionState = 0;
-  statisticsEntries = [{sessionId: 12, timeElapsed: 1}];
+  statisticsEntries = [{ sessionId: 12, timeElapsed: 1 }];
   registry.retain(6144, 12);
   const error = new Error('statistics callback failed');
 
@@ -745,7 +798,7 @@ test('throwing statistics callback still releases the handle after terminal stat
     pollIntervalMs: 10,
   });
 
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [12]);
   assert.equal(registry.size, 0);
   assert.equal(manager.activeSessionCount, 0);
@@ -763,9 +816,9 @@ test('throwing completion callback releases the handle before rejecting', async 
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [13]);
   assert.equal(registry.size, 0);
   assert.equal(manager.activeSessionCount, 0);
@@ -773,7 +826,7 @@ test('throwing completion callback releases the handle before rejecting', async 
 
 test('callback failure combined with cancellation still releases once', async () => {
   sessionState = 0;
-  logEntries = [{sessionId: 14, level: 32, message: 'cancel'}];
+  logEntries = [{ sessionId: 14, level: 32, message: 'cancel' }];
   registry.retain(8192, 14);
   const error = new Error('cancelled callback failed');
 
@@ -787,7 +840,7 @@ test('callback failure combined with cancellation still releases once', async ()
     pollIntervalMs: 10,
   });
 
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.equal(session.isCancelled, true);
   assert.deepEqual(releases, [14]);
   assert.equal(registry.size, 0);
@@ -806,9 +859,9 @@ test('callback failure on a failed native session still releases once', async ()
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 3;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [15]);
   assert.equal(registry.size, 0);
   assert.equal(manager.activeSessionCount, 0);
@@ -820,9 +873,11 @@ test('state retrieval failure releases the owning handle and rejects', async () 
   stateError = error;
   registry.retain(10240, 20);
 
-  const execution = new FFmpegSession(20, '-version').executeAsync({pollIntervalMs: 10});
+  const execution = new FFmpegSession(20, '-version').executeAsync({
+    pollIntervalMs: 10,
+  });
 
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [20]);
   assert.equal(registry.has(20), false);
   assert.equal(manager.activeSessionCount, 0);
@@ -839,8 +894,8 @@ test('state failure remains primary when handle release fails and can be retried
   const session = new FFmpegSession(23, '-version');
 
   await assert.rejects(
-    session.executeAsync({pollIntervalMs: 10}),
-    error => error === stateFailure,
+    session.executeAsync({ pollIntervalMs: 10 }),
+    (error) => error === stateFailure
   );
   assert.deepEqual(releases, [23]);
   assert.equal(registry.has(23), true);
@@ -860,13 +915,10 @@ test('release failure after terminal state remains observable and retryable', as
   registry.retain(15360, 24);
   const session = new FFmpegSession(24, '-version');
 
-  const execution = session.executeAsync({pollIntervalMs: 10});
-  await new Promise(resolve => setTimeout(resolve, 0));
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
-  await assert.rejects(
-    execution,
-    error => error === releaseFailure,
-  );
+  await assert.rejects(execution, (error) => error === releaseFailure);
   assert.deepEqual(releases, [24]);
   assert.equal(registry.has(24), true);
 
@@ -878,7 +930,7 @@ test('release failure after terminal state remains observable and retryable', as
 
 test('callback failure remains primary when terminal release fails', async () => {
   sessionState = 0;
-  logEntries = [{sessionId: 25, level: 32, message: 'callback-first'}];
+  logEntries = [{ sessionId: 25, level: 32, message: 'callback-first' }];
   const callbackFailure = new Error('callback failed first');
   releaseError = new Error('release failed second');
   registry.retain(16384, 25);
@@ -892,7 +944,7 @@ test('callback failure remains primary when terminal release fails', async () =>
       },
       pollIntervalMs: 10,
     }),
-    error => error === callbackFailure,
+    (error) => error === callbackFailure
   );
   assert.deepEqual(releases, [25]);
   assert.equal(registry.has(25), true);
@@ -900,7 +952,7 @@ test('callback failure remains primary when terminal release fails', async () =>
 
 test('first callback failure wins over a later pre-terminal monitor failure', async () => {
   sessionState = 0;
-  logEntries = [{sessionId: 21, level: 32, message: 'callback-first'}];
+  logEntries = [{ sessionId: 21, level: 32, message: 'callback-first' }];
   const callbackError = new Error('callback failure first');
   const monitorError = new Error('statistics failure later');
   preTerminalStatisticsError = monitorError;
@@ -924,15 +976,15 @@ test('first callback failure wins over a later pre-terminal monitor failure', as
     },
     () => {
       settled = true;
-    },
+    }
   );
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(settled, false);
   assert.deepEqual(releases, []);
   assert.equal(registry.has(21), true);
 
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === callbackError);
+  await assert.rejects(execution, (reason) => reason === callbackError);
   assert.deepEqual(releases, [21]);
   assert.equal(registry.has(21), false);
   assert.equal(manager.activeSessionCount, 0);
@@ -942,7 +994,9 @@ test('first callback failure wins over a later pre-terminal monitor failure', as
 
 test('first final callback failure wins over a later final monitor failure', async () => {
   sessionState = 0;
-  finalLogEntries = [{sessionId: 22, level: 32, message: 'final-callback-first'}];
+  finalLogEntries = [
+    { sessionId: 22, level: 32, message: 'final-callback-first' },
+  ];
   const callbackError = new Error('final callback failure first');
   const monitorError = new Error('final statistics failure later');
   finalStatisticsError = monitorError;
@@ -959,9 +1013,9 @@ test('first final callback failure wins over a later final monitor failure', asy
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === callbackError);
+  await assert.rejects(execution, (reason) => reason === callbackError);
   assert.deepEqual(releases, [22]);
   assert.equal(registry.has(22), false);
   assert.equal(manager.activeSessionCount, 0);
@@ -973,8 +1027,8 @@ test('pre-terminal log retrieval failure drains to terminal before releasing', a
   sessionState = 0;
   const error = new Error('pre-terminal log read failed');
   preTerminalLogsError = error;
-  logEntries = [{sessionId: 18, level: 32, message: 'suppressed'}];
-  statisticsEntries = [{sessionId: 18, timeElapsed: 1}];
+  logEntries = [{ sessionId: 18, level: 32, message: 'suppressed' }];
+  statisticsEntries = [{ sessionId: 18, timeElapsed: 1 }];
   registry.retain(12288, 18);
   let logCallbacks = 0;
   let statisticsCallbacks = 0;
@@ -993,17 +1047,17 @@ test('pre-terminal log retrieval failure drains to terminal before releasing', a
     },
     () => {
       settled = true;
-    },
+    }
   );
 
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(settled, false);
   assert.deepEqual(releases, []);
   assert.equal(registry.has(18), true);
   assert.equal(manager.activeSessionCount, 1);
 
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [18]);
   assert.equal(registry.has(18), false);
   assert.equal(manager.activeSessionCount, 0);
@@ -1016,7 +1070,7 @@ test('pre-terminal statistics retrieval failure drains to terminal before releas
   sessionState = 0;
   const error = new Error('pre-terminal statistics read failed');
   preTerminalStatisticsError = error;
-  statisticsEntries = [{sessionId: 19, timeElapsed: 1}];
+  statisticsEntries = [{ sessionId: 19, timeElapsed: 1 }];
   registry.retain(13312, 19);
   let logCallbacks = 0;
   let statisticsCallbacks = 0;
@@ -1035,17 +1089,17 @@ test('pre-terminal statistics retrieval failure drains to terminal before releas
     },
     () => {
       settled = true;
-    },
+    }
   );
 
-  await new Promise(resolve => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 25));
   assert.equal(settled, false);
   assert.deepEqual(releases, []);
   assert.equal(registry.has(19), true);
   assert.equal(manager.activeSessionCount, 1);
 
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   assert.deepEqual(releases, [19]);
   assert.equal(registry.has(19), false);
   assert.equal(manager.activeSessionCount, 0);
@@ -1065,9 +1119,9 @@ test('final log retrieval failure releases the handle exactly once', async () =>
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   await manager.waitForAll();
   assert.deepEqual(releases, [16]);
   assert.equal(registry.has(16), false);
@@ -1085,9 +1139,9 @@ test('final statistics retrieval failure releases the handle exactly once', asyn
     pollIntervalMs: 10,
   });
 
-  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
-  await assert.rejects(execution, reason => reason === error);
+  await assert.rejects(execution, (reason) => reason === error);
   await manager.waitForAll();
   assert.deepEqual(releases, [17]);
   assert.equal(registry.has(17), false);

@@ -238,9 +238,22 @@ payload internally; no borrowed pointer crosses the public API.
 Calling `cancel()` before execution begins prevents Created or queued work from starting. If cancellation is requested while asynchronous native startup is already in flight, the request is retained and forwarded when the session first reaches Running.
 `isCancelled` records that cancellation was requested; the final native state and return code determine whether cancellation won a race with completion.
 
+`FFmpegKitExtended.cancelSession(id)` participates in the same queue-aware
+cancellation transaction as `Session.cancel()`. ID `0` cancels all queued and
+active managed sessions; a queued target is removed before native execution
+begins. A submitted session can remain `Created` during native handoff and is
+not treated as an abandoned never-submitted identity.
+
 Session objects are single-use execution objects. Create a new `Session` object for another execution.
 
 On React Native Web, a session reconstructed from history can be submitted only while its native state is `Created`. Running or terminal Web history sessions are intended for inspection and control rather than re-execution.
+
+A Running session returned from history is an observation/control wrapper around
+an existing execution. It is never re-executed. The wrapper observes terminal
+state so retained native or Wasm ownership can be retired when execution
+finishes. Completion, log, and statistics callbacks attached to that restored
+wrapper observe the existing execution; they do not claim queue or execution
+ownership and may fail if live observer routing cannot be established.
 
 ```ts
 import {

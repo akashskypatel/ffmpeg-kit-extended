@@ -1,7 +1,8 @@
-import {getBackend} from './platform/backend-registry';
-import {argumentsToString} from './arguments';
-import {FFmpegSession} from './session';
-import type {FFmpegExecuteOptions} from './types';
+import { getBackend } from './platform/backend-registry';
+import { argumentsToString } from './arguments';
+import { FFmpegSession } from './session';
+import { FFmpegKitExtended } from './ffmpeg-kit-extended';
+import type { FFmpegExecuteOptions } from './types';
 
 const NativeFFmpegKitExtended = getBackend();
 
@@ -26,7 +27,7 @@ export class FFmpegKit {
     requireCommand(command);
     return new FFmpegSession(
       NativeFFmpegKitExtended.createFFmpegSession(command),
-      command,
+      command
     );
   }
 
@@ -35,11 +36,13 @@ export class FFmpegKit {
    *
    * This avoids manual quoting for paths and values containing whitespace.
    */
-  static createSessionFromArguments(arguments_: readonly string[]): FFmpegSession {
+  static createSessionFromArguments(
+    arguments_: readonly string[]
+  ): FFmpegSession {
     if (arguments_.length === 0) throw new Error('arguments must not be empty');
     return new FFmpegSession(
       NativeFFmpegKitExtended.createFFmpegSessionFromArguments(arguments_),
-      argumentsToString(arguments_),
+      argumentsToString(arguments_)
     );
   }
 
@@ -52,7 +55,7 @@ export class FFmpegKit {
    */
   static execute(
     command: string,
-    options: FFmpegExecuteOptions<FFmpegSession> = {},
+    options: FFmpegExecuteOptions<FFmpegSession> = {}
   ): Promise<FFmpegSession> {
     return this.executeAsync(command, options);
   }
@@ -66,7 +69,7 @@ export class FFmpegKit {
    */
   static executeAsync(
     command: string,
-    options: FFmpegExecuteOptions<FFmpegSession> = {},
+    options: FFmpegExecuteOptions<FFmpegSession> = {}
   ): Promise<FFmpegSession> {
     const session = this.createSession(command);
     return session.executeAsync(options);
@@ -79,18 +82,12 @@ export class FFmpegKit {
 
   /** Returns the newest FFmpeg session retained in native history. */
   static getLastFFmpegSession(): FFmpegSession | undefined {
-    const json = NativeFFmpegKitExtended.getLastSessionJson('ffmpeg');
-    if (!json) return undefined;
-    const data = JSON.parse(json) as {sessionId: number; command: string};
-    return new FFmpegSession(data.sessionId, data.command);
+    return FFmpegKitExtended.getLastFFmpegSession();
   }
 
   /** Returns FFmpeg sessions currently retained in native history. */
   static getFFmpegSessions(): FFmpegSession[] {
-    const data = JSON.parse(
-      NativeFFmpegKitExtended.getSessionsJson('ffmpeg') || '[]',
-    ) as Array<{sessionId: number; command: string}>;
-    return data.map(item => new FFmpegSession(item.sessionId, item.command));
+    return FFmpegKitExtended.getFFmpegSessions();
   }
 }
 

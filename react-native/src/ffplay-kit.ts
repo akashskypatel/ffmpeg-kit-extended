@@ -1,7 +1,8 @@
-import {getBackend} from './platform/backend-registry';
-import {argumentsToString} from './arguments';
-import {FFplaySession} from './session';
-import type {ExecuteOptions} from './types';
+import { getBackend } from './platform/backend-registry';
+import { argumentsToString } from './arguments';
+import { FFplaySession } from './session';
+import type { ExecuteOptions } from './types';
+import { FFmpegKitExtended } from './ffmpeg-kit-extended';
 
 const NativeFFmpegKitExtended = getBackend();
 
@@ -32,20 +33,20 @@ export class FFplayKit {
     return new FFplaySession(
       NativeFFmpegKitExtended.createFFplaySession(command),
       command,
-      timeoutMs,
+      timeoutMs
     );
   }
 
   /** Creates a playback session from pre-tokenized FFplay arguments. */
   static createSessionFromArguments(
     arguments_: readonly string[],
-    timeoutMs = 500,
+    timeoutMs = 500
   ): FFplaySession {
     if (arguments_.length === 0) throw new Error('arguments must not be empty');
     return new FFplaySession(
       NativeFFmpegKitExtended.createFFplaySessionFromArguments(arguments_),
       argumentsToString(arguments_),
-      timeoutMs,
+      timeoutMs
     );
   }
 
@@ -53,7 +54,7 @@ export class FFplayKit {
   static async execute(
     command: string,
     options: ExecuteOptions<FFplaySession> = {},
-    timeoutMs = 500,
+    timeoutMs = 500
   ): Promise<FFplaySession> {
     return this.executeAsync(command, options, timeoutMs);
   }
@@ -69,7 +70,7 @@ export class FFplayKit {
   static async executeAsync(
     command: string,
     options: ExecuteOptions<FFplaySession> = {},
-    timeoutMs = 500,
+    timeoutMs = 500
   ): Promise<FFplaySession> {
     const session = this.createSession(command, timeoutMs);
     this.unsettledSessions.set(session.sessionId, session);
@@ -120,9 +121,6 @@ export class FFplayKit {
 
   /** Returns FFplay sessions currently retained in native history. */
   static getFFplaySessions(): FFplaySession[] {
-    const data = JSON.parse(
-      NativeFFmpegKitExtended.getSessionsJson('ffplay') || '[]',
-    ) as Array<{sessionId: number; command: string}>;
-    return data.map(item => new FFplaySession(item.sessionId, item.command));
+    return FFmpegKitExtended.getFFplaySessions();
   }
 }

@@ -1,4 +1,4 @@
-import {getBackend} from './platform/backend-registry';
+import { getBackend } from './platform/backend-registry';
 import type {
   ExecuteOptions,
   FFmpegExecuteOptions,
@@ -7,8 +7,11 @@ import type {
   SessionType,
   Statistics,
 } from './types';
-import {SessionState} from './types';
-import {MediaInformation, type MediaInformationData} from './media-information';
+import { SessionState } from './types';
+import {
+  MediaInformation,
+  type MediaInformationData,
+} from './media-information';
 import {
   SessionCancelledException,
   SessionQueueManager,
@@ -19,8 +22,19 @@ import {
   type CallbackDemandKind,
   type CallbackDemandLease,
 } from './callback-demand';
-import {subscribeLogEvents} from './platform/log-event-router';
-import type {LogEventSubscription} from './platform/backend-registry';
+import { subscribeLogEvents } from './platform/log-event-router';
+import type {
+  LogEvent,
+  LogEventSubscription,
+} from './platform/backend-registry';
+import {
+  restoredSessionObserver,
+  type RestoredSessionObservationTarget,
+} from './session-observation';
+import {
+  registerSessionWrapper,
+  releaseSessionHandleSerialized,
+} from './session-lifetime';
 
 const NativeFFmpegKitExtended = getBackend();
 
@@ -29,6 +43,14 @@ const DEFAULT_POLL_INTERVAL_MS = 50;
 type CallbackDemandProviders = {
   log: () => boolean;
   statistics?: () => boolean;
+};
+
+type RestoredCallbackReaders = {
+  complete?: () => ((session: Session) => void) | undefined;
+  log?: () => ((log: Log, session: Session) => void) | undefined;
+  statistics?: () =>
+    | ((statistics: Statistics, session: Session) => void)
+    | undefined;
 };
 
 type MonitorOptions<T extends Session> = {
@@ -57,7 +79,7 @@ type MonitorOptions<T extends Session> = {
  * A Session object may be submitted for execution once. Create a new session
  * for another execution.
  */
-export abstract class Session {
+export abstract class Session implements RestoredSessionObservationTarget {
   readonly sessionId: number;
   readonly command: string;
   readonly type: SessionType;
@@ -73,11 +95,21 @@ export abstract class Session {
   >();
   private nextExpectedLogSequence = 0;
   private readonly pendingDirectLogEvents = new Map<number, Log>();
+  private restoredRunning = false;
+  private restoredTerminalSettled = false;
+  private restoredLogsProcessed = 0;
+  private restoredStatisticsProcessed = 0;
+  private restoredObserverErrorReported = false;
+  private restoredCallbackReaders: RestoredCallbackReaders = {};
+  private restoredLogEventSubscription?: LogEventSubscription;
+  private restoredNextExpectedLogSequence = 0;
+  private readonly restoredPendingLogEvents = new Map<number, Log>();
 
   protected constructor(sessionId: number, command: string, type: SessionType) {
     this.sessionId = sessionId;
     this.command = command;
     this.type = type;
+    registerSessionWrapper(sessionId);
   }
 
   /** Whether cancellation was requested through this JavaScript object. */
@@ -103,6 +135,63 @@ export abstract class Session {
   /** Returns the process-unique native session ID. */
   getSessionId(): number {
     return this.sessionId;
+  }
+
+  /** Whether this wrapper observes an already-running history identity. */
+  get isRestoredRunning(): boolean {
+    return this.restoredRunning;
+  }
+
+  /** Joins the shared non-executing observer for a Running history snapshot. */
+  observeRestoredRunning(): void {
+    if (this.restoredRunning) return;
+    this.restoredRunning = true;
+    this.callbackDemandActive = true;
+    this.callbackDemandProviders = {
+      log: () => Boolean(this.restoredCallbackReaders.log?.()),
+      statistics: () => Boolean(this.restoredCallbackReaders.statistics?.()),
+    };
+    restoredSessionObserver.observe(this);
+  }
+
+  /** Supplies callback readers without coupling the coordinator to subclasses. */
+  protected setRestoredCallbackReaders(readers: RestoredCallbackReaders): void {
+    this.restoredCallbackReaders = readers;
+  }
+
+  /** Verifies that a restored callback setter still has a live target. */
+  protected assertRestoredCallbackState(): void {
+    if (!this.restoredRunning) return;
+    const state = this.getState();
+    if (state !== SessionState.Running) {
+      throw new Error(
+        `Session ${this.sessionId} is no longer Running and cannot accept an observer callback`
+      );
+    }
+  }
+
+  /** Updates optional observer demand transactionally for restored wrappers. */
+  protected async updateCallbackAtomically(
+    update: () => void,
+    rollback: () => void
+  ): Promise<void> {
+    this.assertRestoredCallbackState();
+    update();
+    try {
+      const demand = this.refreshCallbackDemand();
+      if (demand instanceof Promise) await demand;
+      this.syncRestoredLogEventSubscription();
+    } catch (error) {
+      rollback();
+      try {
+        const rollbackDemand = this.refreshCallbackDemand();
+        if (rollbackDemand instanceof Promise) await rollbackDemand;
+        this.syncRestoredLogEventSubscription();
+      } catch {
+        // Preserve the bridge-install failure as the primary setter error.
+      }
+      throw error;
+    }
   }
 
   /** Returns when the native session was created. */
@@ -171,13 +260,18 @@ export abstract class Session {
       return;
     }
     const state = this.getState();
-    if (state === SessionState.Created) {
+    if (state === SessionState.Created && !this.submitted) {
+      // A submitted session can remain Created while the native worker is
+      // starting; only a never-submitted Created identity is safe to abandon.
       await this.abandonCreatedSession();
       return;
     }
     if (state === SessionState.Running) {
       await this.dispatchNativeCancellation();
-    } else if (state === SessionState.Completed || state === SessionState.Failed) {
+    } else if (
+      state === SessionState.Completed ||
+      state === SessionState.Failed
+    ) {
       NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
     }
   }
@@ -230,7 +324,7 @@ export abstract class Session {
   protected snapshot(): SessionSnapshot {
     return parseRequiredJson<SessionSnapshot>(
       NativeFFmpegKitExtended.getSessionJson(this.sessionId),
-      `Session ${this.sessionId} no longer exists`,
+      `Session ${this.sessionId} no longer exists`
     );
   }
 
@@ -240,10 +334,10 @@ export abstract class Session {
       this.prepareForExecution();
       const completion = NativeFFmpegKitExtended.executeSessionAsync(
         this.sessionId,
-        timeoutMs,
+        timeoutMs
       );
       if (completion instanceof Promise) {
-        return completion.catch(async error => {
+        return completion.catch(async (error) => {
           try {
             await this.releaseOwnedHandle();
           } catch {
@@ -263,7 +357,7 @@ export abstract class Session {
       if (release instanceof Promise) {
         return release.then(
           () => Promise.reject(error),
-          () => Promise.reject(error),
+          () => Promise.reject(error)
         );
       }
       throw error;
@@ -274,22 +368,24 @@ export abstract class Session {
   prepareForExecution(): void {
     if (NativeFFmpegKitExtended.isSessionAbandoned?.(this.sessionId)) {
       throw new SessionCancelledException(
-        `Session ${this.sessionId} was abandoned before execution`,
+        `Session ${this.sessionId} was abandoned before execution`
       );
     }
     if (NativeFFmpegKitExtended.isCancellationRequested?.(this.sessionId)) {
       throw new SessionCancelledException(
-        `Session ${this.sessionId} has a durable cancellation request`,
+        `Session ${this.sessionId} has a durable cancellation request`
       );
     }
     if (this.cancelled) {
       throw new SessionCancelledException(
-        `Session ${this.sessionId} was cancelled before execution`,
+        `Session ${this.sessionId} was cancelled before execution`
       );
     }
     const state = this.getState();
     if (state !== SessionState.Created) {
-      throw new Error(`Session ${this.sessionId} cannot start from state ${state}`);
+      throw new Error(
+        `Session ${this.sessionId} cannot start from state ${state}`
+      );
     }
   }
 
@@ -312,7 +408,7 @@ export abstract class Session {
    */
   protected async runWithCallbackDemand<T>(
     providers: CallbackDemandProviders,
-    operation: () => Promise<T>,
+    operation: () => Promise<T>
   ): Promise<T> {
     this.callbackDemandProviders = providers;
     this.callbackDemandActive = true;
@@ -343,21 +439,31 @@ export abstract class Session {
   /** Reconciles optional leases with the currently visible callback sinks. */
   protected refreshCallbackDemand(): void | Promise<void> {
     if (!this.callbackDemandActive || !this.callbackDemandProviders) return;
-    const logDemand = this.syncCallbackDemand('log', this.callbackDemandProviders.log());
+    const logDemand = this.syncCallbackDemand(
+      'log',
+      this.callbackDemandProviders.log()
+    );
     if (logDemand instanceof Promise) {
-      return logDemand.then(() => this.syncCallbackDemand(
-        'statistics',
-        this.callbackDemandProviders?.statistics?.() ?? false,
-      )).then(() => undefined);
+      return logDemand
+        .then(() =>
+          this.syncCallbackDemand(
+            'statistics',
+            this.callbackDemandProviders?.statistics?.() ?? false
+          )
+        )
+        .then(() => undefined);
     }
     const statisticsDemand = this.syncCallbackDemand(
       'statistics',
-      this.callbackDemandProviders.statistics?.() ?? false,
+      this.callbackDemandProviders.statistics?.() ?? false
     );
     return statisticsDemand;
   }
 
-  private syncCallbackDemand(kind: 'log' | 'statistics', needed: boolean): void | Promise<void> {
+  private syncCallbackDemand(
+    kind: 'log' | 'statistics',
+    needed: boolean
+  ): void | Promise<void> {
     const existing = this.callbackDemandLeases.get(kind);
     if (needed) {
       if (!existing) return this.acquireCallbackDemand(kind);
@@ -368,14 +474,16 @@ export abstract class Session {
     return existing.release();
   }
 
-  private acquireCallbackDemand(kind: CallbackDemandKind): void | Promise<void> {
+  private acquireCallbackDemand(
+    kind: CallbackDemandKind
+  ): void | Promise<void> {
     if (this.callbackDemandLeases.has(kind)) return;
     const acquired = callbackDemandAuthority.acquire(
       kind,
-      this.callbackDemandHooks(kind),
+      this.callbackDemandHooks(kind)
     );
     if (acquired instanceof Promise) {
-      return acquired.then(lease => {
+      return acquired.then((lease) => {
         this.callbackDemandLeases.set(kind, lease);
       });
     }
@@ -387,7 +495,8 @@ export abstract class Session {
       case 'completion':
         return {
           install: () => NativeFFmpegKitExtended.installCompletionBridge?.(),
-          uninstall: () => NativeFFmpegKitExtended.uninstallCompletionBridge?.(),
+          uninstall: () =>
+            NativeFFmpegKitExtended.uninstallCompletionBridge?.(),
         };
       case 'log':
         return {
@@ -397,7 +506,8 @@ export abstract class Session {
       case 'statistics':
         return {
           install: () => NativeFFmpegKitExtended.installStatisticsBridge?.(),
-          uninstall: () => NativeFFmpegKitExtended.uninstallStatisticsBridge?.(),
+          uninstall: () =>
+            NativeFFmpegKitExtended.uninstallStatisticsBridge?.(),
         };
     }
   }
@@ -417,13 +527,214 @@ export abstract class Session {
     return firstError;
   }
 
+  /** Polls callback buffers for an observer-owned Running history wrapper. */
+  async pollRestoredCallbacks(): Promise<void> {
+    if (!this.restoredRunning || this.restoredTerminalSettled) return;
+    const demand = this.refreshCallbackDemand();
+    if (demand instanceof Promise) await demand;
+    this.syncRestoredLogEventSubscription();
+
+    const logCallback = this.restoredCallbackReaders.log?.();
+    if (logCallback && !this.restoredLogEventSubscription) {
+      const logs = parseJsonArray<Log>(
+        NativeFFmpegKitExtended.getLogsJson(
+          this.sessionId,
+          this.restoredLogsProcessed
+        )
+      );
+      for (const entry of logs) {
+        try {
+          logCallback(entry, this);
+        } catch (error) {
+          this.reportRestoredObserverError(error);
+        }
+      }
+      this.restoredLogsProcessed += logs.length;
+    }
+
+    const statisticsCallback = this.restoredCallbackReaders.statistics?.();
+    if (statisticsCallback) {
+      const statistics = parseJsonArray<Statistics>(
+        NativeFFmpegKitExtended.getStatisticsJson(
+          this.sessionId,
+          this.restoredStatisticsProcessed
+        )
+      );
+      for (const entry of statistics) {
+        try {
+          statisticsCallback(entry, this);
+        } catch (error) {
+          this.reportRestoredObserverError(error);
+        }
+      }
+      this.restoredStatisticsProcessed += statistics.length;
+    }
+  }
+
+  /** Settles callbacks and observer demand after terminal state is authoritative. */
+  async settleRestoredObservation(): Promise<void> {
+    if (this.restoredTerminalSettled) return;
+    let firstError: unknown;
+    try {
+      await this.pollRestoredCallbacks();
+      const logCallback = this.restoredCallbackReaders.log?.();
+      if (logCallback && this.restoredLogEventSubscription) {
+        this.reconcileRestoredLogEvents(logCallback);
+      }
+    } catch (error) {
+      firstError = error;
+    }
+    const completeCallback = this.restoredCallbackReaders.complete?.();
+    if (completeCallback) {
+      try {
+        completeCallback(this);
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    NativeFFmpegKitExtended.clearCancellationIntent?.(this.sessionId);
+    const cleanupError = await this.releaseAllCallbackDemand();
+    this.removeRestoredLogEventSubscription();
+    this.callbackDemandActive = false;
+    this.callbackDemandProviders = undefined;
+    this.restoredTerminalSettled = true;
+    if (firstError !== undefined) throw firstError;
+    if (cleanupError !== undefined) throw cleanupError;
+  }
+
+  /** Releases this wrapper's share of restored ownership through the ID seam. */
+  async releaseRestoredHandle(): Promise<void> {
+    await this.releaseOwnedHandle();
+  }
+
+  /** Stops observer callback demand after a successful global history clear. */
+  async invalidateRestoredObservation(): Promise<void> {
+    if (!this.restoredRunning || this.restoredTerminalSettled) return;
+    const cleanupError = await this.releaseAllCallbackDemand();
+    this.removeRestoredLogEventSubscription();
+    this.callbackDemandActive = false;
+    this.callbackDemandProviders = undefined;
+    this.restoredTerminalSettled = true;
+    if (cleanupError !== undefined) throw cleanupError;
+  }
+
+  /** Reports a retryable observer failure without abandoning retained ownership. */
+  reportRestoredObserverError(error: unknown): void {
+    if (this.restoredObserverErrorReported) return;
+    this.restoredObserverErrorReported = true;
+    console.warn(
+      `Restored session observer failed for ${this.sessionId}`,
+      error
+    );
+  }
+
+  private syncRestoredLogEventSubscription(): void {
+    const shouldSubscribe = Boolean(
+      this.restoredRunning &&
+        this.restoredCallbackReaders.log?.() &&
+        NativeFFmpegKitExtended.isDirectLogBridgeActive?.()
+    );
+    if (!shouldSubscribe) {
+      this.removeRestoredLogEventSubscription();
+      return;
+    }
+    if (this.restoredLogEventSubscription) return;
+    this.restoredLogEventSubscription = subscribeLogEvents(
+      this.sessionId,
+      (event) => this.handleRestoredLogEvent(event)
+    );
+  }
+
+  private handleRestoredLogEvent(event: LogEvent): void {
+    if (event.sessionId !== this.sessionId) return;
+    if (event.sequence < this.restoredNextExpectedLogSequence) return;
+    if (this.restoredPendingLogEvents.has(event.sequence)) return;
+    const callback = this.restoredCallbackReaders.log?.();
+    if (!callback) return;
+    this.restoredPendingLogEvents.set(event.sequence, {
+      sessionId: event.sessionId,
+      level: event.level,
+      message: event.message,
+    });
+    this.drainRestoredLogEvents(callback);
+  }
+
+  private drainRestoredLogEvents(
+    callback: (log: Log, session: Session) => void
+  ): void {
+    for (;;) {
+      const entry = this.restoredPendingLogEvents.get(
+        this.restoredNextExpectedLogSequence
+      );
+      if (!entry) return;
+      this.restoredPendingLogEvents.delete(
+        this.restoredNextExpectedLogSequence
+      );
+      this.restoredNextExpectedLogSequence += 1;
+      this.restoredLogsProcessed = Math.max(
+        this.restoredLogsProcessed,
+        this.restoredNextExpectedLogSequence
+      );
+      try {
+        callback(entry, this);
+      } catch (error) {
+        this.reportRestoredObserverError(error);
+      }
+    }
+  }
+
+  private reconcileRestoredLogEvents(
+    callback: (log: Log, session: Session) => void
+  ): void {
+    const count = NativeFFmpegKitExtended.getLogsCount
+      ? Math.max(
+          0,
+          Math.trunc(NativeFFmpegKitExtended.getLogsCount(this.sessionId))
+        )
+      : parseRequiredJson<SessionSnapshot>(
+          NativeFFmpegKitExtended.getSessionJson(this.sessionId),
+          `Session ${this.sessionId} no longer exists`
+        ).logsCount;
+    if (count > this.restoredNextExpectedLogSequence) {
+      const missing = parseJsonArray<Log>(
+        NativeFFmpegKitExtended.getLogsJson(
+          this.sessionId,
+          this.restoredNextExpectedLogSequence
+        )
+      );
+      for (const entry of missing) {
+        const sequence = this.restoredNextExpectedLogSequence;
+        const direct = this.restoredPendingLogEvents.get(sequence);
+        this.restoredPendingLogEvents.delete(sequence);
+        this.restoredNextExpectedLogSequence += 1;
+        this.restoredLogsProcessed = Math.max(
+          this.restoredLogsProcessed,
+          this.restoredNextExpectedLogSequence
+        );
+        try {
+          callback(direct ?? entry, this);
+        } catch (error) {
+          this.reportRestoredObserverError(error);
+        }
+      }
+    }
+    this.drainRestoredLogEvents(callback);
+    this.restoredPendingLogEvents.clear();
+  }
+
+  private removeRestoredLogEventSubscription(): void {
+    this.restoredLogEventSubscription?.remove();
+    this.restoredLogEventSubscription = undefined;
+    this.restoredPendingLogEvents.clear();
+  }
+
   protected async monitor<T extends Session>(
     self: T,
-    options: MonitorOptions<T>,
+    options: MonitorOptions<T>
   ): Promise<T> {
     const pollIntervalMs = Math.max(
       10,
-      Math.floor(options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS),
+      Math.floor(options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS)
     );
     let logsProcessed = 0;
     let statisticsProcessed = 0;
@@ -450,7 +761,7 @@ export abstract class Session {
     this.pendingDirectLogEvents.clear();
     const directLogEvents = Boolean(
       options.getLogCallback() &&
-      NativeFFmpegKitExtended.isDirectLogBridgeActive?.(),
+        NativeFFmpegKitExtended.isDirectLogBridgeActive?.()
     );
     let logEventSubscription: LogEventSubscription | undefined;
     const removeLogEventSubscription = (): void => {
@@ -460,21 +771,20 @@ export abstract class Session {
     };
     const drainDirectLogEvents = (
       callback: ((log: Log, session: T) => void) | undefined,
-      invoke: (callback: (() => void) | undefined) => void,
+      invoke: (callback: (() => void) | undefined) => void
     ): void => {
       if (!callback) {
         this.pendingDirectLogEvents.clear();
         return;
       }
       for (;;) {
-        const next = this.pendingDirectLogEvents.get(this.nextExpectedLogSequence);
+        const next = this.pendingDirectLogEvents.get(
+          this.nextExpectedLogSequence
+        );
         if (!next) break;
         this.pendingDirectLogEvents.delete(this.nextExpectedLogSequence);
         this.nextExpectedLogSequence += 1;
-        logsProcessed = Math.max(
-          logsProcessed,
-          this.nextExpectedLogSequence,
-        );
+        logsProcessed = Math.max(logsProcessed, this.nextExpectedLogSequence);
         invoke(() => callback(next, self));
       }
     };
@@ -489,27 +799,27 @@ export abstract class Session {
       // direct delivery never reads indexed history; only a terminal gap
       // causes the bounded missing range to be fetched.
       const count = NativeFFmpegKitExtended.getLogsCount
-        ? Math.max(0, Math.trunc(NativeFFmpegKitExtended.getLogsCount(this.sessionId)))
+        ? Math.max(
+            0,
+            Math.trunc(NativeFFmpegKitExtended.getLogsCount(this.sessionId))
+          )
         : parseRequiredJson<SessionSnapshot>(
             NativeFFmpegKitExtended.getSessionJson(this.sessionId),
-            `Session ${this.sessionId} no longer exists`,
+            `Session ${this.sessionId} no longer exists`
           ).logsCount;
       if (count > this.nextExpectedLogSequence) {
         const missing = parseJsonArray<Log>(
           NativeFFmpegKitExtended.getLogsJson(
             this.sessionId,
-            this.nextExpectedLogSequence,
-          ),
+            this.nextExpectedLogSequence
+          )
         );
         for (const entry of missing) {
           const sequence = this.nextExpectedLogSequence;
           const direct = this.pendingDirectLogEvents.get(sequence);
           this.pendingDirectLogEvents.delete(sequence);
           this.nextExpectedLogSequence += 1;
-          logsProcessed = Math.max(
-            logsProcessed,
-            this.nextExpectedLogSequence,
-          );
+          logsProcessed = Math.max(logsProcessed, this.nextExpectedLogSequence);
           invokeCallback(() => callback(direct ?? entry, self));
         }
       }
@@ -520,7 +830,7 @@ export abstract class Session {
       this.pendingDirectLogEvents.clear();
     };
     if (directLogEvents) {
-      logEventSubscription = subscribeLogEvents(this.sessionId, event => {
+      logEventSubscription = subscribeLogEvents(this.sessionId, (event) => {
         if (event.sessionId !== this.sessionId) return;
         if (event.sequence < this.nextExpectedLogSequence) return;
         if (this.pendingDirectLogEvents.has(event.sequence)) return;
@@ -564,7 +874,7 @@ export abstract class Session {
           const logCallback = options.getLogCallback();
           if (logCallback && !directLogEvents) {
             const logs = parseJsonArray<Log>(
-              NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+              NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed)
             );
             for (const entry of logs) {
               invokeCallback(() => logCallback(entry, self));
@@ -577,8 +887,8 @@ export abstract class Session {
             const statistics = parseJsonArray<Statistics>(
               NativeFFmpegKitExtended.getStatisticsJson(
                 this.sessionId,
-                statisticsProcessed,
-              ),
+                statisticsProcessed
+              )
             );
             for (const entry of statistics) {
               invokeCallback(() => statisticsCallback(entry, self));
@@ -640,7 +950,10 @@ export abstract class Session {
                 // Once terminal state is observed, all final callback-buffer
                 // reads and completion delivery are covered by ownership cleanup.
                 const finalLogs = parseJsonArray<Log>(
-                  NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed),
+                  NativeFFmpegKitExtended.getLogsJson(
+                    this.sessionId,
+                    logsProcessed
+                  )
                 );
                 for (const entry of finalLogs) {
                   invokeCallback(() => logCallback(entry, self));
@@ -658,8 +971,8 @@ export abstract class Session {
               const finalStatistics = parseJsonArray<Statistics>(
                 NativeFFmpegKitExtended.getStatisticsJson(
                   this.sessionId,
-                  statisticsProcessed,
-                ),
+                  statisticsProcessed
+                )
               );
               for (const entry of finalStatistics) {
                 invokeCallback(() => statisticsCallback(entry, self));
@@ -672,7 +985,9 @@ export abstract class Session {
 
           if (!monitorFailed) {
             invokeCallback(
-              options.completeCallback ? () => options.completeCallback?.(self) : undefined,
+              options.completeCallback
+                ? () => options.completeCallback?.(self)
+                : undefined
             );
           }
           // Terminal state is authoritative even when callback/log draining
@@ -717,19 +1032,17 @@ export abstract class Session {
   /** Releases this session's owning native handle at most once. */
   protected releaseOwnedHandle(): void | Promise<void> {
     if (this.handleReleased) return;
-    const completion = NativeFFmpegKitExtended.releaseSessionHandle(this.sessionId);
-    if (completion instanceof Promise) {
-      return completion.then(() => {
-        this.handleReleased = true;
-      });
-    }
-    this.handleReleased = true;
+    return releaseSessionHandleSerialized(this.sessionId).then(() => {
+      this.handleReleased = true;
+    });
   }
 
   /** Removes history for an explicit pre-execution discard without releasing a handle. */
   protected abandonCreatedSession(): void | Promise<void> {
     if (this.createdSessionAbandoned) return;
-    const completion = NativeFFmpegKitExtended.abandonCreatedSession(this.sessionId);
+    const completion = NativeFFmpegKitExtended.abandonCreatedSession(
+      this.sessionId
+    );
     if (completion instanceof Promise) {
       return completion.then(() => {
         this.createdSessionAbandoned = true;
@@ -757,14 +1070,18 @@ export abstract class Session {
   /** Submits this session once and rejects every later submission attempt. */
   protected submitOnce<T>(submit: () => Promise<T>): Promise<T> {
     if (this.submitted) {
-      return Promise.reject(new Error(`Session ${this.sessionId} was already submitted for execution`));
+      return Promise.reject(
+        new Error(
+          `Session ${this.sessionId} was already submitted for execution`
+        )
+      );
     }
     if (this.cancelled) {
       this.submitted = true;
       return Promise.reject(
         new SessionCancelledException(
-          `Session ${this.sessionId} was cancelled before execution`,
-        ),
+          `Session ${this.sessionId} was cancelled before execution`
+        )
       );
     }
     this.submitted = true;
@@ -785,15 +1102,31 @@ export class FFmpegSession extends Session {
   private logCallback?: (log: Log, session: FFmpegSession) => void;
   private statisticsCallback?: (
     statistics: Statistics,
-    session: FFmpegSession,
+    session: FFmpegSession
   ) => void;
 
   constructor(sessionId: number, command: string) {
     super(sessionId, command, 'ffmpeg');
+    this.setRestoredCallbackReaders({
+      complete: () =>
+        this.completeCallback
+          ? (session) => this.completeCallback?.(session as FFmpegSession)
+          : undefined,
+      log: () =>
+        this.logCallback
+          ? (log, session) => this.logCallback?.(log, session as FFmpegSession)
+          : undefined,
+      statistics: () =>
+        this.statisticsCallback
+          ? (statistics, session) =>
+              this.statisticsCallback?.(statistics, session as FFmpegSession)
+          : undefined,
+    });
   }
 
   /** Sets the default callback invoked immediately before promise resolution. */
   setCompleteCallback(callback?: (session: FFmpegSession) => void): void {
+    this.assertRestoredCallbackState();
     this.completeCallback = callback;
   }
 
@@ -803,29 +1136,43 @@ export class FFmpegSession extends Session {
   }
 
   /** Sets the default callback for newly buffered log entries. */
-  async setLogCallback(callback?: (log: Log, session: FFmpegSession) => void): Promise<void> {
-    this.logCallback = callback;
-    await this.refreshCallbackDemand();
+  async setLogCallback(
+    callback?: (log: Log, session: FFmpegSession) => void
+  ): Promise<void> {
+    const previous = this.logCallback;
+    await this.updateCallbackAtomically(
+      () => {
+        this.logCallback = callback;
+      },
+      () => {
+        this.logCallback = previous;
+      }
+    );
   }
 
   /** Removes the stored log callback. */
   async removeLogCallback(): Promise<void> {
-    this.logCallback = undefined;
-    await this.refreshCallbackDemand();
+    await this.setLogCallback(undefined);
   }
 
   /** Sets the default callback for FFmpeg progress/statistics updates. */
   async setStatisticsCallback(
-    callback?: (statistics: Statistics, session: FFmpegSession) => void,
+    callback?: (statistics: Statistics, session: FFmpegSession) => void
   ): Promise<void> {
-    this.statisticsCallback = callback;
-    await this.refreshCallbackDemand();
+    const previous = this.statisticsCallback;
+    await this.updateCallbackAtomically(
+      () => {
+        this.statisticsCallback = callback;
+      },
+      () => {
+        this.statisticsCallback = previous;
+      }
+    );
   }
 
   /** Removes the stored statistics callback. */
   async removeStatisticsCallback(): Promise<void> {
-    this.statisticsCallback = undefined;
-    await this.refreshCallbackDemand();
+    await this.setStatisticsCallback(undefined);
   }
 
   /**
@@ -835,27 +1182,34 @@ export class FFmpegSession extends Session {
    * A Session object may be submitted for execution once. Create a new session
    * for another execution.
    */
-  executeAsync(options: FFmpegExecuteOptions<FFmpegSession> = {}): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
-      this,
-      () => this.runWithCallbackDemand(
-        {
-          log: () => Boolean(options.logCallback ?? this.logCallback),
-          statistics: () => Boolean(options.statisticsCallback ?? this.statisticsCallback),
-        },
-        async () => {
-          return this.monitor(this, {
-            start: () => this.startNativeExecution(0),
-            completeCallback: options.completeCallback ?? this.completeCallback,
-            getLogCallback: () => options.logCallback ?? this.logCallback,
-            getStatisticsCallback: () =>
-              options.statisticsCallback ?? this.statisticsCallback,
-            pollIntervalMs: options.pollIntervalMs,
-          });
-        },
-      ),
-      () => this.discardBeforeExecution(),
-    ));
+  executeAsync(
+    options: FFmpegExecuteOptions<FFmpegSession> = {}
+  ): Promise<this> {
+    return this.submitOnce(() =>
+      SessionQueueManager.shared.executeSession(
+        this,
+        () =>
+          this.runWithCallbackDemand(
+            {
+              log: () => Boolean(options.logCallback ?? this.logCallback),
+              statistics: () =>
+                Boolean(options.statisticsCallback ?? this.statisticsCallback),
+            },
+            async () => {
+              return this.monitor(this, {
+                start: () => this.startNativeExecution(0),
+                completeCallback:
+                  options.completeCallback ?? this.completeCallback,
+                getLogCallback: () => options.logCallback ?? this.logCallback,
+                getStatisticsCallback: () =>
+                  options.statisticsCallback ?? this.statisticsCallback,
+                pollIntervalMs: options.pollIntervalMs,
+              });
+            }
+          ),
+        () => this.discardBeforeExecution()
+      )
+    );
   }
 }
 
@@ -866,10 +1220,21 @@ export class FFprobeSession extends Session {
 
   constructor(sessionId: number, command: string) {
     super(sessionId, command, 'ffprobe');
+    this.setRestoredCallbackReaders({
+      complete: () =>
+        this.completeCallback
+          ? (session) => this.completeCallback?.(session as FFprobeSession)
+          : undefined,
+      log: () =>
+        this.logCallback
+          ? (log, session) => this.logCallback?.(log, session as FFprobeSession)
+          : undefined,
+    });
   }
 
   /** Sets the default completion callback. */
   setCompleteCallback(callback?: (session: FFprobeSession) => void): void {
+    this.assertRestoredCallbackState();
     this.completeCallback = callback;
   }
 
@@ -879,15 +1244,23 @@ export class FFprobeSession extends Session {
   }
 
   /** Sets the default log callback. */
-  async setLogCallback(callback?: (log: Log, session: FFprobeSession) => void): Promise<void> {
-    this.logCallback = callback;
-    await this.refreshCallbackDemand();
+  async setLogCallback(
+    callback?: (log: Log, session: FFprobeSession) => void
+  ): Promise<void> {
+    const previous = this.logCallback;
+    await this.updateCallbackAtomically(
+      () => {
+        this.logCallback = callback;
+      },
+      () => {
+        this.logCallback = previous;
+      }
+    );
   }
 
   /** Removes the stored log callback. */
   async removeLogCallback(): Promise<void> {
-    this.logCallback = undefined;
-    await this.refreshCallbackDemand();
+    await this.setLogCallback(undefined);
   }
 
   /**
@@ -897,21 +1270,25 @@ export class FFprobeSession extends Session {
    * for another execution.
    */
   executeAsync(options: ExecuteOptions<FFprobeSession> = {}): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
-      this,
-      () => this.runWithCallbackDemand(
-        {log: () => Boolean(options.logCallback ?? this.logCallback)},
-        async () => {
-          return this.monitor(this, {
-            start: () => this.startNativeExecution(0),
-            completeCallback: options.completeCallback ?? this.completeCallback,
-            getLogCallback: () => options.logCallback ?? this.logCallback,
-            pollIntervalMs: options.pollIntervalMs,
-          });
-        },
-      ),
-      () => this.discardBeforeExecution(),
-    ));
+    return this.submitOnce(() =>
+      SessionQueueManager.shared.executeSession(
+        this,
+        () =>
+          this.runWithCallbackDemand(
+            { log: () => Boolean(options.logCallback ?? this.logCallback) },
+            async () => {
+              return this.monitor(this, {
+                start: () => this.startNativeExecution(0),
+                completeCallback:
+                  options.completeCallback ?? this.completeCallback,
+                getLogCallback: () => options.logCallback ?? this.logCallback,
+                pollIntervalMs: options.pollIntervalMs,
+              });
+            }
+          ),
+        () => this.discardBeforeExecution()
+      )
+    );
   }
 }
 
@@ -927,12 +1304,25 @@ export class MediaInformationSession extends Session {
   constructor(sessionId: number, command: string, timeoutMs = 500) {
     super(sessionId, command, 'media-information');
     this.timeoutMs = timeoutMs;
+    this.setRestoredCallbackReaders({
+      complete: () =>
+        this.completeCallback
+          ? (session) =>
+              this.completeCallback?.(session as MediaInformationSession)
+          : undefined,
+      log: () =>
+        this.logCallback
+          ? (log, session) =>
+              this.logCallback?.(log, session as MediaInformationSession)
+          : undefined,
+    });
   }
 
   /** Sets the default completion callback. */
   setCompleteCallback(
-    callback?: (session: MediaInformationSession) => void,
+    callback?: (session: MediaInformationSession) => void
   ): void {
+    this.assertRestoredCallbackState();
     this.completeCallback = callback;
   }
 
@@ -943,16 +1333,22 @@ export class MediaInformationSession extends Session {
 
   /** Sets the default log callback. */
   async setLogCallback(
-    callback?: (log: Log, session: MediaInformationSession) => void,
+    callback?: (log: Log, session: MediaInformationSession) => void
   ): Promise<void> {
-    this.logCallback = callback;
-    await this.refreshCallbackDemand();
+    const previous = this.logCallback;
+    await this.updateCallbackAtomically(
+      () => {
+        this.logCallback = callback;
+      },
+      () => {
+        this.logCallback = previous;
+      }
+    );
   }
 
   /** Removes the stored log callback. */
   async removeLogCallback(): Promise<void> {
-    this.logCallback = undefined;
-    await this.refreshCallbackDemand();
+    await this.setLogCallback(undefined);
   }
 
   /** Sets the native probe timeout in milliseconds before execution. */
@@ -967,23 +1363,27 @@ export class MediaInformationSession extends Session {
    * for another execution.
    */
   executeAsync(
-    options: ExecuteOptions<MediaInformationSession> = {},
+    options: ExecuteOptions<MediaInformationSession> = {}
   ): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
-      this,
-      () => this.runWithCallbackDemand(
-        {log: () => Boolean(options.logCallback ?? this.logCallback)},
-        async () => {
-          return this.monitor(this, {
-            start: () => this.startNativeExecution(this.timeoutMs),
-            completeCallback: options.completeCallback ?? this.completeCallback,
-            getLogCallback: () => options.logCallback ?? this.logCallback,
-            pollIntervalMs: options.pollIntervalMs,
-          });
-        },
-      ),
-      () => this.discardBeforeExecution(),
-    ));
+    return this.submitOnce(() =>
+      SessionQueueManager.shared.executeSession(
+        this,
+        () =>
+          this.runWithCallbackDemand(
+            { log: () => Boolean(options.logCallback ?? this.logCallback) },
+            async () => {
+              return this.monitor(this, {
+                start: () => this.startNativeExecution(this.timeoutMs),
+                completeCallback:
+                  options.completeCallback ?? this.completeCallback,
+                getLogCallback: () => options.logCallback ?? this.logCallback,
+                pollIntervalMs: options.pollIntervalMs,
+              });
+            }
+          ),
+        () => this.discardBeforeExecution()
+      )
+    );
   }
 
   /**
@@ -991,7 +1391,9 @@ export class MediaInformationSession extends Session {
    * when the native session has no structured result.
    */
   getMediaInformation(): MediaInformation | undefined {
-    const json = NativeFFmpegKitExtended.getMediaInformationJson(this.sessionId);
+    const json = NativeFFmpegKitExtended.getMediaInformationJson(
+      this.sessionId
+    );
     if (!json) return undefined;
     return new MediaInformation(JSON.parse(json) as MediaInformationData);
   }
@@ -1012,10 +1414,21 @@ export class FFplaySession extends Session {
   constructor(sessionId: number, command: string, timeoutMs = 500) {
     super(sessionId, command, 'ffplay');
     this.timeoutMs = timeoutMs;
+    this.setRestoredCallbackReaders({
+      complete: () =>
+        this.completeCallback
+          ? (session) => this.completeCallback?.(session as FFplaySession)
+          : undefined,
+      log: () =>
+        this.logCallback
+          ? (log, session) => this.logCallback?.(log, session as FFplaySession)
+          : undefined,
+    });
   }
 
   /** Sets the default completion callback. */
   setCompleteCallback(callback?: (session: FFplaySession) => void): void {
+    this.assertRestoredCallbackState();
     this.completeCallback = callback;
   }
 
@@ -1025,15 +1438,23 @@ export class FFplaySession extends Session {
   }
 
   /** Sets the default playback log callback. */
-  async setLogCallback(callback?: (log: Log, session: FFplaySession) => void): Promise<void> {
-    this.logCallback = callback;
-    await this.refreshCallbackDemand();
+  async setLogCallback(
+    callback?: (log: Log, session: FFplaySession) => void
+  ): Promise<void> {
+    const previous = this.logCallback;
+    await this.updateCallbackAtomically(
+      () => {
+        this.logCallback = callback;
+      },
+      () => {
+        this.logCallback = previous;
+      }
+    );
   }
 
   /** Removes the stored log callback. */
   async removeLogCallback(): Promise<void> {
-    this.logCallback = undefined;
-    await this.refreshCallbackDemand();
+    await this.setLogCallback(undefined);
   }
 
   /** Sets the native playback timeout in milliseconds before execution. */
@@ -1048,21 +1469,25 @@ export class FFplaySession extends Session {
    * for another execution.
    */
   executeAsync(options: ExecuteOptions<FFplaySession> = {}): Promise<this> {
-    return this.submitOnce(() => SessionQueueManager.shared.executeSession(
-      this,
-      () => this.runWithCallbackDemand(
-        {log: () => Boolean(options.logCallback ?? this.logCallback)},
-        async () => {
-          return this.monitor(this, {
-            start: () => this.startNativeExecution(this.timeoutMs),
-            completeCallback: options.completeCallback ?? this.completeCallback,
-            getLogCallback: () => options.logCallback ?? this.logCallback,
-            pollIntervalMs: options.pollIntervalMs,
-          });
-        },
-      ),
-      () => this.discardBeforeExecution(),
-    ));
+    return this.submitOnce(() =>
+      SessionQueueManager.shared.executeSession(
+        this,
+        () =>
+          this.runWithCallbackDemand(
+            { log: () => Boolean(options.logCallback ?? this.logCallback) },
+            async () => {
+              return this.monitor(this, {
+                start: () => this.startNativeExecution(this.timeoutMs),
+                completeCallback:
+                  options.completeCallback ?? this.completeCallback,
+                getLogCallback: () => options.logCallback ?? this.logCallback,
+                pollIntervalMs: options.pollIntervalMs,
+              });
+            }
+          ),
+        () => this.discardBeforeExecution()
+      )
+    );
   }
 
   /** Starts native playback for this session. */
@@ -1134,7 +1559,9 @@ export class FFplaySession extends Session {
 
   /** Returns normalized volume, using the last set value if native state is unavailable. */
   getVolume(): number {
-    const nativeVolume = NativeFFmpegKitExtended.ffplayGetVolume(this.sessionId);
+    const nativeVolume = NativeFFmpegKitExtended.ffplayGetVolume(
+      this.sessionId
+    );
     if (nativeVolume >= 0) {
       this.cachedVolume = nativeVolume;
     }
@@ -1144,16 +1571,26 @@ export class FFplaySession extends Session {
 
 /** Reconstructs the correct typed session wrapper from native history data. */
 export function sessionFromSnapshot(snapshot: SessionSnapshot): Session {
+  let session: Session;
   switch (snapshot.type) {
     case 'ffmpeg':
-      return new FFmpegSession(snapshot.sessionId, snapshot.command);
+      session = new FFmpegSession(snapshot.sessionId, snapshot.command);
+      break;
     case 'ffprobe':
-      return new FFprobeSession(snapshot.sessionId, snapshot.command);
+      session = new FFprobeSession(snapshot.sessionId, snapshot.command);
+      break;
     case 'ffplay':
-      return new FFplaySession(snapshot.sessionId, snapshot.command);
+      session = new FFplaySession(snapshot.sessionId, snapshot.command);
+      break;
     case 'media-information':
-      return new MediaInformationSession(snapshot.sessionId, snapshot.command);
+      session = new MediaInformationSession(
+        snapshot.sessionId,
+        snapshot.command
+      );
+      break;
   }
+  if (snapshot.state === SessionState.Running) session.observeRestoredRunning();
+  return session;
 }
 
 /** Parses one native session snapshot, returning `undefined` for empty input. */
@@ -1179,5 +1616,5 @@ function parseJsonArray<T>(json: string): T[] {
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

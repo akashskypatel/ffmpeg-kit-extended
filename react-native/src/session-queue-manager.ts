@@ -94,20 +94,20 @@ export class SessionQueueManager {
   executeSession<T>(
     session: CancellableSession,
     executor: () => Promise<T>,
-    onDiscard?: () => void,
+    onDiscard?: () => void
   ): Promise<T> {
     const sessionId = this.executionSessionId(session);
     if (
       this.active.has(session) ||
-      this.queue.some(item => item.session === session) ||
+      this.queue.some((item) => item.session === session) ||
       (sessionId !== undefined && this.reservedSessionIds.has(sessionId))
     ) {
       return Promise.reject(
         new Error(
           sessionId === undefined
             ? 'Session is already queued or active'
-            : `Session ${sessionId} is already queued or active`,
-        ),
+            : `Session ${sessionId} is already queued or active`
+        )
       );
     }
 
@@ -145,9 +145,11 @@ export class SessionQueueManager {
       try {
         const cancellation = session.cancel();
         if (cancellation instanceof Promise) {
-          pending.push(cancellation.catch(error => {
-            if (firstError === undefined) firstError = error;
-          }));
+          pending.push(
+            cancellation.catch((error) => {
+              if (firstError === undefined) firstError = error;
+            })
+          );
         }
       } catch (error) {
         if (firstError === undefined) firstError = error;
@@ -170,8 +172,10 @@ export class SessionQueueManager {
   clearQueue(): MaybePromise<void> {
     const pending = this.queue.splice(0);
     const discards = pending
-      .map(item => this.discard(item))
-      .filter((discard): discard is Promise<void> => discard instanceof Promise);
+      .map((item) => this.discard(item))
+      .filter(
+        (discard): discard is Promise<void> => discard instanceof Promise
+      );
     if (discards.length === 0) return;
     return Promise.all(discards).then(() => undefined);
   }
@@ -187,7 +191,7 @@ export class SessionQueueManager {
 
   /** Removes one waiting session and rejects its execution promise. */
   cancelQueued(session: CancellableSession): MaybePromise<boolean> {
-    const index = this.queue.findIndex(item => item.session === session);
+    const index = this.queue.findIndex((item) => item.session === session);
     if (index < 0) return false;
     const [item] = this.queue.splice(index, 1);
     if (!item) return false;
@@ -196,10 +200,29 @@ export class SessionQueueManager {
     return true;
   }
 
+  /** Finds a queued or active session by its process-wide native ID. */
+  findManagedSessionById(sessionId: number): CancellableSession | undefined {
+    for (const session of this.active) {
+      if (this.executionSessionId(session) === sessionId) return session;
+    }
+    return this.queue.find(
+      (item) => this.executionSessionId(item.session) === sessionId
+    )?.session;
+  }
+
+  /** Cancels the managed session with the requested ID through its object API. */
+  cancelBySessionId(sessionId: number): MaybePromise<boolean> {
+    const session = this.findManagedSessionById(sessionId);
+    if (!session) return false;
+    const cancellation = session.cancel();
+    if (cancellation instanceof Promise) return cancellation.then(() => true);
+    return true;
+  }
+
   /** Resolves after both the active set and pending queue become empty. */
   async waitForAll(): Promise<void> {
     while (this.isBusy || this.queue.length > 0) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
 
@@ -212,7 +235,7 @@ export class SessionQueueManager {
     try {
       const cleanup = item.onDiscard?.();
       if (cleanup instanceof Promise) {
-        return cleanup.then(finish, error => {
+        return cleanup.then(finish, (error) => {
           console.warn('Session queue discard cleanup failed', error);
           finish();
         });
@@ -227,7 +250,9 @@ export class SessionQueueManager {
 
   private executionSessionId(session: CancellableSession): number | undefined {
     const value = session.getSessionId?.();
-    return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+    return typeof value === 'number' && Number.isFinite(value)
+      ? value
+      : undefined;
   }
 
   private releaseSessionReservation(sessionId: number | undefined): void {
@@ -252,23 +277,22 @@ export class SessionQueueManager {
       } catch (error) {
         execution = Promise.reject(error);
       }
-      execution
-        .then(
-          value => {
-            this.completeActiveItem(item);
-            item.resolve(value);
-          },
-          error => {
-            this.completeActiveItem(item);
-            item.reject(error);
-          },
-        );
+      execution.then(
+        (value) => {
+          this.completeActiveItem(item);
+          item.resolve(value);
+        },
+        (error) => {
+          this.completeActiveItem(item);
+          item.reject(error);
+        }
+      );
     }
   }
 
   private discardAfterPreparationFailure(
     item: QueueItem<unknown>,
-    primaryError: unknown,
+    primaryError: unknown
   ): MaybePromise<void> {
     const finish = (): void => {
       this.releaseSessionReservation(this.executionSessionId(item.session));
@@ -276,7 +300,8 @@ export class SessionQueueManager {
     };
     try {
       const cleanup = item.onDiscard?.();
-      if (cleanup instanceof Promise) return cleanup.catch(() => {}).then(finish);
+      if (cleanup instanceof Promise)
+        return cleanup.catch(() => {}).then(finish);
     } catch {
       // Preserve the pre-execution validation failure as the primary error.
     }
