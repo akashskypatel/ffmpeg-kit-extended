@@ -37,6 +37,7 @@ let deferredStatisticsInstall;
 let clearRequested = false;
 let releaseFailuresRemaining = 0;
 let releaseFailureError;
+let uninstallLogBridgeError;
 
 function snapshotFor(
   sessionId,
@@ -142,6 +143,7 @@ setBackend({
   },
   uninstallLogBridge: () => {
     bridgeUninstalls.log += 1;
+    if (uninstallLogBridgeError) throw uninstallLogBridgeError;
   },
   onLogEvent: (handler) => {
     logHandlers.add(handler);
@@ -212,6 +214,7 @@ beforeEach(async () => {
   clearRequested = false;
   releaseFailuresRemaining = 0;
   releaseFailureError = undefined;
+  uninstallLogBridgeError = undefined;
   cancellationIntents.clear();
   logHandlers.clear();
   bridgeInstalls.completion = 0;
@@ -585,6 +588,58 @@ test('repeated clear cycles release observer entries without historical tombston
     states.delete(sessionId);
     snapshots.delete(sessionId);
     clearRequested = false;
+  }
+});
+
+test('terminal completion errors are reported after callback target detachment', async () => {
+  const sessionId = 1022;
+  const completionError = new Error('restored completion failed');
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+  let callbackCount = 0;
+  session.setCompleteCallback?.(() => {
+    callbackCount += 1;
+    throw completionError;
+  });
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    states.set(sessionId, SessionState.Completed);
+    await waitForObservation();
+    assert.equal(callbackCount, 1);
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings[0][1], completionError);
+    assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+    assert.equal(restoredSessionObserver.size, 0);
+    assert.deepEqual(releases, [sessionId]);
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('terminal cleanup errors are reported while release continues', async () => {
+  const sessionId = 1023;
+  const cleanupError = new Error('restored bridge cleanup failed');
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+  await session.setLogCallback?.(() => {});
+  uninstallLogBridgeError = cleanupError;
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    states.set(sessionId, SessionState.Completed);
+    await waitForObservation();
+    assert.equal(warnings.length, 1);
+    assert.equal(warnings[0][1], cleanupError);
+    assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+    assert.equal(restoredSessionObserver.size, 0);
+    assert.deepEqual(releases, [sessionId]);
+  } finally {
+    console.warn = originalWarn;
   }
 });
 

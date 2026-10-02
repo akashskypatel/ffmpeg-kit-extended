@@ -147,7 +147,9 @@ export class RestoredSessionObservationCoordinator {
         try {
           await target.settleRestoredObservation();
         } catch (error) {
-          this.reportTargetIfAttached(entry, target, error);
+          // Terminal settlement owns this target's error even though the
+          // target detaches itself as part of becoming terminal.
+          this.reportTarget(target, error);
         } finally {
           entry.callbackTargets.delete(target);
         }
@@ -188,7 +190,18 @@ export class RestoredSessionObservationCoordinator {
 
   private reportTargets(entry: ObservationEntry, error: unknown): void {
     for (const target of entry.callbackTargets)
+      this.reportTarget(target, error);
+  }
+
+  private reportTarget(
+    target: RestoredSessionObservationTarget,
+    error: unknown
+  ): void {
+    try {
       target.reportRestoredObserverError(error);
+    } catch {
+      // Observer diagnostics must not interrupt terminal release/retry.
+    }
   }
 
   private reportTargetIfAttached(
@@ -197,7 +210,7 @@ export class RestoredSessionObservationCoordinator {
     error: unknown
   ): void {
     if (entry.callbackTargets.has(target))
-      target.reportRestoredObserverError(error);
+      this.reportTarget(target, error);
   }
 }
 
