@@ -1,5 +1,23 @@
 # Tracker
 
+## Review 42 Platform-Native Bridge Final Closure — 2026-10-01
+
+- Plan: [review-42-luna-platform-native-bridge-final-closure-plan.md](./review-42-luna-platform-native-bridge-final-closure-plan.md)
+- Code review: [review-42-platform-native-bridge-code-review.md](./review-42-platform-native-bridge-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 42 documents were read completely, SHA-256 verified, and materialized locally. The review is code-review-only and identifies one substantive High-severity finding: non-composable React Native shared-C++ operation admission during history projection.**
+- Starting source authority: `510fabb3e58730d211dddc78d343a7ed377eba2c`; the current branch contains only the subsequent Review 41 tracker metadata commit after that source authority. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Downloaded plan SHA-256: `FCE5C5D2586C1AFC446CD464D30067192386E4C156FC7ED4BA0257B76AEBB5AE` (**1562 lines**); downloaded review SHA-256: `F817281A35A060752A1606CC6EE3217957D96F0336A56CA2C32698DFF32B631C` (**1133 lines**).
+- Finding disposition: R42-F1 requires a shared composable operation token, nested history helpers that reuse the admitted token, removal of post-admission clear waits, and deterministic history-vs-clear C++ regressions. No native ABI, submodule, ManyLinux builder, Flutter, or platform-specific RN bridge change is authorized or required absent contradictory evidence.
+- Validation order: Windows focused C++ and RN gates → Android on local Windows → WSL shared C++ oracle → Apple RN iOS/tvOS/macOS builds last. Do not use hosted test/build workflows; only the final exact-SHA wrapper source snapshot is permitted.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R42-G1** | Make the registry operation authority composable across full history projection | **Pending — implementation not started.** |
+| **R42-G2** | Remove post-admission clear waits and preserve Running-history promotion | **Pending — implementation not started.** |
+| **R42-G3** | Add deterministic history-vs-clear regressions while preserving Review 41 lifetime cases | **Pending — implementation not started.** |
+| **R42-G4** | Complete the substantive bridge audit and semantic comment updates | **Pending — implementation not started.** |
+| **R42-G5** | Run affected local gates, freeze exact wrapper SHA, and verify one wrapper-only source snapshot | **Pending — run after R42-G1 through R42-G4.** |
+
 ## Review 41 Platform-Native Bridge Final Closure — 2026-10-01
 
 - Plan: [review-41-luna-platform-native-bridge-closure-plan.md](./review-41-luna-platform-native-bridge-closure-plan.md)
