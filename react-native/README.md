@@ -251,8 +251,10 @@ On React Native Web, a session reconstructed from history can be submitted only 
 Execution preflight is authoritative at both initial submission and queue
 handoff. If a restored or queued session is no longer `Created`, execution is
 rejected without abandoning the native history identity or invoking discard
-cleanup. Explicit queue cancellation still performs its requested discard
-cleanup.
+cleanup. If the authoritative state/runtime probe itself fails before queue
+admission, execution is also rejected without abandoning or releasing the
+identity, so the caller may retry after the underlying problem is resolved.
+Explicit queue cancellation still performs its requested discard cleanup.
 
 A Running session returned from history is an observation/control wrapper around
 an existing execution. It is never re-executed. The wrapper observes terminal
@@ -268,7 +270,12 @@ Terminal observation clears the intent and releases history ownership only when
 no active execution monitor owns the same native ID. Callback-bearing wrappers
 are retained only while they have a live completion, log, or statistics sink;
 history-only reconstruction keeps an ID-level observer without retaining each
-wrapper target.
+wrapper target. The restored observer remains the fallback release authority
+until an active monitor has fully settled, and retries retained release
+iteratively when a transient release failure occurs. Terminal callback and
+cleanup errors are reported asynchronously through the observer diagnostic
+path because restored observation has no new execution `Promise`; reporting
+does not prevent retained-handle retirement.
 
 ```ts
 import {
