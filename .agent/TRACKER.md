@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | **R47-G1** | Make both public React Native clear facades use one lifecycle-aware transaction | **Complete — `FFmpegKitConfig.clearSessions()` now delegates to `FFmpegKitExtended.clearSessions()`; backend-first failure semantics and configuration/lifecycle parity regressions pass.** |
 | **R47-G2** | Prevent callback attachment from recreating a cleared ID-level observer | **Complete — `attachCallbackTarget()` now attaches only to an existing non-invalidated entry; deterministic deferred-install/clear races through both public facades pass.** |
-| **R47-G3** | Add semantic documentation and deterministic regression coverage without weakening prior lifecycle fixes | **Pending.** |
+| **R47-G3** | Add semantic documentation and deterministic regression coverage without weakening prior lifecycle fixes | **Complete — public clear semantics and observer authority are documented; focused lifecycle, queue, and Wasm ownership regressions pass without weakening prior coverage.** |
 | **R47-G4** | Run affected local validation, perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending.** |
 
 ### Review 47 stale-artifact cleanup
@@ -46,6 +46,13 @@
 - Regression coverage: `react-native/tests/restored-session-observer.test.js` retains a completion sink while a deferred log bridge install is in flight, commits clear before resolving the install, and verifies zero observer entries/targets and balanced log bridge install/uninstall. The same deterministic helper runs through both `FFmpegKitExtended.clearSessions()` and `FFmpegKitConfig.clearSessions()`.
 - Corrected retry evidence: an initial test-file edit contained a JavaScript closing-token error and failed before test execution; the corrected tagged compile/test command passed **28/28** focused tests.
 - No native ABI, Flutter, platform-native, C++, builder, or hosted workflow change was made for this goal.
+
+### Review 47 Goal 3 evidence
+
+- Documentation: `react-native/src/ffmpeg-kit-config.ts` TSDoc and `react-native/README.md` now describe one backend-first lifecycle transaction, truthful backend-failure behavior, restored callback cleanup, and the non-resurrection attachment rule without naming historical reviews.
+- Static gates: tagged `npm run typecheck` exited 0; tagged `npm run lint` exited 0 with **0 errors** and five pre-existing warnings in `callback-demand.ts`, `session-queue-manager.ts`, `tests/arguments.test.js`, `tests/wasm-backend-memory.test.js`, and `tests/windows-runtime-packaging.test.js`.
+- Regression gates: tagged `npm run test:compile` exited 0; restored observer, queue, and Wasm ownership suites passed **85/85**. The queue suite emitted two expected diagnostic lines for deliberately failing discard-cleanup fixtures; those cases passed and no test failed.
+- Production/test identifiers added for this review are semantic (`configuration clear`, `callback rollback`, and `observation`); no review/goal/finding identifier was introduced.
 
 ## Review 46 Flutter + React Native Final Wrapper Closure — 2026-10-02
 

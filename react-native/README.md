@@ -277,6 +277,15 @@ cleanup errors are reported asynchronously through the observer diagnostic
 path because restored observation has no new execution `Promise`; reporting
 does not prevent retained-handle retirement.
 
+`FFmpegKitConfig.clearSessions()` and `FFmpegKitExtended.clearSessions()` use
+the same lifecycle-aware clear transaction. A successful call first commits the
+native registry/history clear and then invalidates restored history observers,
+callback routing, and cancellation-delivery bookkeeping. If the backend clear
+fails, the error is propagated and wrapper lifecycle state is not reported as
+cleared. Callback attachment can associate a live callback-bearing wrapper only
+with an existing restored ID observer; a terminal or clear transition cannot be
+undone by callback rollback.
+
 ```ts
 import {
   FFmpegKitExtended,
