@@ -23,6 +23,7 @@
     "src/platform/backend.web.ts",
     "src/platform/backend.web.register.ts",
     "src/ffplay-kit.ts",
+    "src/ffmpeg-kit-config.ts",
     "src/ffmpeg-kit-extended.ts",
     "src/session.ts"
   ]

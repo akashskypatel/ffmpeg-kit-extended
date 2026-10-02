@@ -14,7 +14,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R47-G1** | Make both public React Native clear facades use one lifecycle-aware transaction | **Pending — delegate `FFmpegKitConfig.clearSessions()` to `FFmpegKitExtended.clearSessions()`; preserve backend-first failure semantics and add parity/failure regressions.** |
+| **R47-G1** | Make both public React Native clear facades use one lifecycle-aware transaction | **Complete — `FFmpegKitConfig.clearSessions()` now delegates to `FFmpegKitExtended.clearSessions()`; backend-first failure semantics and configuration/lifecycle parity regressions pass.** |
 | **R47-G2** | Prevent callback attachment from recreating a cleared ID-level observer | **Pending — keep `ensureObserved()` as the sole entry-creation authority; make `attachCallbackTarget()` attach only to an existing live entry; add deterministic deferred-install/clear race coverage.** |
 | **R47-G3** | Add semantic documentation and deterministic regression coverage without weakening prior lifecycle fixes | **Pending.** |
 | **R47-G4** | Run affected local validation, perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending.** |
@@ -32,6 +32,13 @@
 - G2 is an authority split, not a permanent cleared-ID tombstone: `ensureObserved(id)` may create; `attachCallbackTarget(id, target)` may only attach to an existing non-invalidated entry; detach never creates.
 - The mandatory race regression must retain an independent completion/statistics sink while a different optional bridge installation is deferred; otherwise rollback can take the detach path and fail to exercise observer resurrection.
 - Do not claim closure from static inspection or skipped/timeout/killed commands. Record exact pass/fail/skip counts and each environment limitation.
+
+### Review 47 Goal 1 evidence
+
+- Production change: `react-native/src/ffmpeg-kit-config.ts` imports the lifecycle facade and returns `FFmpegKitExtended.clearSessions()`; the configuration facade no longer calls the backend clear independently or duplicates cleanup.
+- Test infrastructure: `react-native/tsconfig.test.json` now emits the configuration facade for Node tests. The first focused-test attempt after the production/test edit failed before test execution with `MODULE_NOT_FOUND` because that source was not in the test compilation list; the corrected compile/test retry passed.
+- Focused validation: tagged `npm run test:compile` exited 0, then tagged `node --test tests/restored-session-observer.test.js` passed **26/26**. The new semantic cases proved configuration clear removes the restored observer/target after backend success and propagates an exact backend failure without falsely invalidating observer state.
+- No native ABI, Flutter, platform-native, C++, builder, or hosted workflow change was made for this goal.
 
 ## Review 46 Flutter + React Native Final Wrapper Closure — 2026-10-02
 

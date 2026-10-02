@@ -2,6 +2,7 @@ import {getBackend} from './platform/backend-registry';
 import {argumentsToString, parseArguments} from './arguments';
 import {LogLevel, SessionState, Signal} from './types';
 import {SessionQueueManager} from './session-queue-manager';
+import {FFmpegKitExtended} from './ffmpeg-kit-extended';
 
 const NativeFFmpegKitExtended = getBackend();
 
@@ -115,14 +116,16 @@ export class FFmpegKitConfig {
   }
 
   /**
-   * Clears the native session registry and retained session history.
+   * Clears the native session registry and retained session history using the
+   * same lifecycle-aware transaction as `FFmpegKitExtended.clearSessions()`.
    *
-   * Do not call this while sessions are running. Clearing sessions can
-   * cancel/invalidate active session handles, and Session getters for cleared
-   * IDs may subsequently fail.
+   * After the backend clear succeeds, restored observer/callback state and
+   * cancellation-delivery bookkeeping are invalidated. Do not call this while
+   * sessions are running. Clearing sessions can cancel/invalidate active
+   * session handles, and Session getters for cleared IDs may subsequently fail.
    */
-  static async clearSessions(): Promise<void> {
-    await NativeFFmpegKitExtended.clearSessions();
+  static clearSessions(): Promise<void> {
+    return FFmpegKitExtended.clearSessions();
   }
 
   /**

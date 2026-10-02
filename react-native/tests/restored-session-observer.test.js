@@ -35,6 +35,8 @@ let cancelFailure;
 let deferredLogInstall;
 let deferredStatisticsInstall;
 let clearRequested = false;
+let clearCalls = 0;
+let clearFailure;
 let releaseFailuresRemaining = 0;
 let releaseFailureError;
 let uninstallLogBridgeError;
@@ -163,12 +165,15 @@ setBackend({
     bridgeUninstalls.statistics += 1;
   },
   clearSessions: () => {
+    clearCalls += 1;
+    if (clearFailure) throw clearFailure;
     clearRequested = true;
     cancellationIntents.clear();
   },
 });
 
 const { FFmpegKitExtended } = require('../.test-dist/ffmpeg-kit-extended.js');
+const { FFmpegKitConfig } = require('../.test-dist/ffmpeg-kit-config.js');
 const {
   FFmpegSession,
   sessionFromSnapshot,
@@ -212,6 +217,8 @@ beforeEach(async () => {
   deferredLogInstall = undefined;
   deferredStatisticsInstall = undefined;
   clearRequested = false;
+  clearCalls = 0;
+  clearFailure = undefined;
   releaseFailuresRemaining = 0;
   releaseFailureError = undefined;
   uninstallLogBridgeError = undefined;
@@ -230,6 +237,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  clearFailure = undefined;
   manager.clearQueue();
   manager.maxConcurrentSessions = 8;
   await manager.waitForAll();
@@ -364,6 +372,45 @@ test('successful clear invalidates a restored observer without releasing after c
   await FFmpegKitExtended.clearSessions();
   await new Promise((resolve) => setTimeout(resolve, 75));
   assert.deepEqual(releases, []);
+});
+
+test('configuration clear invalidates restored observer state', async () => {
+  const sessionId = 1024;
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+  session.setCompleteCallback?.(() => {});
+
+  assert.equal(restoredSessionObserver.size, 1);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 1);
+
+  await FFmpegKitConfig.clearSessions();
+
+  assert.equal(clearCalls, 1);
+  assert.equal(restoredSessionObserver.size, 0);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+  assert.deepEqual(releases, []);
+});
+
+test('configuration and lifecycle clear share backend failure semantics', async () => {
+  const sessionId = 1025;
+  const clearError = new Error('configuration clear failed');
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+  session.setCompleteCallback?.(() => {});
+  clearFailure = clearError;
+
+  await assert.rejects(
+    FFmpegKitConfig.clearSessions(),
+    (error) => error === clearError
+  );
+
+  assert.equal(clearCalls, 1);
+  assert.equal(clearRequested, false);
+  assert.equal(restoredSessionObserver.size, 1);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 1);
+  assert.equal(bridgeUninstalls.completion, 0);
 });
 
 test('restored execution preflight rejects without destructive history cleanup', async () => {
