@@ -15,7 +15,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R47-G1** | Make both public React Native clear facades use one lifecycle-aware transaction | **Complete — `FFmpegKitConfig.clearSessions()` now delegates to `FFmpegKitExtended.clearSessions()`; backend-first failure semantics and configuration/lifecycle parity regressions pass.** |
-| **R47-G2** | Prevent callback attachment from recreating a cleared ID-level observer | **Pending — keep `ensureObserved()` as the sole entry-creation authority; make `attachCallbackTarget()` attach only to an existing live entry; add deterministic deferred-install/clear race coverage.** |
+| **R47-G2** | Prevent callback attachment from recreating a cleared ID-level observer | **Complete — `attachCallbackTarget()` now attaches only to an existing non-invalidated entry; deterministic deferred-install/clear races through both public facades pass.** |
 | **R47-G3** | Add semantic documentation and deterministic regression coverage without weakening prior lifecycle fixes | **Pending.** |
 | **R47-G4** | Run affected local validation, perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending.** |
 
@@ -38,6 +38,13 @@
 - Production change: `react-native/src/ffmpeg-kit-config.ts` imports the lifecycle facade and returns `FFmpegKitExtended.clearSessions()`; the configuration facade no longer calls the backend clear independently or duplicates cleanup.
 - Test infrastructure: `react-native/tsconfig.test.json` now emits the configuration facade for Node tests. The first focused-test attempt after the production/test edit failed before test execution with `MODULE_NOT_FOUND` because that source was not in the test compilation list; the corrected compile/test retry passed.
 - Focused validation: tagged `npm run test:compile` exited 0, then tagged `node --test tests/restored-session-observer.test.js` passed **26/26**. The new semantic cases proved configuration clear removes the restored observer/target after backend success and propagates an exact backend failure without falsely invalidating observer state.
+- No native ABI, Flutter, platform-native, C++, builder, or hosted workflow change was made for this goal.
+
+### Review 47 Goal 2 evidence
+
+- Production change: `react-native/src/session-observation.ts` now leaves ID-level entry creation exclusively to `ensureObserved()`. Attachment validates the target identity, reads the existing entry, returns for absent/invalidated entries, and never resurrects a cleared observer. No permanent cleared-ID tombstone was introduced.
+- Regression coverage: `react-native/tests/restored-session-observer.test.js` retains a completion sink while a deferred log bridge install is in flight, commits clear before resolving the install, and verifies zero observer entries/targets and balanced log bridge install/uninstall. The same deterministic helper runs through both `FFmpegKitExtended.clearSessions()` and `FFmpegKitConfig.clearSessions()`.
+- Corrected retry evidence: an initial test-file edit contained a JavaScript closing-token error and failed before test execution; the corrected tagged compile/test command passed **28/28** focused tests.
 - No native ABI, Flutter, platform-native, C++, builder, or hosted workflow change was made for this goal.
 
 ## Review 46 Flutter + React Native Final Wrapper Closure — 2026-10-02

@@ -785,3 +785,41 @@ test('clear invalidates a callback setup that is still awaiting bridge installat
   assert.equal(restoredSessionObserver.size, 0);
   assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
 });
+
+async function assertCallbackRollbackCannotRecreateObservation(clearSessions) {
+  const sessionId = 1026;
+  const installGate = deferred();
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  deferredLogInstall = installGate.promise;
+  const session = FFmpegKitExtended.getSession(sessionId);
+  session.setCompleteCallback?.(() => {});
+  const update = session.setLogCallback?.(() => {});
+
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 1);
+
+  const clear = clearSessions();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(restoredSessionObserver.size, 0);
+  installGate.resolve();
+
+  await clear;
+  await assert.rejects(update, /no longer Running/);
+  assert.equal(restoredSessionObserver.size, 0);
+  assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+  assert.equal(bridgeInstalls.log, 1);
+  assert.equal(bridgeUninstalls.log, 1);
+}
+
+test('clear during callback rollback does not recreate observation', async () => {
+  await assertCallbackRollbackCannotRecreateObservation(() =>
+    FFmpegKitExtended.clearSessions()
+  );
+});
+
+test('configuration clear during callback rollback does not recreate observation', async () => {
+  await assertCallbackRollbackCannotRecreateObservation(() =>
+    FFmpegKitConfig.clearSessions()
+  );
+});

@@ -47,7 +47,10 @@ export class RestoredSessionObservationCoordinator {
         `Restored callback target ${target.sessionId} does not match ${sessionId}`
       );
     }
-    const entry = this.getOrCreateEntry(sessionId);
+    // ID-level observation is created by ensureObserved(). Callback attachment
+    // never recreates an entry removed by terminal or clear lifecycle.
+    const entry = this.entries.get(sessionId);
+    if (!entry || entry.invalidated) return;
     entry.callbackTargets.add(target);
     if (!entry.run) entry.run = this.run(entry);
   }
