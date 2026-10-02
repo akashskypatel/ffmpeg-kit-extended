@@ -38,8 +38,8 @@
 
 ## Review 45 Flutter + React Native Final Wrapper Closure — 2026-10-02
 
-- Plan: [review-45-luna-flutter-react-native-closure-plan.md](./review-45-luna-flutter-react-native-closure-plan.md)
-- Code review: [review-45-flutter-react-native-code-review.md](./review-45-flutter-react-native-code-review.md)
+- Plan: [review-45-luna-flutter-react-native-closure-plan.md](./archive/reviews/review-45-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-45-flutter-react-native-code-review.md](./archive/reviews/review-45-flutter-react-native-code-review.md)
 - Preparation status: **Prepared for implementation — both downloaded Review 45 documents were read completely, SHA-256 verified, and materialized locally. This is a code-review-only handoff identifying five substantive React Native wrapper lifecycle findings; Flutter and platform-native bridge surfaces are closed.**
 - Starting source authority: `2b4b902b0aa918d871659380475ebf6ec3bb06d3`, the exact Review 44 wrapper snapshot. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Downloaded plan SHA-256: `AA7FDDFCE529EE3B1B2C3223A0F2F4786DE7E8CF9AA189D453EDC4270C13BBA0` (**2389 lines**); downloaded review SHA-256: `1D754A8B5286A948EECC9A22A0006C54976080B8F34C86FCE2C96DA9ABAF1613` (**1109 lines**).
@@ -83,8 +83,8 @@
 
 ## Review 44 Flutter + React Native Wrapper Closure — 2026-10-02
 
-- Plan: [review-44-luna-flutter-react-native-closure-plan.md](./review-44-luna-flutter-react-native-closure-plan.md)
-- Code review: [review-44-flutter-react-native-code-review.md](./review-44-flutter-react-native-code-review.md)
+- Plan: [review-44-luna-flutter-react-native-closure-plan.md](./archive/reviews/review-44-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-44-flutter-react-native-code-review.md](./archive/reviews/review-44-flutter-react-native-code-review.md)
 - Preparation status: **Prepared for implementation — both downloaded Review 44 documents were read completely, SHA-256 verified, and materialized locally. The review is code-review-only: Flutter and the platform-native bridge are closed; five substantive React Native wrapper lifecycle findings remain.**
 - Starting source authority: `d8320a5fd3cd4031d9c9b9a0edf71539231c5380`; the current branch contains the subsequent Review 44 wrapper implementation and tracker metadata. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Downloaded plan SHA-256: `4298555C67A8F5956277A98B9F3597B86436ADB6C1BC847C38D306DA60B89E33` (**1469 lines**); downloaded review SHA-256: `58AE6CBCFC8A2F8B0DF8158A661FC377F54E2C31CC2A8174492262A56283AFDD` (**787 lines**).
@@ -132,8 +132,8 @@
 
 ## Review 43 Flutter iOS Texture Registration Closure — 2026-10-02
 
-- Plan: [review-43-luna-platform-native-bridge-closure-plan.md](./review-43-luna-platform-native-bridge-closure-plan.md)
-- Code review: [review-43-platform-native-bridge-code-review.md](./review-43-platform-native-bridge-code-review.md)
+- Plan: [review-43-luna-platform-native-bridge-closure-plan.md](./archive/reviews/review-43-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-43-platform-native-bridge-code-review.md](./archive/reviews/review-43-platform-native-bridge-code-review.md)
 - Preparation status: **Prepared for implementation — both downloaded Review 43 documents were read completely, SHA-256 verified, and materialized locally. The code review is code-review-only and identifies one substantive Medium-severity wrapper defect: Flutter iOS ignores the Darwin `registerTexture:` failure sentinel in both CocoaPods and SwiftPM FFplay source copies.**
 - Starting source authority: `e798d1b07f55e07a042cb33faf4fc55867d70493`; the current branch contains only subsequent tracker metadata commits after that wrapper source. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Downloaded plan SHA-256: `7D6E9A91DA34414148A03E6E4B2E8AD5E16CFBD78A9E3E6CED550F4BB425AF3A` (**1068 lines**); downloaded review SHA-256: `32837492BC9024574AF8F0941E9EE275BC82EBF2BCD568125C9E53E99ECE728C` (**666 lines**).
@@ -176,8 +176,8 @@
 
 ## Review 42 Platform-Native Bridge Final Closure — 2026-10-01
 
-- Plan: [review-42-luna-platform-native-bridge-final-closure-plan.md](./review-42-luna-platform-native-bridge-final-closure-plan.md)
-- Code review: [review-42-platform-native-bridge-code-review.md](./review-42-platform-native-bridge-code-review.md)
+- Plan: [review-42-luna-platform-native-bridge-final-closure-plan.md](./archive/reviews/review-42-luna-platform-native-bridge-final-closure-plan.md)
+- Code review: [review-42-platform-native-bridge-code-review.md](./archive/reviews/review-42-luna-platform-native-bridge-code-review.md)
 - Preparation status: **Prepared for implementation — both downloaded Review 42 documents were read completely, SHA-256 verified, and materialized locally. The review is code-review-only and identifies one substantive High-severity finding: non-composable React Native shared-C++ operation admission during history projection.**
 - Starting source authority: `510fabb3e58730d211dddc78d343a7ed377eba2c`; the current branch contains only the subsequent Review 41 tracker metadata commit after that source authority. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Downloaded plan SHA-256: `FCE5C5D2586C1AFC446CD464D30067192386E4C156FC7ED4BA0257B76AEBB5AE` (**1562 lines**); downloaded review SHA-256: `F817281A35A060752A1606CC6EE3217957D96F0336A56CA2C32698DFF32B631C` (**1133 lines**).
@@ -206,8 +206,8 @@
 
 ## Review 41 Platform-Native Bridge Final Closure — 2026-10-01
 
-- Plan: [review-41-luna-platform-native-bridge-closure-plan.md](./review-41-luna-platform-native-bridge-closure-plan.md)
-- Code review: [review-41-platform-native-bridge-code-review.md](./review-41-platform-native-bridge-code-review.md)
+- Plan: [review-41-luna-platform-native-bridge-closure-plan.md](./archive/reviews/review-41-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-41-platform-native-bridge-code-review.md](./archive/reviews/review-41-platform-native-bridge-code-review.md)
 - Preparation status: **Prepared for implementation — both downloaded Review 41 documents were read, hashed, and materialized locally. The review identified two substantive open findings; no Review 41 tests had been executed before this implementation.**
 - Starting source authority: `7ba4a60621c77ac9add7328e8c27b7394f2cdb11`; the current branch also contains only the prior tracker metadata commit after that authority. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Downloaded plan SHA-256: `A5047A0192AD5B92D632F4823DF2FB3D2207638386C7AFF1224704A058EA6C68`; downloaded review SHA-256: `4E9F3F8E240B4B67EA3D60C0350415F46E3326000A93E425D5A859ECBB43CA7F`.
@@ -242,8 +242,8 @@
 
 ## Review 40 G5 Flutter + React Native Native-Bridge Closure — 2026-10-01
 
-- Plan: [review-40-g5-luna-platform-native-bridge-closure-plan.md](./review-40-g5-luna-platform-native-bridge-closure-plan.md)
-- Code review: [review-40-platform-native-bridge-closure-review.md](./review-40-platform-native-bridge-closure-review.md)
+- Plan: [review-40-g5-luna-platform-native-bridge-closure-plan.md](./archive/reviews/review-40-g5-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-40-platform-native-bridge-closure-review.md](./archive/reviews/review-40-platform-native-bridge-closure-review.md)
 - Preparation status: **Prepared for implementation — the downloaded G5 plan and Review 40 code review are materialized locally and reviewed. The previously excluded G5 final-audit/source-snapshot goal is explicitly authorized by the current user request.**
 - Review authority: implementation is audited against wrapper SHA `7ad146981461fa5509bf781b49b51db01fc15f04`; frozen native ABI/runtime `0.11.2` and `libs/libffmpegkit` remain at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Scope: React Native shared native-handle lifetime and bridge error-boundary closure, plus the final Flutter/React Native regression and local platform matrix. Do not edit `libs/libffmpegkit` or `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`, download or publish native artifacts, or run hosted Flutter/React Native test workflows.
@@ -307,8 +307,8 @@
 
 ## Review 40 Flutter + React Native Platform-Native Bridge Closure — 2026-10-01
 
-- Plan: [review-40-luna-platform-native-bridge-closure-plan.md](./review-40-luna-platform-native-bridge-closure-plan.md)
-- Code review: [review-40-platform-native-bridge-closure-review.md](./review-40-platform-native-bridge-closure-review.md)
+- Plan: [review-40-luna-platform-native-bridge-closure-plan.md](./archive/reviews/review-40-luna-platform-native-bridge-closure-plan.md)
+- Code review: [review-40-platform-native-bridge-closure-review.md](./archive/reviews/review-40-platform-native-bridge-closure-review.md)
 - Preparation status: **G1–G4 complete; G5 is tracked in the dedicated execution section above and is now authorized for implementation.**
 - Review authority: G1–G4 wrapper work is recorded through `7ad146981461fa5509bf781b49b51db01fc15f04`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Scope: Flutter and React Native platform-native bridge behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` remain frozen/read-only. Use existing configured local artifacts; do not retrieve remote native artifacts or run hosted Flutter/React Native validation workflows.
@@ -368,8 +368,8 @@
 
 ## Review 39 Flutter + React Native Platform-Native Remediation — 2026-09-30
 
-- Plan: [review39-luna-platform-native-remediation-plan.md](./review39-luna-platform-native-remediation-plan.md)
-- Code review: [review39-platform-native-code-review.md](./review39-platform-native-code-review.md)
+- Plan: [review39-luna-platform-native-remediation-plan.md](./archive/reviews/review39-luna-platform-native-remediation-plan.md)
+- Code review: [review39-platform-native-code-review.md](./archive/reviews/review39-platform-native-code-review.md)
 - Preparation status: **Implemented through G5 — the latest Review 39 plan and code review were materialized locally, all wrapper goals are complete, and the final wrapper-only source snapshot is recorded below.**
 - Review authority: wrapper implementation starts from `0cc61d41906611f9118d8eb84a95647a7925b99d`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
 - Scope: Flutter and React Native platform-native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` remain frozen/read-only. Do not retrieve remote native artifacts or run hosted Flutter/React Native validation workflows.
@@ -435,8 +435,8 @@
 
 ## Review 38 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
-- Plan: [review38-luna-cross-platform-remediation-plan.md](./review38-luna-cross-platform-remediation-plan.md)
-- Code review: [review38-cross-platform-code-review.md](./review38-cross-platform-code-review.md)
+- Plan: [review38-luna-cross-platform-remediation-plan.md](./archive/reviews/review38-luna-cross-platform-remediation-plan.md)
+- Code review: [review38-cross-platform-code-review.md](./archive/reviews/review38-cross-platform-code-review.md)
 - Preparation status: **Implemented through G5 — the downloaded Review 38 plan and code review were materialized locally, reviewed, the wrapper goals are complete, and the final wrapper-only source snapshot is recorded below.**
 - Review authority: wrapper implementation starts from `aa3010bf335f36daeb64231ba154f9b662d496a6`; frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`.
 - Scope: Flutter and React Native wrapper behavior only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. Do not fetch remote native artifacts or use hosted Flutter/React Native acceptance workflows.
@@ -487,8 +487,8 @@
 
 ## Review 37 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
-- Plan: [review37-luna-cross-platform-remediation-plan.md](./review37-luna-cross-platform-remediation-plan.md)
-- Code review: [review37-cross-platform-code-review.md](./review37-cross-platform-code-review.md)
+- Plan: [review37-luna-cross-platform-remediation-plan.md](./archive/reviews/review37-luna-cross-platform-remediation-plan.md)
+- Code review: [review37-cross-platform-code-review.md](./archive/reviews/review37-cross-platform-code-review.md)
 - Preparation status: **Ready for implementation — the latest Review 37 plan and code review were downloaded from the browser conversation, materialized locally, and reviewed.**
 - Review authority: wrapper work starts from `421946a3279e055a27a3dbd9141234e305f70e5d`; the prior wrapper-only source snapshot was workflow `36596072158`, artifact `11046296370`, artifact digest `sha256:098a410ad4fbce40283400d8fe3b9fd37b9dab44e5fe71e933e736460e6cc387` (see the Review 36 entry for the authoritative digest spelling), with embedded source SHA `30078df4081dbbcbd79fd3974a23a2b75474cfdada028c0c304f99416a4f0cdd` recorded by the Review 37 authority. Frozen `libs/libffmpegkit` remains at `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`.
 - Scope: Flutter and React Native wrapper lifecycle remediation only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. No remote old-binary fallback, native publication, or hosted Flutter/React Native test workflow.
@@ -551,8 +551,8 @@
 
 ## Review 36 Flutter + React Native Cross-Platform Remediation — 2026-09-29
 
-- Plan: [review36-luna-cross-platform-remediation-plan.md](./review36-luna-cross-platform-remediation-plan.md)
-- Code review: [review36-cross-platform-code-review.md](./review36-cross-platform-code-review.md)
+- Plan: [review36-luna-cross-platform-remediation-plan.md](./archive/reviews/review36-luna-cross-platform-remediation-plan.md)
+- Code review: [review36-cross-platform-code-review.md](./archive/reviews/review36-cross-platform-code-review.md)
 - Preparation status: **Ready for implementation — the latest Review 36 response was opened at the bottom of the browser conversation; its attachment download control did not materialize files locally, so the complete visible plan/review content was copied from the document viewer into these local Markdown files. This is not claimed to be a byte-for-byte attachment download.**
 - Review authority: final Review 35 wrapper snapshot at `d6afceabfe7baa9190a20342aad9e7e87a59a803`, workflow `36521169004`, artifact `11013156574`, with `1,066/1,066` wrapper files verified. Artifact digest: `sha256:9216d85557af470f06f4db7be41cdce519bc6f4111ac257b1c939369798815c2`; embedded `source.tar.gz` SHA-256: `2d2b8623b50b275b01e388aca68da42d1d854dfbd90bc3dcede2020c3d64f75e`; frozen submodule `libs/libffmpegkit` at `b74da2c5d1e294b87d15d73a6687393729e932b3`.
 - Scope: Flutter and React Native wrapper lifecycle remediation only. Native ABI/runtime `0.11.2`, `libs/libffmpegkit`, and the ManyLinux builder checkout remain frozen/read-only. No remote old-binary fallback, native publication, or hosted Flutter/React Native test workflow.
@@ -594,8 +594,8 @@
 
 ## Review 35 Flutter + React Native Cross-Platform Remediation — 2026-09-28
 
-- Plan: [review35-luna-cross-platform-remediation-plan.md](./review35-luna-cross-platform-remediation-plan.md)
-- Code review: [review35-cross-platform-code-review.md](./review35-cross-platform-code-review.md)
+- Plan: [review35-luna-cross-platform-remediation-plan.md](./archive/reviews/review35-luna-cross-platform-remediation-plan.md)
+- Code review: [review35-cross-platform-code-review.md](./archive/reviews/review35-cross-platform-code-review.md)
 - Preparation status: **Ready for implementation — the Review 35 plan and code review were downloaded from the completed browser response and materialized locally.**
 - Review authority: final Review 34 wrapper snapshot at `c9682fb8a7f98141b1566374b0f7c827aedd7e1b`, workflow `36510171029`, artifact `11008563205`, with `1,066/1,066` wrapper files verified. Artifact digest: `sha256:d6cb8721369974a3dcd50f3c7217fa2041241621401e2ef7842cecfa4038bb2e`; embedded `source.tar.gz` SHA-256: `e6810e3d1247aebec7cfaca7ac2e75e9f8d42c384444555469fb6b075ee621b7`.
 - Findings: R35-F1 High — Flutter terminal history commits after user completion callbacks; R35-F2 Medium-High — React Native native/Web queued Created-session discard cannot reach retained-handle cleanup; R35-F3 Medium — Flutter `clearSessions()` can strand invisible terminal metadata.
@@ -628,8 +628,8 @@
 
 ## Review 34 Flutter + React Native Cross-Platform Remediation — 2026-09-28
 
-- Plan: [review34-luna-cross-platform-remediation-plan.md](./review34-luna-cross-platform-remediation-plan.md)
-- Code review: [review34-cross-platform-code-review.md](./review34-cross-platform-code-review.md)
+- Plan: [review34-luna-cross-platform-remediation-plan.md](./archive/reviews/review34-luna-cross-platform-remediation-plan.md)
+- Code review: [review34-cross-platform-code-review.md](./archive/reviews/review34-cross-platform-code-review.md)
 - Review authority: final Review 33 wrapper snapshot `9d2dfa08bdbfc2845732679471aba5aae668f8f4`, workflow `36188816031`, artifact `10887515848`, with `1,064/1,064` wrapper files verified.
 - Preparation status: **Ready for implementation — document downloads were attempted from the Review 34 response but the in-app browser returned “Failed to download file. Please try again later.” The linked local files preserve the complete visible findings/goals and are not claimed to be byte-for-byte downloaded copies.**
 - Scope: Flutter and React Native wrapper remediation only. Native ABI and `libs/libffmpegkit` remain frozen/read-only; no native/builders snapshot is required.
@@ -694,8 +694,8 @@
 
 ## Review 33 Flutter + React Native Cross-Platform Remediation — 2026-09-25
 
-- Plan: [review33-luna-cross-platform-remediation-plan.md](./review33-luna-cross-platform-remediation-plan.md)
-- Code review: [review33-cross-platform-code-review.md](./review33-cross-platform-code-review.md)
+- Plan: [review33-luna-cross-platform-remediation-plan.md](./archive/reviews/review33-luna-cross-platform-remediation-plan.md)
+- Code review: [review33-cross-platform-code-review.md](./archive/reviews/review33-cross-platform-code-review.md)
 - Starting wrapper authority: `bbdc02c942754cd3e3dbce1ded0ef59674fd5dd6` from the verified Review 32 wrapper snapshot. Native ABI and `libs/libffmpegkit` remain frozen/read-only and are not a Review 33 work item.
 - Scope: resolve the three substantive wrapper findings: ownership-safe Flutter history inspection, ownership-safe React Native native/Web history inspection, and scalar React Native native state polling.
 - Validation boundary: local wrapper tests and configured local artifacts only; no hosted Flutter/React Native acceptance workflow, remote old binary, native ABI publication, or builders/native snapshot. The Web/Wasm runtime checks used a local headless browser only.
@@ -754,8 +754,8 @@
 
 ## Review 32 Flutter + React Native Cross-Platform Remediation — 2026-09-24
 
-- Plan: [review32-luna-cross-platform-remediation-plan.md](./review32-luna-cross-platform-remediation-plan.md)
-- Code review: [review32-cross-platform-code-review.md](./review32-cross-platform-code-review.md)
+- Plan: [review32-luna-cross-platform-remediation-plan.md](./archive/reviews/review32-luna-cross-platform-remediation-plan.md)
+- Code review: [review32-cross-platform-code-review.md](./archive/reviews/review32-cross-platform-code-review.md)
 - Starting wrapper authority: `a3017c2f2415a5ad5052f54f4382a2c2ff910dd9` from the verified Review 31 wrapper snapshot. Native ABI and `libs/libffmpegkit` remain frozen/read-only and are not a Review 32 work item.
 - Scope: remediate only the three substantive wrapper findings: native-session-ID execution ownership, React Native queue transaction integrity, and React Native native-history authority. Pedantic/style/documentation-only observations are excluded.
 - Validation boundary: local wrapper tests and local supplied artifacts only; no hosted Flutter/React Native acceptance workflow, remote old binary, native ABI publication, native/builder snapshot, or interactive Flutter/React Native runtime execution.
@@ -828,7 +828,7 @@ R32-G1 native-session-ID execution ownership
 
 ## Review 31 Flutter + React Native Cross-Platform Remediation — 2026-09-24
 
-- Plan: [review31-cross-platform-frozen-snapshot-review.md](./review31-cross-platform-frozen-snapshot-review.md)
+- Plan: [review31-cross-platform-frozen-snapshot-review.md](./archive/reviews/review31-cross-platform-frozen-snapshot-review.md)
 - Authority: the frozen Review 30 wrapper source is `e218d305dfd33cd06321f09e7bee706b1e2cd9a`; the unchanged native/builder source authority is `b74da2c5d1e294b87d15d73a6687393729e932b3`.
 - Scope: implement the six substantive Review 31 findings against the live wrapper while preserving the frozen native ABI, local-only unpublished-ABI validation, semantic implementation names, and the read-only `libs/libffmpegkit` and ManyLinux builder boundaries.
 - Validation authority: supplied WSL Windows/Linux/Wasm/Android artifacts and the recorded MacBook Air universal Apple archives. Hosted Flutter/React Native testing, remote old binary retrieval, native ABI publication, and interactive runtime execution remain excluded.
@@ -915,7 +915,7 @@ R31-G1..R31-G6 implementation
 
 ## Review 30 Cross-Platform Frozen-Snapshot Remediation — 2026-09-24
 
-- Plan: [review30-cross-platform-frozen-snapshot-review.md](./review30-cross-platform-frozen-snapshot-review.md)
+- Plan: [review30-cross-platform-frozen-snapshot-review.md](./archive/reviews/review30-cross-platform-frozen-snapshot-review.md)
 - Authority: the exact Review 30 wrapper source candidate is now frozen at `e218d305dfd33cd06321f09e7bee706b1e2cd9a`; it is based on the Review 29 wrapper source candidate `237fb5044243240b6199b3a46f0c7cc73ae3586a`. Frozen native product source remains unchanged; `libs/libffmpegkit` remains clean on `dev` at `b74da2c5d1e294b87d15d73a6687393729e932b3`, matching origin.
 - Scope: remediate the four wrapper/product findings and one validation-classification finding from the frozen Review 29 source, reconcile the source-authority documentation, run affected local gates, and freeze one new exact wrapper source candidate. No native ABI or ManyLinux builder change is required or permitted.
 - Validation authority: the supplied local WSL Linux, Windows, Wasm, and Android artifacts plus the recorded MacBook Air universal XCFramework archives. Hosted Flutter/React Native CI, remote old binaries, native ABI publication, and interactive Flutter/React Native runtime execution are excluded.
