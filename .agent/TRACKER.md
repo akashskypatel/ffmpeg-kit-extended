@@ -17,7 +17,7 @@
 | **R47-G1** | Make both public React Native clear facades use one lifecycle-aware transaction | **Complete — `FFmpegKitConfig.clearSessions()` now delegates to `FFmpegKitExtended.clearSessions()`; backend-first failure semantics and configuration/lifecycle parity regressions pass.** |
 | **R47-G2** | Prevent callback attachment from recreating a cleared ID-level observer | **Complete — `attachCallbackTarget()` now attaches only to an existing non-invalidated entry; deterministic deferred-install/clear races through both public facades pass.** |
 | **R47-G3** | Add semantic documentation and deterministic regression coverage without weakening prior lifecycle fixes | **Complete — public clear semantics and observer authority are documented; focused lifecycle, queue, and Wasm ownership regressions pass without weakening prior coverage.** |
-| **R47-G4** | Run affected local validation, perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending.** |
+| **R47-G4** | Run affected local validation, perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending — ordered local validation and audit are complete; exact-SHA source snapshot dispatch remains.** |
 
 ### Review 47 stale-artifact cleanup
 
@@ -53,6 +53,16 @@
 - Static gates: tagged `npm run typecheck` exited 0; tagged `npm run lint` exited 0 with **0 errors** and five pre-existing warnings in `callback-demand.ts`, `session-queue-manager.ts`, `tests/arguments.test.js`, `tests/wasm-backend-memory.test.js`, and `tests/windows-runtime-packaging.test.js`.
 - Regression gates: tagged `npm run test:compile` exited 0; restored observer, queue, and Wasm ownership suites passed **85/85**. The queue suite emitted two expected diagnostic lines for deliberately failing discard-cleanup fixtures; those cases passed and no test failed.
 - Production/test identifiers added for this review are semantic (`configuration clear`, `callback rollback`, and `observation`); no review/goal/finding identifier was introduced.
+
+### Review 47 Goal 4 pre-snapshot evidence
+
+- Windows first: tagged local Git Bash `./build.sh windows` completed successfully with the configured local Windows runtime ZIP; autolinking/codegen passed and MSBuild produced `FFmpegKitExtended.dll` and `FFmpegKitExtendedExample.exe`.
+- Android on local Windows: tagged local Git Bash `./build.sh android` completed with React Native codegen, CMake, and Gradle `app:assembleDebug` successful using the configured local WSL AAR. Android was not repeated under WSL because the requested matrix assigns Android to local Windows.
+- Linux/WSL: the first mounted-checkout run reached all wrapper tests but could not launch Web Chromium because the Linux Rollup optional package was absent from the shared Windows `node_modules`; a tagged local WSL-only optional-dependency repair was run with `--no-save --no-package-lock`, then the missing Playwright Chromium runtime was installed locally. The corrected complete suite passed **238/238**, with **4 expected Windows-only skips** and **0 failures**. The headless WebAssembly smoke, packed Web consumer, and packed TypeScript consumer gates also passed in the elevated local Windows/WSL run. No native artifact was downloaded or changed.
+- Apple last on the authorized MacBook Air: the first attempt stopped before compilation because the SSH locale was ASCII-8BIT and CocoaPods raised `Encoding::CompatibilityError`; the corrected tagged UTF-8 retry passed the Mac typecheck, lint (0 errors, five pre-existing warnings), and complete Node suite (**238/238**, four Windows-only skips). Local universal XCFramework builds then succeeded for iOS, tvOS, and macOS (`** BUILD SUCCEEDED **` for each).
+- Cleanup: generated React Native runtime/staging/build directories on Windows and the MacBook Air were removed, the exact WSL Playwright directories downloaded for this run were removed, no task-owned `review47` or wrapper build/test process remained, and the root checkout plus Mac checkout were clean. No hosted Flutter/React Native test/build workflow, native publication, `libs/libffmpegkit` edit, or ManyLinux builder edit was made.
+- Final audit before snapshot: the semantic identifier scan over `react-native/src` and `react-native/tests` found no review/goal/finding identifiers; the diff from the Review 47 authority contains only tracker/review-document cleanup plus the documented React Native wrapper/doc/test/config changes; native submodule SHA remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev` matching `origin/dev`.
+- Exact source freeze candidate: `1473b766e0c6055db60e7080fa0521b9f63d9714` is pushed to `origin/dev-wasm` after implementation and ordered local validation. The wrapper-only source snapshot is the sole remaining hosted action and must target this exact SHA; its run ID, artifact ID, links, digest, manifest count, symlink count, and `runtimeExecution` value will be recorded below after verification.
 
 ## Review 46 Flutter + React Native Final Wrapper Closure — 2026-10-02
 
