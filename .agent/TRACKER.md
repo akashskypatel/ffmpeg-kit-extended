@@ -13,7 +13,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R45-G1** | Make invalid/non-Created submission and queue handoff rejection non-destructive while preserving explicit queued discard | **Pending implementation** |
+| **R45-G1** | Make invalid/non-Created submission and queue handoff rejection non-destructive while preserving explicit queued discard | **Complete — commit `a715dfa`; authoritative Created-state preflight rejects restored/terminal execution without abandoning or releasing the identity, handoff rejection releases only the JS reservation, and explicit queue cancellation retains discard cleanup. Queue and restored-observer regressions passed.** |
 | **R45-G2** | Preserve restored cancellation failures and retry durable cancellation through one per-ID dispatch authority | **Pending implementation** |
 | **R45-G3** | Keep the active execution monitor authoritative through final callback drain before retained-handle release | **Pending implementation** |
 | **R45-G4** | Bound restored observation memory independently of history-read frequency and retain only callback-bearing targets | **Pending implementation** |
