@@ -13,8 +13,8 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R43-G1** | Make Flutter iOS FFplay texture creation failure-atomic in both Apple packaging source copies | **Pending — implementation not started.** |
-| **R43-G2** | Prove CocoaPods/SwiftPM iOS parity for the failure path with focused semantic coverage | **Pending — implementation not started.** |
+| **R43-G1** | Make Flutter iOS FFplay texture creation failure-atomic in both Apple packaging source copies | **Complete — commit `a7b6a22` adds the `tid == 0` guard and established `TEXTURE_REGISTRATION_FAILED` error before callback, texture, bridge-retain, FFplay-owner, or success-result publication in both iOS source copies.** |
+| **R43-G2** | Prove CocoaPods/SwiftPM iOS parity for the failure path with focused semantic coverage | **Complete — commit `a7b6a22` adds `apple_ffplay_texture_registration_test.dart`; the focused regression passed **1/1** after repairing the stale local WSL package graph and proves sentinel/error/order parity without byte-for-byte matching.** |
 | **R43-G3** | Preserve accepted platform-native ownership/concurrency/error invariants and audit duplicate Apple sources | **Pending — implementation not started.** |
 | **R43-G4** | Run affected local noninteractive validation against frozen local ABI `0.11.2` | **Pending — run after implementation and focused regression.** |
 | **R43-G5** | Perform the final substantive audit, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot | **Pending — run after R43-G1 through R43-G4.** |
@@ -25,6 +25,12 @@
 - Expected production change is limited to `flutter/ios/Classes/FfplayKitPlugin.m` and `flutter/ios/ffmpeg_kit_extended_flutter/Classes/ffmpeg_kit_native/FfplayKitPlugin.m`; the focused semantic regression may add one Flutter test file.
 - The required branch must return `TEXTURE_REGISTRATION_FAILED` when `registerTexture:` returns `0`, before `onFrameAvailable`, `_texture`/`_textureId`, bridge-retained userdata, FFplay owner installation, native callback registration, or the success result.
 - Preserve the existing macOS `tid == 0` branch, Flutter Windows/Linux/Android ownership, React Native Review 42 operation-token behavior, and all unrelated platform code. Do not launch interactive apps or simulators.
+
+### Review 43 implementation evidence — failure-atomic iOS registration
+
+- Both iOS packaging authorities now check `tid == 0` immediately after `[_textureRegistry registerTexture:tex]` and return `TEXTURE_REGISTRATION_FAILED` with message `Flutter could not register the FFplay texture`. The guard precedes `onFrameAvailable`, `_texture`/`_textureId`, `__bridge_retained`, `FfplayInstallOwner`, and the success result; no `unregisterTexture:0` was introduced.
+- Focused command: elevated Windows `flutter test --no-pub test/apple_ffplay_texture_registration_test.dart`, with `flutter config --no-analytics` and `dart --disable-analytics`, passed **1/1**. The first attempt was blocked by stale `/home/vscode/.pub-cache` URIs in the ignored Windows package graph; elevated `flutter pub get` regenerated both package graphs, confirmed zero WSL references, and the retry passed.
+- Affected analysis: elevated `flutter analyze --no-pub` passed with exit status 0 and **14 existing info/warning diagnostics**; no diagnostic references the new test or iOS guard. The new Dart test was formatted and cached temporary analysis logs were removed.
 
 ## Review 42 Platform-Native Bridge Final Closure — 2026-10-01
 
