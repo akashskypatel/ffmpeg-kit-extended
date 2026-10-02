@@ -1,5 +1,34 @@
 # Tracker
 
+## Review 46 Flutter + React Native Final Wrapper Closure — 2026-10-02
+
+- Plan: [review-46-luna-flutter-react-native-closure-plan.md](./review-46-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-46-flutter-react-native-code-review.md](./review-46-flutter-react-native-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 46 documents were read completely, SHA-256 verified, and materialized locally. The code review is code-review-only: Flutter and the platform-native bridge are closed; four substantive React Native wrapper lifecycle findings remain.**
+- Starting source authority: `d150cebfc406c2cd61ce66f5e779debc9bed0c75`, the exact Review 45 wrapper snapshot. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Downloaded plan SHA-256: `9839204EF1EC273C5E6EB2AEC102F52A9F46D251115550304919F9855CF05411` (**1695 lines**); downloaded review SHA-256: `C691BF1B9D69579032A97018728061AB3BCB124EDAD884CF8C2DB1D037242200` (**1043 lines**).
+- Review provenance: the verified Review 45 wrapper snapshot is workflow `37056546191`, artifact `review45-source-snapshot-37056546191`, artifact ID `11248243890`, with `runtimeExecution=false`, `1101/1101` checksums verified, zero symlinks, and the frozen submodule recorded above. Review 46 itself executed no tests, builds, runtime, or hosted acceptance workflow.
+- Finding disposition: R46-F1 requires non-destructive submission preflight for every state/backend probe failure; R46-F2 requires a retained terminal fallback through active-owner settlement and iterative release retry; R46-F3 requires lifecycle bookkeeping bounded to live/in-flight state; R46-F4 requires direct reporting of terminal restored-observer errors after target detachment. No Flutter production change, platform-native/C++ change, native ABI/submodule/builder change, native publication, remote old artifact retrieval, or hosted acceptance test is authorized.
+- Validation order: Windows → Android on local Windows → Linux/WSL where affected → Apple last through the authorized MacBook Air SSH host. Use existing local ABI artifacts/configuration, analytics-disabled Flutter/Dart commands, tagged processes, bounded observation, and cleanup. Only the final exact-SHA wrapper source-snapshot workflow may run remotely.
+- Semantic naming boundary: Review 46, goal, and finding identifiers are metadata only. Production/test names must describe submission validation, terminal release ownership, iterative retry, bounded lifecycle bookkeeping, and restored-observer diagnostics.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R46-G1** | Make every submission-preflight failure non-destructive while preserving actual native-start cleanup | **Pending implementation** |
+| **R46-G2** | Keep terminal release fallback authority alive through active-owner settlement and make retries iterative | **Pending implementation** |
+| **R46-G3** | Bound completed-release and clear-invalidation bookkeeping by live/in-flight lifecycle state | **Pending implementation** |
+| **R46-G4** | Report restored terminal callback/cleanup errors even after the target detaches | **Pending implementation** |
+| **R46-G5** | Add deterministic regressions/documentation, run affected local validation, audit all layers, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending implementation** |
+
+### Review 46 implementation boundary
+
+- Expected production scope is limited to `react-native/src/session.ts`, `react-native/src/session-observation.ts`, `react-native/src/session-lifetime.ts`, and semantic React Native documentation. Expected tests are existing Node tests under `react-native/tests/`, especially restored-session observation and Wasm ownership coverage.
+- Do not change `react-native/src/session-cancellation.ts`, `react-native/src/platform/backend.web.ts`, `react-native/src/session-queue-manager.ts`, shared C++, platform-specific React Native sources, Flutter, or any native ABI source unless a new reachable substantive defect proves it necessary. No such defect is identified by Review 46.
+- Keep `libs/libffmpegkit` fast-forwarded/frozen at the recorded SHA and read-only; keep `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` read-only. Use only existing local ABI `0.11.2` artifacts already configured in the repository.
+- Complete each goal in order with evidence, a meaningful commit, and a push before changing its tracker status to **Complete**. Do not use Review 46, R46, goal, or finding identifiers in implementation/test names. Exclude pedantic/style/procedural observations from the substantive audit.
+- Do not launch interactive apps, simulators, devices, or Web UI. Do not run hosted Flutter/React Native build/test workflows; only the final exact-SHA wrapper source snapshot is permitted.
+
+
 ## Review 45 Flutter + React Native Final Wrapper Closure — 2026-10-02
 
 - Plan: [review-45-luna-flutter-react-native-closure-plan.md](./review-45-luna-flutter-react-native-closure-plan.md)
