@@ -56,7 +56,11 @@ void *libraryHandle = nullptr;
 // barrier: it stops new acquisition/release transactions, waits for all leases
 // and release transactions, calls the native clear entrypoint, and only then
 // discards the retained map and history projection. No registry mutex is held
-// while a lease-protected operation is running in native code.
+// while a lease-protected operation is running in native code. The clear flag
+// blocks new top-level admission only; already-admitted work drains naturally.
+// Nested helpers reuse the same shared operation token and never re-enter the
+// clear gate, so clear waits for the final token holder instead of suspending
+// an admitted transaction.
 std::mutex sessionHandlesMutex;
 std::condition_variable sessionHandlesCondition;
 
@@ -264,36 +268,30 @@ void releaseSessionOperation() noexcept {
   sessionHandlesCondition.notify_all();
 }
 
+struct SessionOperationToken {
+  ~SessionOperationToken() noexcept { releaseSessionOperation(); }
+};
+
 class SessionOperationLease {
  public:
   SessionOperationLease() = default;
-  SessionOperationLease(const SessionOperationLease &) = delete;
-  SessionOperationLease &operator=(const SessionOperationLease &) = delete;
-  SessionOperationLease(SessionOperationLease &&other) noexcept
-      : active_(other.active_) {
-    other.active_ = false;
-  }
-  SessionOperationLease &operator=(SessionOperationLease &&other) noexcept {
-    if (this != &other) {
-      reset();
-      active_ = other.active_;
-      other.active_ = false;
-    }
-    return *this;
-  }
-  ~SessionOperationLease() noexcept { reset(); }
+  SessionOperationLease(const SessionOperationLease &) = default;
+  SessionOperationLease &operator=(const SessionOperationLease &) = default;
+  SessionOperationLease(SessionOperationLease &&) noexcept = default;
+  SessionOperationLease &operator=(SessionOperationLease &&) noexcept = default;
+  ~SessionOperationLease() noexcept = default;
+
+  explicit operator bool() const noexcept { return token_ != nullptr; }
 
   void reset() noexcept {
-    if (active_) {
-      active_ = false;
-      releaseSessionOperation();
-    }
+    token_.reset();
   }
 
  private:
-  explicit SessionOperationLease(bool active) : active_(active) {}
+  explicit SessionOperationLease(std::shared_ptr<SessionOperationToken> token)
+      : token_(std::move(token)) {}
 
-  bool active_ = false;
+  std::shared_ptr<SessionOperationToken> token_;
 
   friend SessionOperationLease acquireSessionOperation();
 };
@@ -302,7 +300,7 @@ SessionOperationLease acquireSessionOperation() {
   std::unique_lock<std::mutex> lock(sessionHandlesMutex);
   sessionHandlesCondition.wait(lock, [] { return !clearSessionsInProgress; });
   ++activeSessionOperations;
-  return SessionOperationLease(true);
+  return SessionOperationLease(std::make_shared<SessionOperationToken>());
 }
 
 void releaseRetainedBorrow(
@@ -414,8 +412,9 @@ std::int64_t sessionIdOf(Handle handle) {
   return resolve<Fn>("ffmpeg_kit_session_get_session_id")(handle);
 }
 
-HandleGuard acquireSession(std::int64_t id) {
-  auto operation = acquireSessionOperation();
+HandleGuard acquireSessionWithinOperation(
+    std::int64_t id,
+    const SessionOperationLease &operation) {
   {
     std::lock_guard<std::mutex> lock(sessionHandlesMutex);
     const auto it = retainedSessionHandles.find(id);
@@ -426,10 +425,15 @@ HandleGuard acquireSession(std::int64_t id) {
       ++it->second->activeBorrows;
       ++activeRetainedBorrows;
       return HandleGuard(
-          RetainedHandleLease(it->second), std::move(operation));
+          RetainedHandleLease(it->second), operation);
     }
   }
-  return HandleGuard(getSession(id), true, std::move(operation));
+  return HandleGuard(getSession(id), true, operation);
+}
+
+HandleGuard acquireSession(std::int64_t id) {
+  auto operation = acquireSessionOperation();
+  return acquireSessionWithinOperation(id, operation);
 }
 
 HandleGuard ensureRetainedSession(std::int64_t id) {
@@ -547,8 +551,13 @@ std::vector<HistoryRecord> visibleHistoryRecords(const std::string &kind) {
   return result;
 }
 
-HandleGuard acquireHistorySession(std::int64_t id) {
-  HandleGuard guard = acquireSession(id);
+HandleGuard acquireHistorySessionWithinOperation(
+    std::int64_t id,
+    const SessionOperationLease &operation) {
+  // Running-session promotion occurs under an already-admitted operation.
+  // It must not wait for global clear admission to reopen; clear is waiting
+  // for this history transaction to finish.
+  HandleGuard guard = acquireSessionWithinOperation(id, operation);
   if (guard.handle == nullptr || !guard.owned) return guard;
 
   using StateFn = int (*)(Handle);
@@ -557,7 +566,6 @@ HandleGuard acquireHistorySession(std::int64_t id) {
   }
 
   std::unique_lock<std::mutex> lock(sessionHandlesMutex);
-  sessionHandlesCondition.wait(lock, [] { return !clearSessionsInProgress; });
   const auto existing = retainedSessionHandles.find(id);
   if (existing != retainedSessionHandles.end()) {
     if (existing->second->releasing) {
@@ -567,19 +575,20 @@ HandleGuard acquireHistorySession(std::int64_t id) {
     ++activeRetainedBorrows;
     const auto temporaryHandle = guard.handle;
     guard.releaseOwnership();
-    auto operation = guard.takeOperationLease();
+    auto retainedOperation = guard.takeOperationLease();
     lock.unlock();
     release(temporaryHandle);
-    return HandleGuard(RetainedHandleLease(existing->second), std::move(operation));
+    return HandleGuard(
+        RetainedHandleLease(existing->second), std::move(retainedOperation));
   }
   const auto entry = std::make_shared<RetainedSessionEntry>(
       RetainedSessionEntry{id, guard.handle, false, 1});
   retainedSessionHandles.emplace(id, entry);
   ++activeRetainedBorrows;
   guard.releaseOwnership();
-  auto operation = guard.takeOperationLease();
+  auto retainedOperation = guard.takeOperationLease();
   lock.unlock();
-  return HandleGuard(RetainedHandleLease(entry), std::move(operation));
+  return HandleGuard(RetainedHandleLease(entry), std::move(retainedOperation));
 }
 
 void releaseRetainedSession(std::int64_t id) {
@@ -979,7 +988,10 @@ std::string getSessionsJson(const std::string &kind) {
   out << '[';
   bool first = true;
   for (const auto &record : records) {
-    HandleGuard guard = acquireHistorySession(record.sessionId);
+    // One operation token spans the entire projection. Destructive clear
+    // cannot split the result or invalidate a handle between records.
+    HandleGuard guard =
+        acquireHistorySessionWithinOperation(record.sessionId, operation);
     if (guard.handle == nullptr) {
       removeHistorySession(record.sessionId);
       continue;
@@ -997,7 +1009,8 @@ std::string getLastSessionJson(const std::string &kind) {
   auto operation = acquireSessionOperation();
   const auto records = visibleHistoryRecords(kind);
   for (auto it = records.rbegin(); it != records.rend(); ++it) {
-    HandleGuard session = acquireHistorySession(it->sessionId);
+    HandleGuard session =
+        acquireHistorySessionWithinOperation(it->sessionId, operation);
     if (session.handle == nullptr) {
       removeHistorySession(it->sessionId);
       continue;
