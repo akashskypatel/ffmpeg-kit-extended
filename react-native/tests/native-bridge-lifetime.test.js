@@ -8,6 +8,10 @@ const nativeLifetimeTest = fs.readFileSync(
   'cpp/retained_handle_lifetime_test.cpp',
   'utf8',
 );
+const historyComposabilityTest = fs.readFileSync(
+  'cpp/history_clear_composability_test.cpp',
+  'utf8',
+);
 const registrationCoordinator = fs.readFileSync(
   'cpp/LogBridgeRegistrationCoordinator.h',
   'utf8',
@@ -190,6 +194,50 @@ test('native handle acquisition uses one borrow/release/clear lifetime authority
   assert.match(nativeLifetimeTest, /a new borrow was admitted after release began/);
   assert.match(nativeLifetimeTest, /clear crossed an active borrower/);
   assert.match(nativeLifetimeTest, /duplicate release was admitted/);
+});
+
+test('history projection reuses one composable registry operation authority', () => {
+  const operationLease = section(
+    dynamicApi,
+    'struct SessionOperationToken',
+    'void releaseRetainedBorrow',
+  );
+  assert.match(operationLease, /std::shared_ptr<SessionOperationToken>/);
+  assert.match(operationLease, /SessionOperationLease\(const SessionOperationLease &\) = default/);
+
+  const nestedAcquisition = section(
+    dynamicApi,
+    'HandleGuard acquireSessionWithinOperation',
+    'HandleGuard acquireSession(std::int64_t id)',
+  );
+  assert.doesNotMatch(nestedAcquisition, /acquireSessionOperation\(\)/);
+
+  const historyAcquisition = section(
+    dynamicApi,
+    'HandleGuard acquireHistorySessionWithinOperation',
+    'void releaseRetainedSession',
+  );
+  assert.doesNotMatch(
+    historyAcquisition,
+    /sessionHandlesCondition\.wait\(lock, \[\] \{ return !clearSessionsInProgress; \}\)/,
+  );
+  assert.match(historyAcquisition, /acquireSessionWithinOperation/);
+
+  const historyProjection = section(
+    dynamicApi,
+    'std::string getSessionsJson',
+    'std::string getLogsJson',
+  );
+  assert.match(historyProjection, /auto operation = acquireSessionOperation\(\)/);
+  assert.match(historyProjection, /acquireHistorySessionWithinOperation/);
+  assert.doesNotMatch(historyProjection, /acquireHistorySession\(record\.sessionId\)/);
+
+  assert.match(historyComposabilityTest, /full history projection/);
+  assert.match(historyComposabilityTest, /last-session projection/);
+  assert.match(historyComposabilityTest, /Running promotion/);
+  assert.match(historyComposabilityTest, /Retained and temporary records/);
+  assert.match(historyComposabilityTest, /New history calls remain blocked/);
+  assert.match(historyComposabilityTest, /failed clear reopens admission/);
 });
 
 test('native session history projects recorded identities without enumerating owning arrays', () => {
