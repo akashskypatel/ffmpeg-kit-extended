@@ -529,8 +529,14 @@ test('history-only terminal release retries iteratively without repeating callba
   releaseFailuresRemaining = 5;
 
   states.set(sessionId, SessionState.Completed);
-  for (let attempt = 0; attempt < 10 && restoredSessionObserver.size > 0; attempt++)
+  for (
+    let attempt = 0;
+    attempt < 10 && restoredSessionObserver.size > 0;
+    attempt++
+  ) {
     await waitForObservation();
+    if (releaseCalls.length < 6) assert.equal(restoredSessionObserver.size, 1);
+  }
 
   assert.equal(completedCallbacks.filter((id) => id === sessionId).length, 1);
   assert.equal(releaseCalls.length, 6);
