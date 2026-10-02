@@ -15,7 +15,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R46-G1** | Make every submission-preflight failure non-destructive while preserving actual native-start cleanup | **Complete — commit `f93c307` pushed. `submitOnce()` now rejects every pre-admission observation failure without abandoning or releasing ownership; restored Running probe failure and fresh-wrapper retry regressions passed. Actual native-start failure cleanup remains covered by the existing ownership path.** |
-| **R46-G2** | Keep terminal release fallback authority alive through active-owner settlement and make retries iterative | **Pending implementation** |
+| **R46-G2** | Keep terminal release fallback authority alive through active-owner settlement and make retries iterative | **Complete — commits `7ea019f` and `04edc62` pushed. The restored observer now waits instead of deleting its entry while an active owner is present, retries retained release iteratively after owner settlement, and stops on clear invalidation.** |
 | **R46-G3** | Bound completed-release and clear-invalidation bookkeeping by live/in-flight lifecycle state | **Pending implementation** |
 | **R46-G4** | Report restored terminal callback/cleanup errors even after the target detaches | **Pending implementation** |
 | **R46-G5** | Add deterministic regressions/documentation, run affected local validation, audit all layers, freeze the exact wrapper SHA, and verify one wrapper-only source snapshot if clean | **Pending implementation** |
@@ -31,6 +31,7 @@
 ### Review 46 goal evidence
 
 - G1 focused validation: `npm run test:compile` exited 0; `node --test tests/restored-session-observer.test.js tests/wasm-session-ownership.test.js` passed **58/58**. The restored state-probe failure recorded zero executor starts, zero abandonment, zero release calls, retained observer ownership, and normal terminal release after recovery. The fresh-wrapper probe failure preserved the handle and a later retry executed exactly once; native-start failure cleanup remained green.
+- G2 focused validation: `node --test tests/restored-session-observer.test.js` passed **21/21**. The active-owner failure case recorded two wrapper release attempts, one native release commit, retained observer authority until active ownership ended, and one final callback. History-only release failed five times then succeeded on attempt six with one callback and one live observer entry throughout retries; clear invalidation stopped further attempts without callback repetition.
 
 
 ## Review 45 Flutter + React Native Final Wrapper Closure — 2026-10-02
