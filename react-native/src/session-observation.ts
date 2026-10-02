@@ -30,11 +30,9 @@ const POLL_INTERVAL_MS = 50;
 /** One non-executing terminal observer per restored native session ID. */
 export class RestoredSessionObservationCoordinator {
   private readonly entries = new Map<number, ObservationEntry>();
-  private readonly invalidatedSessionIds = new Set<number>();
 
   /** Ensures one lightweight lifetime observer exists for a native ID. */
   ensureObserved(sessionId: number): void {
-    if (this.invalidatedSessionIds.has(sessionId)) return;
     const entry = this.getOrCreateEntry(sessionId);
     if (!entry.run) entry.run = this.run(entry);
   }
@@ -49,7 +47,6 @@ export class RestoredSessionObservationCoordinator {
         `Restored callback target ${target.sessionId} does not match ${sessionId}`
       );
     }
-    if (this.invalidatedSessionIds.has(sessionId)) return;
     const entry = this.getOrCreateEntry(sessionId);
     entry.callbackTargets.add(target);
     if (!entry.run) entry.run = this.run(entry);
@@ -75,7 +72,6 @@ export class RestoredSessionObservationCoordinator {
     await Promise.all(
       entries.map(async (entry) => {
         entry.invalidated = true;
-        this.invalidatedSessionIds.add(entry.sessionId);
         const targets = [...entry.callbackTargets];
         entry.callbackTargets.clear();
         await Promise.all(

@@ -1,11 +1,10 @@
 import { getBackend } from './platform/backend-registry';
 
 const releasesInFlight = new Map<number, Promise<void>>();
-const releasesCompleted = new Set<number>();
 
-/** Starts a new wrapper ownership epoch when a test or backend creates a new ID. */
-export function registerSessionWrapper(sessionId: number): void {
-  if (releasesCompleted.has(sessionId)) releasesCompleted.delete(sessionId);
+/** Internal diagnostic seam for bounded lifecycle tests. */
+export function getRetainedReleaseInFlightCount(): number {
+  return releasesInFlight.size;
 }
 
 /**
@@ -16,7 +15,6 @@ export function registerSessionWrapper(sessionId: number): void {
 export async function releaseSessionHandleSerialized(
   sessionId: number
 ): Promise<void> {
-  if (releasesCompleted.has(sessionId)) return;
   const existing = releasesInFlight.get(sessionId);
   if (existing) return existing;
 
@@ -26,7 +24,6 @@ export async function releaseSessionHandleSerialized(
   releasesInFlight.set(sessionId, release);
   try {
     await release;
-    releasesCompleted.add(sessionId);
   } finally {
     if (releasesInFlight.get(sessionId) === release)
       releasesInFlight.delete(sessionId);

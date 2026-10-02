@@ -14,9 +14,14 @@ const {
   SessionCancelledException,
   SessionQueueManager,
 } = require('../.test-dist/session-queue-manager.js');
+const {
+  getRetainedReleaseInFlightCount,
+  releaseSessionHandleSerialized,
+} = require('../.test-dist/session-lifetime.js');
 
 const registry = new WasmSessionRegistry();
 const releases = [];
+const releaseCommits = [];
 const abandonments = [];
 const cancelCalls = [];
 const cancellationIntentIds = new Set();
@@ -133,7 +138,9 @@ setBackend({
   releaseSessionHandle: (sessionId) => {
     releases.push(sessionId);
     if (releaseError) throw releaseError;
+    const retained = registry.has(sessionId);
     registry.take(sessionId);
+    if (retained) releaseCommits.push(sessionId);
   },
   abandonCreatedSession: (sessionId) => {
     abandonments.push(sessionId);
@@ -156,6 +163,7 @@ beforeEach(() => {
   cancelCalls.length = 0;
   cancelAttempts = 0;
   releases.length = 0;
+  releaseCommits.length = 0;
   abandonments.length = 0;
   cancellationIntentIds.clear();
   logEntries = [];
@@ -327,6 +335,25 @@ test('normally completed session releases its Wasm handle exactly once', async (
   assert.equal(executionStarts, 1);
   assert.deepEqual(releases, [7]);
   assert.equal(registry.has(7), false);
+});
+
+test('serialized release bookkeeping is bounded and stale release is backend-idempotent', async () => {
+  const firstId = 10000;
+  const releaseCount = 10000;
+  for (let offset = 0; offset < releaseCount; offset += 1) {
+    const sessionId = firstId + offset;
+    registry.retain(65536 + offset, sessionId);
+    await releaseSessionHandleSerialized(sessionId);
+    assert.equal(getRetainedReleaseInFlightCount(), 0);
+  }
+
+  assert.equal(releaseCommits.length, releaseCount);
+  assert.equal(getRetainedReleaseInFlightCount(), 0);
+
+  await releaseSessionHandleSerialized(firstId);
+  assert.equal(releases.length, releaseCount + 1);
+  assert.equal(releaseCommits.length, releaseCount);
+  assert.equal(getRetainedReleaseInFlightCount(), 0);
 });
 test('Created cancellation prevents later submission', async () => {
   sessionState = 0;

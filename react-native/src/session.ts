@@ -36,7 +36,6 @@ import {
   dispatchCancellationSerialized,
 } from './session-cancellation';
 import {
-  registerSessionWrapper,
   releaseSessionHandleSerialized,
 } from './session-lifetime';
 
@@ -122,7 +121,6 @@ export abstract class Session implements RestoredSessionObservationTarget {
     this.sessionId = sessionId;
     this.command = command;
     this.type = type;
-    registerSessionWrapper(sessionId);
   }
 
   /** Whether cancellation was requested through this JavaScript object. */

@@ -485,6 +485,7 @@ test('active execution remains the sole owner while restored observation sees te
   await active;
   assert.deepEqual(releases, [sessionId]);
   await waitForObservation();
+  assert.deepEqual(releaseCalls, [sessionId, sessionId]);
   assert.equal(restoredSessionObserver.size, 0);
 });
 
@@ -568,6 +569,23 @@ test('clear invalidates a terminal release retry without repeating callbacks', a
   assert.equal(completedCallbacks.filter((id) => id === sessionId).length, 1);
   assert.equal(releases.includes(sessionId), false);
   assert.equal(attemptsAfterClear, attemptsBeforeClear);
+});
+
+test('repeated clear cycles release observer entries without historical tombstones', async () => {
+  for (let offset = 0; offset < 100; offset += 1) {
+    const sessionId = 3000 + offset;
+    states.set(sessionId, SessionState.Running);
+    snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+    const session = FFmpegKitExtended.getSession(sessionId);
+    session.setCompleteCallback?.(() => {});
+
+    await FFmpegKitExtended.clearSessions();
+    assert.equal(restoredSessionObserver.size, 0);
+    assert.equal(restoredSessionObserver.getTargetCount(sessionId), 0);
+    states.delete(sessionId);
+    snapshots.delete(sessionId);
+    clearRequested = false;
+  }
 });
 
 test('history reconstruction keeps one ID observer and no retained callback targets', async () => {
