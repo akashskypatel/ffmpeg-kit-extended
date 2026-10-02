@@ -16,6 +16,8 @@ const manager = SessionQueueManager.shared;
 const states = new Map();
 const snapshots = new Map();
 const releases = [];
+const releaseCalls = [];
+const releasedSessionIds = new Set();
 const abandonments = [];
 const cancellations = [];
 const cancellationIntents = new Set();
@@ -33,6 +35,8 @@ let cancelFailure;
 let deferredLogInstall;
 let deferredStatisticsInstall;
 let clearRequested = false;
+let releaseFailuresRemaining = 0;
+let releaseFailureError;
 
 function snapshotFor(
   sessionId,
@@ -107,7 +111,16 @@ setBackend({
       throw error;
     }
   },
-  releaseSessionHandle: (sessionId) => releases.push(sessionId),
+  releaseSessionHandle: (sessionId) => {
+    releaseCalls.push(sessionId);
+    if (releaseFailuresRemaining > 0) {
+      releaseFailuresRemaining -= 1;
+      throw releaseFailureError ?? new Error('retained release failed');
+    }
+    if (releasedSessionIds.has(sessionId)) return;
+    releasedSessionIds.add(sessionId);
+    releases.push(sessionId);
+  },
   abandonCreatedSession: (sessionId) => abandonments.push(sessionId),
   recordCancellationIntent: (sessionId) => cancellationIntents.add(sessionId),
   isCancellationRequested: (sessionId) => cancellationIntents.has(sessionId),
@@ -183,6 +196,8 @@ beforeEach(async () => {
   states.clear();
   snapshots.clear();
   releases.length = 0;
+  releaseCalls.length = 0;
+  releasedSessionIds.clear();
   abandonments.length = 0;
   cancellations.length = 0;
   completedCallbacks.length = 0;
@@ -195,6 +210,8 @@ beforeEach(async () => {
   deferredLogInstall = undefined;
   deferredStatisticsInstall = undefined;
   clearRequested = false;
+  releaseFailuresRemaining = 0;
+  releaseFailureError = undefined;
   cancellationIntents.clear();
   logHandlers.clear();
   bridgeInstalls.completion = 0;
@@ -467,6 +484,84 @@ test('active execution remains the sole owner while restored observation sees te
   gate.resolve();
   await active;
   assert.deepEqual(releases, [sessionId]);
+  await waitForObservation();
+  assert.equal(restoredSessionObserver.size, 0);
+});
+
+test('restored terminal release retries after an active owner fails first', async () => {
+  const sessionId = 1019;
+  const gate = deferred();
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const releaseError = new Error('active owner release failed');
+  releaseFailuresRemaining = 1;
+  releaseFailureError = releaseError;
+
+  const active = manager.executeSession(
+    { getSessionId: () => sessionId, cancel() {} },
+    async () => {
+      await gate.promise;
+      states.set(sessionId, SessionState.Completed);
+      await releaseSessionHandleSerialized(sessionId);
+    }
+  );
+  restoredSessionObserver.ensureObserved(sessionId);
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  assert.equal(restoredSessionObserver.size, 1);
+
+  gate.resolve();
+  await assert.rejects(active, (error) => error === releaseError);
+  await waitForObservation();
+  await waitForObservation();
+
+  assert.deepEqual(releaseCalls, [sessionId, sessionId]);
+  assert.deepEqual(releases, [sessionId]);
+  assert.equal(restoredSessionObserver.size, 0);
+});
+
+test('history-only terminal release retries iteratively without repeating callbacks', async () => {
+  const sessionId = 1020;
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+  session.setCompleteCallback?.(() => completedCallbacks.push(sessionId));
+  releaseFailuresRemaining = 5;
+
+  states.set(sessionId, SessionState.Completed);
+  for (let attempt = 0; attempt < 10 && restoredSessionObserver.size > 0; attempt++)
+    await waitForObservation();
+
+  assert.equal(completedCallbacks.filter((id) => id === sessionId).length, 1);
+  assert.equal(releaseCalls.length, 6);
+  assert.deepEqual(releases, [sessionId]);
+  assert.equal(restoredSessionObserver.size, 0);
+});
+
+test('clear invalidates a terminal release retry without repeating callbacks', async () => {
+  const sessionId = 1021;
+  states.set(sessionId, SessionState.Running);
+  snapshots.set(sessionId, snapshotFor(sessionId, SessionState.Running));
+  const session = FFmpegKitExtended.getSession(sessionId);
+  session.setCompleteCallback?.(() => completedCallbacks.push(sessionId));
+  releaseFailuresRemaining = Number.MAX_SAFE_INTEGER;
+
+  states.set(sessionId, SessionState.Completed);
+  await waitForObservation();
+  const attemptsBeforeClear = releaseCalls.length;
+  assert.ok(attemptsBeforeClear > 0);
+  assert.equal(restoredSessionObserver.size, 1);
+
+  await FFmpegKitExtended.clearSessions();
+  await waitForObservation();
+  const attemptsAfterClear = releaseCalls.length;
+  await waitForObservation();
+
+  assert.equal(restoredSessionObserver.size, 0);
+  assert.equal(releaseCalls.length, attemptsAfterClear);
+  assert.equal(completedCallbacks.filter((id) => id === sessionId).length, 1);
+  assert.equal(releases.includes(sessionId), false);
+  assert.equal(attemptsAfterClear, attemptsBeforeClear);
 });
 
 test('history reconstruction keeps one ID observer and no retained callback targets', async () => {

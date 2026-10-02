@@ -165,22 +165,27 @@ export class RestoredSessionObservationCoordinator {
     }
     clearCancellationDispatch(entry.sessionId);
 
-    // An active executor owns final callback-drain retirement. The restored
-    // observer only retires promoted history ownership when no active monitor
-    // remains for this native session ID.
-    if (SessionQueueManager.shared.isSessionActiveById(entry.sessionId)) {
-      this.entries.delete(entry.sessionId);
-      return;
-    }
+    // An active executor gets the first final-release attempt, but this
+    // restored observation remains the fallback authority until that owner
+    // settles. Release retries are iterative so one entry stays O(1) in
+    // memory until retirement commits or a successful clear invalidates it.
+    while (
+      !entry.invalidated &&
+      this.entries.get(entry.sessionId) === entry
+    ) {
+      if (SessionQueueManager.shared.isSessionActiveById(entry.sessionId)) {
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
 
-    try {
-      await releaseSessionHandleSerialized(entry.sessionId);
-      this.entries.delete(entry.sessionId);
-    } catch (error) {
-      this.reportTargets(entry, error);
+      try {
+        await releaseSessionHandleSerialized(entry.sessionId);
+        if (this.entries.get(entry.sessionId) === entry)
+          this.entries.delete(entry.sessionId);
+        return;
+      } catch (error) {
+        this.reportTargets(entry, error);
       await sleep(POLL_INTERVAL_MS);
-      if (this.entries.get(entry.sessionId) === entry && !entry.invalidated) {
-        await this.settleTerminalEntry(entry);
       }
     }
   }
