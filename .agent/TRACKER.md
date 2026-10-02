@@ -14,7 +14,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R46-G1** | Make every submission-preflight failure non-destructive while preserving actual native-start cleanup | **Pending implementation** |
+| **R46-G1** | Make every submission-preflight failure non-destructive while preserving actual native-start cleanup | **Complete — commit `f93c307` pushed. `submitOnce()` now rejects every pre-admission observation failure without abandoning or releasing ownership; restored Running probe failure and fresh-wrapper retry regressions passed. Actual native-start failure cleanup remains covered by the existing ownership path.** |
 | **R46-G2** | Keep terminal release fallback authority alive through active-owner settlement and make retries iterative | **Pending implementation** |
 | **R46-G3** | Bound completed-release and clear-invalidation bookkeeping by live/in-flight lifecycle state | **Pending implementation** |
 | **R46-G4** | Report restored terminal callback/cleanup errors even after the target detaches | **Pending implementation** |
@@ -27,6 +27,10 @@
 - Keep `libs/libffmpegkit` fast-forwarded/frozen at the recorded SHA and read-only; keep `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders` read-only. Use only existing local ABI `0.11.2` artifacts already configured in the repository.
 - Complete each goal in order with evidence, a meaningful commit, and a push before changing its tracker status to **Complete**. Do not use Review 46, R46, goal, or finding identifiers in implementation/test names. Exclude pedantic/style/procedural observations from the substantive audit.
 - Do not launch interactive apps, simulators, devices, or Web UI. Do not run hosted Flutter/React Native build/test workflows; only the final exact-SHA wrapper source snapshot is permitted.
+
+### Review 46 goal evidence
+
+- G1 focused validation: `npm run test:compile` exited 0; `node --test tests/restored-session-observer.test.js tests/wasm-session-ownership.test.js` passed **58/58**. The restored state-probe failure recorded zero executor starts, zero abandonment, zero release calls, retained observer ownership, and normal terminal release after recovery. The fresh-wrapper probe failure preserved the handle and a later retry executed exactly once; native-start failure cleanup remained green.
 
 
 ## Review 45 Flutter + React Native Final Wrapper Closure — 2026-10-02
