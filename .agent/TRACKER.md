@@ -1,5 +1,41 @@
 # Tracker
 
+## Review 44 Flutter + React Native Wrapper Closure — 2026-10-02
+
+- Plan: [review-44-luna-flutter-react-native-closure-plan.md](./review-44-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-44-flutter-react-native-code-review.md](./review-44-flutter-react-native-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 44 documents were read completely, SHA-256 verified, and materialized locally. The review is code-review-only: Flutter and the platform-native bridge are closed; five substantive React Native wrapper lifecycle findings remain.**
+- Starting source authority: `d8320a5fd3cd4031d9c9b9a0edf71539231c5380`; the current branch contains only subsequent Review 43 source-snapshot tracker metadata. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Downloaded plan SHA-256: `4298555C67A8F5956277A98B9F3597B86436ADB6C1BC847C38D306DA60B89E33` (**1469 lines**); downloaded review SHA-256: `58AE6CBCFC8A2F8B0DF8158A661FC377F54E2C31CC2A8174492262A56283AFDD` (**787 lines**).
+- Finding disposition: the implementation is limited to React Native queue-aware ID cancellation, submitted-startup cancellation classification, restored Running lifetime ownership, restored-session callback observation, and Web temporary-pointer failure atomicity. No Flutter production change, native ABI change, submodule change, ManyLinux builder change, native publication, remote native artifact retrieval, or hosted acceptance test is authorized.
+- Validation order: Windows → Android on local Windows → Linux/WSL → Apple last through the authorized MacBook Air SSH host. Use existing local ABI artifacts, analytics-disabled Flutter/Dart commands, tagged task-owned processes, bounded observation, and cleanup. Only the final exact-SHA wrapper source-snapshot workflow may run remotely.
+- Semantic naming boundary: Review 44, goal, and finding identifiers are metadata only. Production/test names must describe queue-aware cancellation, submitted-startup handoff, restored-session observation, callback demand, and failure-atomic Web ownership.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R44-G1** | Route public React Native ID cancellation through the durable queue/session authority and define ID `0` cancel-all behavior | **Pending implementation** |
+| **R44-G2** | Distinguish true pre-submission `Created` abandonment from submitted-startup handoff cancellation | **Pending implementation** |
+| **R44-G3** | Give restored Running history wrappers one deduplicated terminal lifetime authority per session ID | **Pending implementation** |
+| **R44-G4** | Make callbacks attached to restored Running wrappers acquire observer demand and retire correctly | **Pending implementation** |
+| **R44-G5** | Make React Native Web history-pointer state probing failure-atomic | **Pending implementation** |
+| **R44-G6** | Add deterministic regressions and documentation, run the ordered local matrix, perform the final audit, freeze the exact source SHA, and verify one wrapper-only source snapshot | **Pending implementation** |
+
+### Review 44 implementation boundary
+
+- Review 44 is wrapper-only. Do not edit `libs/libffmpegkit`, `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`, native ABI exports, or native artifact configuration/publication. Use only the existing local Windows/Linux/Wasm archives, Android AAR, and Mac universal XCFramework archives already configured in the repository.
+- Complete the goals in order, with a meaningful commit and push after each completed goal before changing its tracker status to **Complete**. Do not use Review 44 or goal identifiers in implementation/test names.
+- Preserve the accepted Flutter lifecycle and platform-native bridge invariants. Any blocker requiring native ABI changes must be recorded with concrete evidence rather than worked around by editing frozen native code.
+- Do not launch interactive apps, simulators, or devices automatically. Run Windows and Android on local Windows, Linux and shared-C++ oracles under WSL, and Apple builds/tests over SSH to the MacBook Air.
+
+### Review 44 review findings and required closure
+
+- Public static React Native ID cancellation currently calls the backend directly, bypassing queue removal, durable intent, and active-session de-duplication. The fix must find managed queued/active sessions and call their semantic `Session.cancel()` path; unknown-ID behavior must be explicit and tested; ID `0` must cover queued and active managed work.
+- A submitted session can remain `Created` during native handoff. Only an actually unsubmitted `Created` session may be abandoned; submitted-startup cancellation must preserve history and intent until Running or terminal observation.
+- Native/Web history projection can promote a Running handle without a later terminal owner when reconstructed wrappers lack the original execution monitor. Add one per-ID observer/release authority, canonicalize history reconstruction, deduplicate concurrent release, and stop/invalidate it only after successful global clear.
+- Callback setters on restored Running wrappers currently store sinks but do not activate observer callback demand. Attach demand to the restored observer, roll back setter state on installation failure, deliver completion/log/statistics at most once, and release demand at terminal or sink removal without re-executing the session.
+- React Native Web `historyPointer()` can leak a temporary owning pointer if the scalar state probe throws before returning its ownership descriptor. Release exactly once while preserving the original probe error.
+- Exclude pedantic/style/procedural observations from the final substantive audit. Do not claim closure without focused deterministic tests and the ordered local platform evidence.
+
 ## Review 43 Flutter iOS Texture Registration Closure — 2026-10-02
 
 - Plan: [review-43-luna-platform-native-bridge-closure-plan.md](./review-43-luna-platform-native-bridge-closure-plan.md)
