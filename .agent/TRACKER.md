@@ -1,5 +1,41 @@
 # Tracker
 
+## Review 45 Flutter + React Native Final Wrapper Closure — 2026-10-02
+
+- Plan: [review-45-luna-flutter-react-native-closure-plan.md](./review-45-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-45-flutter-react-native-code-review.md](./review-45-flutter-react-native-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 45 documents were read completely, SHA-256 verified, and materialized locally. This is a code-review-only handoff identifying five substantive React Native wrapper lifecycle findings; Flutter and platform-native bridge surfaces are closed.**
+- Starting source authority: `2b4b902b0aa918d871659380475ebf6ec3bb06d3`, the exact Review 44 wrapper snapshot. Frozen native ABI/runtime is `0.11.2`; `libs/libffmpegkit` remains `b74da2c5d1e294b87d15d73a6687393729e932b3` on `dev`, matching `origin/dev`.
+- Downloaded plan SHA-256: `AA7FDDFCE529EE3B1B2C3223A0F2F4786DE7E8CF9AA189D453EDC4270C13BBA0` (**2389 lines**); downloaded review SHA-256: `1D754A8B5286A948EECC9A22A0006C54976080B8F34C86FCE2C96DA9ABAF1613` (**1109 lines**).
+- Finding disposition: implement only non-destructive invalid submission/handoff rejection, truthful retryable restored cancellation, active execution-owner release ordering, bounded restored observation targets, and serialized restored callback setup. No Flutter production change, platform-native change, native ABI/submodule/builder change, native publication, remote old artifact retrieval, or hosted acceptance test is authorized.
+- Validation order: Windows → Android on local Windows → Linux/WSL where affected → Apple last through the authorized MacBook Air SSH host. Use existing local ABI artifacts, analytics-disabled Flutter/Dart commands, tagged processes, bounded observation, and cleanup. Only the final exact-SHA wrapper source-snapshot workflow may run remotely.
+- Semantic naming boundary: Review 45, goal, and finding identifiers are metadata only. Production/test names must describe submission validation, cancellation delivery, execution ownership, bounded observation, and transactional callback setup.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R45-G1** | Make invalid/non-Created submission and queue handoff rejection non-destructive while preserving explicit queued discard | **Pending implementation** |
+| **R45-G2** | Preserve restored cancellation failures and retry durable cancellation through one per-ID dispatch authority | **Pending implementation** |
+| **R45-G3** | Keep the active execution monitor authoritative through final callback drain before retained-handle release | **Pending implementation** |
+| **R45-G4** | Bound restored observation memory independently of history-read frequency and retain only callback-bearing targets | **Pending implementation** |
+| **R45-G5** | Serialize restored callback setup with terminal/clear cleanup and roll back terminal-winning async setup | **Pending implementation** |
+| **R45-G6** | Add deterministic regressions/documentation, audit all layers, freeze the exact wrapper SHA, and verify one source snapshot if clean | **Pending implementation** |
+
+### Review 45 implementation boundary
+
+- Review 45 is wrapper-only. Do not edit `libs/libffmpegkit`, `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders`, native ABI exports, or native artifact configuration/publication. Use only the existing locally configured ABI `0.11.2` artifacts.
+- Expected production scope is React Native TypeScript/Web lifecycle code and semantic tests/documentation. Do not change Flutter, shared C++, or platform-native sources unless a new reachable substantive defect is proven; none is identified by Review 45.
+- Preserve the accepted Review 44 queue-aware cancellation, submitted-startup handling, canonical history reconstruction, per-ID restored observation, callback-demand separation, and failure-atomic Web pointer behavior.
+- Complete each goal with evidence, a meaningful commit, and a push before changing its tracker status to **Complete**. Do not use Review 45 or goal/finding identifiers in implementation/test names.
+- Do not launch interactive apps, simulators, devices, or Web UI. Do not use hosted Flutter/React Native acceptance workflows; only the final exact-SHA wrapper source snapshot is permitted.
+
+### Review 45 findings to close
+
+- Invalid Running/terminal history-wrapper execution and queue handoff validation must reject without invoking explicit queued-discard cleanup, abandoning the existing identity, or releasing retained ownership; explicit queued cancellation must keep its destructive discard behavior.
+- Static restored-session cancellation must propagate real lookup/state/native failures, preserve durable intent, and retry undelivered cancellation through one per-ID authority while Running; unknown-ID compatibility must be narrow.
+- Restored terminal observation must not release while an active execution monitor owns final callback/log/statistics drain; history-only observation must still release once and retry release failures.
+- Repeated Running history reads must keep one ID-level observer without strongly retaining every reconstructed wrapper; only live callback-bearing wrappers become targets.
+- Async restored log/statistics callback setup must serialize with terminal/clear cleanup, revalidate liveness after bridge installation, release partial demand, avoid post-terminal subscriptions, and reject terminal-winning setup.
+
 ## Review 44 Flutter + React Native Wrapper Closure — 2026-10-02
 
 - Plan: [review-44-luna-flutter-react-native-closure-plan.md](./review-44-luna-flutter-react-native-closure-plan.md)
