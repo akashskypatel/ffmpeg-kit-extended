@@ -1,5 +1,26 @@
 # Tracker
 
+## React Native Advanced Bridge API Final Closure — 2026-10-03
+
+- Plan: [react-native-advanced-bridge-api-final-closure-plan.md](./react-native-advanced-bridge-api-final-closure-plan.md)
+- Audit: [react-native-advanced-bridge-api-final-closure-audit.md](./react-native-advanced-bridge-api-final-closure-audit.md)
+- Preparation status: **Prepared for implementation — both supplied documents were read completely, hash-verified, and materialized under semantic `.agent` names.**
+- Supplied document hashes: plan `2B51BCEA1E2D7EC18E865757CE4C3B69759235975AE56B6202CB54C02A626FF0` (**659 lines**); audit `26F6A4631D9CFF50D075406110F4410E8A2B5EAE1C99FA723F7F5E0543FCAFA0` (**306 lines**).
+- Frozen starting authority: implementation SHA `a5d11102063710582895ee2425289bd06bb5bb80`; source snapshot workflow `37144478826`, artifact `11282041436`; `libs/libffmpegkit` remains frozen at `b74da2c5d1e294b87d15d73a6687393729e932b3`.
+- Scope: React Native native bridge TypeScript type declarations, documentation-contract tests, generated TypeDoc Markdown, and tracker metadata only. Flutter, native/platform-native runtime, Web/Wasm runtime, ABI, builders, and submodule source remain frozen. No native artifact retrieval/publication or hosted acceptance workflow is permitted.
+- Semantic naming: plan/audit goal identifiers are tracker metadata only; production symbols, tests, documentation pages, and working-copy filenames must use semantic names.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **G1** | Replace the opaque mapped public bridge alias with an explicit complete consumer contract while preserving Codegen `Spec` | **Pending** |
+| **G2** | Enforce generated method/signature visibility, scalar self-containment, full inventory coverage, and shared category metadata | **Pending** |
+| **G3** | Regenerate, validate, prove zero runtime-emitting change, and freeze one exact final source snapshot | **Pending** |
+
+### Final closure preparation evidence
+
+- The supplied audit identifies one remaining substantive finding: `NativeFFmpegKitExtendedSpec` still renders as `{ [Key in keyof Spec]: Spec[Key] }`, the generated regression matches prose rather than generated signatures, the public log event exposes `Double`/`Int32`, and the public bridge type aliases are not grouped with the bridge value.
+- Already-closed observer, queue, constructor, TypeDoc, drift, runtime, native, Flutter, ABI, builder, and submodule surfaces must not be reopened.
+
 ## React Native Consumer-Facing API Surface Follow-up — 2026-10-03
 
 - Plan: [react-native-api-docs-consumer-surface-plan.md](./react-native-api-docs-consumer-surface-plan.md)
