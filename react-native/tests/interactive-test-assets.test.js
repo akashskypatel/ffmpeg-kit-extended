@@ -6,6 +6,7 @@ const path = require("node:path");
 const { test } = require("node:test");
 
 const assetsRoot = path.join(__dirname, "..", "example", ".maestro");
+const appiumRoot = path.join(__dirname, "..", "example", "interactive-tests", "appium");
 const rootFlows = {
   android: {
     file: path.join(assetsRoot, "android", "core-media-smoke.yaml"),
@@ -73,3 +74,18 @@ test("Maestro mobile flow assets preserve the local semantic contract", () => {
   assert.doesNotMatch(allContent, /maestro\s+cloud/i);
   assert.doesNotMatch(allContent, /(?:tapOn|swipe|longPress):\s*\{?\s*(?:x|y|point|coordinates)\b/i);
 });
+
+test("Apple Appium capability examples preserve the local semantic contract", () => {
+  const macos = JSON.parse(read(path.join(appiumRoot, "capabilities.macos.example.json")));
+  const tvos = JSON.parse(read(path.join(appiumRoot, "capabilities.tvos.example.json")));
+  assert.equal(macos.platformName, "mac");
+  assert.equal(macos["appium:automationName"], "mac2");
+  assert.equal(macos["appium:bundleId"], "org.reactjs.native.FFmpegKitExtendedExample");
+  assert.equal(tvos.platformName, "tvOS");
+  assert.equal(tvos["appium:automationName"], "XCUITest");
+  assert.equal(tvos["appium:bundleId"], "org.reactjs.native.example.FFmpegKitExtendedExample");
+  const capabilityContent = `${JSON.stringify(macos)}\n${JSON.stringify(tvos)}`;
+  assert.doesNotMatch(capabilityContent, /https?:\/\/(?!127\.0\.0\.1|localhost)/i);
+  assert.doesNotMatch(capabilityContent, /(?:udid|deviceudid|password|token|access[_-]?key)\s*[:=]/i);
+});
+

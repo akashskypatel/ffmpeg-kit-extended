@@ -1,0 +1,6 @@
+{
+  "platformName": "mac",
+  "appium:automationName": "mac2",
+  "appium:bundleId": "org.reactjs.native.FFmpegKitExtendedExample",
+  "appium:app": "react-native/example/macos/build/DerivedData/Build/Products/Debug/FFmpegKitExtendedExample.app"
+}

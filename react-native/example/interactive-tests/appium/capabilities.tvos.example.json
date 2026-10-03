@@ -1,0 +1,8 @@
+{
+  "platformName": "tvOS",
+  "appium:automationName": "XCUITest",
+  "appium:deviceName": "<Apple TV simulator name>",
+  "appium:platformVersion": "<installed tvOS version>",
+  "appium:bundleId": "org.reactjs.native.example.FFmpegKitExtendedExample",
+  "appium:app": "react-native/example/appletvos/build/DerivedData/Build/Products/Debug-appletvsimulator/FFmpegKitExtendedExample.app"
+}
