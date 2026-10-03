@@ -1,5 +1,29 @@
 # Tracker
 
+## Review 51 React Native Terminal-Cancellation Authority Closure — 2026-10-02
+
+- Plan: [review-51-luna-flutter-react-native-closure-plan.md](./review-51-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-51-flutter-react-native-code-review.md](./review-51-flutter-react-native-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 51 documents were read completely, SHA-256 verified, materialized as the active `.agent` working copies, and superseded Review 50 working copies were removed.**
+- Downloaded source hashes: code review `8D89F5887C7BEBD650BD6B8CB683772289DEB17815FF55AA21E8DE6D35E08E59` (**425 lines**); plan `3C4F4E1D401B00F8C5E318835623A69350EFBF569DA365A4A6E8C9DC9DC26224` (**800 lines**).
+- Starting authority: Review 50 implementation source `2b9e0fe954cabca3142ff6111f98758166163aa3`; snapshot repository SHA `e58dd81043bcc6feeaebca9e77efe7793ebcba87`; workflow `37099036076`; artifact `repo-source-snapshot-37099036076`, ID `11264529533`; native submodule `b74da2c5d1e294b87d15d73a6687393729e932b3`; native ABI/runtime `0.11.2`.
+- Finding disposition: native ABI/runtime, Flutter, shared C++, and platform-native bridges remain **closed/frozen**. One React Native wrapper finding remains: a secondary wrapper re-records durable cancellation intent before delegating to a canonical managed owner during terminal retained-release finalization.
+- Frozen boundaries: do not edit `libs/libffmpegkit`, the ManyLinux builders checkout, native ABI/configuration, platform-native trees, Flutter production, or native artifact publication. Do not retrieve remote staged native artifacts. Hosted Flutter/React Native build/test workflows are prohibited; only the final exact-SHA wrapper source snapshot is permitted.
+- Validation order: Windows → Android on local Windows → Linux/WSL where affected → Apple last over authorized MacBook Air SSH. Use configured local ABI artifacts, tagged processes, bounded observation, immediate hang/orphan cleanup, and no interactive runtime validation. Flutter remains no-drift scope unless direct evidence contradicts the review.
+- Stale cleanup: removed superseded Review 50 working copies from `.agent`; preserved the tracker and support directories.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R51-G1** | Make secondary-wrapper cancellation a pure delegation for durable native-ID cancellation authority | **Pending** |
+| **R51-G2** | Add the deterministic terminal-finalization regression and semantic cancellation-authority documentation | **Pending** |
+| **R51-G3** | Preserve prior lifecycle behavior, run ordered local validation, freeze the exact SHA, and verify one wrapper-only snapshot | **Pending** |
+
+### Review 51 preparation evidence
+
+- Review 51 independently verified the Review 50 snapshot provenance: outer artifact, embedded archive, all **1080/1080** manifest entries, submodule record, zero symlinks, and `runtimeExecution=false`. No new Flutter or platform-native drift was found.
+- The intended implementation boundary is `react-native/src/session.ts`, `react-native/tests/wasm-session-ownership.test.js`, and semantic React Native documentation only. `session-lifetime.ts`, queue-manager ownership semantics, Flutter, native ABI, shared C++, platform-native trees, and the ManyLinux checkout remain read-only unless direct test evidence requires investigation.
+- Production and test names must describe cancellation authority, terminal finalization, retained-release gating, and local wrapper state. Review 51, goal, and finding identifiers are tracker metadata only.
+
 ## Review 50 React Native Wrapper Reliability Closure — 2026-10-02
 
 - Plan: [review-50-luna-flutter-react-native-closure-plan.md](./review-50-luna-flutter-react-native-closure-plan.md)
