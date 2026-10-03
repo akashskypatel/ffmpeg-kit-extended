@@ -417,7 +417,7 @@ prepare_appletvos_runtime_files() {
   "dependencies": {
     "ffmpeg-kit-extended": "file:.local-packages/ffmpeg-kit-extended-local.tgz",
     "react": "19.2.3",
-    "react-native": "npm:react-native-tvos@0.86.0-2"
+    "react-native": "npm:react-native-tvos@0.86.3-0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -425,9 +425,9 @@ prepare_appletvos_runtime_files() {
     "@babel/runtime": "^7.25.0",
     "@react-native-community/cli": "20.1.0",
     "@react-native-community/cli-platform-ios": "20.1.0",
-    "@react-native/babel-preset": "0.86.0",
-    "@react-native/metro-config": "0.86.0",
-    "@react-native/typescript-config": "0.86.0",
+    "@react-native/babel-preset": "0.86.3",
+    "@react-native/metro-config": "0.86.3",
+    "@react-native/typescript-config": "0.86.3",
     "@types/react": "^19.2.0",
     "typescript": "^5.8.3"
   },
