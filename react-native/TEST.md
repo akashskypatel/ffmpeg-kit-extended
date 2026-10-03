@@ -1,5 +1,18 @@
 ## Development checks
 
+The cross-wrapper entry point is
+[`../docs/interactive-testing.md`](../docs/interactive-testing.md). The local
+native agent surfaces are:
+
+- [committed Maestro flows](example/.maestro/), the RN Android/iOS authority;
+- [Appium/Mac2 and XCUITest guide](example/interactive-tests/appium/README.md)
+  for RN macOS/tvOS;
+- [AutoGenesis Windows guide](example/interactive-tests/windows/README.md) for
+  RN Windows.
+
+All three are external development tooling and use the configured local ABI;
+they are not package dependencies or hosted interactive workflows.
+
 ## Local interactive runtime preflight
 
 Interactive React Native launches must use the local example overrides in

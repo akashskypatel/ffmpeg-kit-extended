@@ -25,6 +25,9 @@ By participating in this project, you are expected to uphold our Code of Conduct
 2. Create a new branch (`git checkout -b feature/my-new-feature`).
 3. Make your changes.
 4. Ensure tests pass (`dart test` or `flutter test`).
+   For local cross-platform interactive checks, follow the
+   [interactive testing guide](docs/interactive-testing.md); hosted workflows
+   are not a substitute for a local target.
 5. Commit your changes following the [Conventional Commits](https://www.conventionalcommits.org/) format.
 6. Push to the branch (`git push origin feature/my-new-feature`).
 7. Create a new Pull Request.

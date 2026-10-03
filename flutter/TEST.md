@@ -1,5 +1,11 @@
 # Flutter local testing
 
+The Flutter Marionette interactive agent contract is documented in
+[`example/interactive-tests/marionette.md`](example/interactive-tests/marionette.md)
+and the cross-wrapper matrix is in
+[`../docs/interactive-testing.md`](../docs/interactive-testing.md).
+All interactive targets use the configured local ABI/runtime only.
+
 Flutter interactive tests are local-only because the frozen native ABI is not
 published for hosted test runners. Use the existing Hooks configuration in
 `flutter/pubspec.yaml` and `flutter/example/pubspec.yaml`; do not introduce a
@@ -25,8 +31,8 @@ The recommended command preflight for Flutter/Dart local locking symptoms is
 an elevated shell followed by:
 
 ```bash
-+flutter config --no-analytics
-+dart --disable-analytics
+flutter config --no-analytics
+dart --disable-analytics
 ```
 
 Tag spawned processes with `FFMPEG_KIT_TASK_TAG`, observe bounded commands, and

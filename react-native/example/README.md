@@ -3,6 +3,13 @@
 This is the runnable Android/iOS/Apple tvOS/macOS/Windows example application for `ffmpeg-kit-extended`.
 Its UI and scenarios are based on `flutter/example/lib/main.dart`.
 
+For the local interactive test contract and evidence requirements, see
+[`../../docs/interactive-testing.md`](../../docs/interactive-testing.md) and
+[`../TEST.md`](../TEST.md). The platform agent guides are
+[`.maestro/`](.maestro/),
+[`interactive-tests/appium/`](interactive-tests/appium/), and
+[`interactive-tests/windows/`](interactive-tests/windows/).
+
 ## Covered scenarios
 
 - FFmpeg test video/audio generation.

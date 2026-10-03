@@ -4,6 +4,12 @@ This example application demonstrates the core features of the `ffmpeg_kit_exten
 
 ## Getting Started
 
+For the complete local interactive test sequence, see
+[`flutter/TEST.md`](../TEST.md) and
+[`interactive-tests/marionette.md`](interactive-tests/marionette.md). Those
+guides use the configured local ABI/runtime and do not substitute hosted or
+historical artifacts.
+
 ### Prerequisites
 
 - **Flutter SDK**
