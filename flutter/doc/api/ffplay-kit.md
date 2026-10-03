@@ -27,6 +27,7 @@ For video playback, use the `FFplaySurface` class to create a cross-platform vid
 ```dart
 // Create surface before starting playback
 final surface = await FFplaySurface.create();
+if (surface == null) return;
 
 // Start playback
 final session = await FFplayKit.executeAsync('-i "video.mp4"');
@@ -144,7 +145,7 @@ FFplayKit.start();
 
 ---
 
-### createSessionFromArguments
+### FFplayKit.createSessionFromArguments
 
 Creates a new FFplay session from pre-tokenized arguments without starting
 playback. Call `FFplayKit.start()` to begin execution.
