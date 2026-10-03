@@ -56,7 +56,7 @@ export function ensureRetainedReleaseRetry(sessionId: number): void {
     }
   })();
   retainedReleaseRetries.set(sessionId, retry);
-  void retry.then(
+  retry.then(
     () => {
       if (retainedReleaseRetries.get(sessionId) === retry)
         retainedReleaseRetries.delete(sessionId);

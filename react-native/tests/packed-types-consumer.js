@@ -146,8 +146,8 @@ function main() {
     for (const conditions of [['react-native'], ['browser', 'react-native']]) {
       const resolved = resolveTypes(fixture, conditions);
       assert.equal(
-        path.normalize(resolved),
-        path.normalize(installedDeclaration),
+        fs.realpathSync.native(resolved),
+        fs.realpathSync.native(installedDeclaration),
         `Unexpected declaration for conditions: ${conditions.join(', ')}`,
       );
       assert.doesNotMatch(resolved, /[/\\]src[/\\]index(?:\.web)?\.ts$/);
