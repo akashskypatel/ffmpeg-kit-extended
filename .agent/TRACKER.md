@@ -14,7 +14,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R48-G1** | Record retained queued-session cancellation state, make committed never-started cancellation idempotent, and preserve failed cancellation retries | **Pending — implementation next** |
+| **R48-G1** | Record retained queued-session cancellation state, make committed never-started cancellation idempotent, and preserve failed cancellation retries | **Complete — `eada59c` pushed. Queue marker and retained-object regressions pass; focused queue/Wasm ownership run: 61/61 passed, 0 failed. Evidence includes one pre-execution mark, zero full cancel calls for queued discard, zero executor starts, one Created abandonment after success, no second state read after committed abandonment, retry after failed abandonment, and existing Running native-cancellation retry.** |
 | **R48-G2** | Initiate active cancellation without awaiting unrelated queued cleanup, while aggregating all initiated work deterministically | **Pending** |
 | **R48-G3** | Add semantic cancellation documentation and preserve Review 44–47 regressions | **Pending** |
 | **R48-G4** | Run local affected validation, audit no-drift boundaries, freeze exact source, and verify one wrapper-only source snapshot | **Pending** |
