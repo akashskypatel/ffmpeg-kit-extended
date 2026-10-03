@@ -12,11 +12,15 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **G1** | Correct factual React Native README/TSDoc mismatches before documentation generation | **Pending** |
+| **G1** | Correct factual React Native README/TSDoc mismatches before documentation generation | **Complete — `06afe1c`; pushed.** |
 | **G2** | Define the generated public API boundary and complete missing semantic TSDoc | **Pending** |
 | **G3** | Add strict TypeDoc Markdown generation and commit the API reference | **Pending** |
 | **G4** | Add deterministic cross-platform generated-document drift validation | **Pending** |
 | **G5** | Complete API quality, packaging, platform-note, semantic-name, and no-runtime-diff validation | **Pending** |
+
+### React Native documentation goal evidence
+
+- G1: `react-native/README.md` now describes FFplay position/video dimensions as synchronous queries, awaits sequential Promise-returning playback controls, and `react-native/src/ffplay-kit.ts` documents newest-unsettled current-session ownership with fallback to the next newest unsettled session. The semantic contract test in `react-native/tests/documentation-contract.test.js` passed **2/2**; `npm run typecheck` passed; `npm run lint` passed with **0 errors** and five pre-existing warnings. No runtime behavior changed.
 
 ## Flutter Documentation and Public-Comment Remediation — 2026-10-03
 
