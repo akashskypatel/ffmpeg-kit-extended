@@ -38,6 +38,9 @@ on:
       artifact_id:
         description: Uploaded source snapshot artifact ID.
         value: ${{ jobs.snapshot.outputs.artifact_id }}
+      artifact_url:
+        description: Authenticated URL for the uploaded source snapshot artifact.
+        value: ${{ jobs.snapshot.outputs.artifact_url }}
       artifact_digest:
         description: Digest reported by actions/upload-artifact.
         value: ${{ jobs.snapshot.outputs.artifact_digest }}
@@ -73,20 +76,20 @@ on:
         type: boolean
         default: false
 
-permissions:
-  contents: read
-
 concurrency:
   group: repo-source-snapshot-${{ github.repository_id }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   snapshot:
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     outputs:
       snapshot_sha: ${{ steps.metadata.outputs.snapshot_sha }}
       artifact_name: ${{ steps.metadata.outputs.artifact_name }}
       artifact_id: ${{ steps.upload.outputs['artifact-id'] }}
+      artifact_url: ${{ steps.upload.outputs['artifact-url'] }}
       artifact_digest: ${{ steps.upload.outputs['artifact-digest'] }}
 
     steps:
@@ -183,6 +186,8 @@ jobs:
           rsync -a \
             --exclude='.git' \
             --exclude='.git/**' \
+            --exclude='.workflow-mailbox' \
+            --exclude='.workflow-mailbox/**' \
             "${GITHUB_WORKSPACE}/" "$source_dir/"
 
           if find "$source_dir" -name .git -print -quit | grep -q .; then
@@ -287,3 +292,21 @@ jobs:
           path: ${{ runner.temp }}/repo-source-snapshot.log
           if-no-files-found: error
           retention-days: ${{ inputs.retention_days }}
+
+  mailbox:
+    if: always()
+    needs: [snapshot]
+    permissions:
+      actions: read
+      contents: write
+    uses: ./.github/workflows/workflow-mailbox-publisher.yml
+    with:
+      workflow_key: repo-source-snapshot
+      source_sha: ${{ needs.snapshot.outputs.snapshot_sha != '' && needs.snapshot.outputs.snapshot_sha || github.sha }}
+      source_ref: ${{ inputs.source_ref != '' && inputs.source_ref || github.ref }}
+      result: ${{ needs.snapshot.result }}
+      summary: Repository source snapshot for the requested frozen implementation source.
+      artifact_name: ${{ needs.snapshot.outputs.artifact_name }}
+      artifact_id: ${{ needs.snapshot.outputs.artifact_id }}
+      artifact_url: ${{ needs.snapshot.outputs.artifact_url }}
+      artifact_digest: ${{ needs.snapshot.outputs.artifact_digest }}

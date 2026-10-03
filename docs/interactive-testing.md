@@ -183,3 +183,17 @@ The final source snapshot is a separate repository-publication step after
 local acceptance and source freeze. It must record the requested source SHA,
 workflow run, artifact ID/link, checksums, and mailbox metadata; it does not
 replace interactive evidence.
+
+## Source snapshot mailbox
+
+The reusable snapshot workflow publishes the source archive and then calls the
+race-safe mailbox publisher. The latest discovery pointer is
+`.workflow-mailbox/repo-source-snapshot/latest.json`; immutable per-run records
+are under `.workflow-mailbox/repo-source-snapshot/runs/`.
+
+Consumers must use the mailbox `source_sha`, not the branch head after the
+mailbox metadata commit. Verify the recorded workflow/run URL, artifact ID and
+authenticated artifact URL, artifact digest, embedded `snapshot-metadata.json`,
+`source.tar.gz.sha256`, every `SHA256SUMS` entry, symlink manifest, and
+submodule state. The mailbox commit is discovery metadata and is intentionally
+not part of the source archive it reports.

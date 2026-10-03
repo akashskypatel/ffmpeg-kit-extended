@@ -1,0 +1,191 @@
+name: Publish Workflow Mailbox Record
+
+on:
+  workflow_call:
+    inputs:
+      workflow_key:
+        description: Stable mailbox key for the producing workflow.
+        required: true
+        type: string
+      source_sha:
+        description: Frozen implementation SHA represented by the producing run.
+        required: true
+        type: string
+      source_ref:
+        description: Requested source ref represented by the producing run.
+        required: true
+        type: string
+      result:
+        description: Producing job result.
+        required: true
+        type: string
+      summary:
+        description: Semantic description of the producing result.
+        required: true
+        type: string
+      artifact_name:
+        description: Source snapshot artifact name, when available.
+        required: false
+        type: string
+        default: ""
+      artifact_id:
+        description: Source snapshot artifact ID, when available.
+        required: false
+        type: string
+        default: ""
+      artifact_url:
+        description: Authenticated source snapshot artifact URL, when available.
+        required: false
+        type: string
+        default: ""
+      artifact_digest:
+        description: Source snapshot artifact digest, when available.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: workflow-mailbox-${{ github.repository_id }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Checkout the current branch head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Publish race-safe mailbox record
+        env:
+          MAILBOX_KEY: ${{ inputs.workflow_key }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_REF: ${{ inputs.source_ref }}
+          RESULT: ${{ inputs.result }}
+          SUMMARY: ${{ inputs.summary }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+          ARTIFACT_ID: ${{ inputs.artifact_id }}
+          ARTIFACT_URL: ${{ inputs.artifact_url }}
+          ARTIFACT_DIGEST: ${{ inputs.artifact_digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" != "branch" ]]; then
+            echo "Mailbox publication requires a branch ref; got ${GITHUB_REF}." >&2
+            exit 2
+          fi
+
+          branch="${GITHUB_REF#refs/heads/}"
+          mailbox_dir=".workflow-mailbox/${MAILBOX_KEY}"
+          runs_dir="${mailbox_dir}/runs"
+          run_file="${runs_dir}/${GITHUB_RUN_ID}-attempt-${GITHUB_RUN_ATTEMPT}.json"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for retry in 1 2 3 4 5 6; do
+            echo "mailbox_push_attempt=${retry}"
+            git fetch --no-tags origin "${branch}"
+            git reset --hard "origin/${branch}"
+            mkdir -p "${runs_dir}"
+
+            published_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            record_tmp="${RUNNER_TEMP}/workflow-mailbox-record.json"
+            jq -n \
+              --arg schema_version "1" \
+              --arg workflow_key "${MAILBOX_KEY}" \
+              --arg workflow "${GITHUB_WORKFLOW}" \
+              --arg repository "${GITHUB_REPOSITORY}" \
+              --arg event "${GITHUB_EVENT_NAME}" \
+              --arg event_sha "${GITHUB_SHA}" \
+              --arg source_sha "${SOURCE_SHA}" \
+              --arg source_ref "${SOURCE_REF}" \
+              --arg run_url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+              --arg result "${RESULT}" \
+              --arg summary "${SUMMARY}" \
+              --arg published_at "${published_at}" \
+              --arg artifact_name "${ARTIFACT_NAME}" \
+              --arg artifact_id "${ARTIFACT_ID}" \
+              --arg artifact_url "${ARTIFACT_URL}" \
+              --arg artifact_digest "${ARTIFACT_DIGEST}" \
+              --argjson run_id "${GITHUB_RUN_ID}" \
+              --argjson run_attempt "${GITHUB_RUN_ATTEMPT}" \
+              '{
+                schema_version: $schema_version,
+                workflow_key: $workflow_key,
+                workflow: $workflow,
+                repository: $repository,
+                event: $event,
+                event_sha: $event_sha,
+                source_sha: $source_sha,
+                source_ref: $source_ref,
+                run_id: $run_id,
+                run_attempt: $run_attempt,
+                run_url: $run_url,
+                result: $result,
+                summary: $summary,
+                artifacts: [{
+                  id: $artifact_id,
+                  name: $artifact_name,
+                  artifact_url: $artifact_url,
+                  archive_download_url: $artifact_url,
+                  digest: $artifact_digest,
+                  expired: false,
+                  expires_at: null
+                }],
+                published_at: $published_at
+              }' > "${record_tmp}"
+
+            if [[ -e "${run_file}" ]]; then
+              if ! cmp -s "${record_tmp}" "${run_file}"; then
+                echo "immutable mailbox record already exists with different content: ${run_file}" >&2
+                exit 3
+              fi
+            else
+              cp "${record_tmp}" "${run_file}"
+            fi
+
+            latest_file="${mailbox_dir}/latest.json"
+            publish_latest=false
+            if [[ ! -f "${latest_file}" ]]; then
+              publish_latest=true
+            elif jq -e \
+              --argjson candidate_id "${GITHUB_RUN_ID}" \
+              --argjson candidate_attempt "${GITHUB_RUN_ATTEMPT}" \
+              '($candidate_id > .run_id) or ($candidate_id == .run_id and $candidate_attempt > .run_attempt)' \
+              "${latest_file}" >/dev/null; then
+              publish_latest=true
+            fi
+
+            if [[ "${publish_latest}" == true ]]; then
+              cp "${run_file}" "${latest_file}.tmp"
+              mv "${latest_file}.tmp" "${latest_file}"
+            fi
+
+            git add "${mailbox_dir}"
+            if git diff --cached --quiet; then
+              echo "mailbox record is already published"
+              exit 0
+            fi
+
+            git commit -m "chore: publish ${MAILBOX_KEY} run ${GITHUB_RUN_ID} attempt ${GITHUB_RUN_ATTEMPT}"
+            if git push origin "HEAD:${branch}"; then
+              echo "mailbox publication succeeded"
+              exit 0
+            fi
+            echo "mailbox push raced with a newer branch head; retrying" >&2
+          done
+
+          echo "mailbox publication failed after six race-safe retries" >&2
+          exit 4
