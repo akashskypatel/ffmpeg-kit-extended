@@ -8,9 +8,9 @@
 
 > **NativeFFmpegKitExtendedLogEvent** = `object`
 
-Structured v2 log payload emitted after the native message is copied.
-`sequence` is the native insertion order. The bridge owns and releases the
-native payload before exposing this managed string to JavaScript.
+Stable consumer-facing type-only view of the structured v2 log event emitted
+after the native message is copied. The Codegen `LogEvent` spelling remains
+unchanged for React Native's consumer-owned generation contract.
 
 ## Properties
 

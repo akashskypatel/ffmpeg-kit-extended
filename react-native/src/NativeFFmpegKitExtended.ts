@@ -26,6 +26,22 @@ import type {
  * `sequence` is the native insertion order. The bridge owns and releases the
  * native payload before exposing this managed string to JavaScript.
  */
+export type LogEvent = {
+  /** Native process identity associated with the log entry. */
+  sessionId: Double;
+  /** Monotonic native insertion sequence for the entry. */
+  sequence: Double;
+  /** Native log severity. */
+  level: Int32;
+  /** Managed log message text. */
+  message: string;
+};
+
+/**
+ * Stable consumer-facing type-only view of the structured v2 log event emitted
+ * after the native message is copied. The Codegen `LogEvent` spelling remains
+ * unchanged for React Native's consumer-owned generation contract.
+ */
 export type NativeFFmpegKitExtendedLogEvent = {
   /** Native process identity associated with the log entry. */
   sessionId: Double;
@@ -60,7 +76,7 @@ export interface Spec extends TurboModule {
   cancelSession(sessionId: Double): Promise<void>;
 
   /** Process-wide structured v2 log stream; history polling is the fallback. */
-  readonly onLogEvent: EventEmitter<NativeFFmpegKitExtendedLogEvent>;
+  readonly onLogEvent: EventEmitter<LogEvent>;
   installLogBridge(): Promise<void>;
   uninstallLogBridge(): Promise<void>;
 
