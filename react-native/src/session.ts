@@ -315,7 +315,9 @@ export abstract class Session implements RestoredSessionObservationTarget {
    * Records cancellation immediately, then cancels queued work or requests
    * native cancellation once running. A state-read or native-dispatch failure
    * does not erase the recorded request, so an executing session can still
-   * deliver it when Running is observed again.
+   * deliver it when Running is observed again. Successful never-started
+   * abandonment makes repeated cancellation a no-op; failed cancellation
+   * remains retryable.
    */
   async cancel(): Promise<void> {
     if (

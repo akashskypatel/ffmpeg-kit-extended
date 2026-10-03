@@ -139,7 +139,11 @@ export class FFmpegKitExtended {
     if (restored) await restored.cancel();
   }
 
-  /** Clears queued work and requests cancellation of all active sessions. */
+  /**
+   * Clears queued work and requests cancellation of all active sessions.
+   * Queue cleanup and active delivery start together; the returned promise
+   * settles only after every initiated branch has settled.
+   */
   static async cancelAllSessions(): Promise<void> {
     this.requireInitialized();
     await SessionQueueManager.shared.cancelAll();

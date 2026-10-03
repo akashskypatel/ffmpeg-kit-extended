@@ -238,11 +238,24 @@ payload internally; no borrowed pointer crosses the public API.
 Calling `cancel()` before execution begins prevents Created or queued work from starting. If cancellation is requested while asynchronous native startup is already in flight, the request is retained and forwarded when the session first reaches Running.
 `isCancelled` records that cancellation was requested; the final native state and return code determine whether cancellation won a race with completion.
 
+Removing queued work marks the retained `Session` object cancelled before its
+discard cleanup begins. Its execution promise rejects with
+`SessionCancelledException`, and the queue discard path does not perform a
+native state lookup or Running cancellation dispatch. A never-started Created
+session whose abandonment commits can be cancelled repeatedly without another
+state probe or duplicate abandonment; a failed abandonment or native
+cancellation remains retryable.
+
 `FFmpegKitExtended.cancelSession(id)` participates in the same queue-aware
 cancellation transaction as `Session.cancel()`. ID `0` cancels all queued and
 active managed sessions; a queued target is removed before native execution
 begins. A submitted session can remain `Created` during native handoff and is
 not treated as an abandoned never-submitted identity.
+For an ID-`0` request, queued removal/cleanup and active cancellation are
+initiated as one transaction. Active cancellation delivery is not delayed by
+asynchronous cleanup of unrelated queued sessions, while the returned promise
+still waits for all initiated cleanup and cancellation work and preserves the
+first failure.
 
 Session objects are single-use execution objects. Create a new `Session` object for another execution.
 

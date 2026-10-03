@@ -183,6 +183,8 @@ export class SessionQueueManager {
 
   /** Clears waiting sessions and requests cancellation of active sessions. */
   cancelAll(): MaybePromise<void> {
+    // Queue removal starts first, but active cancellation is initiated
+    // immediately; asynchronous queued cleanup must not delay delivery.
     let firstError: unknown;
     const pending: Promise<void>[] = [];
 
@@ -273,6 +275,8 @@ export class SessionQueueManager {
       item.reject(rejection);
     };
     try {
+      // Queue cancellation records local pre-execution state without native
+      // state lookup or Running cancellation dispatch.
       item.session.markCancelledBeforeExecution?.();
       const cleanup = item.onDiscard?.();
       if (cleanup instanceof Promise) {
