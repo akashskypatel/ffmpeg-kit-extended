@@ -39,16 +39,19 @@ export type LogEvent = {
 
 /**
  * Stable consumer-facing type-only view of the structured v2 log event emitted
- * after the native message is copied. The Codegen `LogEvent` spelling remains
- * unchanged for React Native's consumer-owned generation contract.
+ * after the native message is copied. The native Codegen payload remains an
+ * internal implementation contract while this public type uses ordinary
+ * JavaScript numeric values.
+ *
+ * @category Advanced / native bridge
  */
 export type NativeFFmpegKitExtendedLogEvent = {
   /** Native process identity associated with the log entry. */
-  sessionId: Double;
+  sessionId: number;
   /** Monotonic native insertion sequence for the entry. */
-  sequence: Double;
+  sequence: number;
   /** Native log severity. */
-  level: Int32;
+  level: number;
   /** Managed log message text. */
   message: string;
 };
@@ -165,17 +168,199 @@ export interface Spec extends TurboModule {
 /**
  * Stable native-only contract for advanced integrations and diagnostics.
  *
- * This public name is a type-only view backed by the React Native Codegen
- * `Spec` declaration above. It exposes the complete native method inventory
- * without adding a JavaScript export or changing Codegen's required `Spec`
- * pattern. Representative methods include `initialize`,
- * `createFFmpegSession`, `getSessionJson`, `ffplayPause`, and `clearSessions`.
+ * Most applications should use the high-level wrappers. Direct use requires
+ * the caller to preserve session lifetime, retained-handle, callback-demand,
+ * and history rules normally owned by those wrappers. This explicit contract
+ * keeps the complete low-level method inventory visible to generated docs
+ * without adding a JavaScript export or changing Codegen's parser-compatible
+ * declaration.
  * The runtime module is exported from the native entry point only; Web has no
  * native module value.
+ *
+ * @category Advanced / native bridge
  */
 export type NativeFFmpegKitExtendedSpec = {
-  [Key in keyof Spec]: Spec[Key];
+  /** Initializes the native library selected by the consuming app configuration. */
+  initialize(): Promise<void>;
+  /** Consumes a synchronous Windows result diagnostic from the same call boundary. */
+  consumeSynchronousError(): string;
+  /** Returns the wrapper/native build stamp. */
+  getBuildStamp(): string;
+
+  /** Creates an FFmpeg session from a command string. */
+  createFFmpegSession(command: string): number;
+  /** Creates an FFmpeg session from pre-tokenized arguments. */
+  createFFmpegSessionFromArguments(arguments_: ReadonlyArray<string>): number;
+  /** Creates an FFprobe session from a command string. */
+  createFFprobeSession(command: string): number;
+  /** Creates an FFplay session from a command string. */
+  createFFplaySession(command: string): number;
+  /** Creates an FFplay session from pre-tokenized arguments. */
+  createFFplaySessionFromArguments(arguments_: ReadonlyArray<string>): number;
+  /** Creates a media-information session from a command string. */
+  createMediaInformationSession(command: string): number;
+  /** Creates a media-information session for a path. */
+  createMediaInformationSessionFromPath(path: string): number;
+  /** Executes a native session asynchronously with a millisecond timeout. */
+  executeSessionAsync(sessionId: number, timeoutMs: number): Promise<void>;
+  /** Requests cancellation of a native session. */
+  cancelSession(sessionId: number): Promise<void>;
+
+  /** Receives structured native log events. */
+  readonly onLogEvent: EventEmitter<NativeFFmpegKitExtendedLogEvent>;
+  /** Installs the process-wide structured log bridge. */
+  installLogBridge(): Promise<void>;
+  /** Removes the process-wide structured log bridge. */
+  uninstallLogBridge(): Promise<void>;
+
+  /** Returns one session snapshot as serialized JSON. */
+  getSessionJson(sessionId: number): string;
+  /** Returns the native lifecycle state for one session. */
+  getSessionState(sessionId: number): number;
+  /** Returns the retained native log count for one session. */
+  getLogsCount(sessionId: number): number;
+  /** Releases the retained native handle for one session. */
+  releaseSessionHandle(sessionId: number): Promise<void>;
+  /** Removes wrapper history for a queued session discarded before execution. */
+  abandonCreatedSession(sessionId: number): Promise<void>;
+  /** Returns session snapshots for a kind as serialized JSON. */
+  getSessionsJson(kind: string): string;
+  /** Returns the latest session snapshot for a kind as serialized JSON. */
+  getLastSessionJson(kind: string): string;
+  /** Returns serialized log entries from a session starting at an index. */
+  getLogsJson(sessionId: number, fromIndex: number): string;
+  /** Returns serialized statistics from a session starting at an index. */
+  getStatisticsJson(sessionId: number, fromIndex: number): string;
+  /** Returns serialized media information for one session. */
+  getMediaInformationJson(sessionId: number): string;
+
+  /** Starts FFplay for one session. */
+  ffplayStart(sessionId: number): Promise<void>;
+  /** Pauses FFplay for one session. */
+  ffplayPause(sessionId: number): Promise<void>;
+  /** Resumes FFplay for one session. */
+  ffplayResume(sessionId: number): Promise<void>;
+  /** Stops FFplay for one session. */
+  ffplayStop(sessionId: number): Promise<void>;
+  /** Seeks FFplay to a position in seconds. */
+  ffplaySeek(sessionId: number, seconds: number): Promise<void>;
+  /** Returns the FFplay position in seconds. */
+  ffplayGetPosition(sessionId: number): number;
+  /** Sets the FFplay position in seconds. */
+  ffplaySetPosition(sessionId: number, seconds: number): Promise<void>;
+  /** Returns the FFplay duration in seconds. */
+  ffplayGetDuration(sessionId: number): number;
+  /** Returns the FFplay video width in pixels. */
+  ffplayGetVideoWidth(sessionId: number): number;
+  /** Returns the FFplay video height in pixels. */
+  ffplayGetVideoHeight(sessionId: number): number;
+  /** Reports whether FFplay is currently playing. */
+  ffplayIsPlaying(sessionId: number): boolean;
+  /** Reports whether FFplay is currently paused. */
+  ffplayIsPaused(sessionId: number): boolean;
+  /** Sets FFplay volume as a normalized numeric value. */
+  ffplaySetVolume(sessionId: number, volume: number): Promise<void>;
+  /** Returns the current FFplay volume. */
+  ffplayGetVolume(sessionId: number): number;
+  /** Reports whether a media path has a video stream. */
+  ffplayHasVideoStream(path: string): boolean;
+
+  /** Enables process-wide output redirection. */
+  enableRedirection(): Promise<void>;
+  /** Disables process-wide output redirection. */
+  disableRedirection(): Promise<void>;
+  /** Sets the native log level. */
+  setLogLevel(level: number): Promise<void>;
+  /** Returns the native log level. */
+  getLogLevel(): number;
+  /** Converts a native log level to display text. */
+  logLevelToString(level: number): string;
+  /** Sets the native font directory and mapping JSON. */
+  setFontDirectory(path: string, mappingJson: string): Promise<void>;
+  /** Sets one native environment variable. */
+  setEnvironmentVariable(name: string, value: string): Promise<void>;
+  /** Configures one native signal to be ignored. */
+  ignoreSignal(signal: number): Promise<void>;
+  /** Selects the native audio output device. */
+  setAudioOutputDevice(deviceName: string): Promise<void>;
+  /** Returns available native audio output devices as serialized JSON. */
+  listAudioOutputDevices(): string;
+
+  /** Returns the bundled FFmpeg version. */
+  getFFmpegVersion(): string;
+  /** Returns the bundled FFmpeg architecture. */
+  getFFmpegArchitecture(): string;
+  /** Returns the wrapper version. */
+  getVersion(): string;
+  /** Returns the native package name. */
+  getPackageName(): string;
+  /** Returns the compiled external-library inventory. */
+  getExternalLibraries(): string;
+  /** Returns the native bundle type. */
+  getBundleType(): string;
+  /** Reports whether the bundle includes GPL components. */
+  isGpl(): boolean;
+  /** Reports whether the bundle includes non-free components. */
+  isNonfree(): boolean;
+  /** Returns registered codec names as serialized JSON. */
+  getRegisteredCodecs(): string;
+  /** Returns registered encoder names as serialized JSON. */
+  getRegisteredEncoders(): string;
+  /** Returns registered decoder names as serialized JSON. */
+  getRegisteredDecoders(): string;
+  /** Returns registered muxer names as serialized JSON. */
+  getRegisteredMuxers(): string;
+  /** Returns registered demuxer names as serialized JSON. */
+  getRegisteredDemuxers(): string;
+  /** Returns registered filter names as serialized JSON. */
+  getRegisteredFilters(): string;
+  /** Returns registered protocol names as serialized JSON. */
+  getRegisteredProtocols(): string;
+  /** Returns registered bitstream-filter names as serialized JSON. */
+  getRegisteredBitstreamFilters(): string;
+  /** Returns the native build configuration. */
+  getBuildConfiguration(): string;
+  /** Returns the native build date. */
+  getBuildDate(): string;
+
+  /** Sets the retained native session-history size. */
+  setSessionHistorySize(size: number): Promise<void>;
+  /** Returns the retained native session-history size. */
+  getSessionHistorySize(): number;
+  /** Clears retained native session history. */
+  clearSessions(): Promise<void>;
+  /** Registers and returns a native FFmpeg pipe path. */
+  registerNewFFmpegPipe(): string;
+  /** Closes a native FFmpeg pipe path. */
+  closeFFmpegPipe(path: string): Promise<void>;
+  /** Returns the number of messages currently in transmission. */
+  messagesInTransmit(sessionId: number): number;
+  /** Enables per-session native debug logging. */
+  enableDebugLog(sessionId: number): Promise<void>;
+  /** Disables per-session native debug logging. */
+  disableDebugLog(sessionId: number): Promise<void>;
+  /** Reports whether per-session native debug logging is enabled. */
+  isDebugLogEnabled(sessionId: number): boolean;
+  /** Returns the per-session native debug log. */
+  getDebugLog(sessionId: number): string;
+  /** Clears the per-session native debug log. */
+  clearDebugLog(sessionId: number): Promise<void>;
 };
+
+type NativeCodegenSurface = Omit<Spec, keyof TurboModule>;
+
+type IsExactlyAssignable<First, Second> =
+  [First] extends [Second]
+    ? [Second] extends [First]
+      ? true
+      : false
+    : false;
+
+type Assert<T extends true> = T;
+
+type NativeContractParity = Assert<
+  IsExactlyAssignable<NativeCodegenSurface, NativeFFmpegKitExtendedSpec>
+>;
 
 /**
  * Enforced native module instance. Importing the package on a host where the
@@ -187,6 +372,6 @@ export type NativeFFmpegKitExtendedSpec = {
  * absent from `src/index.web.ts`. Prefer the high-level wrappers for
  * cross-platform application code.
  */
-export default TurboModuleRegistry.getEnforcing<NativeFFmpegKitExtendedSpec>(
+export default TurboModuleRegistry.getEnforcing<Spec>(
   'FFmpegKitExtended'
-);
+) as NativeFFmpegKitExtendedSpec;
