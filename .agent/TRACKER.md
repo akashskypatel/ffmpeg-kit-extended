@@ -15,7 +15,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **R51-G1** | Make secondary-wrapper cancellation a pure delegation for durable native-ID cancellation authority | **Complete — `0e4f222`; pushed. The secondary branch now records only wrapper-local cancellation state and delegates; the canonical/local branch retains the sole durable intent write.** |
-| **R51-G2** | Add the deterministic terminal-finalization regression and semantic cancellation-authority documentation | **Pending** |
+| **R51-G2** | Add the deterministic terminal-finalization regression and semantic cancellation-authority documentation | **Complete — `98ed28d`; pushed. The release-gated late-secondary regression and semantic documentation pass.** |
 | **R51-G3** | Preserve prior lifecycle behavior, run ordered local validation, freeze the exact SHA, and verify one wrapper-only snapshot | **Pending** |
 
 ### Review 51 preparation evidence
@@ -24,6 +24,7 @@
 - The intended implementation boundary is `react-native/src/session.ts`, `react-native/tests/wasm-session-ownership.test.js`, and semantic React Native documentation only. `session-lifetime.ts`, queue-manager ownership semantics, Flutter, native ABI, shared C++, platform-native trees, and the ManyLinux checkout remain read-only unless direct test evidence requires investigation.
 - Production and test names must describe cancellation authority, terminal finalization, retained-release gating, and local wrapper state. Review 51, goal, and finding identifiers are tracker metadata only.
 - Review 51 Goal 1 evidence: `Session.cancel()` still resolves the managed owner before local state classification; a different owner branch now sets only `this.cancelled`, delegates, propagates the exact return/failure, and exits. The canonical path below it still records durable intent before queue/state/native cancellation work. `SessionQueueManager.findManagedSessionById()`, `session-lifetime.ts`, and the runtime-private queue marker were unchanged. Tagged `npm run test:compile` passed and the existing active-startup/queued-secondary ownership cases remained green in the focused ownership run.
+- Review 51 Goal 2 evidence: `wasm-session-ownership.test.js` now gates only the target terminal retained release and waits on release-attempt, intent-clear, and active-owner conditions rather than sleeping. The secondary wrapper remains locally cancelled, but durable intent remains absent, native cancellation stays exactly one, no Created abandonment occurs, and the canonical owner leaves the active set only after the gate resolves; release commits once and retry bookkeeping drains. The focused ownership suite passed **54/54**. README cancellation guidance now states that the managed owner solely controls durable native-ID intent/delivery, terminal settlement retires it, and late duplicate cancellation cannot recreate terminal intent.
 
 ## Review 50 React Native Wrapper Reliability Closure — 2026-10-02
 
