@@ -472,6 +472,176 @@ test('cancelCurrent attempts every active session before rethrowing the first er
   await Promise.all([first, second]);
 });
 
+test('cancelCurrent reports the first active failure despite later settlement', async () => {
+  manager.maxConcurrentSessions = 2;
+  const firstError = new Error('first active cancellation failed');
+  const secondError = new Error('second active cancellation failed');
+  const firstCancellation = deferred();
+  const secondCancellation = deferred();
+  const firstExecution = deferred();
+  const secondExecution = deferred();
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return firstCancellation.promise;
+  };
+  const secondSession = createSession();
+  secondSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return secondCancellation.promise;
+  };
+
+  const first = manager.executeSession(firstSession, () => firstExecution.promise);
+  const second = manager.executeSession(
+    secondSession,
+    () => secondExecution.promise
+  );
+  const cancellation = manager.cancelCurrent();
+
+  assert.equal(firstSession.cancelCount, 1);
+  assert.equal(secondSession.cancelCount, 1);
+  secondCancellation.reject(secondError);
+  firstCancellation.reject(firstError);
+
+  await assert.rejects(cancellation, (reason) => reason === firstError);
+  firstExecution.resolve();
+  secondExecution.resolve();
+  await Promise.all([first, second]);
+});
+
+test('cancelCurrent preserves target order when the earlier failure settles first', async () => {
+  manager.maxConcurrentSessions = 2;
+  const firstError = new Error('first ordered cancellation failed');
+  const secondError = new Error('second ordered cancellation failed');
+  const firstCancellation = deferred();
+  const secondCancellation = deferred();
+  const firstExecution = deferred();
+  const secondExecution = deferred();
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return firstCancellation.promise;
+  };
+  const secondSession = createSession();
+  secondSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return secondCancellation.promise;
+  };
+
+  const first = manager.executeSession(firstSession, () => firstExecution.promise);
+  const second = manager.executeSession(
+    secondSession,
+    () => secondExecution.promise
+  );
+  const cancellation = manager.cancelCurrent();
+
+  firstCancellation.reject(firstError);
+  secondCancellation.reject(secondError);
+
+  await assert.rejects(cancellation, (reason) => reason === firstError);
+  firstExecution.resolve();
+  secondExecution.resolve();
+  await Promise.all([first, second]);
+});
+
+test('cancelCurrent reports the later target only when the first succeeds', async () => {
+  manager.maxConcurrentSessions = 2;
+  const secondError = new Error('second target cancellation failed');
+  const firstCancellation = deferred();
+  const secondCancellation = deferred();
+  const firstExecution = deferred();
+  const secondExecution = deferred();
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return firstCancellation.promise;
+  };
+  const secondSession = createSession();
+  secondSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return secondCancellation.promise;
+  };
+
+  const first = manager.executeSession(firstSession, () => firstExecution.promise);
+  const second = manager.executeSession(
+    secondSession,
+    () => secondExecution.promise
+  );
+  const cancellation = manager.cancelCurrent();
+
+  firstCancellation.resolve();
+  secondCancellation.reject(secondError);
+
+  await assert.rejects(cancellation, (reason) => reason === secondError);
+  firstExecution.resolve();
+  secondExecution.resolve();
+  await Promise.all([first, second]);
+});
+
+test('cancelCurrent keeps the earlier target authoritative across sync and async failures', async () => {
+  manager.maxConcurrentSessions = 2;
+  const firstError = new Error('earlier async cancellation failed');
+  const secondError = new Error('later sync cancellation failed');
+  const firstCancellation = deferred();
+  const firstExecution = deferred();
+  const secondExecution = deferred();
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return firstCancellation.promise;
+  };
+  const secondSession = createSession();
+  secondSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    throw secondError;
+  };
+
+  const first = manager.executeSession(firstSession, () => firstExecution.promise);
+  const second = manager.executeSession(
+    secondSession,
+    () => secondExecution.promise
+  );
+  const cancellation = manager.cancelCurrent();
+
+  firstCancellation.reject(firstError);
+  await assert.rejects(cancellation, (reason) => reason === firstError);
+  firstExecution.resolve();
+  secondExecution.resolve();
+  await Promise.all([first, second]);
+});
+
+test('cancelCurrent keeps a synchronous first failure authoritative over later async failure', async () => {
+  manager.maxConcurrentSessions = 2;
+  const firstError = new Error('earlier sync cancellation failed');
+  const secondError = new Error('later async cancellation failed');
+  const secondCancellation = deferred();
+  const firstExecution = deferred();
+  const secondExecution = deferred();
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    throw firstError;
+  };
+  const secondSession = createSession();
+  secondSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    return secondCancellation.promise;
+  };
+
+  const first = manager.executeSession(firstSession, () => firstExecution.promise);
+  const second = manager.executeSession(
+    secondSession,
+    () => secondExecution.promise
+  );
+  const cancellation = manager.cancelCurrent();
+
+  secondCancellation.reject(secondError);
+  await assert.rejects(cancellation, (reason) => reason === firstError);
+  firstExecution.resolve();
+  secondExecution.resolve();
+  await Promise.all([first, second]);
+});
+
 test('cancelAll initiates active cancellation before deferred queued cleanup resolves', async () => {
   manager.maxConcurrentSessions = 1;
   const activeGate = deferred();

@@ -254,8 +254,10 @@ not treated as an abandoned never-submitted identity.
 For an ID-`0` request, queued removal/cleanup and active cancellation are
 initiated as one transaction. Active cancellation delivery is not delayed by
 asynchronous cleanup of unrelated queued sessions, while the returned promise
-still waits for all initiated cleanup and cancellation work and preserves the
-first failure.
+still waits for all initiated cleanup and cancellation work. If an initiated
+branch fails, queue cleanup has priority over active cancellation; within the
+active branch, the first failing target in stable active-session order is the
+reported error authority, independent of Promise settlement timing.
 
 Session objects are single-use execution objects. Create a new `Session` object for another execution.
 

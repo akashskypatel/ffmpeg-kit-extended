@@ -139,8 +139,9 @@ export class SessionQueueManager {
    * Requests cancellation of every currently active session.
    *
    * A single native cancellation failure must not prevent the remaining active
-   * sessions from receiving the request. Preserve the first failure so callers
-   * still receive deterministic error authority after all attempts complete.
+   * sessions from receiving the request. After all attempts complete, callers
+   * receive the first failure in the stable active-session snapshot order,
+   * independent of Promise settlement timing.
    */
   cancelCurrent(): MaybePromise<void> {
     const sessions = [...this.active];
@@ -188,7 +189,11 @@ export class SessionQueueManager {
     return Promise.all(discards).then(() => undefined);
   }
 
-  /** Clears waiting sessions and requests cancellation of active sessions. */
+   /**
+    * Clears waiting sessions and requests cancellation of active sessions.
+    * Queue cleanup has branch priority over active cancellation for error
+    * authority, while both branches are initiated without serial waiting.
+    */
   cancelAll(): MaybePromise<void> {
     // Queue removal starts first, but active cancellation is initiated
     // immediately; asynchronous queued cleanup must not delay delivery.
