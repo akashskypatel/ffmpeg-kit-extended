@@ -64,8 +64,12 @@ export class FFplayKit {
    *
    * The promise normally remains pending for the playback lifetime. Keep the
    * session from `createSession()` when controls are needed before completion,
-   * or read `currentSession` after calling this method. The active session
-   * remains current until this method's Promise settles.
+   * or read `currentSession` after calling this method. The current global
+   * control owner is the newest submitted high-level FFplay session whose
+   * execution Promise remains unsettled. When that newest session settles,
+   * control falls back to the next newest unsettled session. Retain an
+   * explicitly created `FFplaySession` when controlling a particular playback
+   * identity.
    */
   static async executeAsync(
     command: string,

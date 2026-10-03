@@ -27,7 +27,7 @@ Native targets use a Turbo Native Module and require React Native's New Architec
     - **iOS**: Supports both physical `devices` and `simulators`. `x86_64` architecture is not supported due to its legacy status.
 - **`FFmpeg`, `FFprobe` & `FFplay`**: [Latest `9.0.1 API`](https://www.ffmpeg.org/download.html) support for media manipulation, information retrieval, and audio/video playback.
 - **Video Playback**: Complete cross-platform video playback with unified surface API.
-- **Real-time Streaming**: Position and video dimension streams for live playback monitoring.
+- **Playback Monitoring**: Live position and video-dimension queries for FFplay sessions.
 - **Asynchronous Execution**: Run long-running tasks without blocking the UI thread.
 - **Parallel Execution**: Run multiple tasks in parallel.
 - **Callback Support**: detailed hooks for logs, statistics, and session completion.
@@ -384,10 +384,10 @@ export function Player() {
 Playback controls remain session based:
 
 ```ts
-session.pause();
-session.seek(10);
-session.resume();
-session.setVolume(0.5);
+await session.pause();
+await session.seek(10);
+await session.resume();
+await session.setVolume(0.5);
 ```
 
 ## FFplay rendering
