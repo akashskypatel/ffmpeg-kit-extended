@@ -31,6 +31,8 @@ export type FFplayViewProps = ViewProps;
  *
  * On unsupported React Native hosts this renders a normal `View`, allowing
  * shared layouts to remain valid even though no native video frames are shown.
+ *
+ * @category FFplay UI
  */
 export function FFplayView(
   props: FFplayViewProps,

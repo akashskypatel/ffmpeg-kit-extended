@@ -65,19 +65,29 @@ export enum LogLevel {
  * for normal application integration.
  */
 export enum LogRedirectionStrategy {
+  /** Always print native log messages regardless of callback registration. */
   AlwaysPrintLogs = 0,
+  /** Print logs only when the session has no callback. */
   PrintLogsWhenNoCallbackDefined = 1,
+  /** Print logs only when no process-wide callback is defined. */
   PrintLogsWhenGlobalCallbackNotDefined = 2,
+  /** Print logs only when the individual session has no callback. */
   PrintLogsWhenSessionCallbackNotDefined = 3,
+  /** Never print native log messages through the native redirection path. */
   NeverPrintLogs = 4,
 }
 
 /** Signals that can be ignored by the native FFmpeg runtime. */
 export enum Signal {
+  /** Interrupt signal (`SIGINT`). */
   SigInt = 0,
+  /** Quit signal (`SIGQUIT`). */
   SigQuit = 1,
+  /** Broken-pipe signal (`SIGPIPE`). */
   SigPipe = 2,
+  /** Termination signal (`SIGTERM`). */
   SigTerm = 3,
+  /** CPU-time-limit signal (`SIGXCPU`). */
   SigXcpu = 4,
 }
 
@@ -119,9 +129,13 @@ export interface Statistics {
 
 /** Serialized state returned by the native session history API. */
 export interface SessionSnapshot {
+  /** Process-unique native identity; it is not persistent across restarts. */
   sessionId: number;
+  /** Session kind represented by this snapshot. */
   type: SessionType;
+  /** Lifecycle state recorded when the snapshot was read. */
   state: SessionState;
+  /** Native return code, including the package cancellation value when applicable. */
   returnCode: number;
   /** Unix epoch timestamp in milliseconds. */
   createTime: number;
@@ -131,12 +145,19 @@ export interface SessionSnapshot {
   endTime: number;
   /** Wall-clock execution duration in milliseconds. */
   duration: number;
+  /** Normalized/original command representation associated with the wrapper. */
   command: string;
+  /** Combined native console output retained for this session. */
   output: string;
+  /** Retained log content from the native history API. */
   logs: string;
+  /** Native failure stack trace, or an empty string when none was recorded. */
   failStackTrace: string;
+  /** Number of retained native log entries. */
   logsCount: number;
+  /** Number of retained native statistics entries. */
   statisticsCount: number;
+  /** Whether additional native debug-log capture is enabled. */
   debugLogEnabled: boolean;
 }
 

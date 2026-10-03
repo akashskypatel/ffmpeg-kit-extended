@@ -14,6 +14,8 @@ const MEDIA_INFO_COMMAND =
  * Call `FFmpegKitExtended.initialize()` once before use. Commands omit the
  * `ffprobe` executable name. For common structured metadata, prefer
  * `getMediaInformation()` over manually parsing FFprobe JSON output.
+ *
+ * @category Media information
  */
 export class FFprobeKit {
   /** Creates an FFprobe session without starting it. */

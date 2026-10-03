@@ -14,6 +14,13 @@ export interface StatisticsSnapshot {
   dropFrames: number;
 }
 
+/**
+ * Options used by `FFmpegKitExtended.initialize()` to configure package startup.
+ * Native targets normally use their bundled runtime and do not need these
+ * options. On Web/Wasm, `assetBaseUrl` overrides the browser directory that
+ * contains the staged runtime assets. A failed initialization can be retried
+ * through `FFmpegKitExtended.initialize()` with corrected options.
+ */
 export interface FFmpegKitInitializeOptions {
   /** Browser asset directory containing the staged Wasm runtime. */
   assetBaseUrl?: string;

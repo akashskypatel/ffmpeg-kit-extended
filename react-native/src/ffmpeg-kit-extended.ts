@@ -27,6 +27,8 @@ const NativeFFmpegKitExtended = getBackend();
  * Most command execution should go through `FFmpegKit`, `FFprobeKit`, or
  * `FFplayKit`; the session factory methods here are useful for framework-style
  * integrations.
+ *
+ * @category Execution
  */
 export class FFmpegKitExtended {
   private static initializedValue = false;

@@ -7,6 +7,11 @@
  * typed sessions, poll callbacks, enforce queue limits, release native handles,
  * and parse media information. Direct calls require the caller to preserve
  * those lifecycle rules manually.
+ *
+ * @category Advanced / native bridge
+ * @remarks This native entry is exported by `src/index.ts` only. The Web entry
+ * `src/index.web.ts` deliberately omits it. Prefer the high-level wrappers for
+ * cross-platform application code.
  */
 import type {TurboModule} from 'react-native';
 import {TurboModuleRegistry} from 'react-native';

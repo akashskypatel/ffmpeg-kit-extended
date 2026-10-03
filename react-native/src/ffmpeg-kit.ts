@@ -13,6 +13,8 @@ const NativeFFmpegKitExtended = getBackend();
  * Call `FFmpegKitExtended.initialize()` once before using this class. Commands
  * omit the `ffmpeg` executable name and execute asynchronously so the JavaScript
  * thread remains responsive.
+ *
+ * @category Execution
  */
 export class FFmpegKit {
   /**

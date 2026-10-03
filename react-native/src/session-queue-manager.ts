@@ -34,6 +34,8 @@ type ErrorSlot = { failed: false } | { failed: true; error: unknown };
  * `FFplaySession` all use the shared instance. The default concurrency is 8.
  * Lower the limit for memory-constrained devices or workloads that saturate
  * storage, CPU, GPU, or network resources.
+ *
+ * @category Queue and cancellation
  */
 export class SessionQueueManager {
   private static readonly instance = new SessionQueueManager();
@@ -92,6 +94,7 @@ export class SessionQueueManager {
    *
    * Application code normally calls `session.executeAsync()` instead of this
    * lower-level method.
+   * @internal
    */
   executeSession<T>(
     session: CancellableSession,
@@ -235,7 +238,10 @@ export class SessionQueueManager {
     });
   }
 
-  /** Removes one waiting session and rejects its execution promise. */
+  /**
+   * Removes one waiting session and rejects its execution promise.
+   * @internal
+   */
   cancelQueued(session: CancellableSession): MaybePromise<boolean> {
     const index = this.queue.findIndex((item) => item.session === session);
     if (index < 0) return false;
@@ -246,7 +252,10 @@ export class SessionQueueManager {
     return true;
   }
 
-  /** Finds a queued or active session by its process-wide native ID. */
+  /**
+   * Finds a queued or active session by its process-wide native ID.
+   * @internal
+   */
   findManagedSessionById(sessionId: number): CancellableSession | undefined {
     for (const session of this.active) {
       if (this.executionSessionId(session) === sessionId) return session;
@@ -256,7 +265,10 @@ export class SessionQueueManager {
     )?.session;
   }
 
-  /** Whether an executor is active for the requested native session ID. */
+  /**
+   * Whether an executor is active for the requested native session ID.
+   * @internal
+   */
   isSessionActiveById(sessionId: number): boolean {
     for (const session of this.active) {
       if (this.executionSessionId(session) === sessionId) return true;
@@ -264,7 +276,10 @@ export class SessionQueueManager {
     return false;
   }
 
-  /** Cancels the managed session with the requested ID through its object API. */
+  /**
+   * Cancels the managed session with the requested ID through its object API.
+   * @internal
+   */
   cancelBySessionId(sessionId: number): MaybePromise<boolean> {
     const session = this.findManagedSessionById(sessionId);
     if (!session) return false;

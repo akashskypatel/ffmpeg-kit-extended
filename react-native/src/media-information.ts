@@ -58,26 +58,46 @@ export interface StreamInformationData {
  * objects.
  */
 export class StreamInformation implements StreamInformationData {
+  /** Zero-based stream index in the container. */
   index?: number;
+  /** Stream type such as `video`, `audio`, or `subtitle`. */
   type?: string;
+  /** Short codec name reported by FFprobe. */
   codec?: string;
+  /** Human-readable codec description. */
   codecLong?: string;
+  /** Pixel format, sample format, or related stream format. */
   format?: string;
+  /** Coded video width in pixels when this is a video stream. */
   width?: number;
+  /** Coded video height in pixels when this is a video stream. */
   height?: number;
+  /** Stream bitrate as FFprobe text, usually bits per second. */
   bitrate?: string;
+  /** Audio sample rate as FFprobe text in hertz. */
   sampleRate?: string;
+  /** Audio sample format such as `fltp` or `s16`. */
   sampleFormat?: string;
+  /** Audio channel layout such as `stereo` or `5.1`. */
   channelLayout?: string;
+  /** Encoded sample aspect ratio. */
   sampleAspectRatio?: string;
+  /** Display aspect ratio. */
   displayAspectRatio?: string;
+  /** Average video frame rate as an FFprobe rational string. */
   averageFrameRate?: string;
+  /** Nominal/raw video frame rate as an FFprobe rational string. */
   realFrameRate?: string;
+  /** Stream time base as an FFprobe rational string. */
   timeBase?: string;
+  /** Codec time base when exposed by the selected build. */
   codecTimeBase?: string;
+  /** Serialized stream tags; prefer `tags` for parsed values. */
   tagsJson?: string;
+  /** Serialized full stream object; prefer `allProperties`. */
   allPropertiesJson?: string;
 
+  /** Creates a stream wrapper from native FFprobe data. */
   constructor(data: StreamInformationData) {
     Object.assign(this, data);
   }
@@ -115,15 +135,24 @@ export interface ChapterInformationData {
 
 /** One chapter or timeline marker reported by the container. */
 export class ChapterInformation implements ChapterInformationData {
+  /** Chapter identifier reported by the container. */
   id?: number;
+  /** Chapter time base as an FFprobe rational string. */
   timeBase?: string;
+  /** Start timestamp in chapter time-base units. */
   start?: number;
+  /** Start time in seconds as FFprobe text. */
   startTime?: string;
+  /** End timestamp in chapter time-base units. */
   end?: number;
+  /** End time in seconds as FFprobe text. */
   endTime?: string;
+  /** Serialized chapter tags; prefer `tags` for parsed values. */
   tagsJson?: string;
+  /** Serialized full chapter object; prefer `allProperties`. */
   allPropertiesJson?: string;
 
+  /** Creates a chapter wrapper from native FFprobe data. */
   constructor(data: ChapterInformationData) {
     Object.assign(this, data);
   }
@@ -177,18 +206,30 @@ export interface MediaInformationData {
  * ```
  */
 export class MediaInformation {
+  /** Input filename, path, or URL reported by FFprobe. */
   readonly filename?: string;
+  /** Short container format name, possibly containing aliases. */
   readonly format?: string;
+  /** Human-readable container format description. */
   readonly longFormat?: string;
+  /** Media duration in seconds as FFprobe text. */
   readonly duration?: string;
+  /** Container start time in seconds as FFprobe text. */
   readonly startTime?: string;
+  /** Overall bitrate as FFprobe text, usually bits per second. */
   readonly bitrate?: string;
+  /** Input size in bytes as FFprobe text. */
   readonly size?: string;
+  /** Serialized container tags; prefer `tags` for parsed values. */
   readonly tagsJson?: string;
+  /** Serialized full format object; prefer `allProperties`. */
   readonly allPropertiesJson?: string;
+  /** Typed stream metadata in the order reported by FFprobe. */
   readonly streams: StreamInformation[];
+  /** Typed chapter metadata in the order reported by FFprobe. */
   readonly chapters: ChapterInformation[];
 
+  /** Creates a media-information wrapper from native FFprobe data. */
   constructor(data: MediaInformationData) {
     this.filename = data.filename;
     this.format = data.format;

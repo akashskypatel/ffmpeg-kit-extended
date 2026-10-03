@@ -90,10 +90,15 @@ type MonitorOptions<T extends Session> = {
  *
  * A Session object may be submitted for execution once. Create a new session
  * for another execution.
+ *
+ * @category Sessions
  */
 export abstract class Session implements RestoredSessionObservationTarget {
+  /** Process-unique native identity; it is not persistent across restarts. */
   readonly sessionId: number;
+  /** Normalized/original command representation associated with this wrapper. */
   readonly command: string;
+  /** Session kind: `ffmpeg`, `ffprobe`, `ffplay`, or `media-information`. */
   readonly type: SessionType;
   private cancelled = false;
   private nativeCancellationDispatched = false;
@@ -160,12 +165,18 @@ export abstract class Session implements RestoredSessionObservationTarget {
     return this.sessionId;
   }
 
-  /** Whether this wrapper observes an already-running history identity. */
+  /**
+   * Whether this wrapper observes an already-running history identity.
+   * @internal
+   */
   get isRestoredRunning(): boolean {
     return this.restoredRunning;
   }
 
-  /** Joins the shared non-executing observer for a Running history snapshot. */
+  /**
+   * Joins the shared non-executing observer for a Running history snapshot.
+   * @internal
+   */
   observeRestoredRunning(): void {
     if (this.restoredRunning) return;
     this.restoredRunning = true;
@@ -502,7 +513,10 @@ export abstract class Session implements RestoredSessionObservationTarget {
     }
   }
 
-  /** Revalidates the native session immediately before async handoff. */
+  /**
+   * Revalidates the native session immediately before async handoff.
+   * @internal
+   */
   prepareForExecution(): void {
     this.validateInitialSubmission();
   }
@@ -640,7 +654,10 @@ export abstract class Session implements RestoredSessionObservationTarget {
     return firstError;
   }
 
-  /** Polls callback buffers for an observer-owned Running history wrapper. */
+  /**
+   * Polls callback buffers for an observer-owned Running history wrapper.
+   * @internal
+   */
   async pollRestoredCallbacks(): Promise<void> {
     return this.runRestoredTransition(() =>
       this.pollRestoredCallbacksWithinTransition()
@@ -690,7 +707,10 @@ export abstract class Session implements RestoredSessionObservationTarget {
     }
   }
 
-  /** Settles callbacks and observer demand after terminal state is authoritative. */
+  /**
+   * Settles callbacks and observer demand after terminal state is authoritative.
+   * @internal
+   */
   async settleRestoredObservation(): Promise<void> {
     return this.runRestoredTransition(() =>
       this.settleRestoredObservationWithinTransition()
@@ -729,12 +749,18 @@ export abstract class Session implements RestoredSessionObservationTarget {
     if (cleanupError !== undefined) throw cleanupError;
   }
 
-  /** Releases this wrapper's share of restored ownership through the ID seam. */
+  /**
+   * Releases this wrapper's share of restored ownership through the ID seam.
+   * @internal
+   */
   async releaseRestoredHandle(): Promise<void> {
     await this.releaseOwnedHandle();
   }
 
-  /** Stops observer callback demand after a successful global history clear. */
+  /**
+   * Stops observer callback demand after a successful global history clear.
+   * @internal
+   */
   async invalidateRestoredObservation(): Promise<void> {
     return this.runRestoredTransition(() =>
       this.invalidateRestoredObservationWithinTransition()
@@ -753,7 +779,10 @@ export abstract class Session implements RestoredSessionObservationTarget {
     if (cleanupError !== undefined) throw cleanupError;
   }
 
-  /** Reports a retryable observer failure without abandoning retained ownership. */
+  /**
+   * Reports a retryable observer failure without abandoning retained ownership.
+   * @internal
+   */
   reportRestoredObserverError(error: unknown): void {
     if (this.restoredObserverErrorReported) return;
     this.restoredObserverErrorReported = true;
@@ -1744,7 +1773,13 @@ export class FFplaySession extends Session {
   }
 }
 
-/** Reconstructs the correct typed session wrapper from native history data. */
+/**
+ * Reconstructs a typed wrapper from retained native history data.
+ *
+ * @category Advanced / history
+ * Normal application code should prefer the history methods on
+ * `FFmpegKitExtended` when possible.
+ */
 export function sessionFromSnapshot(snapshot: SessionSnapshot): Session {
   let session: Session;
   switch (snapshot.type) {
@@ -1768,13 +1803,21 @@ export function sessionFromSnapshot(snapshot: SessionSnapshot): Session {
   return session;
 }
 
-/** Parses one native session snapshot, returning `undefined` for empty input. */
+/**
+ * Parses one native session snapshot, returning `undefined` for empty input.
+ *
+ * @category Advanced / history
+ */
 export function parseSessionJson(json: string): Session | undefined {
   if (!json) return undefined;
   return sessionFromSnapshot(JSON.parse(json) as SessionSnapshot);
 }
 
-/** Parses a native array of session snapshots into typed wrappers. */
+/**
+ * Parses a native array of session snapshots into typed wrappers.
+ *
+ * @category Advanced / history
+ */
 export function parseSessionsJson(json: string): Session[] {
   return parseJsonArray<SessionSnapshot>(json).map(sessionFromSnapshot);
 }

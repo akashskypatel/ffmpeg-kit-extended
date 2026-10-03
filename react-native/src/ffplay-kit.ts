@@ -13,6 +13,8 @@ const NativeFFmpegKitExtended = getBackend();
  * require a view. Playback controls are session-based; retain the returned
  * `FFplaySession` when your UI needs pause, resume, seek, stop, position, or
  * volume operations.
+ *
+ * @category FFplay UI
  */
 export class FFplayKit {
   private static readonly unsettledSessions = new Map<number, FFplaySession>();
