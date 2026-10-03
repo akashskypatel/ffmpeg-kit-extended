@@ -6,7 +6,7 @@
 
 # Variable: NativeFFmpegKitExtended
 
-> **NativeFFmpegKitExtended**: `Spec`
+> **NativeFFmpegKitExtended**: [`NativeFFmpegKitExtendedSpec`](../type-aliases/NativeFFmpegKitExtendedSpec.md)
 
 Enforced native module instance. Importing the package on a host where the
 native library was not linked causes React Native to report a missing module

@@ -54,6 +54,8 @@ test('generated API reference covers the supported root inventory', () => {
     'functions/sessionFromSnapshot.md',
     'interfaces/FFmpegKitInitializeOptions.md',
     'interfaces/SessionSnapshot.md',
+    'type-aliases/NativeFFmpegKitExtendedLogEvent.md',
+    'type-aliases/NativeFFmpegKitExtendedSpec.md',
     'variables/NativeFFmpegKitExtended.md',
   ];
 
@@ -111,4 +113,38 @@ test('generated API reference excludes internal lifecycle and queue seams', () =
   ]) {
     assert.doesNotMatch(generated, new RegExp(`\\b${privateTypeName}\\b`));
   }
+});
+
+test('advanced native bridge docs expose a stable type-only contract', () => {
+  const apiRoot = path.join(packageRoot, 'doc', 'api');
+  const nativePage = read('doc/api/variables/NativeFFmpegKitExtended.md');
+  const contractPage = read(
+    'doc/api/type-aliases/NativeFFmpegKitExtendedSpec.md'
+  );
+  const eventPage = read(
+    'doc/api/type-aliases/NativeFFmpegKitExtendedLogEvent.md'
+  );
+
+  assert.equal(
+    fs.existsSync(
+      path.join(apiRoot, 'type-aliases/NativeFFmpegKitExtendedSpec.md')
+    ),
+    true
+  );
+  assert.match(nativePage, /NativeFFmpegKitExtendedSpec/);
+  assert.doesNotMatch(
+    nativePage,
+    /> \\*\\*NativeFFmpegKitExtended\\*\\*: `Spec`/
+  );
+  for (const methodName of [
+    'initialize',
+    'createFFmpegSession',
+    'getSessionJson',
+    'ffplayPause',
+    'clearSessions',
+  ]) {
+    assert.match(contractPage, new RegExp(`\\b${methodName}\\b`));
+  }
+  assert.match(eventPage, /sessionId/);
+  assert.match(nativePage, /src\/index\.web\.ts/);
 });

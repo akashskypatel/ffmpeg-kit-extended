@@ -26,10 +26,14 @@ import type {
  * `sequence` is the native insertion order. The bridge owns and releases the
  * native payload before exposing this managed string to JavaScript.
  */
-export type LogEvent = {
+export type NativeFFmpegKitExtendedLogEvent = {
+  /** Native process identity associated with the log entry. */
   sessionId: Double;
+  /** Monotonic native insertion sequence for the entry. */
   sequence: Double;
+  /** Native log severity. */
   level: Int32;
+  /** Managed log message text. */
   message: string;
 };
 
@@ -56,7 +60,7 @@ export interface Spec extends TurboModule {
   cancelSession(sessionId: Double): Promise<void>;
 
   /** Process-wide structured v2 log stream; history polling is the fallback. */
-  readonly onLogEvent: EventEmitter<LogEvent>;
+  readonly onLogEvent: EventEmitter<NativeFFmpegKitExtendedLogEvent>;
   installLogBridge(): Promise<void>;
   uninstallLogBridge(): Promise<void>;
 
@@ -143,6 +147,21 @@ export interface Spec extends TurboModule {
 }
 
 /**
+ * Stable native-only contract for advanced integrations and diagnostics.
+ *
+ * This public name is a type-only view backed by the React Native Codegen
+ * `Spec` declaration above. It exposes the complete native method inventory
+ * without adding a JavaScript export or changing Codegen's required `Spec`
+ * pattern. Representative methods include `initialize`,
+ * `createFFmpegSession`, `getSessionJson`, `ffplayPause`, and `clearSessions`.
+ * The runtime module is exported from the native entry point only; Web has no
+ * native module value.
+ */
+export type NativeFFmpegKitExtendedSpec = {
+  [Key in keyof Spec]: Spec[Key];
+};
+
+/**
  * Enforced native module instance. Importing the package on a host where the
  * native library was not linked causes React Native to report a missing module
  * rather than silently returning `null`.
@@ -152,4 +171,6 @@ export interface Spec extends TurboModule {
  * absent from `src/index.web.ts`. Prefer the high-level wrappers for
  * cross-platform application code.
  */
-export default TurboModuleRegistry.getEnforcing<Spec>('FFmpegKitExtended');
+export default TurboModuleRegistry.getEnforcing<NativeFFmpegKitExtendedSpec>(
+  'FFmpegKitExtended'
+);

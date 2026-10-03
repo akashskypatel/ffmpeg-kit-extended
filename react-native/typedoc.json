@@ -32,8 +32,6 @@
     "Property",
     "Method"
   ],
-  "intentionallyNotExported": [
-    "Spec"
-  ],
+  "intentionallyNotExported": ["Spec"],
   "treatValidationWarningsAsErrors": true
 }
