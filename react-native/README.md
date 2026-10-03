@@ -285,6 +285,14 @@ reported error authority, independent of Promise settlement timing.
 
 Session objects are single-use execution objects. Create a new `Session` object for another execution.
 
+## API Reference
+
+The [generated API reference](doc/api/README.md) is built from the package's
+source TSDoc using the native `src/index.ts` entry point. Files under
+`doc/api/` are generated artifacts and must not be hand-edited. Run
+`npm run docs:api` after changing public API comments, then run
+`npm run docs:api:check` to detect stale committed output.
+
 On React Native Web, a session reconstructed from history can be submitted only while its native state is `Created`. Running or terminal Web history sessions are intended for inspection and control rather than re-execution.
 
 Execution preflight is authoritative at both initial submission and queue

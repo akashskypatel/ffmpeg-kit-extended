@@ -1,0 +1,42 @@
+{
+  "$schema": "node_modules/typedoc-plugin-markdown/typedoc-plugin-markdown.schema.json",
+  "entryPoints": ["src/index.ts"],
+  "entryPointStrategy": "resolve",
+  "tsconfig": "tsconfig.json",
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "doc/api",
+  "router": "member",
+  "readme": "none",
+  "cleanOutputDir": true,
+  "disableSources": true,
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeInternal": true,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "invalidPath": true,
+    "rewrittenLink": true,
+    "notDocumented": true,
+    "unusedMergeModuleWith": true
+  },
+  "requiredToBeDocumented": [
+    "Enum",
+    "EnumMember",
+    "Variable",
+    "Function",
+    "Class",
+    "Interface",
+    "Accessor",
+    "TypeAlias",
+    "Property",
+    "Method"
+  ],
+  "intentionallyNotExported": [
+    "RestoredSessionObservationTarget",
+    "Spec",
+    "CancellableSession",
+    "MaybePromise"
+  ],
+  "treatValidationWarningsAsErrors": true
+}
