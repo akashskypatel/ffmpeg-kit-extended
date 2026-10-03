@@ -18,8 +18,8 @@ and iOS. It is an agent-side tool; it is not a published package dependency.
 - Install the agent host tool at the tested version:
 
   ```bash
-  +dart pub global activate marionette_mcp 0.6.0
-  +marionette_mcp
+  dart pub global activate marionette_mcp 0.6.0
+  marionette_mcp
   ```
 
   If the installed Dart SDK requires a supported equivalent activation command,
@@ -31,10 +31,10 @@ and iOS. It is an agent-side tool; it is not a published package dependency.
 Run these checks on the target host, using a caller-supplied device ID:
 
 ```bash
-+flutter config --no-analytics
-+dart --disable-analytics
-+flutter doctor -v
-+flutter devices
+flutter config --no-analytics
+dart --disable-analytics
+flutter doctor -v
+flutter devices
 ```
 
 For Android, also run `adb devices` and use an emulator or device visible to
@@ -44,8 +44,8 @@ both tools. For iOS on macOS, run `xcodebuild -version`,
 Launch the example without changing its build system:
 
 ```bash
-+cd flutter/example
-+flutter run -d <device-id> --debug
+cd flutter/example
+flutter run -d <device-id> --debug
 ```
 
 Use the VM Service WebSocket URI printed by `flutter run` (the
