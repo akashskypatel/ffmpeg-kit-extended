@@ -24,9 +24,7 @@
   - **Android**: دعم كامل لتشغيل الفيديو مع تصيير أصلي عبر surface.
     - **x86**: معمارية `x86` غير مدعومة لأنها قديمة.
   - **iOS وmacOS**: تشغيل فيديو عالي الأداء باستخدام `CVPixelBuffer` وتكامل Metal.
-    - **iOS**: يدعم `الأجهزة` الفعلية و`المحاكيات`. معمارية `x86_64` غير مدعومة لأنها قديمة.
-  - **Linux**: دعم كامل لتشغيل الفيديو مع تكامل `OpenGL`.
-    - **arm64**: معمارية `arm64` غير مدعومة حاليًا، وستتوفر قريبًا.
+  - **Linux**: يستخدم أسطح مخزن البكسل Flutter مع استدعاءات الإطارات.
 - **Web (Wasm)**: ينزّل حزمة wasm32 المطابقة عبر خطاف البناء، ويعرض إطارات FFplay بصيغة RGBA باستخدام واجهة surface API الموحدة في Flutter. استخدم `flutter build web --wasm`.
 - **`FFmpeg` و`FFprobe` و`FFplay`**: دعم [أحدث `9.0.1 API`](https://www.ffmpeg.org/download.html) لمعالجة الوسائط، واسترجاع المعلومات، وتشغيل الصوت/الفيديو.
 - **تشغيل الفيديو**: تشغيل فيديو كامل متعدد المنصات باستخدام API موحد للسطح.
@@ -44,12 +42,18 @@
 
 | المنصة | الحالة | تشغيل الفيديو | المعمارية | الحد الأدنى للمتطلبات |
 | --- | --- | --- | --- | --- |
-| Android وAndroid TV | ✅ مدعوم | ✅ أصلي | armv7, arm64, x86_64 | API 26+ |
+| Android وAndroid TV | ✅ مدعوم | ✅ أصلي | arm, arm64, ia32, x64 | API 26+ |
 | iOS والمحاكي | ✅ مدعوم | ✅ Texture | arm64 | iOS 13+ |
 | macOS | ✅ مدعوم | ✅ Texture | arm64, x86_64 | macOS 13+ |
-| Linux | ✅ مدعوم | ✅ Texture | x86_64 | glibc 2.28+ |
-| Windows | ✅ مدعوم | ✅ Texture | x86_64 | Windows 8+ |
+| Linux | ✅ مدعوم | ✅ Texture | arm64, x86_64 | glibc 2.28+ |
+| Windows | ✅ مدعوم | ✅ Texture | arm64, x86_64 | Windows 8+ |
 | Web (Wasm) | ✅ مدعوم | ✅ إطارات RGBA | wasm32 | بناء Flutter Wasm |
+
+**Configuration facts:** Prefer `hooks.user_defines.ffmpeg_kit_extended_flutter`;
+`ffmpeg_kit_extended_config` is legacy fallback only. The stable Web/Wasm
+build-hook output is staged at
+`assets/packages/ffmpeg_kit_extended_flutter/wasm/`; threaded builds require
+`window.crossOriginIsolated` and the COI headers.
 
 يجب عليك تحديث الحد الأدنى لمتطلبات تطبيقك بنفسك ليتطابق مع المتطلبات أعلاه.
 

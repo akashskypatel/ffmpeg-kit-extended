@@ -24,9 +24,7 @@ Se você gosta do projeto e o usa no seu app, deixe uma ⭐ em [ffmpeg-kit-build
   - **Android**: reprodução de vídeo completa com renderização nativa em superfície.
     - **x86**: a arquitetura `x86` não é suportada por ser legada.
   - **iOS e macOS**: reprodução de vídeo de alto desempenho com `CVPixelBuffer` e integração Metal.
-    - **iOS**: suporta `dispositivos` físicos e `simuladores`. A arquitetura `x86_64` não é suportada por ser legada.
-  - **Linux**: reprodução de vídeo completa com integração `OpenGL`.
-    - **arm64**: a arquitetura `arm64` ainda não é suportada; em breve.
+  - **Linux**: usa texturas de buffer de pixels do Flutter com callbacks de quadros.
 - **Web (Wasm)**: baixa o pacote wasm32 correspondente durante o gancho de compilação e renderiza quadros RGBA do FFplay pela API de superfície unificada do Flutter. Use `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` e `FFplay`**: suporte à [`API 9.0.1` mais recente](https://www.ffmpeg.org/download.html) para manipulação de mídia, leitura de informações e reprodução de áudio/vídeo.
 - **Reprodução de vídeo**: reprodução multiplataforma completa com API de superfície unificada.
@@ -44,12 +42,18 @@ Se você gosta do projeto e o usa no seu app, deixe uma ⭐ em [ffmpeg-kit-build
 
 | Plataforma | Status | Reprodução de vídeo | Arquitetura | Requisitos mínimos |
 | --- | --- | --- | --- | --- |
-| Android (e Android TV) | ✅ Suportado | ✅ Nativa | armv7, arm64, x86_64 | API 26+ |
+| Android (e Android TV) | ✅ Suportado | ✅ Nativa | arm, arm64, ia32, x64 | API 26+ |
 | iOS (e simulador) | ✅ Suportado | ✅ Texture | arm64 | iOS 13+ |
 | macOS | ✅ Suportado | ✅ Texture | arm64, x86_64 | macOS 13+ |
-| Linux | ✅ Suportado | ✅ Texture | x86_64 | glibc 2.28+ |
-| Windows | ✅ Suportado | ✅ Texture | x86_64 | Windows 8+ |
+| Linux | ✅ Suportado | ✅ Texture | arm64, x86_64 | glibc 2.28+ |
+| Windows | ✅ Suportado | ✅ Texture | arm64, x86_64 | Windows 8+ |
 | Web (Wasm) | ✅ Suportado | ✅ Quadros RGBA | wasm32 | Compilação Flutter Wasm |
+
+**Configuration facts:** Prefer `hooks.user_defines.ffmpeg_kit_extended_flutter`;
+`ffmpeg_kit_extended_config` is legacy fallback only. The stable Web/Wasm
+build-hook output is staged at
+`assets/packages/ffmpeg_kit_extended_flutter/wasm/`; threaded builds require
+`window.crossOriginIsolated` and the COI headers.
 
 Você precisará atualizar os requisitos mínimos do seu app para corresponder aos requisitos acima.
 

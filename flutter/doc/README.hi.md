@@ -23,9 +23,7 @@ Web बिल्ड Flutter WebAssembly का उपयोग करते ह�
   - **Android**: मूल सर्फ़ेस रेंडरिंग के साथ पूर्ण वीडियो-प्लेबैक समर्थन।
     - **x86**: पुरानी स्थिति के कारण `x86` आर्किटेक्चर समर्थित नहीं है।
   - **iOS और macOS**: `CVPixelBuffer` और Metal एकीकरण के साथ उच्च-प्रदर्शन वीडियो प्लेबैक।
-    - **iOS**: वास्तविक `डिवाइस` और `सिम्युलेटर`, दोनों का समर्थन करता है। पुरानी स्थिति के कारण `x86_64` आर्किटेक्चर समर्थित नहीं है।
-  - **Linux**: `OpenGL` एकीकरण के साथ पूर्ण वीडियो-प्लेबैक समर्थन।
-    - **arm64**: `arm64` आर्किटेक्चर अभी समर्थित नहीं है; जल्द उपलब्ध होगा।
+  - **Linux**: Flutter pixel-buffer textures और frame callbacks का उपयोग करता है।
 - **Web (Wasm)**: बिल्ड हुक के दौरान संबंधित wasm32 बंडल डाउनलोड करता है और Flutter की एकीकृत surface API के माध्यम से FFplay RGBA फ़्रेम रेंडर करता है। `flutter build web --wasm` का उपयोग करें।
 - **`FFmpeg`, `FFprobe` और `FFplay`**: मीडिया संसाधन, जानकारी निकालने और ऑडियो/वीडियो चलाने के लिए [नवीनतम `9.0.1 API`](https://www.ffmpeg.org/download.html) समर्थन।
 - **वीडियो प्लेबैक**: एकीकृत सर्फ़ेस API के साथ पूर्ण बहु-प्लेटफ़ॉर्म वीडियो प्लेबैक।
@@ -43,12 +41,18 @@ Web बिल्ड Flutter WebAssembly का उपयोग करते ह�
 
 | प्लेटफ़ॉर्म | स्थिति | वीडियो प्लेबैक | आर्किटेक्चर | न्यूनतम आवश्यकताएँ |
 | --- | --- | --- | --- | --- |
-| Android और Android TV | ✅ समर्थित | ✅ मूल | armv7, arm64, x86_64 | API 26+ |
+| Android और Android TV | ✅ समर्थित | ✅ मूल | arm, arm64, ia32, x64 | API 26+ |
 | iOS और सिम्युलेटर | ✅ समर्थित | ✅ टेक्सचर | arm64 | iOS 13+ |
 | macOS | ✅ समर्थित | ✅ टेक्सचर | arm64, x86_64 | macOS 13+ |
-| Linux | ✅ समर्थित | ✅ टेक्सचर | x86_64 | glibc 2.28+ |
-| Windows | ✅ समर्थित | ✅ टेक्सचर | x86_64 | Windows 8+ |
+| Linux | ✅ समर्थित | ✅ टेक्सचर | arm64, x86_64 | glibc 2.28+ |
+| Windows | ✅ समर्थित | ✅ टेक्सचर | arm64, x86_64 | Windows 8+ |
 | Web (Wasm) | ✅ समर्थित | ✅ RGBA फ़्रेम | wasm32 | Flutter Wasm बिल्ड |
+
+**Configuration facts:** Prefer `hooks.user_defines.ffmpeg_kit_extended_flutter`;
+`ffmpeg_kit_extended_config` is legacy fallback only. The stable Web/Wasm
+build-hook output is staged at
+`assets/packages/ffmpeg_kit_extended_flutter/wasm/`; threaded builds require
+`window.crossOriginIsolated` and the COI headers.
 
 ऊपर दी गई आवश्यकताओं से मेल खाने के लिए आपको अपने ऐप की न्यूनतम आवश्यकताएँ स्वयं अपडेट करनी होंगी।
 

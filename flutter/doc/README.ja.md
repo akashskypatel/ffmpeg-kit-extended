@@ -23,9 +23,7 @@ Web ビルドでは Flutter WebAssembly を使用し、同じ公開 API を提�
   - **Android**：ネイティブのサーフェス描画による完全な動画再生をサポートします。
     - **x86**：`x86` アーキテクチャは旧式のためサポートされていません。
   - **iOS と macOS**：`CVPixelBuffer` と Metal 連携による高性能な動画再生を提供します。
-    - **iOS**：実機の `デバイス` と `シミュレーター` の両方をサポートします。`x86_64` アーキテクチャは旧式のためサポートされていません。
-  - **Linux**：`OpenGL` 連携による完全な動画再生をサポートします。
-    - **arm64**：`arm64` アーキテクチャは現在未対応です。近日対応予定です。
+  - **Linux**：フレームコールバックを使用する Flutter ピクセルバッファテクスチャを使用します。
 - **Web (Wasm)**：ビルドフック中に対応する wasm32 バンドルをダウンロードし、統合 Flutter surface API で FFplay の RGBA フレームを描画します。`flutter build web --wasm` を使用します。
 - **`FFmpeg`、`FFprobe`、`FFplay`**：メディア処理、情報取得、音声/動画再生のための [最新 `9.0.1 API`](https://www.ffmpeg.org/download.html) をサポートします。
 - **動画再生**：統一されたサーフェス API による完全なマルチプラットフォーム動画再生。
@@ -43,12 +41,18 @@ Web ビルドでは Flutter WebAssembly を使用し、同じ公開 API を提�
 
 | プラットフォーム | 状態 | 動画再生 | アーキテクチャ | 最小要件 |
 | --- | --- | --- | --- | --- |
-| Android と Android TV | ✅ 対応 | ✅ ネイティブ | armv7, arm64, x86_64 | API 26+ |
+| Android と Android TV | ✅ 対応 | ✅ ネイティブ | arm, arm64, ia32, x64 | API 26+ |
 | iOS とシミュレータ | ✅ 対応 | ✅ テクスチャ | arm64 | iOS 13+ |
 | macOS | ✅ 対応 | ✅ テクスチャ | arm64, x86_64 | macOS 13+ |
-| Linux | ✅ 対応 | ✅ テクスチャ | x86_64 | glibc 2.28+ |
-| Windows | ✅ 対応 | ✅ テクスチャ | x86_64 | Windows 8+ |
+| Linux | ✅ 対応 | ✅ テクスチャ | arm64, x86_64 | glibc 2.28+ |
+| Windows | ✅ 対応 | ✅ テクスチャ | arm64, x86_64 | Windows 8+ |
 | Web (Wasm) | ✅ 対応 | ✅ RGBA フレーム | wasm32 | Flutter Wasm ビルド |
+
+**Configuration facts:** Prefer `hooks.user_defines.ffmpeg_kit_extended_flutter`;
+`ffmpeg_kit_extended_config` is legacy fallback only. The stable Web/Wasm
+build-hook output is staged at
+`assets/packages/ffmpeg_kit_extended_flutter/wasm/`; threaded builds require
+`window.crossOriginIsolated` and the COI headers.
 
 上記の要件に合わせて、アプリ側の最小要件を自分で更新する必要があります。
 

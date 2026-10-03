@@ -24,9 +24,7 @@ Si te gusta el proyecto y lo usas en tu aplicación, deja una ⭐ en [ffmpeg-kit
   - **Android**: Reproducción de video completa con renderizado nativo en superficie.
     - **x86**: La arquitectura `x86` no es compatible por ser heredada.
   - **iOS y macOS**: Reproducción de alto rendimiento con `CVPixelBuffer` e integración con Metal.
-    - **iOS**: Compatible con `dispositivos` físicos y `simuladores`. La arquitectura `x86_64` no es compatible por ser heredada.
-  - **Linux**: Reproducción de video completa con integración `OpenGL`.
-    - **arm64**: La arquitectura `arm64` aún no es compatible; estará disponible próximamente.
+  - **Linux**: Usa texturas de búfer de píxeles de Flutter con callbacks de fotogramas.
 - **Web (Wasm)**: descarga el paquete wasm32 correspondiente durante el enlace de compilación y renderiza fotogramas RGBA de FFplay mediante la API de superficie unificada de Flutter. Usa `flutter build web --wasm`.
 - **`FFmpeg`, `FFprobe` y `FFplay`**: Compatibilidad con la [`API 9.0.1` más reciente](https://www.ffmpeg.org/download.html) para manipulación de medios, recuperación de información y reproducción de audio/video.
 - **Reproducción de video**: Reproducción multiplataforma completa con una API de superficie unificada.
@@ -44,12 +42,18 @@ Si te gusta el proyecto y lo usas en tu aplicación, deja una ⭐ en [ffmpeg-kit
 
 | Plataforma | Estado | Reproducción de video | Arquitectura | Requisitos mínimos |
 | --- | --- | --- | --- | --- |
-| Android (y Android TV) | ✅ Compatible | ✅ Nativa | armv7, arm64, x86_64 | API 26+ |
+| Android (y Android TV) | ✅ Compatible | ✅ Nativa | arm, arm64, ia32, x64 | API 26+ |
 | iOS (y simulador) | ✅ Compatible | ✅ Texture | arm64 | iOS 13+ |
 | macOS | ✅ Compatible | ✅ Texture | arm64, x86_64 | macOS 13+ |
-| Linux | ✅ Compatible | ✅ Texture | x86_64 | glibc 2.28+ |
-| Windows | ✅ Compatible | ✅ Texture | x86_64 | Windows 8+ |
+| Linux | ✅ Compatible | ✅ Texture | arm64, x86_64 | glibc 2.28+ |
+| Windows | ✅ Compatible | ✅ Texture | arm64, x86_64 | Windows 8+ |
 | Web (Wasm) | ✅ Compatible | ✅ Fotogramas RGBA | wasm32 | Compilación Flutter Wasm |
+
+**Configuration facts:** Prefer `hooks.user_defines.ffmpeg_kit_extended_flutter`;
+`ffmpeg_kit_extended_config` is legacy fallback only. The stable Web/Wasm
+build-hook output is staged at
+`assets/packages/ffmpeg_kit_extended_flutter/wasm/`; threaded builds require
+`window.crossOriginIsolated` and the COI headers.
 
 Debes actualizar por tu cuenta los requisitos mínimos de tu aplicación para que coincidan con la tabla anterior.
 

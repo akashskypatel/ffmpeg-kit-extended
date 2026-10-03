@@ -24,9 +24,7 @@ Web 构建使用 Flutter WebAssembly，并提供相同的公共 API；原生平�
   - **Android**：通过原生 surface 渲染提供完整视频播放支持。
     - **x86**：由于属于旧架构，不支持 `x86`。
   - **iOS 与 macOS**：通过 `CVPixelBuffer` 和 Metal 集成实现高性能视频播放。
-    - **iOS**：支持物理`设备`和`模拟器`。由于属于旧架构，不支持 `x86_64`。
-  - **Linux**：通过 `OpenGL` 集成提供完整视频播放支持。
-    - **arm64**：目前暂不支持 `arm64`，即将推出。
+  - **Linux**：使用带帧回调的 Flutter 像素缓冲纹理。
 - **Web (Wasm)**：构建钩子会下载匹配的 wasm32 软件包，并通过 Flutter 统一的 surface API 渲染 FFplay RGBA 帧。请使用 `flutter build web --wasm`。
 - **`FFmpeg`、`FFprobe` 和 `FFplay`**：支持最新 [`9.0.1 API`](https://www.ffmpeg.org/download.html)，用于媒体处理、信息读取以及音视频播放。
 - **视频播放**：使用统一 surface API 的完整跨平台视频播放。
@@ -44,12 +42,18 @@ Web 构建使用 Flutter WebAssembly，并提供相同的公共 API；原生平�
 
 | 平台 | 状态 | 视频播放 | 架构 | 最低要求 |
 | --- | --- | --- | --- | --- |
-| Android（含 Android TV） | ✅ 支持 | ✅ 原生 | armv7, arm64, x86_64 | API 26+ |
+| Android（含 Android TV） | ✅ 支持 | ✅ 原生 | arm, arm64, ia32, x64 | API 26+ |
 | iOS（含模拟器） | ✅ 支持 | ✅ Texture | arm64 | iOS 13+ |
 | macOS | ✅ 支持 | ✅ Texture | arm64, x86_64 | macOS 13+ |
-| Linux | ✅ 支持 | ✅ Texture | x86_64 | glibc 2.28+ |
-| Windows | ✅ 支持 | ✅ Texture | x86_64 | Windows 8+ |
+| Linux | ✅ 支持 | ✅ Texture | arm64, x86_64 | glibc 2.28+ |
+| Windows | ✅ 支持 | ✅ Texture | arm64, x86_64 | Windows 8+ |
 | Web (Wasm) | ✅ 支持 | ✅ RGBA 帧 | wasm32 | Flutter Wasm 构建 |
+
+**Configuration facts:** Prefer `hooks.user_defines.ffmpeg_kit_extended_flutter`;
+`ffmpeg_kit_extended_config` is legacy fallback only. The stable Web/Wasm
+build-hook output is staged at
+`assets/packages/ffmpeg_kit_extended_flutter/wasm/`; threaded builds require
+`window.crossOriginIsolated` and the COI headers.
 
 你需要自行更新应用的最低要求，使其与上表匹配。
 

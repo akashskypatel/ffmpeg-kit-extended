@@ -23,6 +23,15 @@ void main() {
     'doc/guides/session-queue-management.md',
   ).readAsStringSync();
   final errorGuide = File('doc/guides/error-handling.md').readAsStringSync();
+  final translatedReadmes = <String>[
+    'doc/README.es.md',
+    'doc/README.fr.md',
+    'doc/README.hi.md',
+    'doc/README.ar.md',
+    'doc/README.ja.md',
+    'doc/README.pt-BR.md',
+    'doc/README.zh-CN.md',
+  ];
 
   test('canonical Hooks installation example is valid YAML', () {
     final block = RegExp(r'```yaml\s*(.*?)```', dotAll: true)
@@ -166,4 +175,33 @@ void main() {
       expect(extendedApi, contains('initialized'));
     },
   );
+
+  test('translated READMEs retain canonical platform facts', () {
+    for (final path in translatedReadmes) {
+      final text = File(path).readAsStringSync();
+      final platformOverview = text.split(RegExp(r'\n## 2\.')).first;
+      expect(text, contains('3.47.0'), reason: path);
+      expect(text, contains('3.12.0'), reason: path);
+      expect(text, contains('wasm32'), reason: path);
+      expect(text, contains('hooks'), reason: path);
+      expect(text, contains('user_defines'), reason: path);
+      expect(text, contains('ffmpeg_kit_extended_flutter'), reason: path);
+      expect(text, contains('ffmpeg_kit_extended_config'), reason: path);
+      expect(
+        text,
+        contains('assets/packages/ffmpeg_kit_extended_flutter/wasm/'),
+        reason: path,
+      );
+      expect(text, contains('arm64'), reason: path);
+      expect(text, contains('x86_64'), reason: path);
+      expect(text, contains('arm, arm64, ia32, x64'), reason: path);
+      expect(platformOverview, contains('Linux'), reason: path);
+      expect(platformOverview, contains('Web'), reason: path);
+      expect(
+        platformOverview,
+        isNot(contains('OpenGL')),
+        reason: '$path must not describe Linux FFplay as OpenGL-owned',
+      );
+    }
+  });
 }
