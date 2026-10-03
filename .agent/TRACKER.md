@@ -13,14 +13,16 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **G1** | Correct factual React Native README/TSDoc mismatches before documentation generation | **Complete — `06afe1c`; pushed.** |
-| **G2** | Define the generated public API boundary and complete missing semantic TSDoc | **Pending** |
-| **G3** | Add strict TypeDoc Markdown generation and commit the API reference | **Pending** |
+| **G2** | Define the generated public API boundary and complete missing semantic TSDoc | **Complete — `daa9f31`; pushed.** |
+| **G3** | Add strict TypeDoc Markdown generation and commit the API reference | **Complete — `f0bcda9`; pushed.** |
 | **G4** | Add deterministic cross-platform generated-document drift validation | **Pending** |
 | **G5** | Complete API quality, packaging, platform-note, semantic-name, and no-runtime-diff validation | **Pending** |
 
 ### React Native documentation goal evidence
 
 - G1: `react-native/README.md` now describes FFplay position/video dimensions as synchronous queries, awaits sequential Promise-returning playback controls, and `react-native/src/ffplay-kit.ts` documents newest-unsettled current-session ownership with fallback to the next newest unsettled session. The semantic contract test in `react-native/tests/documentation-contract.test.js` passed **2/2**; `npm run typecheck` passed; `npm run lint` passed with **0 errors** and five pre-existing warnings. No runtime behavior changed.
+- G2: Restored-observer methods and queue coordination methods are marked `@internal` without changing declarations or runtime behavior. `FFmpegKitInitializeOptions`, Session identity fields, SessionSnapshot fields, concrete media-information properties, enum members, advanced history helpers, native-only bridge notes, Web/Wasm asset notes, and category metadata are documented. Strict pre-generation `npm run typecheck`, `npm run test:compile`, and `npm run lint` passed; lint remains **0 errors** with five pre-existing warnings. TypeDoc's four non-exported structural references are handled by the narrow `intentionallyNotExported` list (`RestoredSessionObservationTarget`, `Spec`, `CancellableSession`, `MaybePromise`), not broad validation suppression.
+- G3: `typedoc@0.28.20` and `typedoc-plugin-markdown@4.13.1` are recorded as dev dependencies with normal lockfile resolution. `react-native/typedoc.json` uses only `src/index.ts`, excludes internal/private/protected members, enables strict validation, treats validation warnings as errors, and uses the narrow structural-reference exemptions above. `npm run docs:api` passed with **0 warnings** and generated **44** committed Markdown files under `react-native/doc/api/`; README links to the generated index and prohibits hand edits. Internal observer/queue seams do not appear in generated output.
 
 ## Flutter Documentation and Public-Comment Remediation — 2026-10-03
 
