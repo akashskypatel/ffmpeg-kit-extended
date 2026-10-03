@@ -358,6 +358,8 @@ type IsExactlyAssignable<First, Second> =
 
 type Assert<T extends true> = T;
 
+// This alias is intentionally unused at runtime; its constraint is the parity gate.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 type NativeContractParity = Assert<
   IsExactlyAssignable<NativeCodegenSurface, NativeFFmpegKitExtendedSpec>
 >;
