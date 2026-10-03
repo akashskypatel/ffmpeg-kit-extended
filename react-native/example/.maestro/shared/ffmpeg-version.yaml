@@ -1,0 +1,13 @@
+---
+- tapOn:
+    id: tab.ffmpeg
+- tapOn:
+    id: toolbar.clear-logs
+- tapOn:
+    id: ffmpeg.version.async
+- assertVisible:
+    id: logs.output
+- tapOn:
+    id: ffmpeg.version.awaited
+- assertVisible:
+    id: logs.output

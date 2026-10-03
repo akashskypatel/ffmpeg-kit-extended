@@ -1,0 +1,11 @@
+---
+- tapOn:
+    id: tab.transcode
+- tapOn:
+    id: transcode.run
+- assertVisible:
+    id: transcode.status
+- assertVisible:
+    id: transcode.progress
+- assertVisible:
+    id: logs.output

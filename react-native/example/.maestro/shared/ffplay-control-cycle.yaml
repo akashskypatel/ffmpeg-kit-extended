@@ -1,0 +1,17 @@
+---
+- tapOn:
+    id: tab.ffplay
+- tapOn:
+    id: ffplay.play-video
+- tapOn:
+    id: ffplay.pause
+- tapOn:
+    id: ffplay.resume
+- tapOn:
+    id: ffplay.seek-forward
+- tapOn:
+    id: ffplay.seek-back
+- tapOn:
+    id: ffplay.stop
+- assertVisible:
+    id: ffplay.position

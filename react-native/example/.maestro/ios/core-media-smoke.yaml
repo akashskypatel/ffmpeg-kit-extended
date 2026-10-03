@@ -1,0 +1,19 @@
+appId: org.reactjs.native.example.FFmpegKitExtendedExample
+---
+- launchApp
+- assertVisible:
+    id: app.root
+- assertVisible:
+    id: tab.ffmpeg
+- assertVisible:
+    id: tab.stream
+- assertVisible:
+    id: tab.ffprobe
+- assertVisible:
+    id: tab.ffplay
+- assertVisible:
+    id: tab.transcode
+- runFlow: ../shared/ffmpeg-version.yaml
+- runFlow: ../shared/generated-media-probe.yaml
+- runFlow: ../shared/ffplay-control-cycle.yaml
+- runFlow: ../shared/transcode-generated-media.yaml

@@ -15,6 +15,29 @@ only an existing local file or directory and expects the frozen FFmpegKit
 runtime ABI **0.11.2**. A missing override, HTTP(S) override, or missing local
 path is a blocker; the script never downloads a replacement artifact.
 
+## Local Maestro mobile flows
+
+Maestro is an external agent tool and is intentionally absent from published
+package dependencies. Start its MCP integration with the generic `maestro mcp`
+command, select the caller-supplied Android emulator or iOS Simulator, inspect
+the screen before acting, and use the committed flows under
+`example/.maestro/`. The Android root flow uses the verified application ID
+`com.akashskypatel.ffmpegkitextendedexample`; the iOS root flow uses
+`org.reactjs.native.example.FFmpegKitExtendedExample`.
+
+Before a mobile build or launch, run the local-runtime verifier for the target:
+
+```bash
+node scripts/verify-local-interactive-runtime.js --platform android --app-root example
+node scripts/verify-local-interactive-runtime.js --platform ios --app-root example
+```
+
+Then reuse `build.sh`/`launch.sh` and execute the appropriate root flow. Shared
+flows contain only semantic `testID` selectors and no platform app ID,
+coordinates, or Maestro Cloud calls. A build without a real flow execution is
+not a mobile interactive pass; record an unavailable device, simulator, CLI,
+or local override as an exact **not run** blocker.
+
 Run the package-level validation suite from the repository root:
 
 ```bash

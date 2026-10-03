@@ -1,0 +1,13 @@
+---
+- tapOn:
+    id: tab.ffmpeg
+- tapOn:
+    id: ffmpeg.generate-video
+- assertVisible:
+    id: logs.output
+- tapOn:
+    id: tab.ffprobe
+- tapOn:
+    id: ffprobe.media-info
+- assertVisible:
+    id: logs.output
