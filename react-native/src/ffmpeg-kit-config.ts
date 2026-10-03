@@ -11,6 +11,8 @@ const NativeFFmpegKitExtended = getBackend();
  *
  * Settings apply process-wide and affect subsequently executed sessions. Call
  * `FFmpegKitExtended.initialize()` before using native configuration methods.
+ *
+ * @category Configuration
  */
 export class FFmpegKitConfig {
   /**

@@ -1776,9 +1776,10 @@ export class FFplaySession extends Session {
 /**
  * Reconstructs a typed wrapper from retained native history data.
  *
- * @category Advanced / history
  * Normal application code should prefer the history methods on
  * `FFmpegKitExtended` when possible.
+ *
+ * @category Advanced / history
  */
 export function sessionFromSnapshot(snapshot: SessionSnapshot): Session {
   let session: Session;

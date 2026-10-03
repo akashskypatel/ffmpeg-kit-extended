@@ -204,6 +204,8 @@ export interface MediaInformationData {
  * const media = session.getMediaInformation();
  * console.log(media?.format, media?.streams);
  * ```
+ *
+ * @category Media information
  */
 export class MediaInformation {
   /** Input filename, path, or URL reported by FFprobe. */

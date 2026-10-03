@@ -1,6 +1,8 @@
 /**
  * Rejection used when a session is removed from the JavaScript queue before its
  * native executor starts.
+ *
+ * @category Queue and cancellation
  */
 export class SessionCancelledException extends Error {
   constructor(message = 'Session was removed from queue') {

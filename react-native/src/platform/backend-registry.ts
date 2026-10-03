@@ -20,6 +20,8 @@ export interface StatisticsSnapshot {
  * options. On Web/Wasm, `assetBaseUrl` overrides the browser directory that
  * contains the staged runtime assets. A failed initialization can be retried
  * through `FFmpegKitExtended.initialize()` with corrected options.
+ *
+ * @category Configuration
  */
 export interface FFmpegKitInitializeOptions {
   /** Browser asset directory containing the staged Wasm runtime. */

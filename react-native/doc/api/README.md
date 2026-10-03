@@ -8,12 +8,16 @@
 
 - [parseSessionJson](functions/parseSessionJson.md)
 - [parseSessionsJson](functions/parseSessionsJson.md)
-
-## Advanced / history
-Normal application code should prefer the history methods on
-`FFmpegKitExtended` when possible.
-
 - [sessionFromSnapshot](functions/sessionFromSnapshot.md)
+
+## Advanced / native bridge
+
+- [NativeFFmpegKitExtended](variables/NativeFFmpegKitExtended.md)
+
+## Configuration
+
+- [FFmpegKitConfig](classes/FFmpegKitConfig.md)
+- [FFmpegKitInitializeOptions](interfaces/FFmpegKitInitializeOptions.md)
 
 ## Execution
 
@@ -28,6 +32,7 @@ Normal application code should prefer the history methods on
 ## Media information
 
 - [FFprobeKit](classes/FFprobeKit.md)
+- [MediaInformation](classes/MediaInformation.md)
 
 ## Other
 
@@ -37,18 +42,14 @@ Normal application code should prefer the history methods on
 - [SessionState](enumerations/SessionState.md)
 - [Signal](enumerations/Signal.md)
 - [ChapterInformation](classes/ChapterInformation.md)
-- [FFmpegKitConfig](classes/FFmpegKitConfig.md)
 - [FFmpegSession](classes/FFmpegSession.md)
 - [FFplaySession](classes/FFplaySession.md)
 - [FFprobeSession](classes/FFprobeSession.md)
-- [MediaInformation](classes/MediaInformation.md)
 - [MediaInformationSession](classes/MediaInformationSession.md)
-- [SessionCancelledException](classes/SessionCancelledException.md)
 - [StreamInformation](classes/StreamInformation.md)
 - [ChapterInformationData](interfaces/ChapterInformationData.md)
 - [ExecuteOptions](interfaces/ExecuteOptions.md)
 - [FFmpegExecuteOptions](interfaces/FFmpegExecuteOptions.md)
-- [FFmpegKitInitializeOptions](interfaces/FFmpegKitInitializeOptions.md)
 - [Log](interfaces/Log.md)
 - [MediaInformationData](interfaces/MediaInformationData.md)
 - [SessionSnapshot](interfaces/SessionSnapshot.md)
@@ -59,7 +60,6 @@ Normal application code should prefer the history methods on
 - [SessionCompleteCallback](type-aliases/SessionCompleteCallback.md)
 - [SessionType](type-aliases/SessionType.md)
 - [StatisticsCallback](type-aliases/StatisticsCallback.md)
-- [NativeFFmpegKitExtended](variables/NativeFFmpegKitExtended.md)
 - [argumentsToString](functions/argumentsToString.md)
 - [isCancelReturnCode](functions/isCancelReturnCode.md)
 - [isSuccessReturnCode](functions/isSuccessReturnCode.md)
@@ -67,6 +67,7 @@ Normal application code should prefer the history methods on
 
 ## Queue and cancellation
 
+- [SessionCancelledException](classes/SessionCancelledException.md)
 - [SessionQueueManager](classes/SessionQueueManager.md)
 
 ## Sessions
