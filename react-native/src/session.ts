@@ -328,8 +328,9 @@ export abstract class Session implements RestoredSessionObservationTarget {
       this.sessionId
     );
     if (managed && managed !== this) {
+      // A different managed owner controls durable per-ID cancellation state.
+      // This wrapper records only its local request before delegating.
       this.cancelled = true;
-      NativeFFmpegKitExtended.recordCancellationIntent?.(this.sessionId);
       const delegated = managed.cancel();
       if (delegated instanceof Promise) await delegated;
       return;
