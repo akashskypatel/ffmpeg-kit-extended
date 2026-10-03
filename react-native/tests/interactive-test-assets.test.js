@@ -7,6 +7,7 @@ const { test } = require("node:test");
 
 const assetsRoot = path.join(__dirname, "..", "example", ".maestro");
 const appiumRoot = path.join(__dirname, "..", "example", "interactive-tests", "appium");
+const windowsInteractiveRoot = path.join(__dirname, "..", "example", "interactive-tests", "windows");
 const rootFlows = {
   android: {
     file: path.join(assetsRoot, "android", "core-media-smoke.yaml"),
@@ -87,5 +88,17 @@ test("Apple Appium capability examples preserve the local semantic contract", ()
   const capabilityContent = `${JSON.stringify(macos)}\n${JSON.stringify(tvos)}`;
   assert.doesNotMatch(capabilityContent, /https?:\/\/(?!127\.0\.0\.1|localhost)/i);
   assert.doesNotMatch(capabilityContent, /(?:udid|deviceudid|password|token|access[_-]?key)\s*[:=]/i);
+});
+
+test("Windows AutoGenesis assets preserve a semantic, local-only launch contract", () => {
+  const config = JSON.parse(read(path.join(windowsInteractiveRoot, "autogenesis-config.example.json")));
+  assert.equal(config.appName, "FFmpegKitExtendedExample");
+  assert.match(config.executablePath, /find-windows-example\.ps1/);
+  assert.equal(config.testedAutoGenesisCommit, null);
+  assert.doesNotMatch(JSON.stringify(config), /^[A-Z]:\\/i);
+  const content = read(path.join(windowsInteractiveRoot, "README.md"));
+  assert.match(content, /AutomationId|accessibility property/i);
+  assert.match(content, /find-windows-example\.ps1/);
+  assert.doesNotMatch(content, /maestro cloud/i);
 });
 

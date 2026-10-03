@@ -1,0 +1,7 @@
+{
+  "appName": "FFmpegKitExtendedExample",
+  "executablePath": "<resolved by react-native/scripts/find-windows-example.ps1>",
+  "windowTitleRegex": "^FFmpegKitExtendedExample(?:$|\\s)",
+  "launchArguments": [],
+  "testedAutoGenesisCommit": null
+}
