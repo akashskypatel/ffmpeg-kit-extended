@@ -8,18 +8,23 @@ const {
   patchAppletvosRuntime,
 } = require('../scripts/patch-appletvos-runtime.js');
 
-const virtualViewSource = `export default codegenNativeComponent<VirtualViewExperimentalNativeProps>(
+const virtualViewSources = {
+  'VirtualViewNativeComponent.js': `export default codegenNativeComponent<VirtualViewNativeProps>('VirtualView', {
+  interfaceOnly: true,
+}) as HostComponent<VirtualViewNativeProps>;`,
+  'VirtualViewExperimentalNativeComponent.js': `export default codegenNativeComponent<VirtualViewExperimentalNativeProps>(
   'VirtualViewExperimental',
   {
     interfaceOnly: true,
   },
-) as HostComponent<VirtualViewExperimentalNativeProps>;`;
+) as HostComponent<VirtualViewExperimentalNativeProps>;`,
+};
 
 test('patches the disposable tvOS runtime VirtualView codegen cast idempotently', () => {
   const temporaryRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'ffmpeg-kit-appletvos-runtime-'),
   );
-  const componentPath = path.join(
+  const componentDirectory = path.join(
     temporaryRoot,
     'node_modules',
     'react-native',
@@ -27,28 +32,39 @@ test('patches the disposable tvOS runtime VirtualView codegen cast idempotently'
     'private',
     'components',
     'virtualview',
-    'VirtualViewExperimentalNativeComponent.js',
   );
 
   try {
-    fs.mkdirSync(path.dirname(componentPath), {recursive: true});
-    fs.writeFileSync(componentPath, `${virtualViewSource}\n`, 'utf8');
+    fs.mkdirSync(componentDirectory, {recursive: true});
+    for (const [fileName, source] of Object.entries(virtualViewSources)) {
+      fs.writeFileSync(
+        path.join(componentDirectory, fileName),
+        `${source}\n`,
+        'utf8',
+      );
+    }
 
     const first = patchAppletvosRuntime(temporaryRoot);
     assert.equal(first.changed, true);
-    const patchedSource = fs.readFileSync(componentPath, 'utf8');
-    assert.match(
-      patchedSource,
-      /export default \(codegenNativeComponent<VirtualViewExperimentalNativeProps>\(/,
+    const patchedSources = Object.keys(virtualViewSources).map(fileName =>
+      fs.readFileSync(path.join(componentDirectory, fileName), 'utf8'),
     );
+    assert.match(patchedSources[0], /export default \(codegenNativeComponent/);
+    assert.match(patchedSources[0], /\): HostComponent<VirtualViewNativeProps>\);/);
+    assert.match(patchedSources[1], /export default \(codegenNativeComponent/);
     assert.match(
-      patchedSource,
+      patchedSources[1],
       /\): HostComponent<VirtualViewExperimentalNativeProps>\);/,
     );
 
     const second = patchAppletvosRuntime(temporaryRoot);
     assert.equal(second.changed, false);
-    assert.equal(fs.readFileSync(componentPath, 'utf8'), patchedSource);
+    assert.deepEqual(
+      Object.keys(virtualViewSources).map(fileName =>
+        fs.readFileSync(path.join(componentDirectory, fileName), 'utf8'),
+      ),
+      patchedSources,
+    );
   } finally {
     fs.rmSync(temporaryRoot, {recursive: true, force: true});
   }
