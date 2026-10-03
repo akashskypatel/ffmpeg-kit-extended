@@ -76,7 +76,7 @@ class FFprobeKit {
       FFprobeSession(command, completeCallback: onComplete)
         ..setLogCallback(onLog);
 
-  /// Lists all active FFprobe sessions.
+  /// Lists all retained FFprobe sessions in session history.
   static List<FFprobeSession> getFFprobeSessions() =>
       FFmpegKitExtended.getFFprobeSessions();
 }

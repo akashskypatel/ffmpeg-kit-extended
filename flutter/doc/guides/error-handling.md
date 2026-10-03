@@ -5,6 +5,7 @@ Reliable error handling is critical when dealing with complex media operations. 
 ## Table of Contents
 
 - [Return Codes](#return-codes)
+- [Async Future errors versus terminal return codes](#async-future-errors-versus-terminal-return-codes)
 - [Analyzing Logs](#analyzing-logs)
 - [Session Failures](#session-failures)
 - [Common Error Patterns](#common-error-patterns)
@@ -26,6 +27,38 @@ if (ReturnCode.isSuccess(code)) {
   // Other error code (usually 1)
 }
 ```
+
+## Async Future errors versus terminal return codes
+
+Return codes describe a native execution that reached a terminal session state.
+An asynchronous Future can instead reject before a normal terminal result is
+available, for example when a queued execution is cancelled before startup,
+when admission or lifecycle validation fails, or when startup/state/backend or
+cleanup ownership fails.
+
+```dart
+try {
+  final session = await FFmpegKit.executeAsync(command);
+
+  if (ReturnCode.isSuccess(session.getReturnCode())) {
+    // Native execution reached a successful terminal state.
+  } else if (ReturnCode.isCancel(session.getReturnCode())) {
+    // Native execution reached a cancelled terminal state.
+  }
+} on SessionCancelledException {
+  // Queue/pre-start execution was cancelled before a terminal native result.
+} on StateError {
+  // Common examples include admission, disposal, or lifecycle failures.
+} catch (error) {
+  // Other startup, state, backend, or cleanup failure propagated by the Future.
+}
+```
+
+When native execution is already running, cancellation may produce a terminal
+session with a cancel return code. That is different from
+`SessionCancelledException`, which is the Future error for queue/pre-start
+cancellation. Install callbacks for observation, but still await and handle
+the returned Future when startup or execution failures matter to the caller.
 
 ## Analyzing Logs
 

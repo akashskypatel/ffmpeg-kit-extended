@@ -429,7 +429,10 @@ if (session != null) {
 
 #### getFFplaySessions
 
-Returns all active FFplay sessions (always a single element or empty).
+Returns all retained FFplay sessions in session history. A newer global
+control owner does not cancel older tracked executions automatically. Inspect
+`session.getState()` when filtering history; active asynchronous executions are
+available from `SessionQueueManager().activeSessions`.
 
 ```dart
 static List<FFplaySession> getFFplaySessions()
@@ -437,14 +440,14 @@ static List<FFplaySession> getFFplaySessions()
 
 **Returns:**
 
-- `List<FFplaySession>`: List with at most one session
+- `List<FFplaySession>`: List of retained FFplay sessions in creation order
 
 **Example:**
 
 ```dart
 final sessions = FFplayKit.getFFplaySessions();
 if (sessions.isNotEmpty) {
-  print('Active session: ${sessions.first.getCommand()}');
+  print('Most recently retained session: ${sessions.first.getCommand()}');
 }
 ```
 

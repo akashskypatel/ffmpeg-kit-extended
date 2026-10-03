@@ -67,11 +67,11 @@ class FFmpegKit {
   static FFmpegSession createSessionFromArguments(List<String> arguments) =>
       FFmpegSession.createFromArguments(arguments);
 
-  /// Returns the last executed FFmpeg session.
+  /// Returns the most recently created FFmpeg session retained in session history.
   static FFmpegSession? getLastFFmpegSession() =>
       FFmpegKitExtended.getLastFFmpegSession();
 
-  /// Returns all active FFmpeg sessions.
+  /// Returns all retained FFmpeg sessions in session history.
   static List<FFmpegSession> getFFmpegSessions() =>
       FFmpegKitExtended.getFFmpegSessions();
 }

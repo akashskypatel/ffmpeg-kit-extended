@@ -213,7 +213,10 @@ final session = FFprobeKit.createSession(
 
 ### getFFprobeSessions
 
-Returns all active FFprobe sessions.
+Returns all retained FFprobe sessions in session history. Inspect
+`session.getState()` when you need to filter the history for Running or
+terminal sessions; active asynchronous executions are available from
+`SessionQueueManager().activeSessions`.
 
 ```dart
 static List<FFprobeSession> getFFprobeSessions()
@@ -221,13 +224,13 @@ static List<FFprobeSession> getFFprobeSessions()
 
 **Returns:**
 
-- `List<FFprobeSession>`: A list of all active FFprobe sessions
+- `List<FFprobeSession>`: A list of retained FFprobe sessions in creation order
 
 **Example:**
 
 ```dart
 final sessions = FFprobeKit.getFFprobeSessions();
-print('Active FFprobe sessions: ${sessions.length}');
+print('Retained FFprobe sessions: ${sessions.length}');
 ```
 
 ## Callback Types

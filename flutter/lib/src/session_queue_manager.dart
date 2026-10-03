@@ -84,9 +84,9 @@ class SessionQueueManager {
   ///
   /// Returns a Future that completes when the session finishes execution.
   ///
-  /// The same session object cannot be admitted while it is already active or
-  /// queued. This identity check rejects the duplicate without touching the
-  /// queue or invoking [onDiscard]; distinct session objects remain eligible.
+  /// Admission is unique by native session ID while queued or active. Reusing
+  /// the same object or another wrapper for a reserved ID fails without
+  /// invoking [onDiscard].
   Future<void> executeSession(
     Session session,
     Future<void> Function() executor, {

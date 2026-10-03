@@ -147,7 +147,7 @@ final session = FFmpegKit.createSession('-i input.mp4 output.mp4');
 
 ### getLastFFmpegSession
 
-Returns the most recently executed FFmpeg session.
+Returns the most recently created FFmpeg session retained in session history.
 
 ```dart
 static FFmpegSession? getLastFFmpegSession()
@@ -155,7 +155,7 @@ static FFmpegSession? getLastFFmpegSession()
 
 **Returns:**
 
-- `FFmpegSession?`: The last session, or null if no sessions have been executed
+- `FFmpegSession?`: The most recently created retained session, or null when history is empty
 
 **Example:**
 
@@ -171,7 +171,10 @@ if (lastSession != null) {
 
 ### getFFmpegSessions
 
-Returns all active FFmpeg sessions.
+Returns all retained FFmpeg sessions in session history. These results may
+include Created, Running, Completed, or Failed sessions; inspect
+`session.getState()` when filtering by lifecycle state. For currently active
+asynchronous executions, use `SessionQueueManager().activeSessions`.
 
 ```dart
 static List<FFmpegSession> getFFmpegSessions()
@@ -179,13 +182,13 @@ static List<FFmpegSession> getFFmpegSessions()
 
 **Returns:**
 
-- `List<FFmpegSession>`: A list of all active sessions
+- `List<FFmpegSession>`: A list of retained sessions in creation order
 
 **Example:**
 
 ```dart
 final sessions = FFmpegKit.getFFmpegSessions();
-print('Active sessions: ${sessions.length}');
+print('Retained FFmpeg sessions: ${sessions.length}');
 
 for (final session in sessions) {
   print('Session ${session.getSessionId()}: ${session.getState()}');

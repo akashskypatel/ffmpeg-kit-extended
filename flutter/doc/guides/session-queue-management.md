@@ -76,9 +76,9 @@ you intentionally need to await all queued or active asynchronous sessions.
 ### Monitoring Status
 
 ```dart
-// Check if the system is at full capacity
+// Check if at least one session is currently executing
 if (queueManager.isBusy) {
-  print("Working at maximum concurrency");
+  print("A session is active");
 }
 
 // Get count of currently running sessions
@@ -91,10 +91,10 @@ print("Queued sessions: ${queueManager.queueLength}");
 ### Canceling Sessions
 
 ```dart
-// Cancel the "current" session (most recent one added to active list)
+// Attempt cancellation for every active session
 queueManager.cancelCurrent();
 
-// Clear all queued sessions (throws SessionCancelledException for each)
+// Remove all queued sessions; each queued Future receives its cancellation error
 queueManager.clearQueue();
 
 // Cancel everything (current running sessions and all queued ones)
@@ -108,6 +108,12 @@ native cancellation is dispatched after settlement.
 `cancelCurrent()` and `cancelAll()` attempt every active session even when an
 earlier cancellation throws, then rethrow the first cancellation error. The
 queue is cleared before `cancelAll()` attempts active sessions.
+
+`clearQueue()` itself does not throw one cancellation exception per queued
+session. Each removed execution Future completes with a
+`SessionCancelledException`, unless discard cleanup produces another error.
+`cancelAll()` removes waiting items first, then attempts every active session;
+queued execution Futures receive their cancellation or cleanup errors.
 
 ### Waiting for Completion
 
@@ -147,7 +153,7 @@ class BatchProcessor {
 | `maxConcurrentSessions` | Gets/Sets the concurrency limit (default 8). |
 | `activeSessionCount` | Number of sessions currently executing. |
 | `queueLength` | Number of sessions waiting for an available slot. |
-| `isBusy` | Returns true if any sessions are active or queued. |
+| `isBusy` | Returns true while at least one session is active; check `queueLength` separately for pending work. |
 | `cancelCurrent()` | Attempts every active session and rethrows the first cancellation error. |
 | `clearQueue()` | Removes all sessions from the waiting queue. |
 | `cancelAll()` | Clears waiting sessions, attempts every active session, and rethrows the first cancellation error. |
@@ -155,7 +161,13 @@ class BatchProcessor {
 
 ### Exceptions
 
-- **SessionCancelledException**: Thrown when a session is removed from the queue before it could start (via `clearQueue` or `cancelAll`).
+- **SessionCancelledException**: Delivered through a queued execution Future when that session is removed before native startup (via `clearQueue` or `cancelAll`).
+
+### Native session-ID admission
+
+Admission is unique by native session ID while a session is queued or active.
+Submitting the same object or another wrapper for a reserved native ID returns
+a Future that fails with `StateError`; it does not invoke discard cleanup.
 
 ## Migration from Previous Versions
 
