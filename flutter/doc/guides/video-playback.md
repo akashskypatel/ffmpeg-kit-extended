@@ -4,7 +4,9 @@ Complete guide to implementing video playback using FFmpegKit Extended Flutter.
 
 ## Overview
 
-FFmpegKit Extended provides a unified cross-platform video playback API that works seamlessly across Android, Linux, and Windows. The `FFplaySurface` class handles platform-specific differences while providing a consistent Dart API.
+FFmpegKit Extended provides a unified cross-platform video playback API across
+Android, iOS, macOS, Linux, Windows, and Web/Wasm. The `FFplaySurface` class
+handles platform-specific differences while providing a consistent Dart API.
 
 ## Platform Implementation Details
 
@@ -13,10 +15,18 @@ FFmpegKit Extended provides a unified cross-platform video playback API that wor
 - Leverages SDL2's Android backend for hardware-accelerated output
 - Method channel for surface lifecycle management
 
-### Linux & Windows  
+### iOS & macOS
+- Uses Apple Flutter textures backed by `CVPixelBuffer`
+- The shared surface exposes `toWidget()`; Apple texture details remain native
+
+### Linux & Windows
 - Uses pixel buffer textures with Flutter's texture system
 - Frame callbacks deliver RGBA8888 pixels from FFplay decoder
 - Double-buffered rendering for smooth playback
+
+### Web/Wasm
+- Copies generation-tracked RGBA8888 frames from Wasm memory
+- Renders the copied frames with Flutter `RawImage` through `toWidget()`
 
 ### Audio-only Content
 - Surface creation is safe for audio-only files
@@ -440,7 +450,8 @@ When in fullscreen:
 ### Common Issues
 
 **Surface creation fails**
-- Check platform support (iOS/macOS not supported)
+- Check that the selected platform runtime and FFplay surface implementation
+  are available
 - Verify native libraries are properly loaded
 - Ensure `FFmpegKitExtended.initialize()` completed
 

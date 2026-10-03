@@ -12,6 +12,11 @@ void main() {
   final playbackGuide = File(
     'doc/guides/playback-control.md',
   ).readAsStringSync();
+  final videoSurfaceApi = File('doc/api/video-surface.md').readAsStringSync();
+  final dataModelsApi = File('doc/api/data-models.md').readAsStringSync();
+  final videoPlaybackGuide = File(
+    'doc/guides/video-playback.md',
+  ).readAsStringSync();
   final queueGuide = File(
     'doc/guides/session-queue-management.md',
   ).readAsStringSync();
@@ -107,5 +112,33 @@ void main() {
     expect(playbackGuide, contains('current global control owner'));
     expect(playbackGuide, contains('FFplaySession.dispose'));
     expect(playbackGuide, isNot(contains('manages it as a singleton')));
+  });
+
+  test('surface and sizing guidance describes every rendering target', () {
+    expect(videoSurfaceApi, contains('iOS/macOS'));
+    expect(videoSurfaceApi, contains('Web'));
+    expect(videoSurfaceApi, contains('RawImage'));
+    expect(videoSurfaceApi, contains('sourceHeight'));
+    expect(
+      videoSurfaceApi,
+      contains('videoHeight ?? videoWidth / aspectRatio'),
+    );
+    expect(
+      videoSurfaceApi,
+      contains('does not impose a separate native-width cap'),
+    );
+    expect(
+      videoSurfaceApi,
+      isNot(contains('Texture(textureId: surface.textureId)')),
+    );
+    expect(
+      dataModelsApi,
+      contains('shared surface contract intentionally exposes `toWidget()`'),
+    );
+    expect(videoPlaybackGuide, contains('Android, iOS, macOS, Linux, Windows'));
+    expect(videoPlaybackGuide, contains('Web/Wasm'));
+    expect(videoPlaybackGuide, contains('CVPixelBuffer'));
+    expect(videoPlaybackGuide, contains('RawImage'));
+    expect(videoPlaybackGuide, isNot(contains('iOS/macOS not supported')));
   });
 }

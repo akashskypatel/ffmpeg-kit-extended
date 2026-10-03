@@ -21,7 +21,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// Flutter [Texture]-backed desktop surface for FFplay video output.
+/// Flutter [Texture]-backed native surface for FFplay video output.
 ///
 /// On Linux and Windows, FFplay renders frames with SDL2 software renderer.
 /// After each `video_refresh` the C++ platform plugin receives decoded pixels
@@ -29,6 +29,11 @@ import 'package:flutter/widgets.dart';
 /// `FlutterDesktopPixelBuffer`, and signals Flutter to repaint via
 /// `MarkTextureFrameAvailable`. The `Texture` widget composites the
 /// current frame into the widget tree.
+///
+/// On iOS and macOS, the same wrapper represents the Apple native Flutter
+/// texture/CVPixelBuffer path. The public [toWidget] contract is shared, but
+/// only Linux and Windows use the pixel-buffer callback implementation
+/// described above.
 ///
 /// ### Typical usage
 ///
@@ -56,7 +61,7 @@ import 'package:flutter/widgets.dart';
 class FFplayDesktopTexture {
   static const _channel = MethodChannel('ffplay_kit_desktop');
 
-  /// Flutter texture ID — pass to `Texture(textureId: textureId)`.
+  /// Native Flutter texture ID. Prefer [toWidget] for cross-platform use.
   final int textureId;
 
   FFplayDesktopTexture._({required this.textureId});

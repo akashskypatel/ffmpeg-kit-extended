@@ -15,7 +15,7 @@
 | **G1** | Repair canonical installation/configuration documentation and add parse validation | **Complete — README/quick-start YAML and bundle-type wording corrected; `flutter test --no-pub --exclude-tags native test/documentation_contract_test.dart` passed.** |
 | **G2** | Align session history, queue, cancellation, and async-error documentation/comments with code | **Complete — history/queue Dartdoc and guides corrected; focused documentation contracts passed.** |
 | **G3** | Correct FFplay lifecycle/control API documentation and signatures | **Complete — FFplayKit now documents the current global control owner, independently tracked executions, distinct stop/close/dispose semantics, log callbacks, and argument-tokenized session creation; the focused documentation contract passed 5/5.** |
-| **G4** | Make surface/rendering/sizing documentation genuinely cross-platform | **Pending** |
+| **G4** | Make surface/rendering/sizing documentation genuinely cross-platform | **Complete — surface, rendering matrix, native-vs-Web widget contract, FFplayView sizing algorithm, and platform-specific Dartdoc corrected; focused documentation contract passed 7/7.** |
 | **G5** | Complete public API reference coverage, including `FFmpegKitExtended` | **Pending** |
 | **G6** | Synchronize translations and add stable documentation-contract tests | **Pending** |
 | **G7** | Run documentation-focused validation and final no-runtime-diff audit | **Pending** |
@@ -25,6 +25,7 @@
 - G1: The primary README Hooks example now parses as a nested `hooks.user_defines.ffmpeg_kit_extended_flutter` map with sibling `type`, `gpl`, and `small` keys. README and quick-start describe `debug`, `base`, `full`, `audio`, `video`, and `video_hw`, with legacy `streaming` explicitly documented as an alias for `video`. The targeted YAML/wording contract passed after clearing one stale generated hook-runner cache entry; no native source or artifact was changed.
 - G2: FFmpeg/FFprobe/FFplay history references now describe retained creation-order history, while queue guidance distinguishes active executions, pending queue length, native-ID admission, Future-delivered queued cancellation errors, and all-active cancellation. The error guide now distinguishes terminal return codes from `SessionCancelledException`/lifecycle Future rejection. The focused documentation contract suite passed **4/4**.
 - G3: FFplayKit Dartdoc and API/playback guides now describe one current global control owner without claiming singleton execution, preserve older tracked executions when a newer owner is created, distinguish stop from close and `FFplaySession.dispose`, and document `onLog` plus `createSessionFromArguments`. The focused documentation contract suite passed **5/5**.
+- G4: FFplay surface guidance now covers Android, iOS, macOS, Linux, Windows, and Web/Wasm with `toWidget()` as the shared contract; native texture IDs are limited to platform-specific sections, Linux/Windows frame callbacks are distinguished from Apple `CVPixelBuffer` textures, Web `RawImage` copying is documented, and sizing matches the existing `_buildVideo` algorithm without a native-width/never-upscale policy. The focused documentation contract suite passed **7/7**.
 
 ## Review 51 React Native Terminal-Cancellation Authority Closure — 2026-10-02
 

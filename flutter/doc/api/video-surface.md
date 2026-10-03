@@ -10,7 +10,9 @@ The main class for cross-platform video surface management.
 
 `FFplaySurface` automatically handles platform differences:
 - **Android**: Uses `SurfaceTexture` backed `ANativeWindow`
-- **Linux/Windows**: Uses pixel buffer textures with frame callbacks
+- **iOS/macOS**: Uses Apple Flutter textures backed by `CVPixelBuffer`
+- **Linux/Windows**: Uses Flutter pixel-buffer textures with frame callbacks
+- **Web**: Copies generation-tracked RGBA frames from Wasm and renders them with `RawImage`
 - **Audio-only**: Safe surface creation with no display
 
 ### Static Methods
@@ -34,25 +36,14 @@ static Future<FFplaySurface?> create({int width = 1, int height = 1})
 ```dart
 // Create surface with default size
 final surface = await FFplaySurface.create();
+if (surface == null) return;
 
 // Create with size hint (Android only)
-final surface = await FFplaySurface.create(width: 1920, height: 1080);
+final sizedSurface = await FFplaySurface.create(width: 1920, height: 1080);
+if (sizedSurface == null) return;
 ```
 
 ### Instance Properties
-
-#### textureId
-
-The Flutter texture ID backing this surface.
-
-```dart
-final int textureId
-```
-
-**Example:**
-```dart
-final texture = Texture(textureId: surface.textureId);
-```
 
 ### Instance Methods
 
@@ -65,7 +56,8 @@ Widget toWidget()
 ```
 
 **Returns:**
-- `Widget`: Flutter Texture widget
+- `Widget`: Platform-appropriate Flutter widget (`Texture` on native targets;
+  `RawImage`-backed output on Web)
 
 **Example:**
 ```dart
@@ -125,17 +117,23 @@ const FFplayView({
 - `surface` (FFplaySurface, required): The video surface to render.
 - `controller` (FFplayViewController?): Controls fullscreen state. When omitted no fullscreen capability is wired up.
 - `aspectRatio` (double?): Video aspect ratio (e.g. `16 / 9`). When `null` the widget expands to fill its parent.
-- `videoWidth` (int?): Native pixel width of the video stream. When provided the widget caps itself to `min(containerWidth, videoWidth)` and never upscales beyond native dimensions.
-- `videoHeight` (int?): Native pixel height of the video stream (informational).
+- `videoWidth` (int?): Native pixel width of the video stream. When provided,
+  it participates in the source-height fallback when `videoHeight` is absent.
+- `videoHeight` (int?): Native pixel height of the video stream. When
+  provided, it caps the computed height while preserving the aspect ratio.
 - `backgroundColor` (Color): Background colour for letterbox / pillarbox areas. Default: `Colors.black`.
 
 ### Sizing Behaviour
 
 | Parameters provided | Widget size |
 |---------------------|-------------|
-| `aspectRatio` + `videoWidth` | `min(containerWidth, videoWidth) × (w / aspectRatio)` |
-| `aspectRatio` only | Fills parent container at the given ratio |
-| Neither | Expands to fill parent |
+| `aspectRatio` + source dimensions | Uses finite available width (or a source-derived fallback when width is unbounded); height is `min(width / aspectRatio, sourceHeight)` where `sourceHeight` is `videoHeight ?? videoWidth / aspectRatio`. |
+| `aspectRatio` only | Uses `AspectRatio` to size within the parent container. |
+| Neither | Expands to fill the parent. |
+
+The widget does not impose a separate native-width cap or a never-upscale
+policy. `videoHeight` participates in the height cap; these dimensions do not
+change the decoded frame or surface.
 
 ### Example
 
@@ -346,7 +344,9 @@ Future<void> release()
 
 ## FFplayDesktopTexture
 
-Platform-specific texture implementation for Linux and Windows.
+Platform-specific native texture implementation for Linux, Windows, iOS, and
+macOS. Linux and Windows receive decoded RGBA pixels through frame callbacks;
+Apple targets use their native Flutter texture/CVPixelBuffer path.
 
 ### Static Methods
 
@@ -359,7 +359,7 @@ static Future<FFplayDesktopTexture?> create()
 ```
 
 **Returns:**
-- `Future<FFplayDesktopTexture?>`: Desktop texture or null on non-desktop platforms
+- `Future<FFplayDesktopTexture?>`: Native texture or null on unsupported platforms
 
 ### Instance Properties
 

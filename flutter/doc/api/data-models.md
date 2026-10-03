@@ -60,8 +60,9 @@ Represents a single media stream (video, audio, subtitle, etc.) within a contain
 
 Unified cross-platform video surface that automatically handles platform differences.
 
-**Properties:**
-- `textureId` (int): Flutter texture ID for the surface
+The shared surface contract intentionally exposes `toWidget()` rather than a
+universal texture ID. Native implementations may use a Flutter texture
+internally; Web copies Wasm RGBA frames into a `RawImage`.
 
 **Key Methods:**
 - `create()`: Creates platform-appropriate surface
@@ -82,7 +83,9 @@ Android-specific surface implementation using SurfaceTexture and ANativeWindow.
 
 ### FFplayDesktopTexture
 
-Desktop texture implementation for Linux and Windows using pixel buffers.
+Native texture implementation for Linux, Windows, iOS, and macOS. Linux and
+Windows use pixel-buffer frame callbacks; Apple targets use the native
+Flutter-texture/CVPixelBuffer path.
 
 **Properties:**
 - `textureId` (int): Flutter texture ID

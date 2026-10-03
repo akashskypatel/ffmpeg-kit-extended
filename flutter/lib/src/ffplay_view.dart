@@ -114,9 +114,10 @@ class FFplayViewController extends ChangeNotifier {
 ///
 /// ### Sizing in normal mode
 ///
-/// * Both [aspectRatio] and source dimensions provided → widget expands to the
-///   full available width, while its height is capped at the source video's
-///   natural height. The frame preserves its aspect ratio inside the surface.
+/// * Both [aspectRatio] and source dimensions provided → widget uses the finite
+///   available width (or a source-derived fallback when width is unbounded),
+///   then computes `min(width / aspectRatio, sourceHeight)` where
+///   `sourceHeight` is `videoHeight ?? videoWidth / aspectRatio`.
 /// * Only [aspectRatio] → fills parent container at that ratio.
 /// * Neither → expands to fill parent.
 ///
@@ -152,10 +153,11 @@ class FFplayView extends StatefulWidget {
   final double? aspectRatio;
 
   /// Native pixel width of the video stream. Used to derive the source height
-  /// when [videoHeight] is not supplied.
+  /// when [videoHeight] is not supplied; it does not cap the widget width.
   final int? videoWidth;
 
-  /// Native pixel height of the video stream (informational).
+  /// Native pixel height of the video stream. When supplied, it participates
+  /// in the computed height cap while preserving [aspectRatio].
   final int? videoHeight;
 
   /// Background colour for letterbox / pillarbox areas.
