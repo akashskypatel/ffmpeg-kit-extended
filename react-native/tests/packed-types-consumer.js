@@ -39,32 +39,63 @@ function resolveTypes(fixture, conditions) {
 }
 
 function assertQueueMarkerIsNotConsumerCallable(fixture) {
-  const contractFile = path.join(fixture, 'src', 'queue-marker-contract.ts');
-  write(
-    contractFile,
-    [
-      "import {FFmpegSession} from 'ffmpeg-kit-extended';",
-      "const session = new FFmpegSession(1, '-version');",
-      'session.markCancelledBeforeExecution();',
-      '',
-    ].join('\n'),
-  );
-  const program = ts.createProgram([contractFile], {
-    module: ts.ModuleKind.ESNext,
-    moduleResolution: ts.ModuleResolutionKind.Bundler,
-    customConditions: ['react-native'],
-    strict: true,
-    skipLibCheck: true,
-    noEmit: true,
-  });
-  const diagnostics = ts.getPreEmitDiagnostics(program);
-  assert.ok(
-    diagnostics.some((diagnostic) =>
-      ts
-        .flattenDiagnosticMessageText(diagnostic.messageText, ' ')
-        .includes('markCancelledBeforeExecution'),
-    ),
-    'the queue-only cancellation marker must not be callable from packed consumer types',
+  const contracts = [
+    {
+      name: 'queue-marker-contract.ts',
+      source: [
+        "import {FFmpegSession} from 'ffmpeg-kit-extended';",
+        "const session = new FFmpegSession(1, '-version');",
+        'session.markCancelledBeforeExecution();',
+        '',
+      ].join('\n'),
+      message: 'the queue-only cancellation marker must not be callable from packed consumer types',
+    },
+    {
+      name: 'queue-marker-subclass-contract.ts',
+      source: [
+        "import {FFmpegSession} from 'ffmpeg-kit-extended';",
+        'class ConsumerDerivedSession extends FFmpegSession {',
+        '  forceQueueOnlyCancel(): void {',
+        '    this.markCancelledBeforeExecution();',
+        '  }',
+        '}',
+        '',
+      ].join('\n'),
+      message: 'the queue-only cancellation marker must not be callable from consumer subclasses',
+    },
+  ];
+
+  for (const contract of contracts) {
+    const contractFile = path.join(fixture, 'src', contract.name);
+    write(contractFile, contract.source);
+    const program = ts.createProgram([contractFile], {
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      customConditions: ['react-native'],
+      strict: true,
+      skipLibCheck: true,
+      noEmit: true,
+    });
+    const diagnostics = ts.getPreEmitDiagnostics(program);
+    assert.ok(
+      diagnostics.some((diagnostic) =>
+        ts
+          .flattenDiagnosticMessageText(diagnostic.messageText, ' ')
+          .includes('markCancelledBeforeExecution'),
+      ),
+      contract.message,
+    );
+  }
+}
+
+function assertQueueMarkerIsNotRuntimeCallable() {
+  const emittedSession = path.join(packageRoot, 'lib', 'module', 'session.js');
+  assert.ok(fs.existsSync(emittedSession), 'Run npm run prepare before runtime contract checks');
+  const source = fs.readFileSync(emittedSession, 'utf8');
+  assert.doesNotMatch(
+    source,
+    /(?:\.|\[['"])markCancelledBeforeExecution(?:['"]\])?/,
+    'the emitted Session runtime must not expose an ordinary marker property',
   );
 }
 
@@ -122,6 +153,7 @@ function main() {
       assert.doesNotMatch(resolved, /[/\\]src[/\\]index(?:\.web)?\.ts$/);
     }
     assertQueueMarkerIsNotConsumerCallable(fixture);
+    assertQueueMarkerIsNotRuntimeCallable();
     process.stdout.write('Packed TypeScript declaration consumer passed.\n');
   } finally {
     fs.rmSync(fixture, {recursive: true, force: true});
