@@ -15,6 +15,7 @@ const {
   SessionQueueManager,
 } = require('../.test-dist/session-queue-manager.js');
 const {
+  ensureRetainedReleaseRetry,
   getRetainedReleaseInFlightCount,
   getRetainedReleaseRetryCount,
   releaseSessionHandleSerialized,
@@ -785,6 +786,128 @@ test('native start failure releases its Wasm handle exactly once', async () => {
   assert.equal(registry.has(8), false);
   assert.equal(manager.activeSessionCount, 0);
   assert.equal(manager.queueLength, 0);
+});
+
+test('rejected native startup reopens safe Created cleanup', async () => {
+  const startFailure = new Error('startup invocation rejected');
+  startError = startFailure;
+  sessionState = 0;
+  registry.retain(3072, 36);
+  const session = new FFmpegSession(36, '-version');
+
+  await assert.rejects(session.executeAsync(), (error) => error === startFailure);
+  startError = undefined;
+  await session.cancel();
+
+  assert.deepEqual(abandonments, [36]);
+  assert.deepEqual(cancelCalls, []);
+  assert.deepEqual(releases, [36]);
+  assert.equal(registry.has(36), false);
+});
+
+test('startup failure keeps its primary error while release retries automatically', async () => {
+  const startFailure = new Error('startup failed before handoff');
+  const releaseFailure = new Error('startup release failed');
+  startError = startFailure;
+  releaseError = releaseFailure;
+  sessionState = 0;
+  registry.retain(4096, 37);
+
+  await assert.rejects(
+    new FFmpegSession(37, '-version').executeAsync(),
+    (error) => error === startFailure
+  );
+  assert.equal(registry.has(37), true);
+
+  releaseError = undefined;
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'startup release fallback did not commit'
+  );
+  assert.ok(releases.length >= 2);
+  assert.ok(releases.every((sessionId) => sessionId === 37));
+  assert.equal(registry.has(37), false);
+});
+
+test('state-read failure keeps primary error while release retries automatically', async () => {
+  const stateFailure = new Error('state oracle failed during monitoring');
+  const releaseFailure = new Error('state-failure release failed');
+  sessionState = 0;
+  registry.retain(5120, 38);
+  const session = new FFmpegSession(38, '-version');
+  const execution = session.executeAsync({ pollIntervalMs: 10 });
+
+  await waitFor(() => executionStarts === 1, 'native execution did not start');
+  stateError = stateFailure;
+  releaseError = releaseFailure;
+  await assert.rejects(execution, (error) => error === stateFailure);
+
+  stateError = undefined;
+  releaseError = undefined;
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'state-failure release fallback did not commit'
+  );
+  assert.ok(releases.length >= 2);
+  assert.ok(releases.every((sessionId) => sessionId === 38));
+  assert.equal(registry.has(38), false);
+});
+
+test('pre-execution cleanup retries only the missing transaction half', async () => {
+  sessionState = 0;
+  const releaseFailure = new Error('pre-execution release failed');
+  releaseError = releaseFailure;
+  registry.retain(6144, 39);
+  const releaseRetrySession = new FFmpegSession(39, '-version');
+
+  await assert.rejects(
+    releaseRetrySession.cancel(),
+    (error) => error === releaseFailure
+  );
+  assert.deepEqual(abandonments, [39]);
+  releaseError = undefined;
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'pre-execution release fallback did not commit'
+  );
+  assert.equal(registry.has(39), false);
+  assert.deepEqual(abandonments, [39]);
+
+  const abandonmentFailure = new Error('pre-execution abandonment failed');
+  sessionState = 0;
+  abandonError = abandonmentFailure;
+  registry.retain(7168, 40);
+  const abandonmentRetrySession = new FFmpegSession(40, '-version');
+  await assert.rejects(
+    abandonmentRetrySession.cancel(),
+    (error) => error === abandonmentFailure
+  );
+  assert.ok(releases.includes(40));
+
+  abandonError = undefined;
+  await abandonmentRetrySession.cancel();
+  assert.deepEqual(abandonAttempts.slice(-2), [40, 40]);
+  assert.equal(releases.filter((sessionId) => sessionId === 40).length, 1);
+  assert.equal(registry.has(40), false);
+});
+
+test('release retry authority is one per native session ID', async () => {
+  const releaseFailure = new Error('deduplicated release failure');
+  releaseError = releaseFailure;
+  registry.retain(8192, 41);
+  ensureRetainedReleaseRetry(41);
+  ensureRetainedReleaseRetry(41);
+  assert.equal(getRetainedReleaseRetryCount(), 1);
+
+  await waitFor(() => releases.length >= 1, 'initial deduplicated release did not run');
+  releaseError = undefined;
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'deduplicated release fallback did not commit'
+  );
+  assert.ok(releases.length >= 2);
+  assert.ok(releases.every((sessionId) => sessionId === 41));
+  assert.equal(registry.has(41), false);
 });
 
 test('active cancelled session keeps its handle until terminal state', async () => {

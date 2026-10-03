@@ -254,6 +254,17 @@ session whose abandonment commits can be cancelled repeatedly without another
 state probe or duplicate abandonment; a failed abandonment or native
 cancellation remains retryable.
 
+Pre-execution cleanup is complete only after both Created abandonment and
+retained-handle release have committed (or have established that no handle was
+retained). If either half fails, only the missing half is retried; abandonment
+does not hide a release that still needs to finish. A release failure after a
+safe start-failure, state-observation failure, or terminal finalization keeps a
+bounded internal retry authority until ownership retires. The original
+start/state/callback error remains the public error even while cleanup retries
+in the background. A rejected native start is no longer treated as an
+in-flight startup, while an accepted start that still reports Created remains
+protected from destructive abandonment.
+
 `FFmpegKitExtended.cancelSession(id)` participates in the same queue-aware
 cancellation transaction as `Session.cancel()`. ID `0` cancels all queued and
 active managed sessions; a queued target is removed before native execution
