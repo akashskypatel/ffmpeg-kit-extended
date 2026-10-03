@@ -43,8 +43,16 @@ void main(List<String> args) async {
   await build(args, (input, output) async {
     // Flutter Web builds do not expose a CodeAsset target. Resolve the
     // selected Wasm runtime and stage it into the consuming Web app instead.
-    if (!input.config.buildCodeAssets) {
+    if (!input.config.buildCodeAssets &&
+        input.config.buildAssetTypes.isNotEmpty) {
       await _buildWebAssets(input, output);
+      return;
+    }
+    if (!input.config.buildCodeAssets) {
+      // Flutter can invoke a package hook for a host build with no requested
+      // asset types. There is no Web/Wasm target to stage in that invocation;
+      // selecting the shared web override here would make a macOS/iOS build
+      // depend on a host-specific Web artifact that is intentionally absent.
       return;
     }
     final packageName = input.packageName;

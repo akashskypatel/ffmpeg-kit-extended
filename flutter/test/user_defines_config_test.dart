@@ -143,7 +143,9 @@ void main() {
 
     if (Platform.isWindows) {
       expect(result!.config['linux'], authorityUri.toFilePath(windows: true));
-      expect(dependencies, contains(authorityUri));
+      // The foreign-host path is intentionally preserved, but this fixture
+      // does not exist on the Windows host and therefore is not a dependency.
+      expect(dependencies, isEmpty);
     } else {
       expect(result!.config['linux'], rawWslPath);
       expect(dependencies, isEmpty);
