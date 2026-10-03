@@ -14,7 +14,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **R49-G1** | Separate one-shot submission consumption from native-start authority and restore retryable pre-start abandonment | **Pending** |
+| **R49-G1** | Separate one-shot submission consumption from native-start authority and restore retryable pre-start abandonment | **Complete — `b73eee9` pushed. Native-start authority is set immediately before the native call; synchronous queue-false cancellation no longer yields; consumed-but-never-started and queued failed-abandonment retry regressions pass in the Wasm ownership suite: 45/45.** |
 | **R49-G2** | Make multi-session cancellation error authority deterministic by stable target/branch order while retaining parallel delivery | **Pending** |
 | **R49-G3** | Remove the queue-only cancellation marker from the exported Session API while preserving queue-local ordering and zero native dispatch | **Pending** |
 | **R49-G4** | Preserve prior lifecycle regressions, update semantic documentation, run ordered local validation, freeze exact source, and verify one wrapper-only snapshot | **Pending** |
