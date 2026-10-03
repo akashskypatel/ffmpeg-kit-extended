@@ -29,7 +29,6 @@ import type {
 } from './platform/backend-registry';
 import {
   restoredSessionObserver,
-  type RestoredSessionObservationTarget,
 } from './session-observation';
 import {
   clearCancellationDispatch,
@@ -93,7 +92,7 @@ type MonitorOptions<T extends Session> = {
  *
  * @category Sessions
  */
-export abstract class Session implements RestoredSessionObservationTarget {
+export abstract class Session {
   /** Process-unique native identity; it is not persistent across restarts. */
   readonly sessionId: number;
   /** Normalized/original command representation associated with this wrapper. */

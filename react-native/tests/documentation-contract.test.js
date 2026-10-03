@@ -103,4 +103,12 @@ test('generated API reference excludes internal lifecycle and queue seams', () =
   assert.match(generated, /native `src\/index\.ts`|native `src\/index\.ts` only/);
   assert.match(generated, /src\/index\.web\.ts/);
   assert.match(generated, /assetBaseUrl/);
+
+  for (const privateTypeName of [
+    'RestoredSessionObservationTarget',
+    'CancellableSession',
+    'MaybePromise',
+  ]) {
+    assert.doesNotMatch(generated, new RegExp(`\\b${privateTypeName}\\b`));
+  }
 });

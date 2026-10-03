@@ -1,3 +1,5 @@
+import type {Session} from './session';
+
 /**
  * Rejection used when a session is removed from the JavaScript queue before its
  * native executor starts.
@@ -53,8 +55,8 @@ export class SessionQueueManager {
   private readonly reservedSessionIds = new Set<number>();
 
   /** Snapshot of sessions whose executors have started and not settled. */
-  get activeSessions(): CancellableSession[] {
-    return [...this.active];
+  get activeSessions(): Session[] {
+    return [...this.active] as Session[];
   }
 
   /** Number of currently active session executors. */
@@ -148,7 +150,7 @@ export class SessionQueueManager {
    * receive the first failure in the stable active-session snapshot order,
    * independent of Promise settlement timing.
    */
-  cancelCurrent(): MaybePromise<void> {
+  cancelCurrent(): void | Promise<void> {
     const sessions = [...this.active];
     const errors: ErrorSlot[] = sessions.map(() => ({ failed: false }));
     const pending: Promise<void>[] = [];
@@ -183,7 +185,7 @@ export class SessionQueueManager {
    * `SessionCancelledException`, or with a discard cleanup error when cleanup
    * fails. Active sessions continue running.
    */
-  clearQueue(): MaybePromise<void> {
+  clearQueue(): void | Promise<void> {
     const pending = this.queue.splice(0);
     const discards = pending
       .map((item) => this.discard(item))
@@ -199,7 +201,7 @@ export class SessionQueueManager {
     * Queue cleanup has branch priority over active cancellation for error
     * authority, while both branches are initiated without serial waiting.
     */
-  cancelAll(): MaybePromise<void> {
+  cancelAll(): void | Promise<void> {
     // Queue removal starts first, but active cancellation is initiated
     // immediately; asynchronous queued cleanup must not delay delivery.
     const errors: ErrorSlot[] = [{ failed: false }, { failed: false }];

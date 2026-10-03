@@ -12,7 +12,7 @@
 
 | Goal | Objective | Status |
 | --- | --- | --- |
-| **G1** | Remove internal observer and queue-helper names from generated public signatures | **Prepared — pending implementation.** |
+| **G1** | Remove internal observer and queue-helper names from generated public signatures | **Complete — implementation and focused gates passed; commit pending.** |
 | **G2** | Publish a self-contained, documented advanced native bridge contract without changing Codegen/runtime behavior | **Prepared — pending implementation.** |
 | **G3** | Present static facade and session-wrapper constructors accurately in generated docs | **Prepared — pending implementation.** |
 | **G4** | Regenerate, strengthen semantic documentation contracts, prove zero runtime diff, and close with one exact-source snapshot | **Prepared — pending implementation.** |
@@ -21,6 +21,10 @@
 
 - The attached plan and audit agree that the earlier TypeDoc generation, committed Markdown, drift checker, package tooling, native/Web notes, and prior documentation work are closed and must not be redesigned.
 - Required local validation is Windows plus WSL/macOS-compatible Node checks; the final source snapshot is the only permitted GitHub workflow. The snapshot must represent the frozen implementation SHA before any metadata-only tracker closeout commit.
+
+### Goal evidence
+
+- G1: Removed the explicit internal observer implementation relationship from `Session`; `SessionQueueManager.activeSessions` now exposes `Session[]`; public cancellation/clear methods use `void | Promise<void>` while queue-internal aliases remain private. TypeDoc exemptions are narrowed to the remaining native Codegen `Spec` until the advanced bridge contract is completed. Generated docs contain zero `RestoredSessionObservationTarget`, `CancellableSession`, or `MaybePromise` occurrences. `npm run typecheck`, `npm run test:compile`, `npm run docs:api`, `npm run docs:api:check`, and the two documentation tests passed (**6/6**). No runtime implementation path was changed.
 
 ## React Native Generated API Documentation Closure — 2026-10-03
 

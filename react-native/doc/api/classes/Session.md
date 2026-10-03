@@ -28,10 +28,6 @@ for another execution.
 - [`MediaInformationSession`](MediaInformationSession.md)
 - [`FFplaySession`](FFplaySession.md)
 
-## Implements
-
-- `RestoredSessionObservationTarget`
-
 ## Properties
 
 ### command
@@ -47,10 +43,6 @@ Normalized/original command representation associated with this wrapper.
 > `readonly` **sessionId**: `number`
 
 Process-unique native identity; it is not persistent across restarts.
-
-#### Implementation of
-
-`RestoredSessionObservationTarget.sessionId`
 
 ***
 
@@ -282,10 +274,6 @@ Returns the current native lifecycle state.
 #### Returns
 
 [`SessionState`](../enumerations/SessionState.md)
-
-#### Implementation of
-
-`RestoredSessionObservationTarget.getState`
 
 ***
 

@@ -43,13 +43,13 @@ Number of currently active session executors.
 
 #### Get Signature
 
-> **get** **activeSessions**(): `CancellableSession`[]
+> **get** **activeSessions**(): [`Session`](Session.md)[]
 
 Snapshot of sessions whose executors have started and not settled.
 
 ##### Returns
 
-`CancellableSession`[]
+[`Session`](Session.md)[]
 
 ***
 
@@ -132,7 +132,7 @@ Singleton used by all high-level execution APIs.
 
 ### cancelAll()
 
-> **cancelAll**(): `MaybePromise`\<`void`\>
+> **cancelAll**(): `void` \| `Promise`\<`void`\>
 
 Clears waiting sessions and requests cancellation of active sessions.
 Queue cleanup has branch priority over active cancellation for error
@@ -140,13 +140,13 @@ authority, while both branches are initiated without serial waiting.
 
 #### Returns
 
-`MaybePromise`\<`void`\>
+`void` \| `Promise`\<`void`\>
 
 ***
 
 ### cancelCurrent()
 
-> **cancelCurrent**(): `MaybePromise`\<`void`\>
+> **cancelCurrent**(): `void` \| `Promise`\<`void`\>
 
 Requests cancellation of every currently active session.
 
@@ -157,13 +157,13 @@ independent of Promise settlement timing.
 
 #### Returns
 
-`MaybePromise`\<`void`\>
+`void` \| `Promise`\<`void`\>
 
 ***
 
 ### clearQueue()
 
-> **clearQueue**(): `MaybePromise`\<`void`\>
+> **clearQueue**(): `void` \| `Promise`\<`void`\>
 
 Removes all waiting sessions and rejects their promises with
 `SessionCancelledException`, or with a discard cleanup error when cleanup
@@ -171,7 +171,7 @@ fails. Active sessions continue running.
 
 #### Returns
 
-`MaybePromise`\<`void`\>
+`void` \| `Promise`\<`void`\>
 
 ***
 

@@ -33,10 +33,7 @@
     "Method"
   ],
   "intentionallyNotExported": [
-    "RestoredSessionObservationTarget",
-    "Spec",
-    "CancellableSession",
-    "MaybePromise"
+    "Spec"
   ],
   "treatValidationWarningsAsErrors": true
 }
