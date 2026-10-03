@@ -12,16 +12,6 @@ Call `FFmpegKitExtended.initialize()` once before use. Commands omit the
 `ffprobe` executable name. For common structured metadata, prefer
 `getMediaInformation()` over manually parsing FFprobe JSON output.
 
-## Constructors
-
-### Constructor
-
-> **new FFprobeKit**(): `FFprobeKit`
-
-#### Returns
-
-`FFprobeKit`
-
 ## Methods
 
 ### cancel()

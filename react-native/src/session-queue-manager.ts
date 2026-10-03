@@ -38,7 +38,10 @@ type ErrorSlot = { failed: false } | { failed: true; error: unknown };
  * `FFplaySession` all use the shared instance. The default concurrency is 8.
  * Lower the limit for memory-constrained devices or workloads that saturate
  * storage, CPU, GPU, or network resources.
+ * Use `SessionQueueManager.shared` for the high-level execution queue; an
+ * independently constructed manager is not a second native execution authority.
  *
+ * @hideconstructor
  * @category Queue and cancellation
  */
 export class SessionQueueManager {

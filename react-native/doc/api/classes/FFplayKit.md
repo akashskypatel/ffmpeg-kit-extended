@@ -13,16 +13,6 @@ require a view. Playback controls are session-based; retain the returned
 `FFplaySession` when your UI needs pause, resume, seek, stop, position, or
 volume operations.
 
-## Constructors
-
-### Constructor
-
-> **new FFplayKit**(): `FFplayKit`
-
-#### Returns
-
-`FFplayKit`
-
 ## Accessors
 
 ### currentSession

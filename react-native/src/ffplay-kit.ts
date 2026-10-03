@@ -14,6 +14,7 @@ const NativeFFmpegKitExtended = getBackend();
  * `FFplaySession` when your UI needs pause, resume, seek, stop, position, or
  * volume operations.
  *
+ * @hideconstructor
  * @category FFplay UI
  */
 export class FFplayKit {

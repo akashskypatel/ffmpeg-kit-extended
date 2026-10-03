@@ -15,6 +15,7 @@ const MEDIA_INFO_COMMAND =
  * `ffprobe` executable name. For common structured metadata, prefer
  * `getMediaInformation()` over manually parsing FFprobe JSON output.
  *
+ * @hideconstructor
  * @category Media information
  */
 export class FFprobeKit {

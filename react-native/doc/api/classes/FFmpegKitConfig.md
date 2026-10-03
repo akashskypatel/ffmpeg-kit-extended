@@ -11,16 +11,6 @@ Global FFmpegKit runtime configuration and utility methods.
 Settings apply process-wide and affect subsequently executed sessions. Call
 `FFmpegKitExtended.initialize()` before using native configuration methods.
 
-## Constructors
-
-### Constructor
-
-> **new FFmpegKitConfig**(): `FFmpegKitConfig`
-
-#### Returns
-
-`FFmpegKitConfig`
-
 ## Methods
 
 ### argumentsToString()

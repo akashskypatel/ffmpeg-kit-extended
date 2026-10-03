@@ -18,6 +18,12 @@ FFprobe command session with completion and log callbacks.
 
 > **new FFprobeSession**(`sessionId`, `command`): `FFprobeSession`
 
+Wraps an existing valid native FFprobe session identity.
+
+Normal applications should obtain this wrapper from `FFprobeKit` factory,
+execution, or history APIs. An arbitrary ID does not create a native
+session and can make getters, execution, and control operations fail.
+
 #### Parameters
 
 ##### sessionId

@@ -19,6 +19,13 @@ completion.
 
 > **new MediaInformationSession**(`sessionId`, `command`, `timeoutMs?`): `MediaInformationSession`
 
+Wraps an existing valid native media-information session identity.
+
+Normal applications should obtain this wrapper from `FFprobeKit` factory,
+execution, or history APIs. An arbitrary ID does not create a native
+session and can make getters or execution fail. `timeoutMs` is measured in
+milliseconds.
+
 #### Parameters
 
 ##### sessionId

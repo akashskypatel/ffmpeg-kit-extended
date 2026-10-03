@@ -148,3 +148,39 @@ test('advanced native bridge docs expose a stable type-only contract', () => {
   assert.match(eventPage, /sessionId/);
   assert.match(nativePage, /src\/index\.web\.ts/);
 });
+
+test('generated constructors distinguish facades from native session wrappers', () => {
+  for (const className of [
+    'FFmpegKit',
+    'FFprobeKit',
+    'FFplayKit',
+    'FFmpegKitConfig',
+    'FFmpegKitExtended',
+    'SessionQueueManager',
+  ]) {
+    const page = read(`doc/api/classes/${className}.md`);
+    assert.doesNotMatch(page, /^## Constructors/m, `${className} hides its constructor`);
+  }
+
+  const sessionGuidance = [
+    ['FFmpegSession', 'FFmpegKit'],
+    ['FFprobeSession', 'FFprobeKit'],
+    ['MediaInformationSession', 'FFprobeKit'],
+    ['FFplaySession', 'FFplayKit'],
+  ];
+  for (const [className, factoryName] of sessionGuidance) {
+    const page = read(`doc/api/classes/${className}.md`);
+    assert.match(page, /existing valid native .*session identity/);
+    assert.match(page, /arbitrary ID does not create a native\s+session/);
+    assert.match(page, new RegExp(`${factoryName}[\\s\\S]*factory`));
+    assert.match(page, /history APIs/);
+  }
+  assert.match(
+    read('doc/api/classes/MediaInformationSession.md'),
+    /timeoutMs[\s\S]*measured[\s\S]*milliseconds/
+  );
+  assert.match(
+    read('doc/api/classes/FFplaySession.md'),
+    /timeoutMs[\s\S]*measured[\s\S]*milliseconds/
+  );
+});

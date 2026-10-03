@@ -21,6 +21,12 @@ directly to `executeAsync()` take precedence for that execution.
 
 > **new FFmpegSession**(`sessionId`, `command`): `FFmpegSession`
 
+Wraps an existing valid native FFmpeg session identity.
+
+Normal applications should obtain this wrapper from `FFmpegKit` factory,
+execution, or history APIs. An arbitrary ID does not create a native
+session and can make getters, execution, and control operations fail.
+
 #### Parameters
 
 ##### sessionId

@@ -21,6 +21,13 @@ duration values are expressed in seconds. Volume is normalized to `0..1`.
 
 > **new FFplaySession**(`sessionId`, `command`, `timeoutMs?`): `FFplaySession`
 
+Wraps an existing valid native FFplay session identity.
+
+Normal applications should obtain this wrapper from `FFplayKit` factory,
+execution, or history APIs. An arbitrary ID does not create a native
+session and can make playback getters, execution, or controls fail.
+`timeoutMs` is measured in milliseconds.
+
 #### Parameters
 
 ##### sessionId

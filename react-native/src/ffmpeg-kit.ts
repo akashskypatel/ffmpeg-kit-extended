@@ -14,6 +14,7 @@ const NativeFFmpegKitExtended = getBackend();
  * omit the `ffmpeg` executable name and execute asynchronously so the JavaScript
  * thread remains responsive.
  *
+ * @hideconstructor
  * @category Execution
  */
 export class FFmpegKit {

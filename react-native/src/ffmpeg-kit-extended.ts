@@ -28,6 +28,7 @@ const NativeFFmpegKitExtended = getBackend();
  * `FFplayKit`; the session factory methods here are useful for framework-style
  * integrations.
  *
+ * @hideconstructor
  * @category Execution
  */
 export class FFmpegKitExtended {

@@ -15,16 +15,6 @@ Most command execution should go through `FFmpegKit`, `FFprobeKit`, or
 `FFplayKit`; the session factory methods here are useful for framework-style
 integrations.
 
-## Constructors
-
-### Constructor
-
-> **new FFmpegKitExtended**(): `FFmpegKitExtended`
-
-#### Returns
-
-`FFmpegKitExtended`
-
 ## Accessors
 
 ### initialized

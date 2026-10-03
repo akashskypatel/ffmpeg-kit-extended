@@ -14,7 +14,7 @@
 | --- | --- | --- |
 | **G1** | Remove internal observer and queue-helper names from generated public signatures | **Complete — implementation and focused gates passed; commit pending.** |
 | **G2** | Publish a self-contained, documented advanced native bridge contract without changing Codegen/runtime behavior | **Complete — implementation and focused gates passed; commit pending.** |
-| **G3** | Present static facade and session-wrapper constructors accurately in generated docs | **Prepared — pending implementation.** |
+| **G3** | Present static facade and session-wrapper constructors accurately in generated docs | **Complete — implementation and focused contract passed; commit pending.** |
 | **G4** | Regenerate, strengthen semantic documentation contracts, prove zero runtime diff, and close with one exact-source snapshot | **Prepared — pending implementation.** |
 
 ### Follow-up preparation evidence
@@ -26,6 +26,7 @@
 
 - G1: Removed the explicit internal observer implementation relationship from `Session`; `SessionQueueManager.activeSessions` now exposes `Session[]`; public cancellation/clear methods use `void | Promise<void>` while queue-internal aliases remain private. TypeDoc exemptions are narrowed to the remaining native Codegen `Spec` until the advanced bridge contract is completed. Generated docs contain zero `RestoredSessionObservationTarget`, `CancellableSession`, or `MaybePromise` occurrences. `npm run typecheck`, `npm run test:compile`, `npm run docs:api`, `npm run docs:api:check`, and the two documentation tests passed (**6/6**). No runtime implementation path was changed.
 - G2: Added type-only `NativeFFmpegKitExtendedSpec` and `NativeFFmpegKitExtendedLogEvent` exports through native `src/index.ts`; the Codegen `Spec` declaration and method signatures remain intact, while the default native module is typed through a mapped view that TypeDoc can link. Web still exports no native module. TypeDoc generated **46** files with **zero warnings**; the advanced bridge contract test passed **5/5**, and `npm run typecheck`, `npm run test:compile`, and `npm run docs:api:check` passed. Generated native docs expose representative `initialize`, `createFFmpegSession`, `getSessionJson`, `ffplayPause`, and `clearSessions` inventory through the stable contract page. No runtime-emitting code changed.
+- G3: Added documentation-only constructor hiding to the static facades and `SessionQueueManager`, with `SessionQueueManager.shared` guidance. Added constructor TSDoc for `FFmpegSession`, `FFprobeSession`, `MediaInformationSession`, and `FFplaySession` describing existing native identities, factory/history acquisition, invalid arbitrary IDs, and timeout units. The generated constructor contract passed **6/6**; no runtime constructor accessibility changed.
 
 ## React Native Generated API Documentation Closure — 2026-10-03
 

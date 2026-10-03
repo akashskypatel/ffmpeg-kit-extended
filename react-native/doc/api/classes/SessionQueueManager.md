@@ -12,16 +12,8 @@ Process-wide JavaScript queue that limits concurrent native sessions.
 `FFplaySession` all use the shared instance. The default concurrency is 8.
 Lower the limit for memory-constrained devices or workloads that saturate
 storage, CPU, GPU, or network resources.
-
-## Constructors
-
-### Constructor
-
-> **new SessionQueueManager**(): `SessionQueueManager`
-
-#### Returns
-
-`SessionQueueManager`
+Use `SessionQueueManager.shared` for the high-level execution queue; an
+independently constructed manager is not a second native execution authority.
 
 ## Accessors
 

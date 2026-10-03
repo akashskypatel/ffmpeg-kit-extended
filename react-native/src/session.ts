@@ -1304,6 +1304,13 @@ export class FFmpegSession extends Session {
     session: FFmpegSession
   ) => void;
 
+  /**
+   * Wraps an existing valid native FFmpeg session identity.
+   *
+   * Normal applications should obtain this wrapper from `FFmpegKit` factory,
+   * execution, or history APIs. An arbitrary ID does not create a native
+   * session and can make getters, execution, and control operations fail.
+   */
   constructor(sessionId: number, command: string) {
     super(sessionId, command, 'ffmpeg');
     this.setRestoredCallbackReaders({
@@ -1418,6 +1425,13 @@ export class FFprobeSession extends Session {
   private completeCallback?: (session: FFprobeSession) => void;
   private logCallback?: (log: Log, session: FFprobeSession) => void;
 
+  /**
+   * Wraps an existing valid native FFprobe session identity.
+   *
+   * Normal applications should obtain this wrapper from `FFprobeKit` factory,
+   * execution, or history APIs. An arbitrary ID does not create a native
+   * session and can make getters, execution, and control operations fail.
+   */
   constructor(sessionId: number, command: string) {
     super(sessionId, command, 'ffprobe');
     this.setRestoredCallbackReaders({
@@ -1502,6 +1516,14 @@ export class MediaInformationSession extends Session {
   private logCallback?: (log: Log, session: MediaInformationSession) => void;
   private timeoutMs: number;
 
+  /**
+   * Wraps an existing valid native media-information session identity.
+   *
+   * Normal applications should obtain this wrapper from `FFprobeKit` factory,
+   * execution, or history APIs. An arbitrary ID does not create a native
+   * session and can make getters or execution fail. `timeoutMs` is measured in
+   * milliseconds.
+   */
   constructor(sessionId: number, command: string, timeoutMs = 500) {
     super(sessionId, command, 'media-information');
     this.timeoutMs = timeoutMs;
@@ -1613,6 +1635,14 @@ export class FFplaySession extends Session {
   private logCallback?: (log: Log, session: FFplaySession) => void;
   private timeoutMs: number;
 
+  /**
+   * Wraps an existing valid native FFplay session identity.
+   *
+   * Normal applications should obtain this wrapper from `FFplayKit` factory,
+   * execution, or history APIs. An arbitrary ID does not create a native
+   * session and can make playback getters, execution, or controls fail.
+   * `timeoutMs` is measured in milliseconds.
+   */
   constructor(sessionId: number, command: string, timeoutMs = 500) {
     super(sessionId, command, 'ffplay');
     this.timeoutMs = timeoutMs;
