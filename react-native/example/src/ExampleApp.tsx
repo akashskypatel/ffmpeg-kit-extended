@@ -1603,6 +1603,7 @@ function TabButton({
     <Pressable
       testID={testID}
       accessibilityRole="tab"
+      accessibilityLabel={tab}
       accessibilityState={{ selected: active }}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -1668,6 +1669,7 @@ function DemoButton({
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={label}
       disabled={disabled}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
