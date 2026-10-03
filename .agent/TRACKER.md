@@ -1,5 +1,24 @@
 # Tracker
 
+## Review 49 React Native Cancellation Authority Closure — 2026-10-02
+
+- Plan: [review-49-luna-flutter-react-native-closure-plan.md](./review-49-luna-flutter-react-native-closure-plan.md)
+- Code review: [review-49-flutter-react-native-code-review.md](./review-49-flutter-react-native-code-review.md)
+- Preparation status: **Prepared for implementation — both downloaded Review 49 documents were read completely, SHA-256 verified, materialized as the active `.agent` working copies, and superseded Review 48 working copies were removed.**
+- Downloaded source hashes: code review `EC95FF0D3493D7D3424B95AC841B91169990C7B6B8AB8AF0446F2BC39C9CEC69` (**422 lines**); plan `5F940CAADB444A1338DA26BF84DAEBE6F478155668E0215ABA90A18B11461B27` (**811 lines**).
+- Starting authority: Review 48 wrapper SHA `8c89594380b9db5313bd4a7c4173e341b5943f31`; prior source snapshot run `37088245634`; artifact `review48-final-source-snapshot-37088245634`, ID `11261735639`; native submodule `b74da2c5d1e294b87d15d73a6687393729e932b3`; native ABI/runtime `0.11.2`.
+- Finding disposition: platform-native bridge and Flutter/shared packaging remain **closed** by no-drift evidence; React Native wrapper has three substantive open findings covering native-start authority, deterministic cancellation error authority, and the public queue-only cancellation marker.
+- Frozen boundaries: do not edit `libs/libffmpegkit`, the ManyLinux builder checkout, native ABI/configuration, or native artifact publication. Do not retrieve remote staged native artifacts. Hosted Flutter/React Native build/test workflows are prohibited; only the final exact-SHA wrapper source snapshot is permitted.
+- Validation order: Windows → Android on local Windows → Linux/WSL where affected → Apple last over authorized MacBook Air SSH. Use configured local ABI artifacts, bounded tagged processes, immediate cleanup of hangs/orphans, and no interactive runtime validation.
+- Stale cleanup: removed superseded Review 48 working copies from `.agent`; preserved the tracker and support directories.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **R49-G1** | Separate one-shot submission consumption from native-start authority and restore retryable pre-start abandonment | **Pending** |
+| **R49-G2** | Make multi-session cancellation error authority deterministic by stable target/branch order while retaining parallel delivery | **Pending** |
+| **R49-G3** | Remove the queue-only cancellation marker from the exported Session API while preserving queue-local ordering and zero native dispatch | **Pending** |
+| **R49-G4** | Preserve prior lifecycle regressions, update semantic documentation, run ordered local validation, freeze exact source, and verify one wrapper-only snapshot | **Pending** |
+
 ## Review 48 React Native Cancellation and Queue Delivery Closure — 2026-10-02
 
 - Plan: [review-48-luna-flutter-react-native-closure-plan.md](./review-48-luna-flutter-react-native-closure-plan.md)
