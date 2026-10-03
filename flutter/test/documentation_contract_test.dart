@@ -9,6 +9,9 @@ void main() {
   final ffmpegApi = File('doc/api/ffmpeg-kit.md').readAsStringSync();
   final ffprobeApi = File('doc/api/ffprobe-kit.md').readAsStringSync();
   final ffplayApi = File('doc/api/ffplay-kit.md').readAsStringSync();
+  final playbackGuide = File(
+    'doc/guides/playback-control.md',
+  ).readAsStringSync();
   final queueGuide = File(
     'doc/guides/session-queue-management.md',
   ).readAsStringSync();
@@ -85,5 +88,24 @@ void main() {
     );
     expect(errorGuide, contains('SessionCancelledException'));
     expect(errorGuide, contains('await FFmpegKit.executeAsync'));
+  });
+
+  test('FFplay lifecycle guidance matches the global-owner model', () {
+    expect(ffplayApi, contains('current global control owner'));
+    expect(ffplayApi, contains('FFmpegLogCallback? onLog'));
+    expect(ffplayApi, contains('createSessionFromArguments'));
+    expect(ffplayApi, contains('FFplaySession.dispose'));
+    expect(ffplayApi, contains('Stop is distinct'));
+    expect(
+      ffplayApi,
+      isNot(contains('Only one FFplay session can be active at a time')),
+    );
+    expect(
+      ffplayApi,
+      isNot(contains('Starting a new session automatically replaces')),
+    );
+    expect(playbackGuide, contains('current global control owner'));
+    expect(playbackGuide, contains('FFplaySession.dispose'));
+    expect(playbackGuide, isNot(contains('manages it as a singleton')));
   });
 }

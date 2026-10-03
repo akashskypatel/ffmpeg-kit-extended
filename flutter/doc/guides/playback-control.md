@@ -18,7 +18,9 @@ Start playing a file or URL with one command:
 await FFplayKit.execute('https://example.com/video.mp4');
 ```
 
-Only one FFplay session can be active at a time. Starting a new session automatically replaces the previous one.
+FFplayKit keeps one current global control owner for convenience. Creating a
+newer session changes that owner without implicitly cancelling older tracked
+executions; use the session queue for execution inventory.
 
 ## Controlling State
 
@@ -31,7 +33,7 @@ FFplayKit.pause();
 // Resume playback
 FFplayKit.resume();
 
-// Stop and close the player window
+// Request playback stop; close and dispose are separate lifecycle operations
 FFplayKit.stop();
 ```
 
@@ -82,10 +84,13 @@ bool paused = FFplayKit.isPaused();
 
 ## Global Playback Management
 
-Because FFplay typically opens a separate native window, the plugin manages it as a singleton.
+Global controls address the current FFplay control owner while executions are
+tracked independently until their terminal Futures settle.
 
-- **`FFplayKit.getCurrentSession()`**: Returns the session object for the currently playing media.
-- **`FFplayKit.close()`**: Shuts down the entire FFplay environment and releases resources.
+- **`FFplayKit.getCurrentSession()`**: Returns the current control owner.
+- **`FFplayKit.close()`**: Delegates FFplay close control for that owner.
+- **`FFplaySession.dispose()`**: Releases the session's native handle
+  deterministically after the execution lifecycle is complete.
 
 ### Listening for Completion
 

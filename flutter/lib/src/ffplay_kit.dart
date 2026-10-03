@@ -25,15 +25,17 @@ import 'package:meta/meta.dart';
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart' as callback_manager;
 
-// Only one FFplay session can be active at a time.
+// FFplayKit keeps one current global control owner while multiple submitted
+// executions may remain tracked until their terminal Futures settle.
 FFplaySession? _activeFFplaySession;
 final Set<FFplaySession> _trackedExecutions = <FFplaySession>{};
 
 /// A utility class for managing global FFplay playback.
 ///
-/// Since FFplay typically involves a single active playback window/session,
-/// [FFplayKit] provides a convenient way to execute commands and control
-/// the current active session.
+/// [FFplayKit] exposes a current global control owner for convenience while
+/// submitted executions remain tracked until their terminal Futures settle.
+/// Creating a newer global session changes the current owner; it does not
+/// implicitly cancel older tracked executions.
 class FFplayKit {
   /// Executes an FFplay [command] and starts playback.
   static Future<FFplaySession> execute(String command) => executeAsync(command);
@@ -105,14 +107,17 @@ class FFplayKit {
     _clearCurrentIfUntracked(session);
   }
 
-  /// Returns the current active [FFplaySession], if any.
+  /// Returns the current global control owner, if any.
+  ///
+  /// The owner is a control handle, not an assertion that no other execution
+  /// remains tracked or that the returned session is the only retained one.
   static FFplaySession? getCurrentSession() => _activeFFplaySession;
 
-  /// Returns all active FFplay sessions.
+  /// Returns all retained FFplay sessions in native session history.
   static List<FFplaySession> getFFplaySessions() =>
       FFmpegKitExtended.getFFplaySessions();
 
-  /// Returns the current active [FFplaySession], if any.
+  /// Returns the current global control owner, if any.
   static FFplaySession? get currentSession => _activeFFplaySession;
 
   /// Returns true if the current session is playing.
@@ -137,10 +142,12 @@ class FFplayKit {
     }
   }
 
-  /// Starts or resumes playback for the active global session.
+  /// Starts or resumes playback for the current global session.
   ///
-  /// This method only has an effect if there is an active session
-  /// that was created but not yet executed, or was paused.
+  /// This method only has an effect if a current session was created but not
+  /// yet executed, or was paused. A created session is started in a tracked
+  /// fire-and-forget path; startup failures are logged there. Use
+  /// [executeAsync] when the caller must await startup errors.
   static void start() {
     final session = _activeFFplaySession;
     if (session == null) return;
@@ -269,28 +276,30 @@ class FFplayKit {
     _activeFFplaySession = session;
   }
 
-  /// Pauses playback if there is an active global session.
+  /// Pauses playback for the current global session.
   static void pause() {
     if (_activeFFplaySession != null) {
       _activeFFplaySession!.pause();
     }
   }
 
-  /// Resumes playback if there is an active session.
+  /// Resumes playback for the current global session.
   static void resume() {
     if (_activeFFplaySession != null) {
       _activeFFplaySession!.resume();
     }
   }
 
-  /// Stops playback for the active global session.
+  /// Requests playback stop for the current global control owner.
+  ///
+  /// Stop is distinct from [close] and from [FFplaySession.dispose].
   static void stop() {
     if (_activeFFplaySession != null) {
       _activeFFplaySession!.stop();
     }
   }
 
-  /// Returns true if the active session is currently playing.
+  /// Returns true if the current session is currently playing.
   static bool isPlaying() {
     if (_activeFFplaySession != null) {
       return _activeFFplaySession!.isPlaying();
@@ -298,7 +307,7 @@ class FFplayKit {
     return false;
   }
 
-  /// Returns true if the active session is currently paused.
+  /// Returns true if the current session is currently paused.
   static bool isPaused() {
     if (_activeFFplaySession != null) {
       return _activeFFplaySession!.isPaused();
@@ -306,7 +315,11 @@ class FFplayKit {
     return false;
   }
 
-  /// Closes the active session and releases resources.
+  /// Delegates FFplay close control for the current global owner.
+  ///
+  /// Close is distinct from [stop]. Deterministic native handle release is
+  /// owned by [FFplaySession.dispose]; a tracked execution remains globally
+  /// owned until its execution Future settles.
   static void close() {
     final session = _activeFFplaySession;
     if (session != null) {
@@ -315,7 +328,7 @@ class FFplayKit {
     }
   }
 
-  /// Returns true if there is no active playback session.
+  /// Returns true if there is no current global control owner.
   static bool isClosed() => _activeFFplaySession == null;
 
   /// Sets the current playback position to [seconds].
