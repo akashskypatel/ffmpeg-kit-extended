@@ -38,6 +38,36 @@ function resolveTypes(fixture, conditions) {
   return result.resolvedModule.resolvedFileName;
 }
 
+function assertQueueMarkerIsNotConsumerCallable(fixture) {
+  const contractFile = path.join(fixture, 'src', 'queue-marker-contract.ts');
+  write(
+    contractFile,
+    [
+      "import {FFmpegSession} from 'ffmpeg-kit-extended';",
+      "const session = new FFmpegSession(1, '-version');",
+      'session.markCancelledBeforeExecution();',
+      '',
+    ].join('\n'),
+  );
+  const program = ts.createProgram([contractFile], {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    customConditions: ['react-native'],
+    strict: true,
+    skipLibCheck: true,
+    noEmit: true,
+  });
+  const diagnostics = ts.getPreEmitDiagnostics(program);
+  assert.ok(
+    diagnostics.some((diagnostic) =>
+      ts
+        .flattenDiagnosticMessageText(diagnostic.messageText, ' ')
+        .includes('markCancelledBeforeExecution'),
+    ),
+    'the queue-only cancellation marker must not be callable from packed consumer types',
+  );
+}
+
 function main() {
   const declaration = path.join(packageRoot, 'lib', 'typescript', 'src', 'index.d.ts');
   assert.ok(fs.existsSync(declaration), 'Run npm run prepare before npm run test:pack-types');
@@ -91,6 +121,7 @@ function main() {
       );
       assert.doesNotMatch(resolved, /[/\\]src[/\\]index(?:\.web)?\.ts$/);
     }
+    assertQueueMarkerIsNotConsumerCallable(fixture);
     process.stdout.write('Packed TypeScript declaration consumer passed.\n');
   } finally {
     fs.rmSync(fixture, {recursive: true, force: true});

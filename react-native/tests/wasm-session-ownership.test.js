@@ -160,7 +160,12 @@ setBackend({
   },
 });
 
-const { FFmpegSession } = require('../.test-dist/session.js');
+const {
+  FFmpegSession,
+  FFplaySession,
+  FFprobeSession,
+  MediaInformationSession,
+} = require('../.test-dist/session.js');
 const { FFmpegKitExtended } = require('../.test-dist/ffmpeg-kit-extended.js');
 const manager = SessionQueueManager.shared;
 
@@ -527,6 +532,42 @@ test('queued cancellation removes work without native cancellation and releases 
   assert.deepEqual(releases, [7]);
   assert.equal(registry.has(7), false);
 
+  releaseActive();
+  await active;
+});
+
+test('all concrete session types mark queued cancellation before cleanup', async () => {
+  manager.maxConcurrentSessions = 1;
+  let releaseActive;
+  const active = manager.executeSession(
+    { cancel() {} },
+    () =>
+      new Promise((resolve) => {
+        releaseActive = resolve;
+      })
+  );
+  sessionState = 0;
+  const sessionTypes = [
+    FFmpegSession,
+    FFprobeSession,
+    MediaInformationSession,
+    FFplaySession,
+  ];
+
+  for (const [index, SessionType] of sessionTypes.entries()) {
+    const sessionId = 8000 + index;
+    registry.retain(4096 + index, sessionId);
+    const session = new SessionType(sessionId, '-version');
+    const pending = session.executeAsync();
+
+    await session.cancel();
+    await assert.rejects(pending, SessionCancelledException);
+    assert.equal(session.isCancelled, true);
+    assert.equal(executionStarts, 0);
+    assert.deepEqual(cancelCalls, []);
+  }
+
+  assert.equal(manager.queueLength, 0);
   releaseActive();
   await active;
 });
