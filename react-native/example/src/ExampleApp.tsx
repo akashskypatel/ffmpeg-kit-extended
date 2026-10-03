@@ -1667,6 +1667,7 @@ function DemoButton({
   return (
     <Pressable
       testID={testID}
+      accessibilityRole="button"
       disabled={disabled}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
