@@ -16,7 +16,7 @@
 | **G2** | Align session history, queue, cancellation, and async-error documentation/comments with code | **Complete — history/queue Dartdoc and guides corrected; focused documentation contracts passed.** |
 | **G3** | Correct FFplay lifecycle/control API documentation and signatures | **Complete — FFplayKit now documents the current global control owner, independently tracked executions, distinct stop/close/dispose semantics, log callbacks, and argument-tokenized session creation; the focused documentation contract passed 5/5.** |
 | **G4** | Make surface/rendering/sizing documentation genuinely cross-platform | **Complete — surface, rendering matrix, native-vs-Web widget contract, FFplayView sizing algorithm, and platform-specific Dartdoc corrected; focused documentation contract passed 7/7.** |
-| **G5** | Complete public API reference coverage, including `FFmpegKitExtended` | **Pending** |
+| **G5** | Complete public API reference coverage, including `FFmpegKitExtended` | **Complete — argument-list factories, FFprobe log callbacks, configuration utilities/null deregistration semantics, central facade reference, index link, and curated API inventory added; focused documentation contract passed 7/7.** |
 | **G6** | Synchronize translations and add stable documentation-contract tests | **Pending** |
 | **G7** | Run documentation-focused validation and final no-runtime-diff audit | **Pending** |
 
@@ -26,6 +26,7 @@
 - G2: FFmpeg/FFprobe/FFplay history references now describe retained creation-order history, while queue guidance distinguishes active executions, pending queue length, native-ID admission, Future-delivered queued cancellation errors, and all-active cancellation. The error guide now distinguishes terminal return codes from `SessionCancelledException`/lifecycle Future rejection. The focused documentation contract suite passed **4/4**.
 - G3: FFplayKit Dartdoc and API/playback guides now describe one current global control owner without claiming singleton execution, preserve older tracked executions when a newer owner is created, distinguish stop from close and `FFplaySession.dispose`, and document `onLog` plus `createSessionFromArguments`. The focused documentation contract suite passed **5/5**.
 - G4: FFplay surface guidance now covers Android, iOS, macOS, Linux, Windows, and Web/Wasm with `toWidget()` as the shared contract; native texture IDs are limited to platform-specific sections, Linux/Windows frame callbacks are distinguished from Apple `CVPixelBuffer` textures, Web `RawImage` copying is documented, and sizing matches the existing `_buildVideo` algorithm without a native-width/never-upscale policy. The focused documentation contract suite passed **7/7**.
+- G5: Canonical API references now document `FFmpegKit.createSessionFromArguments`, FFprobe `onLog` callbacks, `FFmpegKitConfig` conversion/message utilities and null callback deregistration, and a new `FFmpegKitExtended` page covering initialization, factories, retained history, cancellation compatibility, introspection, audio/environment/debug utilities, and advanced lifecycle boundaries. The focused documentation contract suite passed **7/7**.
 
 ## Review 51 React Native Terminal-Cancellation Authority Closure — 2026-10-02
 

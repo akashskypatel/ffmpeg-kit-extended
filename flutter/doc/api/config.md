@@ -17,6 +17,8 @@ Set or get the global log level for the library.
 
 - `setLogLevel(LogLevel)`
 - `getLogLevel()`
+- `logLevelToString(LogLevel)`: Converts a log-level enum to its native name,
+  or returns `null` when the level is not recognized.
 
 ## Library Information
 
@@ -34,6 +36,8 @@ Retrieve version and build information for FFmpeg and FFmpeg Kit.
 - `setSessionHistorySize(int)`: Sets how many sessions are kept in the native history.
 - `getSessionHistorySize()`: Gets the current history size.
 - `clearSessions()`: Clears all sessions from the history.
+- `sessionStateToString(SessionState)`: Converts a session-state enum to its
+  native name.
 
 ### Concurrency
 
@@ -43,6 +47,7 @@ Retrieve version and build information for FFmpeg and FFmpeg Kit.
 ## Global Callbacks
 
 Set callbacks that will be triggered for EVERY session of a specific type.
+Passing `null` to any callback setter deregisters that global callback.
 
 - `enableLogCallback(FFmpegLogCallback?)`
 - `enableStatisticsCallback(FFmpegStatisticsCallback?)`
@@ -71,5 +76,7 @@ Manage FFmpeg pipes for input/output redirection.
 
 - `parseArguments(String)`: Splices a command string into an argument list.
 - `argumentsToString(List<String>)`: joins an argument list into a command string.
+- `messagesInTransmit(int)`: Returns the number of buffered log/statistics
+  messages for a session ID.
 - `setEnvironmentVariable(String, String)`: Sets a native environment variable.
 - `ignoreSignal(Signal)`: Tells FFmpeg to ignore a specific system signal.

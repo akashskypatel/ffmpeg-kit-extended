@@ -132,6 +132,7 @@ Executes a custom FFprobe command asynchronously.
 static Future<FFprobeSession> executeAsync(
   String command, {
   FFprobeSessionCompleteCallback? onComplete,
+  FFmpegLogCallback? onLog,
 })
 ```
 
@@ -139,6 +140,7 @@ static Future<FFprobeSession> executeAsync(
 
 - `command` (String): The FFprobe command to execute
 - `onComplete` (FFprobeSessionCompleteCallback?, optional): Callback invoked when complete
+- `onLog` (FFmpegLogCallback?, optional): Callback for native log messages
 
 **Returns:**
 
@@ -152,6 +154,7 @@ await FFprobeKit.executeAsync(
   onComplete: (session) {
     print('Output: ${session.getOutput()}');
   },
+  onLog: (log) => print(log.message),
 );
 ```
 
@@ -187,6 +190,7 @@ Creates a new FFprobe session without executing it.
 static FFprobeSession createSession(
   String command, {
   FFprobeSessionCompleteCallback? onComplete,
+  FFmpegLogCallback? onLog,
 })
 ```
 
@@ -194,6 +198,7 @@ static FFprobeSession createSession(
 
 - `command` (String): The FFprobe command for the session
 - `onComplete` (FFprobeSessionCompleteCallback?, optional): Completion callback
+- `onLog` (FFmpegLogCallback?, optional): Callback for native log messages
 
 **Returns:**
 

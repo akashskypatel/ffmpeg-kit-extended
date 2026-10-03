@@ -9,6 +9,8 @@ void main() {
   final ffmpegApi = File('doc/api/ffmpeg-kit.md').readAsStringSync();
   final ffprobeApi = File('doc/api/ffprobe-kit.md').readAsStringSync();
   final ffplayApi = File('doc/api/ffplay-kit.md').readAsStringSync();
+  final configApi = File('doc/api/config.md').readAsStringSync();
+  final extendedApi = File('doc/api/ffmpeg-kit-extended.md').readAsStringSync();
   final playbackGuide = File(
     'doc/guides/playback-control.md',
   ).readAsStringSync();
@@ -141,4 +143,27 @@ void main() {
     expect(videoPlaybackGuide, contains('RawImage'));
     expect(videoPlaybackGuide, isNot(contains('iOS/macOS not supported')));
   });
+
+  test(
+    'curated public API inventory is represented in canonical references',
+    () {
+      expect(ffmpegApi, contains('FFmpegKit.createSessionFromArguments'));
+      expect(ffprobeApi, contains('FFmpegLogCallback? onLog'));
+      expect(ffplayApi, contains('FFmpegLogCallback? onLog'));
+      expect(ffplayApi, contains('FFplayKit.createSessionFromArguments'));
+      expect(configApi, contains('logLevelToString(LogLevel)'));
+      expect(configApi, contains('sessionStateToString(SessionState)'));
+      expect(configApi, contains('messagesInTransmit(int)'));
+
+      for (final symbol in <String>[
+        'getLastCompletedSession()',
+        'FFmpegKitExtended.getFFmpegArchitecture',
+        'FFmpegKitExtended.getRegisteredEncoders',
+      ]) {
+        expect(extendedApi, contains(symbol));
+      }
+      expect(extendedApi, contains('cancelSession(0)'));
+      expect(extendedApi, contains('initialized'));
+    },
+  );
 }

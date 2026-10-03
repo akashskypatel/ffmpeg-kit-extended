@@ -48,6 +48,13 @@ Complete API documentation for all classes and methods:
   - Global callbacks
   - Session history management
 
+- **[FFmpegKitExtended API](api/ffmpeg-kit-extended.md)** - Advanced central
+  facade
+  - Initialization and session factories
+  - Retained history and cancellation compatibility
+  - Package/build introspection
+  - Audio, environment, debug, and argument utilities
+
 - **[Session API](api/sessions.md)** - Session management
   - FFmpegSession, FFprobeSession, FFplaySession
   - Session state and lifecycle

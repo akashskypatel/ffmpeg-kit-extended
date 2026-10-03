@@ -145,6 +145,30 @@ final session = FFmpegKit.createSession('-i input.mp4 output.mp4');
 
 ---
 
+### FFmpegKit.createSessionFromArguments
+
+Creates a new FFmpeg session from an already tokenized argument list. Use this
+when the caller already owns argument boundaries; do not manually join and
+reparse the tokens through a command string.
+
+```dart
+static FFmpegSession createSessionFromArguments(List<String> arguments)
+```
+
+**Example:**
+
+```dart
+final session = FFmpegKit.createSessionFromArguments([
+  '-i',
+  'input file.mp4',
+  '-c:v',
+  'copy',
+  'output.mp4',
+]);
+```
+
+---
+
 ### getLastFFmpegSession
 
 Returns the most recently created FFmpeg session retained in session history.
