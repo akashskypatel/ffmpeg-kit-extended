@@ -495,6 +495,10 @@ install_appletvos_dependencies() {
   )
 }
 
+apply_appletvos_runtime_compatibility_patch() {
+  node "$script_dir/scripts/patch-appletvos-runtime.js" "$appletvos_runtime_dir"
+}
+
 sync_appletvos_binary_to_runtime() {
   local installed="$appletvos_runtime_dir/node_modules/ffmpeg-kit-extended"
   local source="$script_dir/vendor/appletvos/ffmpegkit.xcframework"
@@ -514,6 +518,7 @@ sync_appletvos_binary_to_runtime() {
 
 prepare_appletvos_example() {
   install_appletvos_dependencies
+  apply_appletvos_runtime_compatibility_patch
   sync_appletvos_binary_to_runtime
 }
 
