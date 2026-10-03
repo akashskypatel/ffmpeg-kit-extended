@@ -12,6 +12,8 @@
 
 ## Advanced / native bridge
 
+- [NativeFFmpegKitExtendedLogEvent](type-aliases/NativeFFmpegKitExtendedLogEvent.md)
+- [NativeFFmpegKitExtendedSpec](type-aliases/NativeFFmpegKitExtendedSpec.md)
 - [NativeFFmpegKitExtended](variables/NativeFFmpegKitExtended.md)
 
 ## Configuration
@@ -57,8 +59,6 @@
 - [StreamInformationData](interfaces/StreamInformationData.md)
 - [FFplayViewProps](type-aliases/FFplayViewProps.md)
 - [LogCallback](type-aliases/LogCallback.md)
-- [NativeFFmpegKitExtendedLogEvent](type-aliases/NativeFFmpegKitExtendedLogEvent.md)
-- [NativeFFmpegKitExtendedSpec](type-aliases/NativeFFmpegKitExtendedSpec.md)
 - [SessionCompleteCallback](type-aliases/SessionCompleteCallback.md)
 - [SessionType](type-aliases/SessionType.md)
 - [StatisticsCallback](type-aliases/StatisticsCallback.md)

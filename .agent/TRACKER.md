@@ -13,7 +13,7 @@
 | Goal | Objective | Status |
 | --- | --- | --- |
 | **G1** | Replace the opaque mapped public bridge alias with an explicit complete consumer contract while preserving Codegen `Spec` | **Complete — explicit native contract, consumer scalar event type, bidirectional erased parity assertion, and Codegen-facing runtime generic implemented; `npm run typecheck` passed.** |
-| **G2** | Enforce generated method/signature visibility, scalar self-containment, full inventory coverage, and shared category metadata | **Pending** |
+| **G2** | Enforce generated method/signature visibility, scalar self-containment, full inventory coverage, and shared category metadata | **Complete — regenerated 46-page TypeDoc output, removed the stale exemption, and passed the strengthened documentation/drift contracts (`9/9` focused tests).** |
 | **G3** | Regenerate, validate, prove zero runtime-emitting change, and freeze one exact final source snapshot | **Pending** |
 
 ### Final closure preparation evidence

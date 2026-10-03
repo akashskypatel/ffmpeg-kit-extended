@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const typescript = require('typescript');
 
 const packageRoot = path.resolve(__dirname, '..');
 const read = relativePath =>
@@ -136,17 +137,153 @@ test('advanced native bridge docs expose a stable type-only contract', () => {
     nativePage,
     /> \\*\\*NativeFFmpegKitExtended\\*\\*: `Spec`/
   );
-  for (const methodName of [
-    'initialize',
-    'createFFmpegSession',
-    'getSessionJson',
-    'ffplayPause',
-    'clearSessions',
-  ]) {
-    assert.match(contractPage, new RegExp(`\\b${methodName}\\b`));
-  }
+  assert.match(contractPage, /^### initialize\(\)$/m);
+  assert.match(contractPage, /^### createFFmpegSession\(\)$/m);
+  assert.match(contractPage, /^### getSessionJson\(\)$/m);
+  assert.match(contractPage, /^### ffplayPause\(\)$/m);
+  assert.match(contractPage, /^### clearSessions\(\)$/m);
   assert.match(eventPage, /sessionId/);
   assert.match(nativePage, /src\/index\.web\.ts/);
+});
+
+test('advanced native bridge docs cover every Codegen member and scalar contract', () => {
+  const source = read('src/NativeFFmpegKitExtended.ts');
+  const contractPage = read(
+    'doc/api/type-aliases/NativeFFmpegKitExtendedSpec.md'
+  );
+  const eventPage = read(
+    'doc/api/type-aliases/NativeFFmpegKitExtendedLogEvent.md'
+  );
+  const apiIndex = read('doc/api/README.md');
+  const sourceFile = typescript.createSourceFile(
+    'NativeFFmpegKitExtended.ts',
+    source,
+    typescript.ScriptTarget.Latest,
+    true,
+    typescript.ScriptKind.TS
+  );
+  const findDeclaration = (predicate, name) => {
+    let declaration;
+    const visit = node => {
+      if (predicate(node) && node.name && node.name.text === name) {
+        declaration = node;
+        return;
+      }
+      typescript.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    return declaration;
+  };
+  const codegenDeclaration = findDeclaration(
+    typescript.isInterfaceDeclaration,
+    'Spec'
+  );
+  const publicDeclaration = findDeclaration(
+    typescript.isTypeAliasDeclaration,
+    'NativeFFmpegKitExtendedSpec'
+  );
+  assert.ok(codegenDeclaration, 'Codegen Spec declaration is present');
+  assert.ok(publicDeclaration, 'public native contract declaration is present');
+  assert.ok(
+    typescript.isTypeLiteralNode(publicDeclaration.type),
+    'public native contract is an explicit object type'
+  );
+  const memberName = member => member.name && member.name.getText(sourceFile);
+  const codegenMembers = codegenDeclaration.members.map(memberName).sort();
+  const publicMembers = publicDeclaration.type.members.map(memberName).sort();
+  assert.deepEqual(
+    publicMembers,
+    codegenMembers,
+    'public contract and Codegen own member inventories match exactly'
+  );
+  for (const member of publicMembers) {
+    assert.match(
+      contractPage,
+      new RegExp('^### ' + member + '(?:\\(\\))?$', 'm'),
+      'generated contract page exposes ' + member + ' as a member heading'
+    );
+  }
+
+  const markdownTick = String.fromCharCode(96);
+  const markdownType = value => markdownTick + value + markdownTick;
+  const promiseVoid =
+    markdownType('Promise') + '\\<' + markdownType('void') + '\\>';
+  const expectedSignatures = [
+    ['initialize', '**initialize**(): ' + promiseVoid],
+    [
+      'createFFmpegSession',
+      '**createFFmpegSession**(' + markdownType('command') + '): ' + markdownType('number'),
+    ],
+    [
+      'executeSessionAsync',
+      '**executeSessionAsync**(' +
+        markdownType('sessionId') +
+        ', ' +
+        markdownType('timeoutMs') +
+        '): ' +
+        promiseVoid,
+    ],
+    [
+      'getSessionJson',
+      '**getSessionJson**(' + markdownType('sessionId') + '): ' + markdownType('string'),
+    ],
+    [
+      'ffplayPause',
+      '**ffplayPause**(' + markdownType('sessionId') + '): ' + promiseVoid,
+    ],
+    [
+      'setLogLevel',
+      '**setLogLevel**(' + markdownType('level') + '): ' + promiseVoid,
+    ],
+    ['getFFmpegVersion', '**getFFmpegVersion**(): ' + markdownType('string')],
+    ['clearSessions', '**clearSessions**(): ' + promiseVoid],
+    [
+      'enableDebugLog',
+      '**enableDebugLog**(' + markdownType('sessionId') + '): ' + promiseVoid,
+    ],
+  ];
+  for (const [methodName, signature] of expectedSignatures) {
+    assert.notEqual(
+      contractPage.indexOf(signature),
+      -1,
+      'generated contract page contains the ' + methodName + ' signature'
+    );
+  }
+
+  assert.doesNotMatch(contractPage, /keyof\s+Spec/);
+  assert.doesNotMatch(contractPage, /\b(?:Spec|Double|Int32)\b/);
+  for (const [fieldName, fieldType] of [
+    ['sessionId', 'number'],
+    ['sequence', 'number'],
+    ['level', 'number'],
+    ['message', 'string'],
+  ]) {
+    assert.notEqual(
+      eventPage.indexOf('**' + fieldName + '**: ' + markdownType(fieldType)),
+      -1,
+      'public log event documents ' + fieldName + ' as ' + fieldType
+    );
+  }
+  assert.doesNotMatch(eventPage, /\b(?:Double|Int32)\b/);
+
+  const categoryStart = apiIndex.indexOf('## Advanced / native bridge');
+  assert.notEqual(categoryStart, -1, 'advanced native bridge category is present');
+  const categoryEnd = apiIndex.indexOf('\n## ', categoryStart + 1);
+  const category = apiIndex.slice(
+    categoryStart,
+    categoryEnd === -1 ? undefined : categoryEnd
+  );
+  for (const symbol of [
+    'NativeFFmpegKitExtended',
+    'NativeFFmpegKitExtendedSpec',
+    'NativeFFmpegKitExtendedLogEvent',
+  ]) {
+    assert.notEqual(
+      category.indexOf(symbol),
+      -1,
+      symbol + ' is grouped in the advanced native bridge category'
+    );
+  }
 });
 
 test('generated constructors distinguish facades from native session wrappers', () => {

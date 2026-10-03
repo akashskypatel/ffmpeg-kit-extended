@@ -9,14 +9,15 @@
 > **NativeFFmpegKitExtendedLogEvent** = `object`
 
 Stable consumer-facing type-only view of the structured v2 log event emitted
-after the native message is copied. The Codegen `LogEvent` spelling remains
-unchanged for React Native's consumer-owned generation contract.
+after the native message is copied. The native Codegen payload remains an
+internal implementation contract while this public type uses ordinary
+JavaScript numeric values.
 
 ## Properties
 
 ### level
 
-> **level**: `Int32`
+> **level**: `number`
 
 Native log severity.
 
@@ -32,7 +33,7 @@ Managed log message text.
 
 ### sequence
 
-> **sequence**: `Double`
+> **sequence**: `number`
 
 Monotonic native insertion sequence for the entry.
 
@@ -40,6 +41,6 @@ Monotonic native insertion sequence for the entry.
 
 ### sessionId
 
-> **sessionId**: `Double`
+> **sessionId**: `number`
 
 Native process identity associated with the log entry.
