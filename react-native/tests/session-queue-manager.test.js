@@ -33,10 +33,13 @@ function createSession(sessionId = nextSessionId++) {
     cancel() {
       this.cancelCount += 1;
     },
-    markCancelledBeforeExecution() {
-      this.preExecutionCancellationCount += 1;
-      this.isCancelled = true;
-    },
+  };
+}
+
+function markBeforeExecution(session) {
+  return () => {
+    session.preExecutionCancellationCount += 1;
+    session.isCancelled = true;
   };
 }
 
@@ -237,7 +240,12 @@ test('clearQueue rejects pending work without cancelling the active session', as
     await gate.promise;
     return 'active';
   });
-  const pending = manager.executeSession(pendingSession, async () => 'pending');
+  const pending = manager.executeSession(
+    pendingSession,
+    async () => 'pending',
+    undefined,
+    markBeforeExecution(pendingSession)
+  );
 
   manager.clearQueue();
 
@@ -268,7 +276,8 @@ test('queue cancellation marks retained work without invoking its full cancel me
     },
     () => {
       cleanupStarted = true;
-    }
+    },
+    markBeforeExecution(queuedSession)
   );
 
   assert.equal(await manager.cancelQueued(queuedSession), true);
@@ -473,7 +482,8 @@ test('cancelAll initiates active cancellation before deferred queued cleanup res
   const queued = manager.executeSession(
     queuedSession,
     async () => 'must not start',
-    () => discardGate.promise
+    () => discardGate.promise,
+    markBeforeExecution(queuedSession)
   );
 
   let settled = false;

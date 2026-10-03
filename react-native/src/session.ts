@@ -96,7 +96,10 @@ export abstract class Session implements RestoredSessionObservationTarget {
   readonly type: SessionType;
   private cancelled = false;
   private nativeCancellationDispatched = false;
+  /** Whether the one-shot public execution submission opportunity was consumed. */
   private submitted = false;
+  /** Whether the final preflight crossed into native startup. */
+  private nativeStartAttempted = false;
   private createdSessionAbandoned = false;
   private callbackDemandActive = false;
   private callbackDemandProviders?: CallbackDemandProviders;
@@ -135,7 +138,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
    * Records queue cancellation without reading native state or dispatching a
    * cancellation request for work that has not started.
    */
-  markCancelledBeforeExecution(): void {
+  protected markCancelledBeforeExecution(): void {
     this.cancelled = true;
   }
 
@@ -330,13 +333,16 @@ export abstract class Session implements RestoredSessionObservationTarget {
     this.cancelled = true;
     NativeFFmpegKitExtended.recordCancellationIntent?.(this.sessionId);
 
-    if (await SessionQueueManager.shared.cancelQueued(this)) {
+    const queuedCancellation = SessionQueueManager.shared.cancelQueued(this);
+    if (queuedCancellation instanceof Promise) {
+      if (await queuedCancellation) return;
+    } else if (queuedCancellation) {
       return;
     }
     const state = this.getState();
-    if (state === SessionState.Created && !this.submitted) {
-      // A submitted session can remain Created while the native worker is
-      // starting; only a never-submitted Created identity is safe to abandon.
+    if (state === SessionState.Created && !this.nativeStartAttempted) {
+      // Public submission may have been consumed before queue/native handoff;
+      // only the native-start boundary makes Created abandonment destructive.
       await this.abandonCreatedSession();
       return;
     }
@@ -410,6 +416,10 @@ export abstract class Session implements RestoredSessionObservationTarget {
       // executor seam, but validation rejection must not retire existing history
       // or restored ownership.
       this.prepareForExecution();
+      // A Created observation is protected from destructive abandonment once
+      // native startup has been attempted, even if the worker reports Created
+      // until its startup handoff reaches Running.
+      this.nativeStartAttempted = true;
       const completion = NativeFFmpegKitExtended.executeSessionAsync(
         this.sessionId,
         timeoutMs
@@ -1322,7 +1332,8 @@ export class FFmpegSession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution()
+        () => this.discardBeforeExecution(),
+        () => this.markCancelledBeforeExecution()
       )
     );
   }
@@ -1403,7 +1414,8 @@ export class FFprobeSession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution()
+        () => this.discardBeforeExecution(),
+        () => this.markCancelledBeforeExecution()
       )
     );
   }
@@ -1500,7 +1512,8 @@ export class MediaInformationSession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution()
+        () => this.discardBeforeExecution(),
+        () => this.markCancelledBeforeExecution()
       )
     );
   }
@@ -1606,7 +1619,8 @@ export class FFplaySession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution()
+        () => this.discardBeforeExecution(),
+        () => this.markCancelledBeforeExecution()
       )
     );
   }

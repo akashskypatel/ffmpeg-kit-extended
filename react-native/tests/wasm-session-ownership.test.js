@@ -378,6 +378,28 @@ test('Created cancellation prevents later submission', async () => {
   assert.deepEqual(cancelCalls, []);
 });
 
+test('pre-start cancellation retains Created abandonment when submission is consumed', async () => {
+  sessionState = 0;
+  registry.retain(1024, 63);
+  const session = new FFmpegSession(63, '-version');
+
+  const cancellation = session.cancel();
+  const execution = session.executeAsync();
+
+  await assert.rejects(execution, SessionCancelledException);
+  await cancellation;
+
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(abandonAttempts, [63]);
+  assert.deepEqual(abandonments, [63]);
+  assert.deepEqual(cancelCalls, []);
+
+  const stateReadsAfterCommit = stateReadCount;
+  await session.cancel();
+  assert.equal(stateReadCount, stateReadsAfterCommit);
+  assert.deepEqual(abandonAttempts, [63]);
+});
+
 test('successful never-started cancellation is idempotent without another state read', async () => {
   sessionState = 0;
   registry.retain(1024, 61);
@@ -413,6 +435,41 @@ test('failed never-started cancellation remains retryable until abandonment comm
   assert.deepEqual(abandonments, [62]);
   assert.equal(stateReadCount, 2);
   assert.deepEqual(cancelCalls, []);
+});
+
+test('queued pre-start abandonment can be retried after discard cleanup failure', async () => {
+  manager.maxConcurrentSessions = 1;
+  let releaseActive;
+  const active = manager.executeSession(
+    { cancel() {} },
+    () =>
+      new Promise((resolve) => {
+        releaseActive = resolve;
+      })
+  );
+  const firstError = new Error('queued abandonment failed');
+  sessionState = 0;
+  abandonError = firstError;
+  registry.retain(1024, 64);
+  const session = new FFmpegSession(64, '-version');
+  const pending = session.executeAsync();
+
+  await session.cancel();
+  await assert.rejects(pending, SessionCancelledException);
+  assert.equal(executionStarts, 0);
+  assert.deepEqual(abandonAttempts, [64]);
+  assert.deepEqual(abandonments, []);
+  assert.deepEqual(cancelCalls, []);
+  assert.equal(manager.queueLength, 0);
+
+  abandonError = undefined;
+  await session.cancel();
+  assert.deepEqual(abandonAttempts, [64, 64]);
+  assert.deepEqual(abandonments, [64]);
+  assert.deepEqual(cancelCalls, []);
+
+  releaseActive();
+  await active;
 });
 
 test('state-read failure latches cancellation before exposing the error', async () => {

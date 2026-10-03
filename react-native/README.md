@@ -235,7 +235,7 @@ bridge never calls `enableRedirection()` implicitly. The native/Web bridge
 copies accepted messages into a JavaScript-owned string and releases its native
 payload internally; no borrowed pointer crosses the public API.
 
-Calling `cancel()` before execution begins prevents Created or queued work from starting. If cancellation is requested while asynchronous native startup is already in flight, the request is retained and forwarded when the session first reaches Running.
+Calling `cancel()` before native startup prevents Created or queued work from starting, even if a one-shot execute call has already been consumed by the wrapper. If cancellation is requested after native startup has been attempted but while asynchronous handoff is still in flight, the request is retained and forwarded when the session first reaches Running.
 `isCancelled` records that cancellation was requested; the final native state and return code determine whether cancellation won a race with completion.
 
 Removing queued work marks the retained `Session` object cancelled before its

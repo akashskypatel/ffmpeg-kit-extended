@@ -11,7 +11,6 @@ export class SessionCancelledException extends Error {
 
 type CancellableSession = {
   cancel(): void | Promise<void>;
-  markCancelledBeforeExecution?: () => void;
   getSessionId?: () => number;
   prepareForExecution?: () => void;
 };
@@ -21,10 +20,12 @@ type QueueItem<T> = {
   executor: () => Promise<T>;
   resolve: (value: T) => void;
   reject: (reason?: unknown) => void;
+  onCancelBeforeExecution?: () => void;
   onDiscard?: () => void | Promise<void>;
 };
 
 type MaybePromise<T> = T | Promise<T>;
+type ErrorSlot = { failed: false } | { failed: true; error: unknown };
 
 /**
  * Process-wide JavaScript queue that limits concurrent native sessions.
@@ -95,7 +96,8 @@ export class SessionQueueManager {
   executeSession<T>(
     session: CancellableSession,
     executor: () => Promise<T>,
-    onDiscard?: () => void
+    onDiscard?: () => void | Promise<void>,
+    onCancelBeforeExecution?: () => void
   ): Promise<T> {
     const sessionId = this.executionSessionId(session);
     if (
@@ -119,6 +121,7 @@ export class SessionQueueManager {
         executor,
         resolve,
         reject,
+        onCancelBeforeExecution,
         onDiscard,
       } as QueueItem<unknown>);
       try {
@@ -140,28 +143,32 @@ export class SessionQueueManager {
    * still receive deterministic error authority after all attempts complete.
    */
   cancelCurrent(): MaybePromise<void> {
-    let firstError: unknown;
+    const sessions = [...this.active];
+    const errors: ErrorSlot[] = sessions.map(() => ({ failed: false }));
     const pending: Promise<void>[] = [];
-    for (const session of [...this.active]) {
+    sessions.forEach((session, index) => {
       try {
         const cancellation = session.cancel();
         if (cancellation instanceof Promise) {
           pending.push(
-            cancellation.catch((error) => {
-              if (firstError === undefined) firstError = error;
-            })
+            cancellation.then(
+              () => undefined,
+              (error) => {
+                errors[index] = { failed: true, error };
+              }
+            )
           );
         }
       } catch (error) {
-        if (firstError === undefined) firstError = error;
+        errors[index] = { failed: true, error };
       }
-    }
+    });
     if (pending.length === 0) {
-      if (firstError !== undefined) throw firstError;
+      this.throwFirstError(errors);
       return;
     }
     return Promise.all(pending).then(() => {
-      if (firstError !== undefined) throw firstError;
+      this.throwFirstError(errors);
     });
   }
 
@@ -185,41 +192,41 @@ export class SessionQueueManager {
   cancelAll(): MaybePromise<void> {
     // Queue removal starts first, but active cancellation is initiated
     // immediately; asynchronous queued cleanup must not delay delivery.
-    let firstError: unknown;
+    const errors: ErrorSlot[] = [{ failed: false }, { failed: false }];
     const pending: Promise<void>[] = [];
 
     try {
       const cleared = this.clearQueue();
       if (cleared instanceof Promise) {
         pending.push(
-          cleared.catch((error) => {
-            if (firstError === undefined) firstError = error;
+          cleared.then(undefined, (error) => {
+            errors[0] = { failed: true, error };
           })
         );
       }
     } catch (error) {
-      firstError = error;
+      errors[0] = { failed: true, error };
     }
 
     try {
       const cancelled = this.cancelCurrent();
       if (cancelled instanceof Promise) {
         pending.push(
-          cancelled.catch((error) => {
-            if (firstError === undefined) firstError = error;
+          cancelled.then(undefined, (error) => {
+            errors[1] = { failed: true, error };
           })
         );
       }
     } catch (error) {
-      if (firstError === undefined) firstError = error;
+      errors[1] = { failed: true, error };
     }
 
     if (pending.length === 0) {
-      if (firstError !== undefined) throw firstError;
+      this.throwFirstError(errors);
       return;
     }
     return Promise.all(pending).then(() => {
-      if (firstError !== undefined) throw firstError;
+      this.throwFirstError(errors);
     });
   }
 
@@ -277,7 +284,7 @@ export class SessionQueueManager {
     try {
       // Queue cancellation records local pre-execution state without native
       // state lookup or Running cancellation dispatch.
-      item.session.markCancelledBeforeExecution?.();
+      item.onCancelBeforeExecution?.();
       const cleanup = item.onDiscard?.();
       if (cleanup instanceof Promise) {
         return cleanup.then(finish, (error) => {
@@ -302,6 +309,11 @@ export class SessionQueueManager {
 
   private releaseSessionReservation(sessionId: number | undefined): void {
     if (sessionId !== undefined) this.reservedSessionIds.delete(sessionId);
+  }
+
+  private throwFirstError(errors: ErrorSlot[]): void {
+    const failure = errors.find((entry) => entry.failed);
+    if (failure?.failed) throw failure.error;
   }
 
   private processQueue(): void {
