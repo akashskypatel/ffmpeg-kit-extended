@@ -183,11 +183,42 @@ export class SessionQueueManager {
 
   /** Clears waiting sessions and requests cancellation of active sessions. */
   cancelAll(): MaybePromise<void> {
-    const cleared = this.clearQueue();
-    if (cleared instanceof Promise) {
-      return cleared.then(() => this.cancelCurrent()).then(() => undefined);
+    let firstError: unknown;
+    const pending: Promise<void>[] = [];
+
+    try {
+      const cleared = this.clearQueue();
+      if (cleared instanceof Promise) {
+        pending.push(
+          cleared.catch((error) => {
+            if (firstError === undefined) firstError = error;
+          })
+        );
+      }
+    } catch (error) {
+      firstError = error;
     }
-    return this.cancelCurrent();
+
+    try {
+      const cancelled = this.cancelCurrent();
+      if (cancelled instanceof Promise) {
+        pending.push(
+          cancelled.catch((error) => {
+            if (firstError === undefined) firstError = error;
+          })
+        );
+      }
+    } catch (error) {
+      if (firstError === undefined) firstError = error;
+    }
+
+    if (pending.length === 0) {
+      if (firstError !== undefined) throw firstError;
+      return;
+    }
+    return Promise.all(pending).then(() => {
+      if (firstError !== undefined) throw firstError;
+    });
   }
 
   /** Removes one waiting session and rejects its execution promise. */

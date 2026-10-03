@@ -463,3 +463,76 @@ test('cancelCurrent attempts every active session before rethrowing the first er
   await Promise.all([first, second]);
 });
 
+test('cancelAll initiates active cancellation before deferred queued cleanup resolves', async () => {
+  manager.maxConcurrentSessions = 1;
+  const activeGate = deferred();
+  const discardGate = deferred();
+  const activeSession = createSession();
+  const queuedSession = createSession();
+  const active = manager.executeSession(activeSession, () => activeGate.promise);
+  const queued = manager.executeSession(
+    queuedSession,
+    async () => 'must not start',
+    () => discardGate.promise
+  );
+
+  let settled = false;
+  const cancellation = manager.cancelAll();
+  Promise.resolve(cancellation).then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    }
+  );
+  await Promise.resolve();
+
+  assert.equal(manager.queueLength, 0);
+  assert.equal(activeSession.cancelCount, 1);
+  assert.equal(queuedSession.preExecutionCancellationCount, 1);
+  assert.equal(settled, false);
+
+  discardGate.resolve();
+  await assert.rejects(queued, SessionCancelledException);
+  await cancellation;
+
+  activeGate.resolve();
+  await active;
+});
+
+test('cancelAll attempts every active target and preserves the first failure', async () => {
+  manager.maxConcurrentSessions = 2;
+  const activeGate = deferred();
+  const secondGate = deferred();
+  const cleanupGate = deferred();
+  const firstError = new Error('active cancellation failed');
+  const firstSession = createSession();
+  firstSession.cancel = function cancel() {
+    this.cancelCount += 1;
+    throw firstError;
+  };
+  const secondSession = createSession();
+  const first = manager.executeSession(firstSession, () => activeGate.promise);
+  const second = manager.executeSession(secondSession, () => secondGate.promise);
+  const queuedSession = createSession();
+  const queued = manager.executeSession(
+    queuedSession,
+    async () => 'must not start',
+    () => cleanupGate.promise
+  );
+
+  const cancellation = manager.cancelAll();
+  assert.equal(firstSession.cancelCount, 1);
+  assert.equal(secondSession.cancelCount, 1);
+  assert.equal(manager.queueLength, 0);
+
+  cleanupGate.resolve();
+  await assert.rejects(queued, SessionCancelledException);
+  await assert.rejects(cancellation, (reason) => reason === firstError);
+
+  activeGate.resolve();
+  secondGate.resolve();
+  await Promise.all([first, second]);
+});
+
