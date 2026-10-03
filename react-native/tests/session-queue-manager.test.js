@@ -26,11 +26,16 @@ function createSession(sessionId = nextSessionId++) {
   return {
     sessionId,
     cancelCount: 0,
+    preExecutionCancellationCount: 0,
     getSessionId() {
       return this.sessionId;
     },
     cancel() {
       this.cancelCount += 1;
+    },
+    markCancelledBeforeExecution() {
+      this.preExecutionCancellationCount += 1;
+      this.isCancelled = true;
     },
   };
 }
@@ -239,9 +244,43 @@ test('clearQueue rejects pending work without cancelling the active session', as
   await assert.rejects(pending, SessionCancelledException);
   assert.equal(activeSession.cancelCount, 0);
   assert.equal(pendingSession.cancelCount, 0);
+  assert.equal(activeSession.preExecutionCancellationCount, 0);
+  assert.equal(pendingSession.preExecutionCancellationCount, 1);
+  assert.equal(pendingSession.isCancelled, true);
 
   gate.resolve();
   assert.equal(await active, 'active');
+});
+
+test('queue cancellation marks retained work without invoking its full cancel method', async () => {
+  manager.maxConcurrentSessions = 1;
+  const activeGate = deferred();
+  const active = manager.executeSession(
+    createSession(),
+    () => activeGate.promise
+  );
+  const queuedSession = createSession();
+  let cleanupStarted = false;
+  const queued = manager.executeSession(
+    queuedSession,
+    async () => {
+      throw new Error('queued executor must not start');
+    },
+    () => {
+      cleanupStarted = true;
+    }
+  );
+
+  assert.equal(await manager.cancelQueued(queuedSession), true);
+  await assert.rejects(queued, SessionCancelledException);
+  assert.equal(queuedSession.isCancelled, true);
+  assert.equal(queuedSession.preExecutionCancellationCount, 1);
+  assert.equal(queuedSession.cancelCount, 0);
+  assert.equal(cleanupStarted, true);
+  assert.equal(manager.queueLength, 0);
+
+  activeGate.resolve();
+  await active;
 });
 
 test('clearQueue settles every pending item after discard cleanup failure', async () => {
@@ -423,3 +462,4 @@ test('cancelCurrent attempts every active session before rethrowing the first er
   secondGate.resolve();
   await Promise.all([first, second]);
 });
+

@@ -11,6 +11,7 @@ export class SessionCancelledException extends Error {
 
 type CancellableSession = {
   cancel(): void | Promise<void>;
+  markCancelledBeforeExecution?: () => void;
   getSessionId?: () => number;
   prepareForExecution?: () => void;
 };
@@ -241,6 +242,7 @@ export class SessionQueueManager {
       item.reject(rejection);
     };
     try {
+      item.session.markCancelledBeforeExecution?.();
       const cleanup = item.onDiscard?.();
       if (cleanup instanceof Promise) {
         return cleanup.then(finish, (error) => {

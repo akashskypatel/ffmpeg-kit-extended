@@ -22,6 +22,7 @@ const {
 const registry = new WasmSessionRegistry();
 const releases = [];
 const releaseCommits = [];
+const abandonAttempts = [];
 const abandonments = [];
 const cancelCalls = [];
 const cancellationIntentIds = new Set();
@@ -31,6 +32,7 @@ let finalLogEntries = [];
 let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
+let stateReadCount = 0;
 let stateError;
 let startError;
 let logReads = 0;
@@ -48,6 +50,7 @@ let finalLogsError;
 let finalStatisticsError;
 let releaseError;
 let cancelError;
+let abandonError;
 let useDirectLogBridge = false;
 let directLogBridgeActive = false;
 let logEventHandler;
@@ -122,6 +125,7 @@ setBackend({
     redirectionEnabled = false;
   },
   getSessionState: () => {
+    stateReadCount += 1;
     if (stateError) throw stateError;
     return sessionState;
   },
@@ -143,6 +147,8 @@ setBackend({
     if (retained) releaseCommits.push(sessionId);
   },
   abandonCreatedSession: (sessionId) => {
+    abandonAttempts.push(sessionId);
+    if (abandonError) throw abandonError;
     abandonments.push(sessionId);
   },
   recordCancellationIntent: (sessionId) => {
@@ -162,6 +168,7 @@ beforeEach(() => {
   registry.clear();
   cancelCalls.length = 0;
   cancelAttempts = 0;
+  abandonAttempts.length = 0;
   releases.length = 0;
   releaseCommits.length = 0;
   abandonments.length = 0;
@@ -171,6 +178,7 @@ beforeEach(() => {
   statisticsEntries = [];
   executionStarts = 0;
   sessionState = 2;
+  stateReadCount = 0;
   stateError = undefined;
   startError = undefined;
   logReads = 0;
@@ -192,6 +200,7 @@ beforeEach(() => {
   finalStatisticsError = undefined;
   releaseError = undefined;
   cancelError = undefined;
+  abandonError = undefined;
   useDirectLogBridge = false;
   directLogBridgeActive = false;
   directLogEvents = [];
@@ -369,6 +378,43 @@ test('Created cancellation prevents later submission', async () => {
   assert.deepEqual(cancelCalls, []);
 });
 
+test('successful never-started cancellation is idempotent without another state read', async () => {
+  sessionState = 0;
+  registry.retain(1024, 61);
+  const session = new FFmpegSession(61, '-version');
+
+  await session.cancel();
+  const stateReadsAfterCommit = stateReadCount;
+  await session.cancel();
+
+  assert.equal(session.isCancelled, true);
+  assert.equal(stateReadCount, stateReadsAfterCommit);
+  assert.deepEqual(abandonAttempts, [61]);
+  assert.deepEqual(abandonments, [61]);
+  assert.deepEqual(cancelCalls, []);
+});
+
+test('failed never-started cancellation remains retryable until abandonment commits', async () => {
+  const firstError = new Error('created abandonment failed');
+  sessionState = 0;
+  abandonError = firstError;
+  registry.retain(1024, 62);
+  const session = new FFmpegSession(62, '-version');
+
+  await assert.rejects(session.cancel(), (reason) => reason === firstError);
+  assert.deepEqual(abandonAttempts, [62]);
+  assert.deepEqual(abandonments, []);
+
+  abandonError = undefined;
+  await session.cancel();
+  await session.cancel();
+
+  assert.deepEqual(abandonAttempts, [62, 62]);
+  assert.deepEqual(abandonments, [62]);
+  assert.equal(stateReadCount, 2);
+  assert.deepEqual(cancelCalls, []);
+});
+
 test('state-read failure latches cancellation before exposing the error', async () => {
   const error = new Error('state read failed during cancellation');
   stateError = error;
@@ -418,6 +464,7 @@ test('queued cancellation removes work without native cancellation and releases 
   await session.cancel();
 
   await assert.rejects(pending, SessionCancelledException);
+  assert.equal(session.isCancelled, true);
   assert.equal(executionStarts, 0);
   assert.deepEqual(cancelCalls, []);
   assert.deepEqual(releases, [7]);

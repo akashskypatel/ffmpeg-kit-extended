@@ -131,6 +131,14 @@ export abstract class Session implements RestoredSessionObservationTarget {
     );
   }
 
+  /**
+   * Records queue cancellation without reading native state or dispatching a
+   * cancellation request for work that has not started.
+   */
+  markCancelledBeforeExecution(): void {
+    this.cancelled = true;
+  }
+
   /** Returns the current native lifecycle state. */
   getState(): SessionState {
     const state = NativeFFmpegKitExtended.getSessionState?.(this.sessionId);
@@ -310,7 +318,12 @@ export abstract class Session implements RestoredSessionObservationTarget {
    * deliver it when Running is observed again.
    */
   async cancel(): Promise<void> {
-    if (this.cancelled && this.nativeCancellationDispatched) return;
+    if (
+      this.cancelled &&
+      (this.nativeCancellationDispatched || this.createdSessionAbandoned)
+    ) {
+      return;
+    }
 
     this.cancelled = true;
     NativeFFmpegKitExtended.recordCancellationIntent?.(this.sessionId);
