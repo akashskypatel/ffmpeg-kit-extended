@@ -245,6 +245,11 @@ that managed execution owner. The secondary wrapper cannot independently
 abandon the identity during startup, and the managed owner retains the request
 until Running cancellation is safe. When no managed owner exists, the wrapper
 continues to use the normal standalone Created or restored Running path.
+The secondary wrapper mirrors only that cancellation was requested through that
+JavaScript object; the managed owner's transaction remains the sole authority
+for durable native-ID cancellation intent and delivery. Terminal observation
+retires that durable control state, so a late duplicate request cannot recreate
+terminal intent after final state has won.
 
 Removing queued work marks the retained `Session` object cancelled before its
 discard cleanup begins. Its execution promise rejects with

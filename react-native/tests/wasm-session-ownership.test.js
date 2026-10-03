@@ -54,6 +54,7 @@ let finalStatisticsError;
 let releaseError;
 let cancelError;
 let abandonError;
+let terminalReleaseGate;
 let useDirectLogBridge = false;
 let directLogBridgeActive = false;
 let logEventHandler;
@@ -145,9 +146,15 @@ setBackend({
   releaseSessionHandle: (sessionId) => {
     releases.push(sessionId);
     if (releaseError) throw releaseError;
-    const retained = registry.has(sessionId);
-    registry.take(sessionId);
-    if (retained) releaseCommits.push(sessionId);
+    const commitRelease = () => {
+      const retained = registry.has(sessionId);
+      registry.take(sessionId);
+      if (retained) releaseCommits.push(sessionId);
+    };
+    if (terminalReleaseGate?.sessionId === sessionId) {
+      return terminalReleaseGate.promise.then(commitRelease);
+    }
+    commitRelease();
   },
   abandonCreatedSession: (sessionId) => {
     abandonAttempts.push(sessionId);
@@ -178,6 +185,24 @@ async function waitFor(condition, message, timeoutMs = 1000) {
     if (Date.now() >= deadline) throw new Error(message);
     await new Promise((resolve) => setTimeout(resolve, 1));
   }
+}
+
+function createReleaseGate(sessionId) {
+  let resolveGate;
+  let resolved = false;
+  const promise = new Promise((resolve) => {
+    resolveGate = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+  });
+  return {
+    sessionId,
+    promise,
+    resolve: resolveGate,
+    wasResolved: () => resolved,
+  };
 }
 
 beforeEach(() => {
@@ -218,16 +243,21 @@ beforeEach(() => {
   releaseError = undefined;
   cancelError = undefined;
   abandonError = undefined;
+  terminalReleaseGate = undefined;
   useDirectLogBridge = false;
   directLogBridgeActive = false;
   directLogEvents = [];
 });
 
 afterEach(async () => {
+  if (terminalReleaseGate && !terminalReleaseGate.wasResolved()) {
+    terminalReleaseGate.resolve();
+  }
   manager.clearQueue();
   manager.maxConcurrentSessions = 8;
   await manager.waitForAll();
   releaseError = undefined;
+  terminalReleaseGate = undefined;
   await waitFor(
     () => getRetainedReleaseRetryCount() === 0,
     'retained release retry coordinator did not drain'
@@ -424,6 +454,51 @@ test('secondary wrapper delegates active-startup cancellation to the managed own
   sessionState = 2;
   await execution;
   assert.deepEqual(releases, [34]);
+});
+
+test('secondary cancellation cannot restore durable intent after managed terminal cleanup', async () => {
+  sessionState = 0;
+  registry.retain(4096, 36);
+  const original = new FFmpegSession(36, '-version');
+  const execution = original.executeAsync({ pollIntervalMs: 10 });
+
+  await waitFor(() => executionStarts === 1, 'native execution did not start');
+  await original.cancel();
+  assert.deepEqual(cancelCalls, [36]);
+  assert.equal(cancellationIntentIds.has(36), true);
+
+  terminalReleaseGate = createReleaseGate(36);
+  sessionState = 2;
+  await waitFor(
+    () =>
+      releases.includes(36) &&
+      !cancellationIntentIds.has(36) &&
+      manager.isSessionActiveById(36),
+    'terminal finalization did not reach the gated retained release'
+  );
+  assert.equal(getRetainedReleaseInFlightCount(), 1);
+  assert.equal(registry.has(36), true);
+
+  const secondary = new FFmpegSession(36, '-version');
+  await secondary.cancel();
+
+  assert.equal(secondary.isCancelled, true);
+  assert.equal(cancellationIntentIds.has(36), false);
+  assert.deepEqual(cancelCalls, [36]);
+  assert.deepEqual(abandonments, []);
+  assert.equal(manager.isSessionActiveById(36), true);
+  assert.deepEqual(releases, [36]);
+
+  terminalReleaseGate.resolve();
+  await execution;
+  assert.equal(terminalReleaseGate.wasResolved(), true);
+  assert.equal(cancellationIntentIds.has(36), false);
+  assert.equal(manager.isSessionActiveById(36), false);
+  assert.deepEqual(cancelCalls, [36]);
+  assert.deepEqual(abandonments, []);
+  assert.deepEqual(releaseCommits, [36]);
+  assert.equal(registry.has(36), false);
+  assert.equal(getRetainedReleaseRetryCount(), 0);
 });
 
 test('secondary wrapper removes the managed queued owner by native ID', async () => {
