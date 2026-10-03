@@ -19,13 +19,17 @@ The current minimums are Flutter **3.47.0** and Dart **3.12.0**.
     hooks:
       user_defines:
         ffmpeg_kit_extended_flutter:
-          type: "base" # native pre-bundled builds: debug, base, full, audio, video, streaming, video_hw
+          type: "base" # native pre-bundled builds: debug, base, full, audio, video, video_hw
           gpl: true # enable to include GPL libraries
           small: true # enable to use smaller builds
           # Preserve platform override keys under this same map.
           # windows: "path/to/ffmpeg-kit/libraries"
           # ios: "https://path/to/bundle.xcframework.zip"
     ```
+
+    Native bundle types are `debug`, `base`, `full`, `audio`, `video`, and
+    `video_hw`. The legacy `streaming` value is accepted as an alias for
+    `video`.
 
     **Note**: Native libraries are now automatically downloaded and bundled during the build process using [Dart Hooks](https://dart.dev/tools/hooks). No manual configuration step is required.
 

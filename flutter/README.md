@@ -31,7 +31,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
   - **iOS & macOS**: High-performance video playback with `CVPixelBuffer` and Metal integration.
     - **iOS**: Supports physical `devices` and `simulators`; `x86_64` is
       selected only when the requested XCFramework slice exists.
-  - **Linux**: Full video playback support with `OpenGL` integration.
+   - **Linux**: Full video playback support using Flutter pixel-buffer textures fed by FFplay frame callbacks.
     - Supported artifact architectures are `arm64` and `x86_64`.
   - **Windows**: Supported artifact architectures are `arm64` and `x86_64`.
   - **Web**: Stages the configured base/small/LGPL `wasm32` runtime through the Flutter build hook and renders FFplay RGBA frames through the unified Flutter surface API. Build with `flutter build web --wasm`.
@@ -89,7 +89,7 @@ Flutter Web uses the same public API and shared session implementation as native
    hooks:
      user_defines:
        ffmpeg_kit_extended_flutter:
-          type: "base" # native pre-bundled builds: debug, base, full, audio, video, video_hw
+         type: "base" # native pre-bundled builds: debug, base, full, audio, video, video_hw
          gpl: true # enable to include GPL libraries. WARNING: Make sure you understand what GPL license means before enabling. Check https://www.ffmpeg.org/legal.html for more information.
          small: true # enable to use smaller builds
          # Preserve platform override keys under this same map.
@@ -346,6 +346,9 @@ provide an explicit `web`/`wasm` override containing one coherent
 - **audio**: Build with audio-only FFmpeg libraries.
 - **video**: Build with video-only FFmpeg libraries.
 - **video_hw**: Build with hardware-accelerated video FFmpeg libraries.
+
+Native bundle types are `debug`, `base`, `full`, `audio`, `video`, and `video_hw`.
+The legacy `streaming` value is accepted as an alias for `video`.
 
 ### 2.2 Feature Matrix
 

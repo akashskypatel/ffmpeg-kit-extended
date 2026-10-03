@@ -1,5 +1,29 @@
 # Tracker
 
+## Flutter Documentation and Public-Comment Remediation — 2026-10-03
+
+- Plan: [luna-flutter-documentation-remediation-plan.md](./luna-flutter-documentation-remediation-plan.md)
+- Audit: [flutter-documentation-audit.md](./flutter-documentation-audit.md)
+- Preparation status: **Prepared for implementation — both downloaded documents were read completely, SHA-256 verified, and materialized as the active `.agent` working copies.**
+- Downloaded source hashes: audit `E36DC12C993AD8A800594C1CCE2B7C20D64B4673D0D2F2DB3F7C6E48B0761304` (**508 lines**); plan `2531CF15CE2410925048CB9F8AAE983586A04801909F9B3F9115CBBA9E580D95` (**805 lines**).
+- Starting source authority: Review 51 snapshot source SHA `1506c49f1eba4cf1d25af3fd8bcc438d039b117a`; native submodule `b74da2c5d1e294b87d15d73a6687393729e932b3`; native ABI/runtime `0.11.2`.
+- Scope: Flutter documentation, exported Dartdoc/comments, and targeted documentation-contract tests only. Native ABI, platform-native code, React Native, runtime logic, and artifact publication remain frozen.
+- Validation: use local Flutter/Dart commands only; do not download, rebuild, publish, or retrieve native artifacts for this documentation-only task.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **G1** | Repair canonical installation/configuration documentation and add parse validation | **Complete — README/quick-start YAML and bundle-type wording corrected; `flutter test --no-pub --exclude-tags native test/documentation_contract_test.dart` passed.** |
+| **G2** | Align session history, queue, cancellation, and async-error documentation/comments with code | **Pending** |
+| **G3** | Correct FFplay lifecycle/control API documentation and signatures | **Pending** |
+| **G4** | Make surface/rendering/sizing documentation genuinely cross-platform | **Pending** |
+| **G5** | Complete public API reference coverage, including `FFmpegKitExtended` | **Pending** |
+| **G6** | Synchronize translations and add stable documentation-contract tests | **Pending** |
+| **G7** | Run documentation-focused validation and final no-runtime-diff audit | **Pending** |
+
+### Documentation goal evidence
+
+- G1: The primary README Hooks example now parses as a nested `hooks.user_defines.ffmpeg_kit_extended_flutter` map with sibling `type`, `gpl`, and `small` keys. README and quick-start describe `debug`, `base`, `full`, `audio`, `video`, and `video_hw`, with legacy `streaming` explicitly documented as an alias for `video`. The targeted YAML/wording contract passed after clearing one stale generated hook-runner cache entry; no native source or artifact was changed.
+
 ## Review 51 React Native Terminal-Cancellation Authority Closure — 2026-10-02
 
 - Plan: [review-51-luna-flutter-react-native-closure-plan.md](./review-51-luna-flutter-react-native-closure-plan.md)
