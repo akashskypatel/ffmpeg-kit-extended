@@ -237,7 +237,9 @@ class _HomePageState extends State<HomePage>
           : null,
     );
     _initializePlugin();
-    _currentLogLevel = FFmpegKitConfig.getLogLevel();
+    _currentLogLevel = FFmpegKitExtended.initialized
+        ? FFmpegKitConfig.getLogLevel()
+        : LogLevel.info;
     final tabController = TabController(length: 5, vsync: this);
     if (platform.isAndroid) {
       // Listen for MANAGE_MEDIA permission changes.
@@ -1216,28 +1218,34 @@ class _HomePageState extends State<HomePage>
         final isMobile = constraints.maxWidth < 600;
 
         return Scaffold(
+          key: const ValueKey<String>('app.root'),
           appBar: AppBar(
             title: Text(isMobile ? 'FFmpeg Kit' : 'FFmpeg Kit Extended'),
             bottom: TabBar(
               controller: _tabController,
               tabs: [
                 Tab(
+                  key: const ValueKey<String>('tab.ffmpeg'),
                   icon: const Icon(Icons.movie),
                   text: isMobile ? null : "FFmpeg",
                 ),
                 Tab(
+                  key: const ValueKey<String>('tab.stream'),
                   icon: const Icon(Icons.sensors),
                   text: isMobile ? null : "Stream",
                 ),
                 Tab(
+                  key: const ValueKey<String>('tab.ffprobe'),
                   icon: const Icon(Icons.info),
                   text: isMobile ? null : "FFprobe",
                 ),
                 Tab(
+                  key: const ValueKey<String>('tab.ffplay'),
                   icon: const Icon(Icons.play_arrow),
                   text: isMobile ? null : "FFplay",
                 ),
                 Tab(
+                  key: const ValueKey<String>('tab.transcode'),
                   icon: const Icon(Icons.transform),
                   text: isMobile ? null : "Transcode",
                 ),
@@ -1245,6 +1253,7 @@ class _HomePageState extends State<HomePage>
             ),
             actions: [
               PopupMenuButton<LogLevel>(
+                key: const ValueKey<String>('toolbar.log-level'),
                 icon: const Icon(Icons.tune),
                 tooltip: "Log Level",
                 onSelected: _setLogLevel,
@@ -1269,6 +1278,7 @@ class _HomePageState extends State<HomePage>
                 },
               ),
               PopupMenuButton<String>(
+                key: const ValueKey<String>('toolbar.system-info'),
                 icon: const Icon(Icons.settings),
                 tooltip: "System Info",
                 onSelected: (String value) {
@@ -1335,6 +1345,7 @@ class _HomePageState extends State<HomePage>
                 itemBuilder: (BuildContext context) {
                   return [
                     const PopupMenuItem<String>(
+                      key: ValueKey<String>('system-info.basic'),
                       value: 'basic_info',
                       child: Row(
                         children: [
@@ -1346,6 +1357,7 @@ class _HomePageState extends State<HomePage>
                     ),
                     const PopupMenuDivider(),
                     const PopupMenuItem<String>(
+                      key: ValueKey<String>('system-info.ffmpeg-version'),
                       value: 'ffmpeg_version',
                       child: Row(
                         children: [
@@ -1366,6 +1378,7 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     const PopupMenuItem<String>(
+                      key: ValueKey<String>('system-info.ffmpegkit-version'),
                       value: 'ffmpegkit_version',
                       child: Row(
                         children: [
@@ -1396,6 +1409,7 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     const PopupMenuItem<String>(
+                      key: ValueKey<String>('system-info.bundle'),
                       value: 'bundle_type',
                       child: Row(
                         children: [
@@ -1519,6 +1533,7 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     const PopupMenuItem<String>(
+                      key: ValueKey<String>('system-info.build-date'),
                       value: 'build_date',
                       child: Row(
                         children: [
@@ -1532,11 +1547,13 @@ class _HomePageState extends State<HomePage>
                 },
               ),
               IconButton(
+                key: const ValueKey<String>('toolbar.clear-logs'),
                 icon: const Icon(Icons.delete),
                 onPressed: _clearLogs,
                 tooltip: "Clear Logs",
               ),
               IconButton(
+                key: const ValueKey<String>('toolbar.permissions'),
                 icon: const Icon(Icons.verified_user),
                 onPressed: _checkPermissions,
                 tooltip: "Check / Request Permissions",
@@ -1575,6 +1592,7 @@ class _HomePageState extends State<HomePage>
       child: SingleChildScrollView(
         controller: _scrollController,
         child: TextField(
+          key: const ValueKey<String>('logs.output'),
           controller: _outputController,
           maxLines: null,
           readOnly: true,
@@ -1599,10 +1617,30 @@ class _HomePageState extends State<HomePage>
             spacing: 12,
             runSpacing: 12,
             children: [
-              _demoButton(_generateTestVideo, Icons.video_call, "Gen Video"),
-              _demoButton(_generateTestAudio, Icons.audiotrack, "Gen Audio"),
-              _demoButton(_runFFmpegVersion, Icons.bolt, "Async Version"),
-              _demoButton(_runFFmpegInfoSync, Icons.timer, "Sync Version"),
+              _demoButton(
+                _generateTestVideo,
+                Icons.video_call,
+                "Gen Video",
+                key: const ValueKey<String>('ffmpeg.generate-video'),
+              ),
+              _demoButton(
+                _generateTestAudio,
+                Icons.audiotrack,
+                "Gen Audio",
+                key: const ValueKey<String>('ffmpeg.generate-audio'),
+              ),
+              _demoButton(
+                _runFFmpegVersion,
+                Icons.bolt,
+                "Async Version",
+                key: const ValueKey<String>('ffmpeg.version.async'),
+              ),
+              _demoButton(
+                _runFFmpegInfoSync,
+                Icons.timer,
+                "Sync Version",
+                key: const ValueKey<String>('ffmpeg.version.awaited'),
+              ),
               _demoButton(
                 () async {
                   _addLog("--- Running Help ---", printToConsole: true);
@@ -1613,6 +1651,7 @@ class _HomePageState extends State<HomePage>
                 },
                 Icons.help_outline,
                 "Help",
+                key: const ValueKey<String>('ffmpeg.help'),
               ),
             ],
           ),
@@ -1621,6 +1660,8 @@ class _HomePageState extends State<HomePage>
             _ffmpegCommandController,
             _runCustomFFmpeg,
             "Enter FFmpeg command",
+            inputKey: const ValueKey<String>('ffmpeg.command.input'),
+            runKey: const ValueKey<String>('ffmpeg.command.run'),
           ),
         ],
       ),
@@ -1658,14 +1699,30 @@ class _HomePageState extends State<HomePage>
             spacing: 12,
             runSpacing: 12,
             children: [
-              _demoButton(_pickProbeFile, Icons.file_open, "Pick File"),
+              _demoButton(
+                _pickProbeFile,
+                Icons.file_open,
+                "Pick File",
+                key: const ValueKey<String>('ffprobe.pick-file'),
+              ),
               _demoButton(
                 _runMediaInformation,
                 Icons.analytics,
                 "Get Media Info",
+                key: const ValueKey<String>('ffprobe.media-info'),
               ),
-              _demoButton(_runFFprobeVersion, Icons.bolt, "Async Version"),
-              _demoButton(_runFFprobeInfoSync, Icons.timer, "Sync Version"),
+              _demoButton(
+                _runFFprobeVersion,
+                Icons.bolt,
+                "Async Version",
+                key: const ValueKey<String>('ffprobe.version.async'),
+              ),
+              _demoButton(
+                _runFFprobeInfoSync,
+                Icons.timer,
+                "Sync Version",
+                key: const ValueKey<String>('ffprobe.version.awaited'),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -1673,6 +1730,8 @@ class _HomePageState extends State<HomePage>
             _ffprobeCommandController,
             _runCustomFFprobe,
             "Enter FFprobe command",
+            inputKey: const ValueKey<String>('ffprobe.command.input'),
+            runKey: const ValueKey<String>('ffprobe.command.run'),
           ),
         ],
       ),
@@ -1690,6 +1749,7 @@ class _HomePageState extends State<HomePage>
               child: Stack(
                 children: [
                   FFplayView(
+                    key: const ValueKey<String>('ffplay.video-surface'),
                     surface: _surface!,
                     controller: _fsController,
                     aspectRatio: _videoWidth > 0 && _videoHeight > 0
@@ -1731,6 +1791,8 @@ class _HomePageState extends State<HomePage>
             _ffplayCommandController,
             _runCustomFFplay,
             "Enter FFplay command",
+            inputKey: const ValueKey<String>('ffplay.command.input'),
+            runKey: const ValueKey<String>('ffplay.command.run'),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -1741,8 +1803,18 @@ class _HomePageState extends State<HomePage>
           Wrap(
             spacing: 10,
             children: [
-              _demoButton(_generateTestVideo, Icons.video_call, "Gen Video"),
-              _demoButton(_generateTestAudio, Icons.audiotrack, "Gen Audio"),
+              _demoButton(
+                _generateTestVideo,
+                Icons.video_call,
+                "Gen Video",
+                key: const ValueKey<String>('ffplay.generate-video'),
+              ),
+              _demoButton(
+                _generateTestAudio,
+                Icons.audiotrack,
+                "Gen Audio",
+                key: const ValueKey<String>('ffplay.generate-audio'),
+              ),
             ],
           ),
           const SizedBox(height: 20),
@@ -1758,11 +1830,13 @@ class _HomePageState extends State<HomePage>
                 () => _runFFplay('test_video.mp4'),
                 Icons.play_circle_filled,
                 "Play Video",
+                key: const ValueKey<String>('ffplay.play-video'),
               ),
               _demoButton(
                 () => _runFFplay('test_audio.wav'),
                 Icons.music_note,
                 "Play Audio",
+                key: const ValueKey<String>('ffplay.play-audio'),
               ),
             ],
           ),
@@ -1774,22 +1848,27 @@ class _HomePageState extends State<HomePage>
           Row(
             children: [
               IconButton(
+                key: const ValueKey<String>('ffplay.pause'),
                 onPressed: () => FFplayKit.pause(),
                 icon: const Icon(Icons.pause),
               ),
               IconButton(
+                key: const ValueKey<String>('ffplay.resume'),
                 onPressed: () => FFplayKit.resume(),
                 icon: const Icon(Icons.play_arrow),
               ),
               IconButton(
+                key: const ValueKey<String>('ffplay.stop'),
                 onPressed: () => FFplayKit.stop(),
                 icon: const Icon(Icons.stop),
               ),
               IconButton(
+                key: const ValueKey<String>('ffplay.seek-forward'),
                 onPressed: () => _seekForward(),
                 icon: const Icon(Icons.fast_forward),
               ),
               IconButton(
+                key: const ValueKey<String>('ffplay.seek-back'),
                 onPressed: () => _seekBackward(),
                 icon: const Icon(Icons.fast_rewind),
               ),
@@ -1799,6 +1878,7 @@ class _HomePageState extends State<HomePage>
           if (_hasActiveSession) ...[
             Text(
               "State: ${FFplayKit.playing ? 'Playing' : (FFplayKit.paused ? 'Paused' : 'Stopped')}",
+              key: const ValueKey<String>('ffplay.position'),
             ),
             Text(
               "Position: ${_playbackPosition.toStringAsFixed(1)}s / ${FFplayKit.duration.toStringAsFixed(1)}s",
@@ -1820,6 +1900,7 @@ class _HomePageState extends State<HomePage>
                 const Icon(Icons.volume_down),
                 Expanded(
                   child: Slider(
+                    key: const ValueKey<String>('ffplay.volume'),
                     value: _volume,
                     min: 0.0,
                     max: 1.0,
@@ -1898,6 +1979,9 @@ class _HomePageState extends State<HomePage>
                             ),
                           ),
                           IconButton(
+                            key: const ValueKey<String>(
+                              'transcode.clear-input',
+                            ),
                             icon: const Icon(Icons.close, size: 18),
                             onPressed: _isTranscoding
                                 ? null
@@ -1924,6 +2008,7 @@ class _HomePageState extends State<HomePage>
                     ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
+                    key: const ValueKey<String>('transcode.pick-input'),
                     onPressed: _isTranscoding ? null : _pickTranscodeFile,
                     icon: const Icon(Icons.file_open, size: 18),
                     label: const Text("Pick Video File"),
@@ -1953,6 +2038,7 @@ class _HomePageState extends State<HomePage>
                       children: [
                         Text(
                           _isTranscoding ? 'Transcoding...' : 'Complete',
+                          key: const ValueKey<String>('transcode.status'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                         Text(
@@ -1965,6 +2051,7 @@ class _HomePageState extends State<HomePage>
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: LinearProgressIndicator(
+                        key: const ValueKey<String>('transcode.progress'),
                         value: _transcodeProgress,
                         minHeight: 12,
                         backgroundColor: Colors.grey[800],
@@ -1999,6 +2086,7 @@ class _HomePageState extends State<HomePage>
                 _transcodeVideo,
                 Icons.transform,
                 _isTranscoding ? "Transcoding..." : "Transcode MP4 → AVI",
+                key: const ValueKey<String>('transcode.run'),
               ),
             ],
           ),
@@ -2065,6 +2153,7 @@ class _HomePageState extends State<HomePage>
             ),
             const SizedBox(height: 12),
             TextField(
+              key: const ValueKey<String>('stream.url.input'),
               controller: _remoteStreamUrlController,
               decoration: const InputDecoration(
                 labelText: "Remote stream URL",
@@ -2084,6 +2173,7 @@ class _HomePageState extends State<HomePage>
                   },
                   Icons.cloud_download,
                   "Record Stream",
+                  key: const ValueKey<String>('stream.record'),
                 ),
               ],
             ),
@@ -2121,6 +2211,7 @@ class _HomePageState extends State<HomePage>
                   ),
                 ),
                 IconButton(
+                  key: const ValueKey<String>('stream.refresh'),
                   icon: const Icon(Icons.refresh, size: 20),
                   onPressed: () {
                     final sessions = FFmpegKitExtended.listSessions();
@@ -2190,6 +2281,9 @@ class _HomePageState extends State<HomePage>
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
+                          key: ValueKey<String>(
+                            'stream.cancel.${job.sessionId ?? session.getSessionId()}',
+                          ),
                           onPressed: isRunning
                               ? () {
                                   job.requestedCancel = true;
@@ -2216,8 +2310,14 @@ class _HomePageState extends State<HomePage>
     );
   }
 
-  Widget _demoButton(VoidCallback onPressed, IconData icon, String label) {
+  Widget _demoButton(
+    VoidCallback onPressed,
+    IconData icon,
+    String label, {
+    Key? key,
+  }) {
     return ElevatedButton.icon(
+      key: key,
       onPressed: onPressed,
       icon: Icon(icon, size: 18),
       label: Text(label),
@@ -2230,8 +2330,10 @@ class _HomePageState extends State<HomePage>
   Widget _buildCustomCommandSection(
     TextEditingController controller,
     VoidCallback onRun,
-    String hint,
-  ) {
+    String hint, {
+    Key? inputKey,
+    Key? runKey,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2244,6 +2346,7 @@ class _HomePageState extends State<HomePage>
           children: [
             Expanded(
               child: TextField(
+                key: inputKey,
                 controller: controller,
                 decoration: InputDecoration(
                   hintText: hint,
@@ -2254,7 +2357,7 @@ class _HomePageState extends State<HomePage>
               ),
             ),
             const SizedBox(width: 8),
-            _demoButton(onRun, Icons.play_arrow, "Run"),
+            _demoButton(onRun, Icons.play_arrow, "Run", key: runKey),
           ],
         ),
       ],
