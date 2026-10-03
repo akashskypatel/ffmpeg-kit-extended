@@ -36,6 +36,7 @@ import {
   dispatchCancellationSerialized,
 } from './session-cancellation';
 import {
+  ensureRetainedReleaseRetry,
   releaseSessionHandleSerialized,
 } from './session-lifetime';
 
@@ -138,7 +139,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
    * Records queue cancellation without reading native state or dispatching a
    * cancellation request for work that has not started.
    */
-  protected markCancelledBeforeExecution(): void {
+  #markCancelledBeforeExecution(): void {
     this.cancelled = true;
   }
 
@@ -323,9 +324,20 @@ export abstract class Session implements RestoredSessionObservationTarget {
    * remains retryable.
    */
   async cancel(): Promise<void> {
+    const managed = SessionQueueManager.shared.findManagedSessionById(
+      this.sessionId
+    );
+    if (managed && managed !== this) {
+      this.cancelled = true;
+      NativeFFmpegKitExtended.recordCancellationIntent?.(this.sessionId);
+      const delegated = managed.cancel();
+      if (delegated instanceof Promise) await delegated;
+      return;
+    }
+
     if (
       this.cancelled &&
-      (this.nativeCancellationDispatched || this.createdSessionAbandoned)
+      (this.nativeCancellationDispatched || this.preExecutionCleanupCommitted)
     ) {
       return;
     }
@@ -339,11 +351,17 @@ export abstract class Session implements RestoredSessionObservationTarget {
     } else if (queuedCancellation) {
       return;
     }
+
+    if (this.createdSessionAbandoned && !this.handleReleased) {
+      await this.releaseOwnedHandle();
+      if (this.preExecutionCleanupCommitted) return;
+    }
+
     const state = this.getState();
     if (state === SessionState.Created && !this.nativeStartAttempted) {
       // Public submission may have been consumed before queue/native handoff;
       // only the native-start boundary makes Created abandonment destructive.
-      await this.abandonCreatedSession();
+      await this.discardBeforeExecution();
       return;
     }
     if (state === SessionState.Running) {
@@ -426,6 +444,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
       );
       if (completion instanceof Promise) {
         return completion.catch(async (error) => {
+          this.nativeStartAttempted = false;
           try {
             await this.releaseOwnedHandle();
           } catch {
@@ -442,6 +461,7 @@ export abstract class Session implements RestoredSessionObservationTarget {
       ) {
         throw error;
       }
+      this.nativeStartAttempted = false;
       let release: void | Promise<void>;
       try {
         release = this.releaseOwnedHandle();
@@ -1148,9 +1168,15 @@ export abstract class Session implements RestoredSessionObservationTarget {
   /** Releases this session's owning native handle at most once. */
   protected releaseOwnedHandle(): void | Promise<void> {
     if (this.handleReleased) return;
-    return releaseSessionHandleSerialized(this.sessionId).then(() => {
-      this.handleReleased = true;
-    });
+    return releaseSessionHandleSerialized(this.sessionId).then(
+      () => {
+        this.handleReleased = true;
+      },
+      (error) => {
+        ensureRetainedReleaseRetry(this.sessionId);
+        throw error;
+      }
+    );
   }
 
   /** Removes history for an explicit pre-execution discard without releasing a handle. */
@@ -1181,6 +1207,27 @@ export abstract class Session implements RestoredSessionObservationTarget {
       if (firstError === undefined) firstError = error;
     }
     if (firstError !== undefined) throw firstError;
+  }
+
+  /** Whether both halves of pre-execution cleanup have committed. */
+  private get preExecutionCleanupCommitted(): boolean {
+    return this.createdSessionAbandoned && this.handleReleased;
+  }
+
+  /**
+   * Enqueues this session while keeping queue-local cancellation mutation
+   * private to the base Session implementation.
+   */
+  protected enqueueSessionExecution<T>(
+    executor: () => Promise<T>,
+    onDiscard: () => void | Promise<void>
+  ): Promise<T> {
+    return SessionQueueManager.shared.executeSession(
+      this,
+      executor,
+      onDiscard,
+      () => this.#markCancelledBeforeExecution()
+    );
   }
 
   /** Submits this session once and rejects every later submission attempt. */
@@ -1311,8 +1358,7 @@ export class FFmpegSession extends Session {
     options: FFmpegExecuteOptions<FFmpegSession> = {}
   ): Promise<this> {
     return this.submitOnce(() =>
-      SessionQueueManager.shared.executeSession(
-        this,
+      this.enqueueSessionExecution(
         () =>
           this.runWithCallbackDemand(
             {
@@ -1332,8 +1378,7 @@ export class FFmpegSession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution(),
-        () => this.markCancelledBeforeExecution()
+        () => this.discardBeforeExecution()
       )
     );
   }
@@ -1399,8 +1444,7 @@ export class FFprobeSession extends Session {
    */
   executeAsync(options: ExecuteOptions<FFprobeSession> = {}): Promise<this> {
     return this.submitOnce(() =>
-      SessionQueueManager.shared.executeSession(
-        this,
+      this.enqueueSessionExecution(
         () =>
           this.runWithCallbackDemand(
             { log: () => Boolean(options.logCallback ?? this.logCallback) },
@@ -1414,8 +1458,7 @@ export class FFprobeSession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution(),
-        () => this.markCancelledBeforeExecution()
+        () => this.discardBeforeExecution()
       )
     );
   }
@@ -1497,8 +1540,7 @@ export class MediaInformationSession extends Session {
     options: ExecuteOptions<MediaInformationSession> = {}
   ): Promise<this> {
     return this.submitOnce(() =>
-      SessionQueueManager.shared.executeSession(
-        this,
+      this.enqueueSessionExecution(
         () =>
           this.runWithCallbackDemand(
             { log: () => Boolean(options.logCallback ?? this.logCallback) },
@@ -1512,8 +1554,7 @@ export class MediaInformationSession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution(),
-        () => this.markCancelledBeforeExecution()
+        () => this.discardBeforeExecution()
       )
     );
   }
@@ -1604,8 +1645,7 @@ export class FFplaySession extends Session {
    */
   executeAsync(options: ExecuteOptions<FFplaySession> = {}): Promise<this> {
     return this.submitOnce(() =>
-      SessionQueueManager.shared.executeSession(
-        this,
+      this.enqueueSessionExecution(
         () =>
           this.runWithCallbackDemand(
             { log: () => Boolean(options.logCallback ?? this.logCallback) },
@@ -1619,8 +1659,7 @@ export class FFplaySession extends Session {
               });
             }
           ),
-        () => this.discardBeforeExecution(),
-        () => this.markCancelledBeforeExecution()
+        () => this.discardBeforeExecution()
       )
     );
   }

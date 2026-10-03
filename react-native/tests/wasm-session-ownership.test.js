@@ -16,6 +16,7 @@ const {
 } = require('../.test-dist/session-queue-manager.js');
 const {
   getRetainedReleaseInFlightCount,
+  getRetainedReleaseRetryCount,
   releaseSessionHandleSerialized,
 } = require('../.test-dist/session-lifetime.js');
 
@@ -32,6 +33,7 @@ let finalLogEntries = [];
 let statisticsEntries = [];
 let executionStarts = 0;
 let sessionState = 2;
+let holdCreatedDuringStart = false;
 let stateReadCount = 0;
 let stateError;
 let startError;
@@ -59,7 +61,7 @@ setBackend({
   executeSessionAsync: () => {
     if (startError) throw startError;
     executionStarts += 1;
-    if (sessionState === 0) sessionState = 1;
+    if (sessionState === 0 && !holdCreatedDuringStart) sessionState = 1;
     if (redirectionEnabled) {
       for (const event of directLogEvents) logEventHandler?.(event);
     }
@@ -169,6 +171,14 @@ const {
 const { FFmpegKitExtended } = require('../.test-dist/ffmpeg-kit-extended.js');
 const manager = SessionQueueManager.shared;
 
+async function waitFor(condition, message, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) throw new Error(message);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+}
+
 beforeEach(() => {
   registry.clear();
   cancelCalls.length = 0;
@@ -183,6 +193,7 @@ beforeEach(() => {
   statisticsEntries = [];
   executionStarts = 0;
   sessionState = 2;
+  holdCreatedDuringStart = false;
   stateReadCount = 0;
   stateError = undefined;
   startError = undefined;
@@ -215,6 +226,11 @@ afterEach(async () => {
   manager.clearQueue();
   manager.maxConcurrentSessions = 8;
   await manager.waitForAll();
+  releaseError = undefined;
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'retained release retry coordinator did not drain'
+  );
 });
 
 test('discarded queued session abandons its identity and releases its Wasm handle', async () => {
@@ -381,6 +397,62 @@ test('Created cancellation prevents later submission', async () => {
   assert.equal(executionStarts, 0);
   assert.equal(manager.queueLength, 0);
   assert.deepEqual(cancelCalls, []);
+});
+
+test('secondary wrapper delegates active-startup cancellation to the managed owner', async () => {
+  holdCreatedDuringStart = true;
+  sessionState = 0;
+  registry.retain(2048, 34);
+  const original = new FFmpegSession(34, '-version');
+  const execution = original.executeAsync({ pollIntervalMs: 10 });
+
+  await waitFor(() => executionStarts === 1, 'native startup was not invoked');
+  assert.equal(manager.isSessionActiveById(34), true);
+
+  const secondary = new FFmpegSession(34, '-version');
+  await secondary.cancel();
+
+  assert.deepEqual(abandonments, []);
+  assert.equal(cancellationIntentIds.has(34), true);
+  assert.deepEqual(cancelCalls, []);
+
+  sessionState = 1;
+  await waitFor(() => cancelCalls.length === 1, 'managed cancellation was not dispatched');
+  assert.deepEqual(cancelCalls, [34]);
+
+  sessionState = 2;
+  await execution;
+  assert.deepEqual(releases, [34]);
+});
+
+test('secondary wrapper removes the managed queued owner by native ID', async () => {
+  manager.maxConcurrentSessions = 1;
+  let releaseActive;
+  const active = manager.executeSession(
+    { cancel() {} },
+    () =>
+      new Promise((resolve) => {
+        releaseActive = resolve;
+      })
+  );
+  sessionState = 0;
+  registry.retain(4096, 35);
+  const original = new FFmpegSession(35, '-version');
+  const pending = original.executeAsync();
+
+  try {
+    assert.equal(manager.queueLength, 1);
+    await new FFmpegSession(35, '-version').cancel();
+
+    await assert.rejects(pending, SessionCancelledException);
+    assert.equal(manager.queueLength, 0);
+    assert.equal(executionStarts, 0);
+    assert.deepEqual(abandonments, [35]);
+    assert.deepEqual(releases, [35]);
+  } finally {
+    releaseActive();
+    await active;
+  }
 });
 
 test('pre-start cancellation retains Created abandonment when submission is consumed', async () => {
@@ -1100,12 +1172,17 @@ test('release failure after terminal state remains observable and retryable', as
   await new Promise((resolve) => setTimeout(resolve, 0));
   sessionState = 2;
   await assert.rejects(execution, (error) => error === releaseFailure);
-  assert.deepEqual(releases, [24]);
+  assert.ok(releases.length >= 1);
+  assert.ok(releases.every((sessionId) => sessionId === 24));
   assert.equal(registry.has(24), true);
 
   releaseError = undefined;
-  getBackend().releaseSessionHandle(24);
-  assert.deepEqual(releases, [24, 24]);
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'terminal release fallback did not commit'
+  );
+  assert.ok(releases.length >= 2);
+  assert.ok(releases.every((sessionId) => sessionId === 24));
   assert.equal(registry.has(24), false);
 });
 
@@ -1127,8 +1204,14 @@ test('callback failure remains primary when terminal release fails', async () =>
     }),
     (error) => error === callbackFailure
   );
-  assert.deepEqual(releases, [25]);
-  assert.equal(registry.has(25), true);
+  releaseError = undefined;
+  await waitFor(
+    () => getRetainedReleaseRetryCount() === 0,
+    'callback release fallback did not commit'
+  );
+  assert.ok(releases.length >= 2);
+  assert.ok(releases.every((sessionId) => sessionId === 25));
+  assert.equal(registry.has(25), false);
 });
 
 test('first callback failure wins over a later pre-terminal monitor failure', async () => {

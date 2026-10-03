@@ -238,6 +238,14 @@ payload internally; no borrowed pointer crosses the public API.
 Calling `cancel()` before native startup prevents Created or queued work from starting, even if a one-shot execute call has already been consumed by the wrapper. If cancellation is requested after native startup has been attempted but while asynchronous handoff is still in flight, the request is retained and forwarded when the session first reaches Running.
 `isCancelled` records that cancellation was requested; the final native state and return code determine whether cancellation won a race with completion.
 
+Cancellation is authoritative by native session ID while JavaScript execution is
+queued or active. If a history or control wrapper refers to an ID owned by a
+different queued or active wrapper, its cancellation request is delegated to
+that managed execution owner. The secondary wrapper cannot independently
+abandon the identity during startup, and the managed owner retains the request
+until Running cancellation is safe. When no managed owner exists, the wrapper
+continues to use the normal standalone Created or restored Running path.
+
 Removing queued work marks the retained `Session` object cancelled before its
 discard cleanup begins. Its execution promise rejects with
 `SessionCancelledException`, and the queue discard path does not perform a
