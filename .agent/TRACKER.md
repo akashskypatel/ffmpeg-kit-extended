@@ -1,5 +1,23 @@
 # Tracker
 
+## React Native Generated API Documentation Closure — 2026-10-03
+
+- Plan: [luna-react-native-api-documentation-plan.md](./luna-react-native-api-documentation-plan.md)
+- Audit: [flutter-doc-closeout-rn-api-documentation-audit.md](./flutter-doc-closeout-rn-api-documentation-audit.md)
+- Preparation status: **Prepared for implementation — both downloaded documents were read completely, SHA-256 verified, and materialized as the active `.agent` working copies.**
+- Downloaded source hashes: plan `DF568B84634E4C466A16AFD7118A3CBA5E34AF4E46FBFD9093E3F489AF386D8C` (**727 lines**); audit `2173C28A5695F846C125F4C8F1F47F8E28572866932958D1EC5E5983DAFF23EC` (**260 lines**).
+- Starting authority: exact source snapshot SHA `cacacf59ae43395ff0b6a7a7fe45fcc4c7809430`; snapshot workflow `37134233105`; native submodule `b74da2c5d1e294b87d15d73a6687393729e932b3`; native ABI/runtime `0.11.2`.
+- Scope: React Native README/TSDoc, TypeDoc configuration, committed generated Markdown, and deterministic documentation drift tooling. Flutter documentation is closed by the supplied audit. Runtime behavior, native bridges, platform-native trees, native ABI, `libs/libffmpegkit`, and the ManyLinux builders checkout remain frozen and read-only.
+- Validation boundary: local Windows plus WSL/macOS-compatible local Node validation only; no hosted Flutter/React Native acceptance workflow, native artifact retrieval/publication, application launch, simulator/device launch, or interactive Web UI.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **G1** | Correct factual React Native README/TSDoc mismatches before documentation generation | **Pending** |
+| **G2** | Define the generated public API boundary and complete missing semantic TSDoc | **Pending** |
+| **G3** | Add strict TypeDoc Markdown generation and commit the API reference | **Pending** |
+| **G4** | Add deterministic cross-platform generated-document drift validation | **Pending** |
+| **G5** | Complete API quality, packaging, platform-note, semantic-name, and no-runtime-diff validation | **Pending** |
+
 ## Flutter Documentation and Public-Comment Remediation — 2026-10-03
 
 - Plan: [luna-flutter-documentation-remediation-plan.md](./luna-flutter-documentation-remediation-plan.md)
