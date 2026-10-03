@@ -45,6 +45,7 @@
     "test:compile": "del-cli .test-dist && tsc -p tsconfig.test.json",
     "test:unit": "npm run test:compile && node --test tests/arguments.test.js tests/media-information.test.js tests/session-queue-manager.test.js tests/types.test.js",
     "test:config": "node --test tests/resolve-ffmpeg-kit-config.test.js",
+    "test:interactive:preflight": "node --test tests/interactive-runtime-preflight.test.js",
     "test": "npm run test:compile && node --test tests/*.test.js",
     "check": "npm run typecheck && npm run lint && npm test && npm run docs:api:check",
     "example:android": "npm --prefix example run android",

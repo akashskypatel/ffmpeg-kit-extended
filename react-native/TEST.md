@@ -1,5 +1,20 @@
 ## Development checks
 
+## Local interactive runtime preflight
+
+Interactive React Native launches must use the local example overrides in
+`example/ffmpeg-kit-extended.config.json`. Validate a target without network,
+copying, extraction, or cache mutation:
+
+```bash
+node scripts/verify-local-interactive-runtime.js --platform android --app-root example
+```
+
+Use the same command with `ios`, `appletvos`, `macos`, or `windows`. It accepts
+only an existing local file or directory and expects the frozen FFmpegKit
+runtime ABI **0.11.2**. A missing override, HTTP(S) override, or missing local
+path is a blocker; the script never downloads a replacement artifact.
+
 Run the package-level validation suite from the repository root:
 
 ```bash
