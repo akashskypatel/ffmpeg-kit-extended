@@ -16,7 +16,7 @@
 | --- | --- | --- |
 | **R50-G1** | Route cancellation from any wrapper through the canonical queued/active owner for that native session ID | **Complete — `036c203`; pushed with deterministic secondary-wrapper active-startup and queued-owner regressions.** |
 | **R50-G2** | Keep pre-execution and retained-handle cleanup retry authority alive until release commits, including start/state/terminal failure paths | **Complete — `ec764e2`; pushed with automatic retry and failure-ordering regressions.** |
-| **R50-G3** | Make the queue-only local cancellation marker truly private at TypeScript and JavaScript runtime boundaries | **Pending** |
+| **R50-G3** | Make the queue-only local cancellation marker truly private at TypeScript and JavaScript runtime boundaries | **Complete — `c399b59`; pushed with direct, subclass, runtime, and queue-preservation contracts.** |
 | **R50-G4** | Preserve prior lifecycle behavior, run ordered local validation, perform a zero-finding audit, freeze the exact SHA, and verify one wrapper-only snapshot | **Pending** |
 
 ### Review 50 preparation evidence
@@ -26,6 +26,7 @@
 - Each goal will be marked complete only after deterministic local evidence, a meaningful pushed commit, and truthful tracker evidence. Production and test names must carry semantic meaning; Review 50, goal, and finding identifiers are tracker metadata only.
 - Review 50 Goal 1 evidence: the managed native-session-ID lookup now precedes local cancellation idempotence/state classification; a secondary wrapper delegates to the canonical queued or active owner, preserves exact delegated failures, and cannot independently abandon startup. Local `npm run test:compile` passed; the Wasm ownership suite passed **48/48**; the queue-manager suite passed **24/24**. Existing restored/standalone cancellation and duplicate-ID admission regressions remained green. The only emitted diagnostics were expected deliberate cleanup-failure fixtures.
 - Review 50 Goal 2 evidence: retained release retries are deduplicated by native ID, use the existing serialized backend release authority, retry iteratively with bounded bookkeeping, and retain no Session wrapper. Pre-execution abandonment and retained release commit independently; rejected startup clears only its rejected start authority; start/state/callback errors remain primary while release retries finish automatically. The expanded ownership suite passed **53/53**, including partial cleanup, startup/state/terminal retry, and deduplication cases. Commit `ec764e2` contains the deterministic regression and semantic lifecycle documentation.
+- Review 50 Goal 3 evidence: the queue-local cancellation mutation is now an ECMAScript-private base-class method, and concrete session types call it only through the base enqueue helper. After `npm run prepare`, `npm run test:pack-types` passed direct consumer and subclass negative fixtures and confirmed no ordinary emitted runtime marker property. The four concrete queued-cancellation paths remain green in the **53/53** ownership suite. Commit `c399b59` contains the packed API/runtime contracts.
 
 ## Review 49 React Native Cancellation Authority Closure — 2026-10-02
 
