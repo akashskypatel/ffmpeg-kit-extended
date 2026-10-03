@@ -1,5 +1,27 @@
 # Tracker
 
+## React Native Consumer-Facing API Surface Follow-up — 2026-10-03
+
+- Plan: [react-native-api-docs-consumer-surface-plan.md](./react-native-api-docs-consumer-surface-plan.md)
+- Audit: [react-native-api-docs-consumer-surface-audit.md](./react-native-api-docs-consumer-surface-audit.md)
+- Preparation status: **Prepared for implementation — both supplied documents were read completely, SHA-256 verified, and materialized under semantic `.agent` names.**
+- Supplied document hashes: plan `EC27E7A2009C8B1F07C723751AD96CB87082A950E9E187CFE28D6460B6D2F41F` (**398 lines**); audit `92C63026EA48CF51F65267F3332077626DD3C3044EF04E2DAB3C73A5DBCBB5D0` (**259 lines**).
+- Frozen implementation authority: `ef9359601cb96f7d9e588e0c3c4e6277abfe0020`; current checkout also contains prior metadata-only tracker commit `4d95acf42f70859748a430bfd944bb6b957a1e17`.
+- Scope: React Native source TSDoc and erased type annotations/type-only exports, generated API Markdown, and documentation-contract tests. Native/Flutter/runtime/platform-native/ABI/builders/submodule trees remain frozen. No hosted Flutter/React Native validation workflows, native artifact retrieval/publication, application launch, simulator/device launch, or native/builders snapshot.
+- Semantic naming: the supplied goal/finding identifiers are retained only as tracker metadata; production symbols, tests, documentation pages, and working-copy filenames use their intended semantic meaning.
+
+| Goal | Objective | Status |
+| --- | --- | --- |
+| **G1** | Remove internal observer and queue-helper names from generated public signatures | **Prepared — pending implementation.** |
+| **G2** | Publish a self-contained, documented advanced native bridge contract without changing Codegen/runtime behavior | **Prepared — pending implementation.** |
+| **G3** | Present static facade and session-wrapper constructors accurately in generated docs | **Prepared — pending implementation.** |
+| **G4** | Regenerate, strengthen semantic documentation contracts, prove zero runtime diff, and close with one exact-source snapshot | **Prepared — pending implementation.** |
+
+### Follow-up preparation evidence
+
+- The attached plan and audit agree that the earlier TypeDoc generation, committed Markdown, drift checker, package tooling, native/Web notes, and prior documentation work are closed and must not be redesigned.
+- Required local validation is Windows plus WSL/macOS-compatible Node checks; the final source snapshot is the only permitted GitHub workflow. The snapshot must represent the frozen implementation SHA before any metadata-only tracker closeout commit.
+
 ## React Native Generated API Documentation Closure — 2026-10-03
 
 - Plan: [luna-react-native-api-documentation-plan.md](./luna-react-native-api-documentation-plan.md)
