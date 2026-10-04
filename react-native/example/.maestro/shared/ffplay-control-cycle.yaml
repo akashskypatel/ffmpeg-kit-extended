@@ -8,6 +8,11 @@ appId: ${APP_ID}
     id: ffplay.pause
 - tapOn:
     id: ffplay.resume
+- scrollUntilVisible:
+    element:
+      id: ffplay.seek-forward
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: ffplay.seek-forward
 - tapOn:
