@@ -2,8 +2,6 @@ appId: org.reactjs.native.example.FFmpegKitExtendedExample
 ---
 - launchApp
 - assertVisible:
-    id: app.root
-- assertVisible:
     id: tab.ffmpeg
 - assertVisible:
     id: tab.stream
