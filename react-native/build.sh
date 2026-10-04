@@ -406,6 +406,11 @@ prepare_appletvos_runtime_files() {
   rm -rf "$appletvos_runtime_dir/ios"
   ln -s ../appletvos "$appletvos_runtime_dir/ios"
 
+  for source in index.js App.tsx App.tv.tsx app.json src; do
+    rm -rf "$appletvos_runtime_dir/$source"
+    ln -s "../$source" "$appletvos_runtime_dir/$source"
+  done
+
   cat > "$appletvos_runtime_dir/package.json" <<'JSON'
 {
   "name": "ffmpeg-kit-extended-react-native-appletvos-runtime",
@@ -457,11 +462,11 @@ const runtimeRoot = __dirname;
 const exampleRoot = path.resolve(runtimeRoot, '..');
 const libraryRoot = path.resolve(exampleRoot, '..');
 const runtimeNodeModules = path.resolve(runtimeRoot, 'node_modules');
-const defaultConfig = getDefaultConfig(exampleRoot);
+const defaultConfig = getDefaultConfig(runtimeRoot);
 
 const config = {
-  projectRoot: exampleRoot,
-  watchFolders: [libraryRoot],
+  projectRoot: runtimeRoot,
+  watchFolders: [exampleRoot, libraryRoot],
   resolver: {
     disableHierarchicalLookup: true,
     nodeModulesPaths: [runtimeNodeModules],
@@ -478,6 +483,12 @@ const config = {
 };
 
 module.exports = mergeConfig(defaultConfig, config);
+JS
+
+  cat > "$appletvos_runtime_dir/babel.config.js" <<'JS'
+module.exports = {
+  presets: [require.resolve('@react-native/babel-preset')],
+};
 JS
 }
 
