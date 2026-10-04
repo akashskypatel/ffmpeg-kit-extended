@@ -4,6 +4,11 @@ appId: ${APP_ID}
     id: tab.ffplay
 - tapOn:
     id: ffplay.play-video
+- scrollUntilVisible:
+    element:
+      id: ffplay.pause
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: ffplay.pause
 - tapOn:
