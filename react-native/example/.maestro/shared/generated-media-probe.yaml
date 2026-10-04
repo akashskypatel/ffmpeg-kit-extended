@@ -5,6 +5,8 @@ appId: ${APP_ID}
 - tapOn:
     id: ffmpeg.generate-video
 - assertVisible:
+    id: ffmpeg.generated-video-verification
+- assertVisible:
     id: logs.output
 - tapOn:
     id: tab.ffprobe

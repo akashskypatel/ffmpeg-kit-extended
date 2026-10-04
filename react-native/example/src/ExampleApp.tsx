@@ -87,6 +87,9 @@ const MAX_RENDERED_LOG_CHARS = 50_000;
 const LOG_FLUSH_INTERVAL_MS = 250;
 const PLAYBACK_STATUS_INTERVAL_MS = 500;
 const FFPLAY_MONITOR_INTERVAL_MS = 250;
+const TEST_VIDEO_SOURCE = 'testsrc2=duration=5:size=512x512:rate=30';
+const TEST_VIDEO_FRAME_CHECK =
+  'select=eq(n\\,0),signalstats,metadata=print:direct=1';
 
 const LOG_LEVELS = [
   LogLevel.Stderr,
@@ -162,6 +165,8 @@ export function ExampleApp({
   const [transcodeOutputPath, setTranscodeOutputPath] = useState<string>();
   const [transcodeProgress, setTranscodeProgress] = useState(0);
   const [transcodeStatus, setTranscodeStatus] = useState('');
+  const [generatedVideoVerification, setGeneratedVideoVerification] =
+    useState('');
   const [isTranscoding, setIsTranscoding] = useState(false);
   const [playbackSession, setPlaybackSession] = useState<FFplaySession>();
   const [playbackPosition, setPlaybackPosition] = useState(0);
@@ -344,20 +349,57 @@ export function ExampleApp({
   }, [logs]);
 
   const generateTestVideo = useCallback(async () => {
+    setGeneratedVideoVerification('Generating test video...');
     appendLog(`--- Generating Test Video with Audio: ${TEST_VIDEO_PATH} ---`);
     const command =
-      '-hide_banner -loglevel error -f lavfi -i testsrc=duration=5:size=512x512:rate=30 ' +
+      `-hide_banner -loglevel error -f lavfi -i ${TEST_VIDEO_SOURCE} ` +
       '-f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y ' +
       quote(TEST_VIDEO_PATH);
     const session = await FFmpegKit.executeAsync(command, {
       logCallback: log => appendLog(log.message),
     });
-    appendLog(
-      session.getReturnCode() === ReturnCode.Success
-        ? 'Video with audio generated successfully.'
-        : `Generation failed. Code: ${session.getReturnCode()}`,
+    if (session.getReturnCode() !== ReturnCode.Success) {
+      throw new Error(`Generation failed. Code: ${session.getReturnCode()}`);
+    }
+
+    appendLog('--- Verifying the first decoded video frame is non-black ---');
+    setGeneratedVideoVerification('Verifying decoded video frame...');
+    const verification = await FFmpegKit.executeAsync(
+      `-hide_banner -loglevel info -i ${quote(
+        TEST_VIDEO_PATH,
+      )} -vf "${TEST_VIDEO_FRAME_CHECK}" -frames:v 1 -an -f null -`,
+      { logCallback: log => appendLog(log.message) },
     );
-  }, [appendLog]);
+    if (verification.getReturnCode() !== ReturnCode.Success) {
+      throw new Error(
+        `Video frame verification failed. Code: ${verification.getReturnCode()}`,
+      );
+    }
+
+    const verificationOutput = `${verification.getOutput()}\n${verification.getLogsAsString()}`;
+    const yMin = signalStat(verificationOutput, 'YMIN');
+    const yMax = signalStat(verificationOutput, 'YMAX');
+    const yAverage = signalStat(verificationOutput, 'YAVG');
+    if (
+      yMin === undefined ||
+      yMax === undefined ||
+      yAverage === undefined ||
+      yMax <= 32 ||
+      yMax - yMin <= 16
+    ) {
+      throw new Error(
+        `Video frame was black or uniform. YMIN=${yMin ?? 'missing'}, ` +
+          `YMAX=${yMax ?? 'missing'}, YAVG=${yAverage ?? 'missing'}`,
+      );
+    }
+
+    appendLog(
+      `Verified non-black video frame: YMIN=${yMin.toFixed(0)}, ` +
+        `YMAX=${yMax.toFixed(0)}, YAVG=${yAverage.toFixed(1)}`,
+    );
+    setGeneratedVideoVerification('Verified non-black video frame');
+    appendLog('Video with audio generated successfully.');
+  }, [TEST_VIDEO_PATH, appendLog]);
 
   const generateTestAudio = useCallback(async () => {
     appendLog(`--- Generating Test Audio: ${TEST_AUDIO_PATH} ---`);
@@ -1004,6 +1046,11 @@ export function ExampleApp({
                 onPress={() => void runGuarded('FFmpeg help', runHelp)}
               />
             </ButtonGrid>
+            {generatedVideoVerification ? (
+              <Text testID="ffmpeg.generated-video-verification">
+                {generatedVideoVerification}
+              </Text>
+            ) : null}
             <CommandSection
               label="Enter FFmpeg command"
               value={ffmpegCommand}
@@ -1905,6 +1952,13 @@ function buttonSymbol(label: string): string {
 
 function quote(value: string): string {
   return `"${value.replace(/(["\\])/g, '\\$1')}"`;
+}
+
+function signalStat(output: string, name: string): number | undefined {
+  const match = output.match(
+    new RegExp(`lavfi\\.signalstats\\.${name}=([0-9]+(?:\\.[0-9]+)?)`),
+  );
+  return match ? Number.parseFloat(match[1]) : undefined;
 }
 
 function formatRemoteStatistics(label: string, statistics: Statistics): string {
