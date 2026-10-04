@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "workflow_key": "repo-source-snapshot",
+  "workflow": "Reusable Repository Source Snapshot",
+  "repository": "akashskypatel/ffmpeg-kit-extended",
+  "event": "workflow_dispatch",
+  "event_sha": "3ca0da357a04136caa8f86c3d2cc33611967e4f9",
+  "source_sha": "3ca0da357a04136caa8f86c3d2cc33611967e4f9",
+  "source_ref": "refs/heads/dev-wasm",
+  "run_id": 37166433872,
+  "run_attempt": 1,
+  "run_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/37166433872",
+  "result": "success",
+  "summary": "Repository source snapshot for the requested frozen implementation source.",
+  "artifacts": [
+    {
+      "id": "11288654738",
+      "name": "ai-agent-interactive-testing-source-snapshot-37166433872",
+      "artifact_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/37166433872/artifacts/11288654738",
+      "archive_download_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/37166433872/artifacts/11288654738",
+      "digest": "731a7d16b6ba930bd63e3d4b7083dfe034ba2960ac20cf6090c2e2d7556b72e5",
+      "expired": false,
+      "expires_at": null
+    }
+  ],
+  "published_at": "2026-10-04T00:55:51Z"
+}
