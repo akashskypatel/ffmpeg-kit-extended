@@ -46,6 +46,26 @@ const componentDefinitions = [
   },
 ];
 
+const devtoolsSourcePath = path.join(
+  'node_modules',
+  'react-native',
+  'src',
+  'private',
+  'devsupport',
+  'rndevtools',
+  'ReactDevToolsSettingsManager.ios.js',
+);
+
+const devtoolsTvosFallbackPath = path.join(
+  'node_modules',
+  'react-native',
+  'src',
+  'private',
+  'devsupport',
+  'rndevtools',
+  'ReactDevToolsSettingsManager.tvos.js',
+);
+
 function patchVirtualViewComponent(runtimeDirectory, definition) {
   const componentPath = path.join(runtimeDirectory, definition.relativePath);
   const source = fs.readFileSync(componentPath, 'utf8');
@@ -68,10 +88,27 @@ function patchVirtualViewComponent(runtimeDirectory, definition) {
   return {changed: true, componentPath};
 }
 
+function ensureTvosDevtoolsFallback(runtimeDirectory) {
+  const sourcePath = path.join(runtimeDirectory, devtoolsSourcePath);
+  const fallbackPath = path.join(runtimeDirectory, devtoolsTvosFallbackPath);
+
+  if (fs.existsSync(fallbackPath)) {
+    return {changed: false, componentPath: fallbackPath};
+  }
+
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Missing iOS React DevTools settings module: ${sourcePath}`);
+  }
+
+  fs.copyFileSync(sourcePath, fallbackPath);
+  return {changed: true, componentPath: fallbackPath};
+}
+
 function patchAppletvosRuntime(runtimeDirectory) {
   const results = componentDefinitions.map(definition =>
     patchVirtualViewComponent(runtimeDirectory, definition),
   );
+  results.push(ensureTvosDevtoolsFallback(runtimeDirectory));
   return {
     changed: results.some(result => result.changed),
     componentPaths: results.map(result => result.componentPath),

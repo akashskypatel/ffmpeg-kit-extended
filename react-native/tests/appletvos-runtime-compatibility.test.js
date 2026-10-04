@@ -33,6 +33,15 @@ test('patches the disposable tvOS runtime VirtualView codegen cast idempotently'
     'components',
     'virtualview',
   );
+  const devtoolsDirectory = path.join(
+    temporaryRoot,
+    'node_modules',
+    'react-native',
+    'src',
+    'private',
+    'devsupport',
+    'rndevtools',
+  );
 
   try {
     fs.mkdirSync(componentDirectory, {recursive: true});
@@ -43,6 +52,13 @@ test('patches the disposable tvOS runtime VirtualView codegen cast idempotently'
         'utf8',
       );
     }
+    fs.mkdirSync(devtoolsDirectory, {recursive: true});
+    const devtoolsSource = '// iOS React DevTools settings implementation\n';
+    fs.writeFileSync(
+      path.join(devtoolsDirectory, 'ReactDevToolsSettingsManager.ios.js'),
+      devtoolsSource,
+      'utf8',
+    );
 
     const first = patchAppletvosRuntime(temporaryRoot);
     assert.equal(first.changed, true);
@@ -55,6 +71,13 @@ test('patches the disposable tvOS runtime VirtualView codegen cast idempotently'
     assert.match(
       patchedSources[1],
       /\): HostComponent<VirtualViewExperimentalNativeProps>\);/,
+    );
+    assert.equal(
+      fs.readFileSync(
+        path.join(devtoolsDirectory, 'ReactDevToolsSettingsManager.tvos.js'),
+        'utf8',
+      ),
+      devtoolsSource,
     );
 
     const second = patchAppletvosRuntime(temporaryRoot);
