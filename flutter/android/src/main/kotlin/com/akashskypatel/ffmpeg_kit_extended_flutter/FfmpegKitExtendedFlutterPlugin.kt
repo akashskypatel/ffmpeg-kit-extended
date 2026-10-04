@@ -17,7 +17,16 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
 
     companion object {
         private val processOwner = SurfaceOwnerCoordinator<SurfaceState> { state ->
-            FFplayKitAndroid.setAndroidSurface(state?.surface)
+            if (state == null) {
+                FFplayFrameBridge.clearSurface()
+                FFplayKitAndroid.setAndroidSurface(null)
+            } else {
+                FFplayKitAndroid.setAndroidSurface(state.surface)
+                if (!FFplayFrameBridge.bindSurface(state.surface)) {
+                    FFplayKitAndroid.setAndroidSurface(null)
+                    error("FFplay Android frame callback bridge is unavailable")
+                }
+            }
         }
     }
 
@@ -71,8 +80,8 @@ class FfmpegKitExtendedFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHa
         }
 
         // Optional hint for the initial SurfaceTexture buffer size.
-        // ANativeWindow_setBuffersGeometry in ffplay_step() will resize it to
-        // the actual video dimensions before the first blit.
+        // The wrapper-owned frame bridge resizes the Android buffer to the
+        // actual video dimensions before presenting the first frame.
         val width = (call.argument<Any>("width") as? Number)?.toInt() ?: 1
         val height = (call.argument<Any>("height") as? Number)?.toInt() ?: 1
 

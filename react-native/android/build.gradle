@@ -135,6 +135,18 @@ android {
         targetSdk rootProject.ext.has("targetSdkVersion")
                 ? rootProject.ext.targetSdkVersion
                 : 36
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file("CMakeLists.txt")
+        }
     }
 
     compileOptions {

@@ -17,8 +17,9 @@ import 'ffplay_desktop_texture.dart';
 
 /// Native Flutter texture-backed FFplay video output surface.
 ///
-/// Android uses an `ANativeWindow` surface. Desktop and Apple platforms use
-/// the native pixel-buffer texture implementations. Web uses the conditional
+/// Android uses an `ANativeWindow` surface populated by the wrapper-owned
+/// frozen-ABI frame callback bridge. Desktop and Apple platforms use the
+/// native pixel-buffer texture implementations. Web uses the conditional
 /// WebAssembly implementation exported by `ffplay_surface.dart`.
 class FFplaySurface {
   final int textureId;

@@ -24,8 +24,10 @@ import 'package:flutter/widgets.dart';
 /// Flutter [Texture]-backed Android surface for FFplay video output.
 ///
 /// Creates native `android.view.Surface` registered with Flutter's
-/// `TextureRegistry`, obtains `ANativeWindow*` pointer, and exposes both
-/// as a [Widget] (via `toWidget`) and SDL blit target (via `bindToFFplay`).
+/// `TextureRegistry`, obtains `ANativeWindow*` pointer, and exposes it as a
+/// [Widget] (via `toWidget`) and FFplay target (via `bindToFFplay`). The
+/// wrapper consumes the frozen ABI's composed RGBA callback and presents each
+/// frame into this window; the ABI itself remains unchanged.
 ///
 /// ### Typical usage
 ///
@@ -62,9 +64,9 @@ class FFplayAndroidSurface {
 
   /// Allocates new Flutter texture + native `Surface`.
   /// [width] and [height] are optional hints for initial
-  /// `SurfaceTexture.setDefaultBufferSize`. Native blit code calls
-  /// `ANativeWindow_setBuffersGeometry` each frame, so actual video
-  /// dimensions take effect automatically.
+  /// `SurfaceTexture.setDefaultBufferSize`. The wrapper-owned frame bridge
+  /// resizes the Android buffer to the actual video dimensions before posting
+  /// each frame.
   /// Returns `null` on non-Android platforms or if surface creation fails.
   static Future<FFplayAndroidSurface?> create({
     int width = 1,

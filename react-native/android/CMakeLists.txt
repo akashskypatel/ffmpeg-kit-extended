@@ -19,6 +19,16 @@ add_library(
   ../cpp/FFmpegKitDynamicApi.cpp
 )
 
+add_library(ffmpeg_kit_extended_react_native_android SHARED
+  src/main/cpp/ffplay_android_frame_bridge.cpp
+)
+
+target_link_libraries(ffmpeg_kit_extended_react_native_android
+  android
+  log
+  dl
+)
+
 set_target_properties(
   react_native_ffmpeg_kit_extended PROPERTIES
   CXX_STANDARD 20

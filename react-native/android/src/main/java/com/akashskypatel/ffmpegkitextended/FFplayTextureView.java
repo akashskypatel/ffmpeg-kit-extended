@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.view.Surface;
 import android.view.TextureView;
 
+import com.akashskypatel.ffmpegkit.FFplayFrameBridge;
 import com.akashskypatel.ffmpegkit.FFplayKitAndroid;
 import com.facebook.react.uimanager.ThemedReactContext;
 
@@ -76,8 +77,14 @@ final class FFplayTextureView extends TextureView implements TextureView.Surface
 
         synchronized (SURFACE_LOCK) {
             activeOwner = new WeakReference<>(this);
-            surface = nextSurface;
             FFplayKitAndroid.setAndroidSurface(surface);
+            if (!FFplayFrameBridge.bindSurface(nextSurface)) {
+                FFplayKitAndroid.setAndroidSurface(null);
+                activeOwner.clear();
+                nextSurface.release();
+                return;
+            }
+            surface = nextSurface;
         }
     }
 
@@ -89,6 +96,7 @@ final class FFplayTextureView extends TextureView implements TextureView.Surface
         synchronized (SURFACE_LOCK) {
             FFplayTextureView owner = activeOwner.get();
             if (owner == this) {
+                FFplayFrameBridge.clearSurface();
                 FFplayKitAndroid.setAndroidSurface(null);
                 activeOwner.clear();
             }
@@ -123,7 +131,8 @@ final class FFplayTextureView extends TextureView implements TextureView.Surface
 
     @Override
     public void onSurfaceTextureUpdated(SurfaceTexture surfaceTexture) {
-        // No-op. Frames are written directly by FFplay to the ANativeWindow.
+        // No-op. The wrapper callback bridge posts each frame to the
+        // ANativeWindow and TextureView composites the updated buffer.
     }
 
     @Override
