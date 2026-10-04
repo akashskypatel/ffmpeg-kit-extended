@@ -8,6 +8,13 @@ import {
   FFprobeKit,
 } from 'ffmpeg-kit-extended';
 
+const TEST_FRAME_SOURCE =
+  'color=c=black:size=160x90:rate=4,' +
+  'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,' +
+  'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,' +
+  'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,' +
+  'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+
 function App() {
   const [status, setStatus] = useState('Not initialized');
   const [output, setOutput] = useState('');
@@ -27,7 +34,7 @@ function App() {
     let logCallbacks = 0;
     let statisticsCallbacks = 0;
     const session = await FFmpegKit.executeAsync(
-      '-hide_banner -loglevel info -f lavfi -i testsrc=duration=1:size=160x90:rate=4 -f null -',
+      `-hide_banner -loglevel info -f lavfi -i ${TEST_FRAME_SOURCE} -t 1 -f null -`,
       {
         logCallback: () => {
           logCallbacks += 1;
@@ -56,7 +63,7 @@ function App() {
   const mediaInfo = async () => {
     setStatus('Generating media for FFprobe');
     const generated = await FFmpegKit.executeAsync(
-      '-loglevel fatal -f lavfi -i testsrc=duration=1:size=160x90:rate=4 -c:v mpeg4 -f matroska /tmp/ffmpeg-kit-web-test.mkv',
+      `-loglevel fatal -f lavfi -i ${TEST_FRAME_SOURCE} -t 1 -c:v mpeg4 -f matroska /tmp/ffmpeg-kit-web-test.mkv`,
     );
     if (generated.getReturnCode() !== 0) {
       setStatus(`Media generation failed: ${generated.getReturnCode()}`);
@@ -72,7 +79,7 @@ function App() {
 
   const play = async () => {
     const session = FFplayKit.createSession(
-      '-loglevel fatal -f lavfi -i testsrc=duration=1:size=160x90:rate=4 -autoexit',
+      `-loglevel fatal -f lavfi -i ${TEST_FRAME_SOURCE} -t 1 -autoexit`,
     );
     setPlayer(session);
     setStatus('Running FFplay');

@@ -3,6 +3,9 @@
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
+  # React Native's Windows and Android launchers require a JDK supported by
+  # the cached Gradle distribution. Prefer the locally installed JDK 17 when
+  # the caller has not selected another toolchain explicitly.
   export JAVA_HOME="${JAVA_HOME:-/c/Program Files/Java/jdk-17}"
   export PATH="$JAVA_HOME/bin:$PATH"
 fi
@@ -223,7 +226,7 @@ is_windows_host() {
 }
 
 start_windows_metro() {
-  local launcher launcher_win runtime_win
+  local launcher launcher_win runtime_win node_win cli_win
 
   if curl -fsS "http://127.0.0.1:8081/status" 2>/dev/null | grep -q 'packager-status:running'; then
     echo "Metro is already running on port 8081."
@@ -233,9 +236,11 @@ start_windows_metro() {
   launcher="$windows_runtime_dir/.start-metro.cmd"
   runtime_win="$(cygpath -w "$windows_runtime_dir")"
   launcher_win="$(cygpath -w "$launcher")"
+  node_win="$(cygpath -w "$(command -v node)")"
+  cli_win="$(cygpath -w "$windows_runtime_dir/node_modules/react-native/cli.js")"
 
-  printf '@echo off\r\ntitle Metro - Windows\r\ncd /d "%s"\r\nnpm run start -- --port 8081\r\n' \
-    "$runtime_win" > "$launcher"
+  printf '@echo off\r\ntitle Metro - Windows\r\ncd /d "%s"\r\n"%s" "%s" start --config metro.config.js --port 8081\r\n' \
+    "$runtime_win" "$node_win" "$cli_win" > "$launcher"
 
   echo "Opening Windows Metro in a Command Prompt on port 8081..."
   MSYS2_ARG_CONV_EXCL='*' cmd.exe /C start "" "$launcher_win" >/dev/null 2>&1
@@ -351,10 +356,11 @@ case "$target" in
     start_windows_metro
 
     example_dir_win="$(cygpath -w "$example_dir")"
+    cli_win="$(cygpath -w "$windows_runtime_dir/node_modules/react-native/cli.js")"
 
     cd "$windows_runtime_dir"
     export MSYS2_ARG_CONV_EXCL='*'
-    exec npx react-native run-windows \
+    exec node "$cli_win" run-windows \
       --root "$example_dir_win" \
       --sln windows/FFmpegKitExtendedExample.sln \
       --arch x64 \

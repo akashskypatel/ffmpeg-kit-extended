@@ -12,6 +12,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $resolver = Join-Path $PSScriptRoot 'resolve-ffmpeg-kit-config.js'
 $downloader = Join-Path $PSScriptRoot 'download-ffmpeg-kit-artifact.js'
 $nodeBinary = if ($env:NODE_BINARY) { $env:NODE_BINARY } else { 'node' }
+$systemRoot = if ($env:SystemRoot) { $env:SystemRoot } else { 'C:\Windows' }
+$wslBinary = Join-Path $systemRoot 'System32\wsl.exe'
+if (-not (Test-Path -LiteralPath $wslBinary)) {
+  $wslBinary = Join-Path $systemRoot 'Sysnative\wsl.exe'
+}
 
 function Get-CanonicalPath {
   param([Parameter(Mandatory)][string]$Path)
@@ -65,7 +70,7 @@ function Copy-LocalFile {
   $destinationDirectory = Split-Path -Parent $Destination
   New-Item -ItemType Directory -Force -Path $destinationDirectory | Out-Null
   $wslDestination = Convert-WindowsPathToWslPath $Destination
-  & wsl.exe -d $wslParts.Distro -- cp -- $wslParts.LinuxPath $wslDestination
+  & $wslBinary -d $wslParts.Distro -- cp -- $wslParts.LinuxPath $wslDestination
   if ($LASTEXITCODE -ne 0) {
     throw "WSL could not copy local override $Source to $Destination"
   }

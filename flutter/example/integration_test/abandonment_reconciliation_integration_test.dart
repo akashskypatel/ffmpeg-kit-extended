@@ -39,7 +39,8 @@ void main() {
 
     // This is intentionally observational: the frozen ABI may retain a
     // Created history identity until clearSessions(). The output is recorded
-    // in the Review 37 tracker and controls the wrapper reconciliation policy.
+    // in the ownership-reconciliation evidence and controls the wrapper
+    // reconciliation policy.
     print(
       'ABANDONMENT_ORACLE id=$id '
       'remainsAfterOwnerRelease=$remainsAfterOwnerRelease',

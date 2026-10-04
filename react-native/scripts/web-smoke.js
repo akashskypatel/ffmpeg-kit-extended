@@ -39,6 +39,7 @@ function waitForPort(port, host, timeoutMs = 30000) {
 }
 
 async function main() {
+  const {assertCanvasFramePixels} = await import('../../scripts/ffplay-surface-pixels.mjs');
   await prepareWeb(['--app-root', appRoot, '--quiet', 'true']);
 
   const command = process.execPath;
@@ -124,26 +125,28 @@ async function main() {
       const context = canvas.getContext('2d');
       if (!context) return null;
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let nonBlackPixels = 0;
       let rgbMax = 0;
       for (let index = 0; index < pixels.length; index += 4) {
         const pixelMax = Math.max(pixels[index], pixels[index + 1], pixels[index + 2]);
-        if (pixelMax > 0) nonBlackPixels += 1;
         rgbMax = Math.max(rgbMax, pixelMax);
       }
-      return {width: canvas.width, height: canvas.height, nonBlackPixels, rgbMax};
+      if (rgbMax === 0) return null;
+      return {width: canvas.width, height: canvas.height, rgba: Array.from(pixels)};
     }, undefined, {timeout: SMOKE_TIMEOUT_MS});
     const frame = await frameHandle.jsonValue();
     await frameHandle.dispose();
-    assert.equal(frame.width, 160);
-    assert.equal(frame.height, 90);
-    assert.ok(frame.nonBlackPixels > 0, `FFplay canvas is black: ${JSON.stringify(frame)}`);
+    const pixelResult = assertCanvasFramePixels({
+      width: frame.width,
+      height: frame.height,
+      rgba: frame.rgba,
+      label: 'React Native Web FFplay surface',
+    });
     if (screenshotPath) {
       fs.mkdirSync(path.dirname(screenshotPath), {recursive: true});
-      await page.screenshot({path: screenshotPath});
+      await page.locator('canvas').screenshot({path: screenshotPath});
       process.stdout.write(`FFplay video surface screenshot: ${screenshotPath}\n`);
     }
-    process.stdout.write(`WebAssembly video surface pixel check: ${JSON.stringify(frame)}\n`);
+    process.stdout.write(`WebAssembly video surface pixel check: ${JSON.stringify(pixelResult)}\n`);
 
     process.stdout.write('browser: ffplay pause\n');
     await page.getByRole('button', {name: 'Pause'}).click();

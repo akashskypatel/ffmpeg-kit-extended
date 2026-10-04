@@ -12,6 +12,23 @@ import 'package:window_manager/window_manager.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
 import 'platform_flags.dart' as platform;
 
+const _ffplayFrameSource =
+    'color=c=black:size=160x90:rate=30,'
+    'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
+    'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
+    'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
+    'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+
+const _ffplayFrameSamples = <({String name, int x, int y, List<int> rgba})>[
+  (name: 'top-left red', x: 20, y: 20, rgba: [253, 0, 0, 255]),
+  (name: 'top-right green', x: 100, y: 20, rgba: [0, 127, 0, 255]),
+  (name: 'bottom-left blue', x: 20, y: 65, rgba: [0, 0, 254, 255]),
+  (name: 'bottom-right white', x: 100, y: 65, rgba: [255, 255, 255, 255]),
+];
+const _ffplayFrameWidth = 160;
+const _ffplayFrameHeight = 90;
+const _ffplayFrameRgbaTolerance = 32;
+
 void main() {
   if (kDebugMode) {
     MarionetteBinding.ensureInitialized();
@@ -464,7 +481,7 @@ class _HomePageState extends State<HomePage>
 
     // Command with both video and audio streams
     final command =
-        "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
+        "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i $_ffplayFrameSource -f lavfi -i sine=frequency=1000:duration=30 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$tempOutputPath\"",
@@ -480,6 +497,102 @@ class _HomePageState extends State<HomePage>
         }
       },
     );
+    if (!kIsWeb) {
+      await _verifyGeneratedVideoPixels(tempOutputPath);
+    }
+  }
+
+  Future<List<int>> _decodeFrameRgba({
+    required String inputArguments,
+    required String outputPath,
+    required String label,
+  }) async {
+    final outputFile = File(outputPath);
+    if (await outputFile.exists()) {
+      await outputFile.delete();
+    }
+    final session = await FFmpegKit.executeAsync(
+      '-hide_banner -loglevel info $inputArguments '
+      '-frames:v 1 -pix_fmt rgba -f rawvideo -y "$outputPath"',
+    );
+    if (!ReturnCode.isSuccess(session.getReturnCode())) {
+      throw StateError(
+        '$label frame decode failed: '
+        '${session.getReturnCode()}',
+      );
+    }
+    if (!await outputFile.exists()) {
+      throw StateError('$label frame decode did not produce $outputPath');
+    }
+    final bytes = await outputFile.readAsBytes();
+    final expectedLength = _ffplayFrameWidth * _ffplayFrameHeight * 4;
+    if (bytes.length < expectedLength) {
+      throw StateError(
+        '$label frame decode produced ${bytes.length} bytes; '
+        'expected at least $expectedLength',
+      );
+    }
+    return bytes;
+  }
+
+  Future<void> _verifyGeneratedVideoPixels(String videoPath) async {
+    _addLog(
+      '--- Verifying decoded video frame pixels against original input ---',
+    );
+    final directory = path.dirname(videoPath);
+    final originalFramePath = path.join(
+      directory,
+      '.ffplay-original-frame.rgba',
+    );
+    final outputFramePath = path.join(directory, '.ffplay-output-frame.rgba');
+    try {
+      final originalFrame = await _decodeFrameRgba(
+        inputArguments: '-f lavfi -i "$_ffplayFrameSource"',
+        outputPath: originalFramePath,
+        label: 'Original input',
+      );
+      final outputFrame = await _decodeFrameRgba(
+        inputArguments: '-ss 0 -i "$videoPath"',
+        outputPath: outputFramePath,
+        label: 'Final output',
+      );
+      for (final sample in _ffplayFrameSamples) {
+        final offset = (sample.y * _ffplayFrameWidth + sample.x) * 4;
+        final originalPixel = originalFrame.sublist(offset, offset + 4);
+        final outputPixel = outputFrame.sublist(offset, offset + 4);
+        if (originalPixel.asMap().entries.any(
+          (entry) =>
+              (entry.value - sample.rgba[entry.key]).abs() >
+              _ffplayFrameRgbaTolerance,
+        )) {
+          throw StateError(
+            'Original input pixel mismatch for ${sample.name}: '
+            'expected RGBA=${sample.rgba}, actual=$originalPixel',
+          );
+        }
+        if (outputPixel.asMap().entries.any(
+          (entry) =>
+              (entry.value - originalPixel[entry.key]).abs() >
+              _ffplayFrameRgbaTolerance,
+        )) {
+          throw StateError(
+            'Final output frame differs from original input for ${sample.name}: '
+            'original RGBA=$originalPixel, final RGBA=$outputPixel',
+          );
+        }
+        _addLog(
+          'Verified ${sample.name}: '
+          'original RGBA=${originalPixel.join(',')}, '
+          'final RGBA=${outputPixel.join(',')}',
+        );
+      }
+    } finally {
+      for (final file in [File(originalFramePath), File(outputFramePath)]) {
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    }
   }
 
   Future<void> _generateTestAudio() async {

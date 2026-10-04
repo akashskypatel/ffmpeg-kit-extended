@@ -5,6 +5,12 @@ import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:web/web.dart' as web;
 
 const _smokeMediaPath = '/runtime-smoke.mp4';
+const _smokeFrameSource =
+    'color=c=black:size=160x90:rate=4,'
+    'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
+    'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
+    'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
+    'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,7 +52,10 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
 
       final ffmpegSession = await FFmpegKit.executeAsync(
         '-hide_banner -nostdin -f lavfi -i '
-        'testsrc=duration=1:size=64x64:rate=1 -f lavfi -i '
+        'color=c=black:size=160x90:rate=4,drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
+        'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
+        'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
+        'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill -f lavfi -i '
         'sine=frequency=1000:duration=1 -c:v mpeg2video -c:a aac '
         '-shortest -y $_smokeMediaPath',
       );
@@ -98,8 +107,7 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
 
       final playbackCompleted = Completer<void>();
       final ffplaySession = await FFplayKit.executeAsync(
-        '-loglevel fatal -f lavfi -i '
-        'testsrc=duration=1:size=160x90:rate=4 -autoexit',
+        '-loglevel fatal -f lavfi -i $_smokeFrameSource -t 1 -autoexit',
         onComplete: (_) {
           if (!playbackCompleted.isCompleted) playbackCompleted.complete();
         },

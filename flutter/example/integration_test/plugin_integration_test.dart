@@ -50,10 +50,109 @@ void main() async {
   String audioPath = "";
   String outputDir = "";
 
+  const String frameContractSource =
+      'color=c=black:size=160x90:rate=30:duration=30,'
+      'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
+      'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
+      'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
+      'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
   const String dummyVideoCommand =
-      "-hide_banner -loglevel info -f lavfi -i testsrc=duration=5:size=512x512:rate=30";
+      "-hide_banner -loglevel info -f lavfi -i $frameContractSource";
   const String dummyAudioCommand =
       "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=3 -c:a pcm_s16le";
+  const frameContractSamples = <({String name, int x, int y, List<int> rgba})>[
+    (name: 'top-left red', x: 20, y: 20, rgba: [253, 0, 0, 255]),
+    (name: 'top-right green', x: 100, y: 20, rgba: [0, 127, 0, 255]),
+    (name: 'bottom-left blue', x: 20, y: 65, rgba: [0, 0, 254, 255]),
+    (name: 'bottom-right white', x: 100, y: 65, rgba: [255, 255, 255, 255]),
+  ];
+  const frameWidth = 160;
+  const frameHeight = 90;
+  const frameRgbaTolerance = 32;
+
+  Future<List<int>> decodeFrameRgba({
+    required String inputArguments,
+    required String outputPath,
+    required String label,
+  }) async {
+    final outputFile = File(outputPath);
+    if (outputFile.existsSync()) {
+      outputFile.deleteSync();
+    }
+    final session = FFmpegKit.execute(
+      '-hide_banner -loglevel info $inputArguments '
+      '-frames:v 1 -pix_fmt rgba -f rawvideo -y "$outputPath"',
+    );
+    expect(
+      ReturnCode.isSuccess(session.getReturnCode()),
+      isTrue,
+      reason: 'Could not decode a frame from $label',
+    );
+    expect(
+      outputFile.existsSync(),
+      isTrue,
+      reason: '$label frame decode did not produce $outputPath',
+    );
+    final bytes = outputFile.readAsBytesSync();
+    final expectedLength = frameWidth * frameHeight * 4;
+    expect(
+      bytes.length,
+      greaterThanOrEqualTo(expectedLength),
+      reason:
+          '$label frame decode produced ${bytes.length} bytes; '
+          'expected at least $expectedLength',
+    );
+    return bytes;
+  }
+
+  Future<void> verifyGeneratedVideoFramePixels() async {
+    expect(videoPath, isNotEmpty);
+    final originalFramePath = path.join(
+      outputDir,
+      '.ffplay-original-frame.rgba',
+    );
+    final outputFramePath = path.join(outputDir, '.ffplay-output-frame.rgba');
+    try {
+      final originalFrame = await decodeFrameRgba(
+        inputArguments: '-f lavfi -i "$frameContractSource"',
+        outputPath: originalFramePath,
+        label: 'original input',
+      );
+      final outputFrame = await decodeFrameRgba(
+        inputArguments: '-ss 0 -i "$videoPath"',
+        outputPath: outputFramePath,
+        label: 'final output $videoPath',
+      );
+      for (final sample in frameContractSamples) {
+        final offset = (sample.y * frameWidth + sample.x) * 4;
+        final originalPixel = originalFrame.sublist(offset, offset + 4);
+        final outputPixel = outputFrame.sublist(offset, offset + 4);
+        for (var index = 0; index < originalPixel.length; index++) {
+          expect(
+            (originalPixel[index] - sample.rgba[index]).abs(),
+            lessThanOrEqualTo(frameRgbaTolerance),
+            reason:
+                '${sample.name} original input channel $index expected '
+                '${sample.rgba[index]}, got ${originalPixel[index]}',
+          );
+          expect(
+            (outputPixel[index] - originalPixel[index]).abs(),
+            lessThanOrEqualTo(frameRgbaTolerance),
+            reason:
+                '${sample.name} final output channel $index differs from '
+                'original input: original ${originalPixel[index]}, '
+                'final ${outputPixel[index]}',
+          );
+        }
+      }
+    } finally {
+      for (final file in [File(originalFramePath), File(outputFramePath)]) {
+        if (file.existsSync()) {
+          file.deleteSync();
+        }
+      }
+    }
+  }
 
   Future<void> ensureOutputDirectory() async {
     if (outputDir.isEmpty) {
@@ -740,6 +839,12 @@ void main() async {
 
       expect(session.getState(), SessionState.completed);
       if (kDebugMode) print(session.getOutput());
+    });
+
+    testWidgets('Generated video preserves the frame pixel contract', (
+      WidgetTester tester,
+    ) async {
+      await verifyGeneratedVideoFramePixels();
     });
 
     testWidgets('Pause and Resume', (WidgetTester tester) async {

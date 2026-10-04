@@ -117,10 +117,17 @@ pack_runtime_local_package() {
   mkdir -p "$package_dir"
 
   echo "Packing local FFmpegKit Extended dependency for ${platform_name}..."
-  packed_name="$(
+  if ! packed_name="$(
     cd "$script_dir"
     npm pack --ignore-scripts --pack-destination "$package_dir" | tail -n 1
-  )"
+  )"; then
+    echo "npm pack failed; using the local tarball packer for ${platform_name}." >&2
+    packed_name="$(
+      node "$script_dir/scripts/pack-local-package.js" \
+        "$script_dir" \
+        "$package_dir"
+    )"
+  fi
   packed_path="$package_dir/$packed_name"
 
   if [[ -z "$packed_name" || ! -f "$packed_path" ]]; then
@@ -665,8 +672,8 @@ prepare_windows_runtime_files() {
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "start": "react-native start --config metro.config.js",
-    "windows": "react-native run-windows --sln ../windows/FFmpegKitExtendedExample.sln"
+    "start": "node node_modules/react-native/cli.js start --config metro.config.js",
+    "windows": "node node_modules/react-native/cli.js run-windows --sln ../windows/FFmpegKitExtendedExample.sln"
   },
   "dependencies": {
     "ffmpeg-kit-extended": "file:.local-packages/ffmpeg-kit-extended-local.tgz",
@@ -751,7 +758,7 @@ prepare_windows_example() {
 
   (
     cd "$windows_runtime_dir"
-    npx react-native autolink-windows --no-telemetry
+    node node_modules/react-native/cli.js autolink-windows --no-telemetry
   )
 }
 
@@ -803,17 +810,86 @@ build_windows() {
   fi
 
   local msbuild
-  local project_windows
+  local node_windows
+  local node_dir_windows
+  local codegen_cli_windows
+  local codegen_wrapper_windows
+  local codegen_working_dir_windows
+  local mdmerge_path_windows
+  local dotnet_root_windows
+  local dotnet_sdk_dir_windows
+  local msbuild_sdks_path_windows
+  local windows_path
   local solution_path_windows
   local solution_dir_windows
   msbuild="$(cygpath -u "$msbuild_windows")"
-  project_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample/FFmpegKitExtendedExample.vcxproj")"
+  node_windows="$(cygpath -w "$(command -v node)")"
+  node_dir_windows="$(cygpath -w "$(dirname "$(command -v node)")")"
+  codegen_cli_windows="$(cygpath -w "$windows_runtime_dir/node_modules/ffmpeg-kit-extended/scripts/windows-codegen-entry.js")"
+  codegen_wrapper_windows="$(cygpath -w "$windows_runtime_dir/.ffmpeg-kit-windows-codegen.cmd")"
+  codegen_working_dir_windows="$(cygpath -w "$windows_runtime_dir/node_modules/ffmpeg-kit-extended")"
+  local mdmerge_binary
+  mdmerge_binary="$(find '/c/Program Files (x86)/Windows Kits/10/bin' -type f -path '*/x64/mdmerge.exe' -print 2>/dev/null | sort -V | tail -n 1)"
+  if [[ -z "$mdmerge_binary" ]]; then
+    echo "Windows SDK mdmerge.exe was not found." >&2
+    exit 1
+  fi
+  local mdmerge_dir_windows
+  local mdmerge_short_path_script_windows
+  local mdmerge_short_dir_windows
+  mdmerge_dir_windows="$(cygpath -w "$(dirname "$mdmerge_binary")")"
+  mdmerge_short_path_script_windows="$windows_runtime_dir/.resolve-mdmerge-short-path.cmd"
+  cat > "$mdmerge_short_path_script_windows" <<EOF
+@echo off
+for %%I in ("$mdmerge_dir_windows") do @echo %%~sI
+EOF
+  mdmerge_short_dir_windows="$(
+    MSYS2_ARG_CONV_EXCL='*' cmd.exe /d /c \
+      "$(cygpath -w "$mdmerge_short_path_script_windows")" |
+      tr -d '\r'
+  )"
+  rm -f "$mdmerge_short_path_script_windows"
+  if [[ -z "$mdmerge_short_dir_windows" || "$mdmerge_short_dir_windows" == *' '* ]]; then
+    echo "Could not resolve a space-free Windows SDK path for mdmerge.exe: $mdmerge_dir_windows" >&2
+    exit 1
+  fi
+  mdmerge_path_windows="${mdmerge_short_dir_windows}\\"
+  echo "Using Windows SDK mdmerge.exe: $mdmerge_binary"
+  dotnet_root_windows="$(cygpath -w '/c/Program Files/dotnet')"
+  if [[ ! -d '/c/Program Files/dotnet' ]]; then
+    echo "The installed .NET SDK root was not found: /c/Program Files/dotnet" >&2
+    exit 1
+  fi
+  local dotnet_sdk_dir
+  dotnet_sdk_dir="$(find '/c/Program Files/dotnet/sdk' -mindepth 1 -maxdepth 1 -type d -print 2>/dev/null | sort -V | tail -n 1)"
+  if [[ -z "$dotnet_sdk_dir" ]]; then
+    echo "No installed .NET SDK directory was found under /c/Program Files/dotnet/sdk." >&2
+    exit 1
+  fi
+  dotnet_sdk_dir_windows="$(cygpath -w "$dotnet_sdk_dir")"
+  msbuild_sdks_path_windows="${dotnet_sdk_dir_windows}\\Sdks"
+  windows_path="$(cygpath -pw "$PATH");$dotnet_root_windows;$mdmerge_dir_windows"
   solution_path_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample.sln")"
   solution_dir_windows="$(cygpath -w "$example_dir/windows")\\"
 
+  cat > "$windows_runtime_dir/.ffmpeg-kit-windows-codegen.cmd" <<EOF
+@echo off
+set "PATH=$node_dir_windows;%ProgramFiles%\\dotnet;%SystemRoot%\\System32;%SystemRoot%\\System32\\WindowsPowerShell\\v1.0;%ProgramFiles%\\PowerShell\\7;%APPDATA%\\npm;%PATH%"
+set "DOTNET_ROOT=%ProgramFiles%\\dotnet"
+set "DOTNET_ROOT(x64)=%ProgramFiles%\\dotnet"
+set "DOTNET_ROOT(x86)=%ProgramFiles(x86)%\\dotnet"
+set "DOTNET_MULTILEVEL_LOOKUP=1"
+cd /d "$codegen_working_dir_windows"
+"$node_windows" "$codegen_cli_windows" %*
+EOF
+
   echo "Building Windows application project with MSBuild..."
-  MSYS2_ARG_CONV_EXCL='*' "$msbuild" \
-    "$project_windows" \
+  DOTNET_ROOT="$dotnet_root_windows" \
+  DOTNET_ROOT_X64="$dotnet_root_windows" \
+  DOTNET_MULTILEVEL_LOOKUP=1 \
+  MSBuildSDKsPath="$msbuild_sdks_path_windows" \
+  MSYS2_ARG_CONV_EXCL='*' PATH="$windows_path" "$msbuild" \
+    "$solution_path_windows" \
     /restore \
     /m \
     "/p:Configuration=$configuration" \
@@ -821,6 +897,12 @@ build_windows() {
     "/p:SolutionPath=$solution_path_windows" \
     "/p:SolutionDir=$solution_dir_windows" \
     /p:SolutionFileName=FFmpegKitExtendedExample.sln \
+    "/p:CodegenCommand=\"$codegen_wrapper_windows\"" \
+    "/p:CodegenCommandArgs=codegen-windows --logging" \
+    "/p:CodegenCommandWorkingDir=$codegen_working_dir_windows" \
+    "/p:MdMergePath=$mdmerge_path_windows" \
+    /p:AppxBundle=false \
+    /p:AppxPackageSigningEnabled=false \
     /p:RunAutolinkCheck=false \
     /verbosity:minimal \
     /nologo
@@ -832,7 +914,11 @@ build_library() {
   echo "Building React Native library"
   echo "========================================"
   ensure_dependencies "$script_dir"
-  npm run prepare
+  # Calling Bob through npm's .bin shim is unreliable under the Windows
+  # MSYS2 host shell: npm can run but cannot resolve the POSIX shim as a
+  # Windows command. Invoke the cached package entry point with Node so the
+  # same library build works from PowerShell, Git Bash, and MSYS2.
+  node "$script_dir/node_modules/react-native-builder-bob/bin/bob" build
 }
 
 build_android() {

@@ -8,8 +8,8 @@
  *
  * The current React Native monitor uses the backend's buffered transport. Its
  * install/uninstall hooks are therefore optional seams for the v2 event bridge;
- * they deliberately do not toggle native redirection. G61/G62 provide the
- * concrete direct-payload hooks without changing this ownership authority.
+ * they deliberately do not toggle native redirection. Direct-payload hooks
+ * remain separate seams without changing this ownership authority.
  */
 
 export type CallbackDemandKind = 'completion' | 'log' | 'statistics';

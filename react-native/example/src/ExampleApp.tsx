@@ -87,9 +87,19 @@ const MAX_RENDERED_LOG_CHARS = 50_000;
 const LOG_FLUSH_INTERVAL_MS = 250;
 const PLAYBACK_STATUS_INTERVAL_MS = 500;
 const FFPLAY_MONITOR_INTERVAL_MS = 250;
-const TEST_VIDEO_SOURCE = 'testsrc2=duration=5:size=512x512:rate=30';
-const TEST_VIDEO_FRAME_CHECK =
-  'select=eq(n\\,0),signalstats,metadata=print:direct=1';
+const TEST_VIDEO_SOURCE =
+  'color=c=black:size=160x90:rate=30,' +
+  'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,' +
+  'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,' +
+  'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,' +
+  'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+const TEST_VIDEO_FRAME_SAMPLES = [
+  {name: 'top-left red', x: 20, y: 20, yuv: [81, 90, 240]},
+  {name: 'top-right green', x: 100, y: 20, yuv: [81, 91, 81]},
+  {name: 'bottom-left blue', x: 20, y: 65, yuv: [41, 240, 110]},
+  {name: 'bottom-right white', x: 100, y: 65, yuv: [235, 128, 128]},
+] as const;
+const TEST_VIDEO_FRAME_SAMPLE_TOLERANCE = 12;
 
 const LOG_LEVELS = [
   LogLevel.Stderr,
@@ -179,6 +189,7 @@ export function ExampleApp({
   );
   const videoSurfaceReadyRef = useRef(false);
   const logResizeStartRef = useRef(logPaneHeight);
+  const contentScrollRef = useRef<ScrollView>(null);
   const logScrollRef = useRef<ScrollView>(null);
   const pendingLogsRef = useRef('');
   const logFlushTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -339,6 +350,10 @@ export function ExampleApp({
   }, [activeTab, playbackSession]);
 
   useEffect(() => {
+    contentScrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [activeTab, playbackSession]);
+
+  useEffect(() => {
     setLogPaneHeight(current =>
       Math.max(96, Math.min(maxLogPaneHeight, current)),
     );
@@ -353,7 +368,7 @@ export function ExampleApp({
     appendLog(`--- Generating Test Video with Audio: ${TEST_VIDEO_PATH} ---`);
     const command =
       `-hide_banner -loglevel error -f lavfi -i ${TEST_VIDEO_SOURCE} ` +
-      '-f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y ' +
+      '-f lavfi -i sine=frequency=1000:duration=30 -c:v mpeg2video -c:a aac -shortest -y ' +
       quote(TEST_VIDEO_PATH);
     const session = await FFmpegKit.executeAsync(command, {
       logCallback: log => appendLog(log.message),
@@ -362,42 +377,83 @@ export function ExampleApp({
       throw new Error(`Generation failed. Code: ${session.getReturnCode()}`);
     }
 
-    appendLog('--- Verifying the first decoded video frame is non-black ---');
-    setGeneratedVideoVerification('Verifying decoded video frame...');
-    const verification = await FFmpegKit.executeAsync(
-      `-hide_banner -loglevel info -i ${quote(
-        TEST_VIDEO_PATH,
-      )} -vf "${TEST_VIDEO_FRAME_CHECK}" -frames:v 1 -an -f null -`,
-      { logCallback: log => appendLog(log.message) },
-    );
-    if (verification.getReturnCode() !== ReturnCode.Success) {
-      throw new Error(
-        `Video frame verification failed. Code: ${verification.getReturnCode()}`,
-      );
-    }
-
-    const verificationOutput = `${verification.getOutput()}\n${verification.getLogsAsString()}`;
-    const yMin = signalStat(verificationOutput, 'YMIN');
-    const yMax = signalStat(verificationOutput, 'YMAX');
-    const yAverage = signalStat(verificationOutput, 'YAVG');
-    if (
-      yMin === undefined ||
-      yMax === undefined ||
-      yAverage === undefined ||
-      yMax <= 32 ||
-      yMax - yMin <= 16
-    ) {
-      throw new Error(
-        `Video frame was black or uniform. YMIN=${yMin ?? 'missing'}, ` +
-          `YMAX=${yMax ?? 'missing'}, YAVG=${yAverage ?? 'missing'}`,
-      );
-    }
-
     appendLog(
-      `Verified non-black video frame: YMIN=${yMin.toFixed(0)}, ` +
-        `YMAX=${yMax.toFixed(0)}, YAVG=${yAverage.toFixed(1)}`,
+      '--- Verifying decoded video frame pixels against original input ---',
     );
-    setGeneratedVideoVerification('Verified non-black video frame');
+    setGeneratedVideoVerification('Verifying decoded video frame...');
+    const readFrameYuv = async (
+      inputArguments: string,
+      sample: (typeof TEST_VIDEO_FRAME_SAMPLES)[number],
+      label: string,
+    ): Promise<number[]> => {
+      const verification = await FFmpegKit.executeAsync(
+        `-hide_banner -loglevel info ${inputArguments} ` +
+          `-vf "crop=2:2:${sample.x}:${sample.y},signalstats,metadata=print:direct=1" ` +
+          '-frames:v 1 -an -f null -',
+        {logCallback: log => appendLog(log.message)},
+      );
+      if (verification.getReturnCode() !== ReturnCode.Success) {
+        throw new Error(
+          `Could not decode ${sample.name} from ${label}. ` +
+            `Code: ${verification.getReturnCode()}`,
+        );
+      }
+      const verificationOutput = `${verification.getOutput()}\n${verification.getLogsAsString()}`;
+      const actual = (['YAVG', 'UAVG', 'VAVG'] as const).map(channel =>
+        signalStat(verificationOutput, channel),
+      );
+      if (actual.some(value => value === undefined)) {
+        throw new Error(
+          `Missing YUV signal statistics for ${label} ${sample.name}`,
+        );
+      }
+      return actual.map(value => value as number);
+    };
+
+    for (const sample of TEST_VIDEO_FRAME_SAMPLES) {
+      const originalYuv = await readFrameYuv(
+        `-f lavfi -i ${quote(TEST_VIDEO_SOURCE)}`,
+        sample,
+        'original input',
+      );
+      if (
+        originalYuv.some(
+          (value, index) =>
+            Math.abs(value - sample.yuv[index]) >
+            TEST_VIDEO_FRAME_SAMPLE_TOLERANCE,
+        )
+      ) {
+        throw new Error(
+          `Original input pixel mismatch for ${sample.name}: ` +
+            `expected YUV=${sample.yuv.join(',')}, ` +
+            `actual=${originalYuv.join(',')}`,
+        );
+      }
+
+      const outputYuv = await readFrameYuv(
+        `-ss 0 -i ${quote(TEST_VIDEO_PATH)}`,
+        sample,
+        `final output ${TEST_VIDEO_PATH}`,
+      );
+      if (
+        outputYuv.some(
+          (value, index) =>
+            Math.abs(value - originalYuv[index]) >
+            TEST_VIDEO_FRAME_SAMPLE_TOLERANCE,
+        )
+      ) {
+        throw new Error(
+          `Final output frame differs from original input for ${sample.name}: ` +
+            `original YUV=${originalYuv.join(',')}, ` +
+            `final YUV=${outputYuv.join(',')}`,
+        );
+      }
+      appendLog(
+        `Verified ${sample.name}: original YUV=${originalYuv.join(',')}, ` +
+          `final YUV=${outputYuv.join(',')}`,
+      );
+    }
+    setGeneratedVideoVerification('Verified frame pixel contract');
     appendLog('Video with audio generated successfully.');
   }, [TEST_VIDEO_PATH, appendLog]);
 
@@ -1459,6 +1515,7 @@ export function ExampleApp({
       </View>
 
       <ScrollView
+        ref={contentScrollRef}
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"

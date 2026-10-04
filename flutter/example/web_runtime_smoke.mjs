@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
-import {mkdirSync} from 'node:fs';
+import {mkdirSync, mkdtempSync, rmSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {chromium} from 'playwright';
+import {assertFramePixels} from '../../scripts/ffplay-surface-pixels.mjs';
+
+const require = createRequire(import.meta.url);
+let chromium;
+try {
+  ({chromium} = await import('playwright'));
+} catch (error) {
+  // The repository keeps the local Playwright installation with the RN Web
+  // smoke tooling; do not download a second copy for the Flutter example.
+  if (error?.code !== 'ERR_MODULE_NOT_FOUND') throw error;
+  ({chromium} = require('../../react-native/node_modules/playwright'));
+}
 
 const url = process.argv[2] ?? 'http://127.0.0.1:8080';
 const browser = await chromium.launch({headless: true});
@@ -10,6 +23,11 @@ const pageErrors = [];
 const consoleErrors = [];
 const runtimeRoot = process.argv[3];
 const surfaceScreenshot = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
+const temporaryCaptureDirectory = surfaceScreenshot
+  ? undefined
+  : mkdtempSync(path.join(tmpdir(), 'ffmpeg-kit-flutter-web-'));
+const pixelScreenshot =
+  surfaceScreenshot ?? path.join(temporaryCaptureDirectory, 'ffplay-surface.png');
 const runtimeRequests = [];
 const failedAssetResponses = [];
 
@@ -34,13 +52,18 @@ try {
     null,
     {timeout: 120_000},
   );
+  await page.waitForTimeout(500);
+  mkdirSync(path.dirname(pixelScreenshot), {recursive: true});
+  await page.screenshot({
+    path: pixelScreenshot,
+    clip: {x: 0, y: 0, width: 160, height: 90},
+  });
+  const frame = assertFramePixels({
+    imagePath: pixelScreenshot,
+    label: 'Flutter Web FFplay surface',
+  });
+  console.log(`Flutter Web FFplay surface pixel check: ${JSON.stringify(frame)}`);
   if (surfaceScreenshot) {
-    await page.waitForTimeout(500);
-    mkdirSync(path.dirname(surfaceScreenshot), {recursive: true});
-    await page.screenshot({
-      path: surfaceScreenshot,
-      clip: {x: 0, y: 0, width: 160, height: 90},
-    });
     console.log(`Flutter Web FFplay surface screenshot: ${surfaceScreenshot}`);
   }
   try {
@@ -104,4 +127,7 @@ try {
   console.log('PASS');
 } finally {
   await browser.close();
+  if (temporaryCaptureDirectory) {
+    rmSync(temporaryCaptureDirectory, {recursive: true, force: true});
+  }
 }

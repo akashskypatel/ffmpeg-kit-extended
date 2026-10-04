@@ -1,9 +1,28 @@
 appId: ${APP_ID}
 ---
 - tapOn:
+    id: tab.ffmpeg
+- tapOn:
+    id: ffmpeg.generate-video
+- extendedWaitUntil:
+    visible:
+      id: ffmpeg.generated-video-verification
+    timeout: 60000
+- assertVisible: "Verified frame pixel contract"
+- tapOn:
     id: tab.ffplay
+- scrollUntilVisible:
+    element:
+      id: ffplay.video-surface
+    direction: UP
+    timeout: 10000
 - tapOn:
     id: ffplay.play-video
+- extendedWaitUntil:
+    visible:
+      id: ffplay.position
+    timeout: 10000
+- takeScreenshot: ffplay-surface-playing
 - scrollUntilVisible:
     element:
       id: ffplay.pause

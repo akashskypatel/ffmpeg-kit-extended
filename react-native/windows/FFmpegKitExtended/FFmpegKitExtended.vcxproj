@@ -113,7 +113,7 @@
     Name="PrepareFFmpegKitExtendedWindowsRuntime"
     BeforeTargets="PrepareForBuild;GetCopyToOutputDirectoryItems"
     Condition="'$(DesignTimeBuild)' != 'true'">
-    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\prepare-windows-runtime.ps1&quot; -Architecture $(Platform) -Destination &quot;$(FFmpegKitExtendedRuntimeStagingDir)&quot; -AppRoot &quot;$(SolutionDir)..&quot;" />
+    <Exec Command="set &quot;NODE_BINARY=$(ProgramW6432)\nodejs\node.exe&quot; &amp;&amp; &quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\prepare-windows-runtime.ps1&quot; -Architecture $(Platform) -Destination &quot;$(FFmpegKitExtendedRuntimeStagingDir)&quot; -AppRoot &quot;$(SolutionDir)..&quot;" />
 
     <ItemGroup>
       <FFmpegKitExtendedRuntimeDll

@@ -46,7 +46,7 @@ void main() {
         final registration = method.indexOf(
           'int64_t tid = [_textureRegistry registerTexture:tex];',
         );
-        final failureGuard = method.indexOf('if (tid == 0)', registration);
+        final failureGuard = method.indexOf('if (tid < 0)', registration);
         final failureCode = method.indexOf(
           'TEXTURE_REGISTRATION_FAILED',
           failureGuard,
@@ -65,7 +65,7 @@ void main() {
         expect(
           failureGuard,
           greaterThan(registration),
-          reason: '${entry.key} does not check the Darwin failure sentinel',
+          reason: '${entry.key} does not check the negative Darwin failure sentinel',
         );
         expect(failureCode, greaterThan(failureGuard));
         expect(failureMessage, greaterThan(failureGuard));
