@@ -465,7 +465,9 @@ static void ffplay_frame_cb(void *userdata, const uint8_t *pixels, int width,
 
   __weak NSObject<FlutterTextureRegistry> *weakReg = _textureRegistry;
   tex.onFrameAvailable = ^{
-    [weakReg textureFrameAvailable:tid];
+    dispatch_async(dispatch_get_main_queue(), ^{
+      [weakReg textureFrameAvailable:tid];
+    });
   };
 
   _texture = tex;
