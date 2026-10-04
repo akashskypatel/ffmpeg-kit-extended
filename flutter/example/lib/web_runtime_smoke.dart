@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
 import 'package:web/web.dart' as web;
@@ -19,6 +21,7 @@ class WebRuntimeSmokeApp extends StatefulWidget {
 
 class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
   final _statuses = <String>['STARTING'];
+  FFplaySurface? _surface;
 
   @override
   void initState() {
@@ -82,6 +85,40 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
         throw StateError('Media-information result was empty.');
       }
       _addStatus('MEDIA_INFO_OK');
+
+      final surface = await FFplaySurface.create(width: 160, height: 90);
+      if (surface == null) {
+        throw StateError('Flutter Web FFplay surface could not be created.');
+      }
+      if (!mounted) {
+        await surface.release();
+        return;
+      }
+      setState(() => _surface = surface);
+
+      final playbackCompleted = Completer<void>();
+      final ffplaySession = await FFplayKit.executeAsync(
+        '-loglevel fatal -f lavfi -i '
+        'testsrc=duration=1:size=160x90:rate=4 -autoexit',
+        onComplete: (_) {
+          if (!playbackCompleted.isCompleted) playbackCompleted.complete();
+        },
+      );
+      _addStatus('FFPLAY_STARTED');
+      await playbackCompleted.future.timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          if (FFplayKit.playing) FFplayKit.stop();
+        },
+      );
+      // Keep the mounted surface visible long enough for the browser smoke to
+      // capture it even when Wasm decodes the short fixture faster than real
+      // time. The screenshot is still taken only after FFPLAY_STARTED.
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (ffplaySession.isPlaying()) {
+        ffplaySession.stop();
+      }
+      _addStatus('FFPLAY_COMPLETE');
       _addStatus('PASS');
     } catch (error) {
       _addStatus('FAIL: $error');
@@ -91,6 +128,9 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       } catch (_) {
         // Initialization failures have no callback bridge to uninstall.
       }
+      final surface = _surface;
+      _surface = null;
+      await surface?.release();
     }
   }
 
@@ -105,7 +145,25 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(body: Center(child: SelectableText(_statuses.join('\n')))),
+      home: Scaffold(
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_surface != null)
+              SizedBox(
+                width: 160,
+                height: 90,
+                child: FFplayView(
+                  surface: _surface!,
+                  aspectRatio: 160 / 90,
+                  videoWidth: 160,
+                  videoHeight: 90,
+                ),
+              ),
+            SelectableText(_statuses.join('\n')),
+          ],
+        ),
+      ),
     );
   }
 }

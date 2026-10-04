@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import {mkdirSync} from 'node:fs';
+import path from 'node:path';
 import {chromium} from 'playwright';
 
 const url = process.argv[2] ?? 'http://127.0.0.1:8080';
@@ -7,6 +9,7 @@ const page = await browser.newPage({locale: 'en-US'});
 const pageErrors = [];
 const consoleErrors = [];
 const runtimeRoot = process.argv[3];
+const surfaceScreenshot = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
 const runtimeRequests = [];
 const failedAssetResponses = [];
 
@@ -26,6 +29,20 @@ page.on('response', (response) => {
 try {
   console.log('STARTING');
   await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 30_000});
+  await page.waitForFunction(
+    () => document.title.includes('FFPLAY_STARTED'),
+    null,
+    {timeout: 120_000},
+  );
+  if (surfaceScreenshot) {
+    await page.waitForTimeout(500);
+    mkdirSync(path.dirname(surfaceScreenshot), {recursive: true});
+    await page.screenshot({
+      path: surfaceScreenshot,
+      clip: {x: 0, y: 0, width: 160, height: 90},
+    });
+    console.log(`Flutter Web FFplay surface screenshot: ${surfaceScreenshot}`);
+  }
   try {
     await page.waitForFunction(
       () => /(?:PASS|FAIL:)/.test(document.title),
