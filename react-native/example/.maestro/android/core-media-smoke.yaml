@@ -1,6 +1,10 @@
 appId: com.akashskypatel.ffmpegkitextendedexample
 ---
 - launchApp
+- extendedWaitUntil:
+    visible:
+      id: tab.ffmpeg
+    timeout: 120000
 - assertVisible:
     id: app.root
 - assertVisible:

@@ -1,6 +1,10 @@
 appId: org.reactjs.native.example.FFmpegKitExtendedExample
 ---
 - launchApp
+- extendedWaitUntil:
+    visible:
+      id: tab.ffmpeg
+    timeout: 120000
 - assertVisible:
     id: tab.ffmpeg
 - assertVisible:
