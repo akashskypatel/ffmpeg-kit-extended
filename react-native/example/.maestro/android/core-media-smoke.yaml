@@ -13,7 +13,19 @@ appId: com.akashskypatel.ffmpegkitextendedexample
     id: tab.ffplay
 - assertVisible:
     id: tab.transcode
-- runFlow: ../shared/ffmpeg-version.yaml
-- runFlow: ../shared/generated-media-probe.yaml
-- runFlow: ../shared/ffplay-control-cycle.yaml
-- runFlow: ../shared/transcode-generated-media.yaml
+- runFlow:
+    file: ../shared/ffmpeg-version.yaml
+    env:
+      APP_ID: com.akashskypatel.ffmpegkitextendedexample
+- runFlow:
+    file: ../shared/generated-media-probe.yaml
+    env:
+      APP_ID: com.akashskypatel.ffmpegkitextendedexample
+- runFlow:
+    file: ../shared/ffplay-control-cycle.yaml
+    env:
+      APP_ID: com.akashskypatel.ffmpegkitextendedexample
+- runFlow:
+    file: ../shared/transcode-generated-media.yaml
+    env:
+      APP_ID: com.akashskypatel.ffmpegkitextendedexample

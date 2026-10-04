@@ -1,3 +1,5 @@
+appId: ${APP_ID}
+---
 - tapOn:
     id: tab.transcode
 - tapOn:

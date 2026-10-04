@@ -60,7 +60,8 @@ test("Maestro mobile flow assets preserve the local semantic contract", () => {
 
   for (const sharedName of sharedNames) {
     const sharedContent = read(path.join(assetsRoot, "shared", sharedName));
-    assert.doesNotMatch(sharedContent, /^appId:/m, `${sharedName} must be platform-neutral`);
+    const appIdMatch = sharedContent.match(/^appId:\s*(.*)$/m);
+    assert.equal(appIdMatch?.[1], '${APP_ID}', `${sharedName} must use the platform-neutral app ID parameter`);
     for (const selector of semanticSelectors) {
       if (sharedContent.includes(selector)) {
         assert.match(sharedContent, new RegExp(selector.replaceAll(".", "\\.")));
