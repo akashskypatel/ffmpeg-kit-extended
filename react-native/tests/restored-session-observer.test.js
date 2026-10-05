@@ -319,7 +319,7 @@ test('restored Running wrappers share terminal release and deliver callbacks', a
   assert.equal(executionStarts, 0);
   assert.deepEqual(releases, [sessionId]);
   assert.deepEqual(completedCallbacks, ['first']);
-  assert.deepEqual(receivedLogs, ['live']);
+  assert.deepEqual(receivedLogs, ['live\n']);
   assert.equal(receivedStatistics.length, 1);
   assert.equal(bridgeInstalls.log, 1);
   assert.equal(bridgeUninstalls.log, 1);

@@ -1,4 +1,8 @@
 import { getBackend } from './platform/backend-registry';
+import {
+  ensureLogMessageLineFeed,
+  formatLogOutputIfMissingLineFeeds,
+} from './log-format';
 import type {
   ExecuteOptions,
   FFmpegExecuteOptions,
@@ -302,12 +306,14 @@ export abstract class Session {
 
   /** Returns the session's combined native console output. */
   getOutput(): string {
-    return this.snapshot().output;
+    const snapshot = this.snapshot();
+    return this.formatNativeLogOutput(snapshot.output, snapshot.logsCount);
   }
 
   /** Returns all retained session logs concatenated as text. */
   getLogsAsString(): string {
-    return this.snapshot().logs;
+    const snapshot = this.snapshot();
+    return this.formatNativeLogOutput(snapshot.logs, snapshot.logsCount);
   }
 
   /** Returns the native failure stack trace when one was recorded. */
@@ -436,6 +442,19 @@ export abstract class Session {
       NativeFFmpegKitExtended.getSessionJson(this.sessionId),
       `Session ${this.sessionId} no longer exists`
     );
+  }
+
+  private formatNativeLogOutput(nativeOutput: string, logCount: number): string {
+    if (logCount <= 0) return nativeOutput;
+    try {
+      const logs = parseJsonArray<Log>(
+        NativeFFmpegKitExtended.getLogsJson(this.sessionId, 0)
+      );
+      return formatLogOutputIfMissingLineFeeds(nativeOutput, logs);
+    } catch {
+      // The line-break fallback must not make session inspection fail.
+      return nativeOutput;
+    }
   }
 
   /** Starts native execution and releases the owning handle if start fails. */
@@ -679,7 +698,7 @@ export abstract class Session {
       );
       for (const entry of logs) {
         try {
-          logCallback(entry, this);
+          logCallback(ensureLogMessageLineFeed(entry), this);
         } catch (error) {
           this.reportRestoredObserverError(error);
         }
@@ -840,7 +859,7 @@ export abstract class Session {
         this.restoredNextExpectedLogSequence
       );
       try {
-        callback(entry, this);
+        callback(ensureLogMessageLineFeed(entry), this);
       } catch (error) {
         this.reportRestoredObserverError(error);
       }
@@ -876,7 +895,7 @@ export abstract class Session {
           this.restoredNextExpectedLogSequence
         );
         try {
-          callback(direct ?? entry, this);
+          callback(ensureLogMessageLineFeed(direct ?? entry), this);
         } catch (error) {
           this.reportRestoredObserverError(error);
         }
@@ -949,7 +968,7 @@ export abstract class Session {
         this.pendingDirectLogEvents.delete(this.nextExpectedLogSequence);
         this.nextExpectedLogSequence += 1;
         logsProcessed = Math.max(logsProcessed, this.nextExpectedLogSequence);
-        invoke(() => callback(next, self));
+        invoke(() => callback(ensureLogMessageLineFeed(next), self));
       }
     };
     const reconcileDirectLogEvents = (): void => {
@@ -984,7 +1003,9 @@ export abstract class Session {
           this.pendingDirectLogEvents.delete(sequence);
           this.nextExpectedLogSequence += 1;
           logsProcessed = Math.max(logsProcessed, this.nextExpectedLogSequence);
-          invokeCallback(() => callback(direct ?? entry, self));
+          invokeCallback(() =>
+            callback(ensureLogMessageLineFeed(direct ?? entry), self)
+          );
         }
       }
       drainDirectLogEvents(callback, invokeCallback);
@@ -1041,7 +1062,9 @@ export abstract class Session {
               NativeFFmpegKitExtended.getLogsJson(this.sessionId, logsProcessed)
             );
             for (const entry of logs) {
-              invokeCallback(() => logCallback(entry, self));
+              invokeCallback(() =>
+                logCallback(ensureLogMessageLineFeed(entry), self)
+              );
             }
             logsProcessed += logs.length;
           }
@@ -1120,7 +1143,9 @@ export abstract class Session {
                   )
                 );
                 for (const entry of finalLogs) {
-                  invokeCallback(() => logCallback(entry, self));
+                  invokeCallback(() =>
+                    logCallback(ensureLogMessageLineFeed(entry), self)
+                  );
                 }
               }
             } catch (error) {

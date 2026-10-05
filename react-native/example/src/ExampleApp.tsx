@@ -87,17 +87,19 @@ const MAX_RENDERED_LOG_CHARS = 50_000;
 const LOG_FLUSH_INTERVAL_MS = 250;
 const PLAYBACK_STATUS_INTERVAL_MS = 500;
 const FFPLAY_MONITOR_INTERVAL_MS = 250;
+const TEST_VIDEO_FRAME_WIDTH = 512;
+const TEST_VIDEO_FRAME_HEIGHT = 512;
 const TEST_VIDEO_SOURCE =
-  'color=c=black:size=160x90:rate=30,' +
-  'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,' +
-  'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,' +
-  'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,' +
-  'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+  `color=c=black:size=${TEST_VIDEO_FRAME_WIDTH}x${TEST_VIDEO_FRAME_HEIGHT}:rate=30,` +
+  'drawbox=x=0:y=0:w=256:h=256:color=red:t=fill,' +
+  'drawbox=x=256:y=0:w=256:h=256:color=green:t=fill,' +
+  'drawbox=x=0:y=256:w=256:h=256:color=blue:t=fill,' +
+  'drawbox=x=256:y=256:w=256:h=256:color=white:t=fill';
 const TEST_VIDEO_FRAME_SAMPLES = [
-  {name: 'top-left red', x: 20, y: 20, yuv: [81, 90, 240]},
-  {name: 'top-right green', x: 100, y: 20, yuv: [81, 91, 81]},
-  {name: 'bottom-left blue', x: 20, y: 65, yuv: [41, 240, 110]},
-  {name: 'bottom-right white', x: 100, y: 65, yuv: [235, 128, 128]},
+  {name: 'top-left red', x: 128, y: 128, yuv: [81, 90, 240]},
+  {name: 'top-right green', x: 384, y: 128, yuv: [81, 91, 81]},
+  {name: 'bottom-left blue', x: 128, y: 384, yuv: [41, 240, 110]},
+  {name: 'bottom-right white', x: 384, y: 384, yuv: [235, 128, 128]},
 ] as const;
 const TEST_VIDEO_FRAME_SAMPLE_TOLERANCE = 12;
 

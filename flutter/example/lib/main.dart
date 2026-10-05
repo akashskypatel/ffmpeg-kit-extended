@@ -13,20 +13,20 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 import 'platform_flags.dart' as platform;
 
 const _ffplayFrameSource =
-    'color=c=black:size=160x90:rate=30,'
-    'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
-    'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
-    'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
-    'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+    'color=c=black:size=512x512:rate=30,'
+    'drawbox=x=0:y=0:w=256:h=256:color=red:t=fill,'
+    'drawbox=x=256:y=0:w=256:h=256:color=green:t=fill,'
+    'drawbox=x=0:y=256:w=256:h=256:color=blue:t=fill,'
+    'drawbox=x=256:y=256:w=256:h=256:color=white:t=fill';
 
 const _ffplayFrameSamples = <({String name, int x, int y, List<int> rgba})>[
-  (name: 'top-left red', x: 20, y: 20, rgba: [253, 0, 0, 255]),
-  (name: 'top-right green', x: 100, y: 20, rgba: [0, 127, 0, 255]),
-  (name: 'bottom-left blue', x: 20, y: 65, rgba: [0, 0, 254, 255]),
-  (name: 'bottom-right white', x: 100, y: 65, rgba: [255, 255, 255, 255]),
+  (name: 'top-left red', x: 128, y: 128, rgba: [253, 0, 0, 255]),
+  (name: 'top-right green', x: 384, y: 128, rgba: [0, 127, 0, 255]),
+  (name: 'bottom-left blue', x: 128, y: 384, rgba: [0, 0, 254, 255]),
+  (name: 'bottom-right white', x: 384, y: 384, rgba: [255, 255, 255, 255]),
 ];
-const _ffplayFrameWidth = 160;
-const _ffplayFrameHeight = 90;
+const _ffplayFrameWidth = 512;
+const _ffplayFrameHeight = 512;
 const _ffplayFrameRgbaTolerance = 32;
 
 void main() {
@@ -481,6 +481,7 @@ class _HomePageState extends State<HomePage>
 
     // Command with both video and audio streams
     final command =
+        // "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
         "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i $_ffplayFrameSource -f lavfi -i sine=frequency=1000:duration=30 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync(

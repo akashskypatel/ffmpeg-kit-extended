@@ -17,6 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+import 'dart:convert';
+
+import 'log_format.dart';
+
 /// Defines how log messages should be redirected to the console.
 enum LogRedirectionStrategy {
   /// Always print logs to the console.
@@ -90,11 +94,12 @@ class Log {
   /// The raw integer log level.
   final int level;
 
-  /// The log message content.
+  /// The log message content, terminated with a line feed when non-empty.
   final String message;
 
   /// Creates a [Log] entry.
-  Log(this.sessionId, this.level, this.message);
+  Log(this.sessionId, this.level, String message)
+    : message = ensureLogMessageLineFeed(message);
 
   /// Gets the [LogLevel] representation of this log entry.
   LogLevel get logLevel => LogLevel.fromValue(level);
@@ -105,5 +110,5 @@ class Log {
 
   /// Returns a JSON representation of this log entry.
   String toJson() =>
-      '{"sessionId":$sessionId,"level":$level,"message":"$message"}';
+      '{"sessionId":$sessionId,"level":$level,"message":${jsonEncode(message)}}';
 }

@@ -31,6 +31,7 @@ import '../ffmpeg_kit_extended_flutter.dart'
         FFmpegKitExtended;
 import 'callback_manager.dart';
 import 'log.dart';
+import 'log_format.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 import 'platform/session_finalizer.dart';
@@ -862,7 +863,7 @@ abstract class Session {
   String? getOutput() {
     FFmpegKitExtended.requireInitialized();
     try {
-      return ffmpegKitBackend.getOutput(handle);
+      return _formatNativeLogOutput(ffmpegKitBackend.getOutput(handle));
     } catch (e, st) {
       log(
         'Session.getOutput: error getting output ffmpeg_kit_session_get_output',
@@ -894,7 +895,7 @@ abstract class Session {
   String? getLogsAsString() {
     FFmpegKitExtended.requireInitialized();
     try {
-      return ffmpegKitBackend.getLogsAsString(handle);
+      return _formatNativeLogOutput(ffmpegKitBackend.getLogsAsString(handle));
     } catch (e, st) {
       log(
         'Session.getLogsAsString: error getting logs as string ffmpeg_kit_session_get_logs_as_string',
@@ -903,6 +904,24 @@ abstract class Session {
       );
       rethrow;
     }
+  }
+
+  String? _formatNativeLogOutput(String? nativeOutput) {
+    if (nativeOutput == null) {
+      return null;
+    }
+
+    final count = getLogsCount();
+    if (count <= 0) {
+      return nativeOutput;
+    }
+
+    final nativeMessages = List<String>.generate(
+      count,
+      (index) => ffmpegKitBackend.getLogAt(handle, index) ?? '',
+      growable: false,
+    );
+    return formatLogOutputIfMissingLineFeeds(nativeOutput, nativeMessages);
   }
 
   /// Returns the failure stack trace captured when the session failed, or
@@ -958,7 +977,9 @@ abstract class Session {
   String getLogAt(int index) {
     FFmpegKitExtended.requireInitialized();
     try {
-      return ffmpegKitBackend.getLogAt(handle, index) ?? '';
+      return ensureLogMessageLineFeed(
+        ffmpegKitBackend.getLogAt(handle, index) ?? '',
+      );
     } catch (e, st) {
       log(
         'Session.getLogAt: error getting log at index $index ffmpeg_kit_session_get_log_at',

@@ -1093,7 +1093,9 @@ test('explicitly enabled redirection delivers direct logs without wrapper reconf
   sessionState = 2;
   await execution;
 
-  assert.deepEqual(logs, [{ sessionId: 32, level: 32, message: 'visible' }]);
+  assert.deepEqual(logs, [
+    { sessionId: 32, level: 32, message: 'visible\n' },
+  ]);
   assert.equal(redirectionEnableCalls, 1);
   assert.equal(redirectionDisableCalls, 0);
 });
@@ -1116,8 +1118,8 @@ test('direct v2 logs preserve sequence order without live history reads', async 
 
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.deepEqual(received, [
-    { sessionId: 28, level: 32, message: 'first' },
-    { sessionId: 28, level: 33, message: 'second' },
+    { sessionId: 28, level: 32, message: 'first\n' },
+    { sessionId: 28, level: 33, message: 'second\n' },
   ]);
   assert.equal(logReads, 0);
   assert.equal(bridgeInstalls.log, 1);
@@ -1154,9 +1156,9 @@ test('terminal reconciliation recovers a direct-log gap with one bounded history
   await execution;
 
   assert.deepEqual(received, [
-    { sessionId: 30, level: 32, message: 'first' },
-    { sessionId: 30, level: 33, message: 'second' },
-    { sessionId: 30, level: 34, message: 'third' },
+    { sessionId: 30, level: 32, message: 'first\n' },
+    { sessionId: 30, level: 33, message: 'second\n' },
+    { sessionId: 30, level: 34, message: 'third\n' },
   ]);
   assert.equal(logCountReads, 1);
   assert.equal(logReads, 1);

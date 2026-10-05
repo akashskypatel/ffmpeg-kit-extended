@@ -97,7 +97,7 @@ export interface Log {
   sessionId: number;
   /** Numeric FFmpeg log level; compare with `LogLevel` when applicable. */
   level: number;
-  /** Message text exactly as buffered by the native wrapper. */
+  /** Message text, terminated with a line feed when non-empty. */
   message: string;
 }
 

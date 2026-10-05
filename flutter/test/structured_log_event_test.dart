@@ -1,6 +1,7 @@
 import 'package:ffmpeg_kit_extended_flutter/src/callback_manager.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/log.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/log_format.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/callback_log_event.dart';
 import 'package:test/test.dart';
 
@@ -52,7 +53,7 @@ void main() {
       expect(session.historyReads, 0);
       expect(session.delivered, hasLength(1));
       expect(session.delivered.single.level, 24);
-      expect(session.delivered.single.message, 'warning');
+      expect(session.delivered.single.message, 'warning\n');
       expect(session.nextExpectedLogSequence, 1);
       expect(session.logsProcessed, 1);
     });
@@ -88,9 +89,9 @@ void main() {
 
       expect(session.historyReads, 1);
       expect(session.delivered.map((log) => log.message), <String>[
-        'history-0',
-        'history-1',
-        'direct-after-gap',
+        'history-0\n',
+        'history-1\n',
+        'direct-after-gap\n',
       ]);
       expect(session.nextExpectedLogSequence, 3);
       expect(session.logsProcessed, 3);
@@ -125,7 +126,9 @@ void main() {
       );
       session.dispatchPendingLogs();
 
-      expect(session.delivered.map((log) => log.message), <String>['terminal']);
+      expect(session.delivered.map((log) => log.message), <String>[
+        'terminal\n',
+      ]);
       expect(session.historyReads, 1);
     });
 
@@ -234,6 +237,63 @@ void main() {
           release: (_) => throw cleanup,
         ),
         throwsA(same(cleanup)),
+      );
+    });
+  });
+
+  group('log message line formatting fallback', () {
+    test('adds one line feed when the native message has none', () {
+      expect(Log(1, 32, 'message').message, 'message\n');
+    });
+
+    test('does not duplicate an existing line feed', () {
+      expect(Log(1, 32, 'message\n').message, 'message\n');
+      expect(Log(1, 32, 'message\r\n').message, 'message\r\n');
+    });
+
+    test('adds a line feed after a bare carriage return', () {
+      expect(Log(1, 32, 'progress\r').message, 'progress\r\n');
+    });
+
+    test('keeps an empty native message empty', () {
+      expect(Log(1, 32, '').message, isEmpty);
+    });
+
+    test('formats each entry when assembling combined native output', () {
+      expect(
+        formatLogMessages(<String>['first', 'second\n', 'progress\r']),
+        'first\nsecond\nprogress\r\n',
+      );
+    });
+
+    test('repairs combined output only when it is raw log concatenation', () {
+      expect(
+        formatLogOutputIfMissingLineFeeds('firstsecond', <String>[
+          'first',
+          'second',
+        ]),
+        'first\nsecond\n',
+      );
+      expect(
+        formatLogOutputIfMissingLineFeeds('first\nsecond\n', <String>[
+          'first\n',
+          'second\n',
+        ]),
+        'first\nsecond\n',
+      );
+      expect(
+        formatLogOutputIfMissingLineFeeds('different native output', <String>[
+          'first',
+          'second',
+        ]),
+        'different native output',
+      );
+    });
+
+    test('JSON-escapes formatted messages', () {
+      expect(
+        Log(1, 32, 'line "one"').toJson(),
+        '{"sessionId":1,"level":32,"message":"line \\"one\\"\\n"}',
       );
     });
   });
