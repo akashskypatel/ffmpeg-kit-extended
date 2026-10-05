@@ -5,6 +5,10 @@
 #include "ExamplePlatformModule.h"
 #include "NativeModules.h"
 
+#include <appmodel.h>
+#include <string>
+#include <vector>
+
 struct CompReactPackageProvider
     : winrt::implements<CompReactPackageProvider,
                         winrt::Microsoft::ReactNative::IReactPackageProvider> {
@@ -32,8 +36,30 @@ _Use_decl_annotations_ int CALLBACK WinMain(HINSTANCE instance,
       settings.PackageProviders());
   settings.PackageProviders().Append(winrt::make<CompReactPackageProvider>());
 
-  settings.BundleRootPath(
-      std::wstring(L"file://").append(appDirectory).append(L"\\Bundle\\").c_str());
+  UINT32 packagePathLength = 0;
+  std::wstring bundleRootPath;
+  if (GetCurrentPackagePath(&packagePathLength, nullptr) ==
+      ERROR_INSUFFICIENT_BUFFER) {
+    std::vector<wchar_t> packagePath(packagePathLength);
+    if (GetCurrentPackagePath(&packagePathLength, packagePath.data()) ==
+        ERROR_SUCCESS) {
+      bundleRootPath.assign(packagePath.data());
+      if (!bundleRootPath.empty() && bundleRootPath.back() != L'\\') {
+        bundleRootPath.push_back(L'\\');
+      }
+      bundleRootPath.append(L"Bundle\\");
+    }
+  }
+
+  if (!bundleRootPath.empty()) {
+    // RNW resolves non-resource bundle roots as filesystem paths. Passing an
+    // ms-appx URI here would be treated as a literal path by the local bundle
+    // reader in the RNW version used by this example.
+    settings.BundleRootPath(bundleRootPath.c_str());
+  } else {
+    settings.BundleRootPath(
+        std::wstring(appDirectory).append(L"\\Bundle\\").c_str());
+  }
   settings.JavaScriptBundleFile(L"index.windows");
   settings.DebugBundlePath(L"index");
 

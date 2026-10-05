@@ -9,8 +9,7 @@ WinAppDriver/Appium as the first-line Windows dependency.
 
 On the Windows host install or expose Python 3.10+, `uv`, and the AutoGenesis
 pywinauto MCP server from its upstream repository. Pin and record the exact
-AutoGenesis commit used for a real test; this host has not yet run that
-external server, so the commit remains an explicit acceptance blocker.
+AutoGenesis commit used for a real test in the local evidence record.
 
 The application must be accessible to the desktop automation account. Do not
 run the agent at a different privilege level from the application unless the
@@ -62,6 +61,16 @@ corresponding accessibility property, and record which property was used.
 If semantic mapping is absent, fix the React Native testID/accessibility
 surface. Do not silently replace it with a coordinate click.
 
+On React Native Windows, these controls expose their AutomationIds but do not
+implement a working UI Automation Invoke action. AutoGenesis `element_click`
+uses pywinauto `click_input`, which moves the real pointer. Foreground the app
+and reserve the mouse for the test. Before clicking a control below the
+viewport, use `mouse_scroll` over the content and confirm its bounds are inside
+the window; a successful tool response alone does not prove the press reached
+the app. The FFplay `Custom Command:` label is a stable scroll anchor before
+and during playback. Reject a tool response with an `error` field even if its
+`status` says `success`.
+
 ## Run smoke scenarios
 
 Run startup/navigation, FFmpeg async and awaited version, generated video plus
@@ -70,6 +79,12 @@ generated-media transcode. Use the semantic selectors defined by the shared
 example UI. AutoGenesis-generated BDD/code files are not committed unless they
 are deterministic, readable, stable-selector tests that add coverage beyond
 the simpler wrapper tests.
+
+For FFplay, take a screenshot of the **app window during playback** and inspect
+the video region for the generated red, green, blue, and white quadrants.
+Check the visible `State: Playing`, `State: Paused`, `State: Playing`, and
+`State: Stopped` transitions after Play, Pause, Resume, and Stop. Starting a
+command or finding a button in the UI tree is not playback acceptance.
 
 ## Expected evidence
 
