@@ -7,6 +7,7 @@ For the local interactive test contract and evidence requirements, see
 [`../../docs/interactive-testing.md`](../../docs/interactive-testing.md) and
 [`../TEST.md`](../TEST.md). The platform agent guides are
 [`.maestro/`](.maestro/),
+[the Windows Android MCP guide](interactive-tests/android/mcp-android-emulator.md),
 [`interactive-tests/appium/`](interactive-tests/appium/), and
 [`interactive-tests/windows/`](interactive-tests/windows/).
 

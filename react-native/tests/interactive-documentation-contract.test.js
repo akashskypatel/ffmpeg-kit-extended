@@ -22,6 +22,7 @@ test("interactive documentation links every local authority and boundary", () =>
     "remote or historical ABI",
     "Marionette",
     "Maestro",
+    "mcp-android-emulator",
     "Appium MCP with Mac2",
     "Appium MCP with XCUITest",
     "AutoGenesis pywinauto MCP",
@@ -41,10 +42,10 @@ test("interactive documentation links every local authority and boundary", () =>
   assert.match(flutterGuide, /Marionette/);
   assert.match(flutterGuide, /local ABI/);
   assert.match(rnGuide, /example\/\.maestro/);
+  assert.match(rnGuide, /interactive-tests\/android\/mcp-android-emulator\.md/);
   assert.match(rnGuide, /interactive-tests\/appium/);
   assert.match(rnGuide, /interactive-tests\/windows/);
   assert.match(rnExample, /docs\/interactive-testing\.md/);
   assert.doesNotMatch(rootGuide, /run .*interactive.*(?:GitHub Actions|workflow)/i);
   assert.doesNotMatch(rootGuide, /download .*historical/i);
 });
-

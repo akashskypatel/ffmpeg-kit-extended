@@ -8,6 +8,7 @@ const { test } = require("node:test");
 const assetsRoot = path.join(__dirname, "..", "example", ".maestro");
 const appiumRoot = path.join(__dirname, "..", "example", "interactive-tests", "appium");
 const windowsInteractiveRoot = path.join(__dirname, "..", "example", "interactive-tests", "windows");
+const androidInteractiveRoot = path.join(__dirname, "..", "example", "interactive-tests", "android");
 const rootFlows = {
   android: {
     file: path.join(assetsRoot, "android", "core-media-smoke.yaml"),
@@ -103,3 +104,19 @@ test("Windows AutoGenesis assets preserve a semantic, local-only launch contract
   assert.doesNotMatch(content, /maestro cloud/i);
 });
 
+test("Windows Android MCP assets preserve a semantic, local-only launch contract", () => {
+  const guide = read(path.join(androidInteractiveRoot, "mcp-android-emulator.md"));
+  const configBlock = guide.match(/```toml\r?\n([\s\S]*?)\r?\n```/);
+  assert.ok(configBlock, "guide includes a portable Codex MCP configuration example");
+  const config = configBlock[1];
+  assert.match(guide, /mcp-android-emulator@2\.0\.0/);
+  assert.match(guide, /Medium_Phone_API_36\.1/);
+  assert.match(guide, /emulator-5554/);
+  assert.match(guide, /ffplay\.play-video/);
+  assert.match(guide, /non-black/);
+  assert.match(config, /\[mcp_servers\.android_emulator\]/);
+  assert.match(config, /command = "mcp-android-emulator\.cmd"/);
+  assert.match(config, /ADB_PATH = "adb"/);
+  assert.doesNotMatch(`${guide}\n${config}`, /maestro\s+cloud/i);
+  assert.doesNotMatch(`${guide}\n${config}`, /https?:\/\/(?!127\.0\.0\.1|localhost)/i);
+});

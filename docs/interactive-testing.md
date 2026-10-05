@@ -21,14 +21,14 @@ policy, and process cleanup requirements.
 | Flutter macOS | Marionette MCP | MacBook Air, local Apple runtime |
 | Flutter iOS | Marionette MCP | MacBook Air, iOS Simulator |
 | RN Web | Existing Playwright smoke | Browser/Wasm staging is local; not a mobile MCP target |
-| RN Android | Maestro MCP and committed flows | Local Android emulator/device |
+| RN Android | `mcp-android-emulator` on Windows; Maestro MCP and committed flows elsewhere | Local Android emulator/device |
 | RN iOS | Maestro MCP and committed flows | Local iOS Simulator |
 | RN macOS | Appium MCP with Mac2 | Local loopback Appium server; serial UI tests |
 | RN tvOS | Appium MCP with XCUITest | Local tvOS Simulator; focus/remote actions |
 | RN Windows | AutoGenesis pywinauto MCP | Local Windows desktop; semantic AutomationId first |
 
 MobileBuildMCP is an optional Apple build/simulator/log/debug companion. It is
-not the tvOS UI authority. Maestro, Appium, AutoGenesis, and MobileBuildMCP
+not the tvOS UI authority. `mcp-android-emulator`, Maestro, Appium, AutoGenesis, and MobileBuildMCP
 are external development tools and are not published runtime dependencies.
 
 ## Common prerequisites
@@ -117,8 +117,11 @@ See [`react-native/TEST.md`](../react-native/TEST.md), the
 
 ### Prerequisites
 
-Use Node/npm plus the platform SDK. Maestro is required for RN Android/iOS,
-Appium with Mac2/XCUITest for RN Apple desktop/tvOS, and AutoGenesis pywinauto
+Use Node/npm plus the platform SDK. On Windows Android, use the local
+[`mcp-android-emulator` guide](../react-native/example/interactive-tests/android/mcp-android-emulator.md)
+as the Maestro alternative. Maestro remains the committed-flow authority for
+RN iOS and an optional Android tool. Appium is used with Mac2/XCUITest for RN
+Apple desktop/tvOS, and AutoGenesis pywinauto
 for RN Windows. Install these tools outside the published package and record
 the exact tested version or commit.
 
@@ -144,7 +147,9 @@ the existing local Playwright/Vite smoke path.
 
 ### Connect agent tool
 
-Inspect the UI tree first. Maestro uses committed semantic flows, Appium uses
+Inspect the UI tree first. The Windows Android MCP server uses semantic UI-tree
+operations and `testID`-backed elements; Maestro uses committed semantic flows,
+Appium uses
 page-source accessibility IDs, and AutoGenesis uses AutomationId/accessibility
 properties. Do not replace a missing semantic selector with coordinates.
 

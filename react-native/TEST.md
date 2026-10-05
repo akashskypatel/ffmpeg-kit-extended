@@ -5,6 +5,8 @@ The cross-wrapper entry point is
 native agent surfaces are:
 
 - [committed Maestro flows](example/.maestro/), the RN Android/iOS authority;
+- [Windows Android MCP guide](example/interactive-tests/android/mcp-android-emulator.md),
+  the `mcp-android-emulator` alternative for the local Android emulator;
 - [Appium/Mac2 and XCUITest guide](example/interactive-tests/appium/README.md)
   for RN macOS/tvOS;
 - [AutoGenesis Windows guide](example/interactive-tests/windows/README.md) for
@@ -50,6 +52,13 @@ flows contain only semantic `testID` selectors and no platform app ID,
 coordinates, or Maestro Cloud calls. A build without a real flow execution is
 not a mobile interactive pass; record an unavailable device, simulator, CLI,
 or local override as an exact **not run** blocker.
+
+For Windows Android, use the [MCP emulator guide](example/interactive-tests/android/mcp-android-emulator.md)
+when the Maestro CLI is unavailable. It preserves the same semantic selectors,
+local-runtime boundary, media scenarios, screenshot evidence, and cleanup
+requirements without introducing Maestro as a package dependency. Maestro
+remains the committed-flow authority for RN iOS and remains available as an
+optional Android tool when installed.
 
 Run the package-level validation suite from the repository root:
 
