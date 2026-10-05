@@ -14,7 +14,8 @@ const appRoot = path.resolve(__dirname, '..', 'example');
 const url = 'http://127.0.0.1:4173/';
 const SMOKE_TIMEOUT_MS = 120000;
 const taskTag = process.env.FFMPEG_KIT_TASK_TAG || 'ffmpeg-kit-rn-web-smoke';
-const screenshotPath = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
+const screenshotList = process.env.FFMPEG_KIT_SURFACE_SCREENSHOTS;
+const legacyScreenshotPath = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
 
 function waitForPort(port, host, timeoutMs = 30000) {
   const started = Date.now();
@@ -39,7 +40,29 @@ function waitForPort(port, host, timeoutMs = 30000) {
 }
 
 async function main() {
-  const {assertCanvasFramePixels} = await import('../../scripts/ffplay-surface-pixels.mjs');
+  const {
+    assertCanvasFrameSequence,
+    assertFrameSequence,
+    readContract,
+  } = await import('../../scripts/ffplay-surface-pixels.mjs');
+  const contract = readContract();
+  const screenshotPaths = screenshotList
+    ? JSON.parse(screenshotList)
+    : legacyScreenshotPath
+      ? [
+          legacyScreenshotPath,
+          ...contract.phases.slice(1).map((_, index) =>
+            `${legacyScreenshotPath}.phase-${index + 1}.png`,
+          ),
+        ]
+      : undefined;
+  if (screenshotPaths) {
+    assert.equal(
+      screenshotPaths.length,
+      contract.phases.length,
+      `Expected ${contract.phases.length} screenshot paths, got ${screenshotPaths.length}`,
+    );
+  }
   await prepareWeb(['--app-root', appRoot, '--quiet', 'true']);
 
   const command = process.execPath;
@@ -119,34 +142,63 @@ async function main() {
       {timeout: SMOKE_TIMEOUT_MS},
     );
 
-    const frameHandle = await page.waitForFunction(() => {
-      const canvas = document.querySelector('canvas');
-      if (!canvas || canvas.width !== 160 || canvas.height !== 90) return null;
-      const context = canvas.getContext('2d');
-      if (!context) return null;
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let rgbMax = 0;
-      for (let index = 0; index < pixels.length; index += 4) {
-        const pixelMax = Math.max(pixels[index], pixels[index + 1], pixels[index + 2]);
-        rgbMax = Math.max(rgbMax, pixelMax);
+    const renderedFrames = [];
+    for (let phaseIndex = 0; phaseIndex < contract.phases.length; phaseIndex += 1) {
+      const phase = contract.phases[phaseIndex];
+      const expectedPhaseHandle = await page.waitForFunction(
+        ({width, height, samples, rgba, tolerance}) => {
+          const canvas = document.querySelector('canvas');
+          if (!canvas || canvas.width !== width || canvas.height !== height) return false;
+          const context = canvas.getContext('2d');
+          if (!context) return false;
+          return samples.every(({x, y}) => {
+            const pixel = context.getImageData(x, y, 1, 1).data;
+            return [...pixel].every((value, channel) =>
+              Math.abs(value - rgba[channel]) <= tolerance,
+            );
+          });
+        },
+        {
+          width: contract.width,
+          height: contract.height,
+          samples: contract.samples,
+          rgba: phase.rgba,
+          tolerance: phase.tolerance,
+        },
+        {timeout: SMOKE_TIMEOUT_MS},
+      );
+      await expectedPhaseHandle.dispose();
+      const frame = await page.locator('canvas').evaluate(canvas => {
+        const context = canvas.getContext('2d');
+        const rgba = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        return {width: canvas.width, height: canvas.height, rgba: Array.from(rgba)};
+      });
+      renderedFrames.push(frame);
+      if (screenshotPaths) {
+        const screenshotPath = screenshotPaths[phaseIndex];
+        fs.mkdirSync(path.dirname(screenshotPath), {recursive: true});
+        await page.locator('canvas').screenshot({path: screenshotPath});
+        process.stdout.write(
+          `FFplay ${phase.name} video surface screenshot: ${screenshotPath}\n`,
+        );
       }
-      if (rgbMax === 0) return null;
-      return {width: canvas.width, height: canvas.height, rgba: Array.from(pixels)};
-    }, undefined, {timeout: SMOKE_TIMEOUT_MS});
-    const frame = await frameHandle.jsonValue();
-    await frameHandle.dispose();
-    const pixelResult = assertCanvasFramePixels({
-      width: frame.width,
-      height: frame.height,
-      rgba: frame.rgba,
-      label: 'React Native Web FFplay surface',
-    });
-    if (screenshotPath) {
-      fs.mkdirSync(path.dirname(screenshotPath), {recursive: true});
-      await page.locator('canvas').screenshot({path: screenshotPath});
-      process.stdout.write(`FFplay video surface screenshot: ${screenshotPath}\n`);
     }
-    process.stdout.write(`WebAssembly video surface pixel check: ${JSON.stringify(pixelResult)}\n`);
+    const pixelResult = assertCanvasFrameSequence({
+      frames: renderedFrames,
+      label: 'React Native Web FFplay playback surface',
+    });
+    if (screenshotPaths) {
+      const screenshotResult = assertFrameSequence({
+        imagePaths: screenshotPaths,
+        label: 'React Native Web FFplay screenshot sequence',
+      });
+      process.stdout.write(
+        `Web screenshot sequence pixel check: ${JSON.stringify(screenshotResult)}\n`,
+      );
+    }
+    process.stdout.write(
+      `WebAssembly changing-frame pixel check: ${JSON.stringify(pixelResult)}\n`,
+    );
 
     process.stdout.write('browser: ffplay pause\n');
     await page.getByRole('button', {name: 'Pause'}).click();

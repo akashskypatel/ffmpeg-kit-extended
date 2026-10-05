@@ -51,23 +51,24 @@ void main() async {
   String outputDir = "";
 
   const String frameContractSource =
-      'color=c=black:size=160x90:rate=30:duration=30,'
-      'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
-      'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
-      'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
-      'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+      'color=c=red:size=512x512:rate=30:duration=2[red];'
+      'color=c=green:size=512x512:rate=30:duration=2[green];'
+      'color=c=blue:size=512x512:rate=30:duration=2[blue];'
+      'color=c=white:size=512x512:rate=30:duration=2[white];'
+      '[red][green][blue][white]concat=n=4:v=1:a=0';
   const String dummyVideoCommand =
-      "-hide_banner -loglevel info -f lavfi -i $frameContractSource";
+      "-hide_banner -loglevel info -f lavfi -i \"$frameContractSource\"";
   const String dummyAudioCommand =
       "-hide_banner -loglevel info -f lavfi -i sine=frequency=1000:duration=3 -c:a pcm_s16le";
-  const frameContractSamples = <({String name, int x, int y, List<int> rgba})>[
-    (name: 'top-left red', x: 20, y: 20, rgba: [253, 0, 0, 255]),
-    (name: 'top-right green', x: 100, y: 20, rgba: [0, 127, 0, 255]),
-    (name: 'bottom-left blue', x: 20, y: 65, rgba: [0, 0, 254, 255]),
-    (name: 'bottom-right white', x: 100, y: 65, rgba: [255, 255, 255, 255]),
-  ];
-  const frameWidth = 160;
-  const frameHeight = 90;
+  const frameContractPhases =
+      <({String name, double atSeconds, List<int> rgba})>[
+        (name: 'red', atSeconds: 0.5, rgba: [253, 0, 0, 255]),
+        (name: 'green', atSeconds: 2.5, rgba: [0, 127, 0, 255]),
+        (name: 'blue', atSeconds: 4.5, rgba: [0, 0, 254, 255]),
+        (name: 'white', atSeconds: 6.5, rgba: [255, 255, 255, 255]),
+      ];
+  const frameWidth = 512;
+  const frameHeight = 512;
   const frameRgbaTolerance = 32;
 
   Future<List<int>> decodeFrameRgba({
@@ -113,38 +114,45 @@ void main() async {
     );
     final outputFramePath = path.join(outputDir, '.ffplay-output-frame.rgba');
     try {
-      final originalFrame = await decodeFrameRgba(
-        inputArguments: '-f lavfi -i "$frameContractSource"',
-        outputPath: originalFramePath,
-        label: 'original input',
-      );
-      final outputFrame = await decodeFrameRgba(
-        inputArguments: '-ss 0 -i "$videoPath"',
-        outputPath: outputFramePath,
-        label: 'final output $videoPath',
-      );
-      for (final sample in frameContractSamples) {
-        final offset = (sample.y * frameWidth + sample.x) * 4;
+      final originalSignatures = <String>{};
+      final outputSignatures = <String>{};
+      for (final phase in frameContractPhases) {
+        final originalFrame = await decodeFrameRgba(
+          inputArguments:
+              '-f lavfi -i "$frameContractSource" -ss ${phase.atSeconds}',
+          outputPath: originalFramePath,
+          label: 'original input at ${phase.atSeconds}s',
+        );
+        final outputFrame = await decodeFrameRgba(
+          inputArguments: '-ss ${phase.atSeconds} -i "$videoPath"',
+          outputPath: outputFramePath,
+          label: 'final output at ${phase.atSeconds}s',
+        );
+        final offset = ((frameHeight ~/ 2) * frameWidth + frameWidth ~/ 2) * 4;
         final originalPixel = originalFrame.sublist(offset, offset + 4);
         final outputPixel = outputFrame.sublist(offset, offset + 4);
         for (var index = 0; index < originalPixel.length; index++) {
           expect(
-            (originalPixel[index] - sample.rgba[index]).abs(),
+            (originalPixel[index] - phase.rgba[index]).abs(),
             lessThanOrEqualTo(frameRgbaTolerance),
             reason:
-                '${sample.name} original input channel $index expected '
-                '${sample.rgba[index]}, got ${originalPixel[index]}',
+                '${phase.name} original input channel $index expected '
+                '${phase.rgba[index]}, got ${originalPixel[index]}',
           );
           expect(
             (outputPixel[index] - originalPixel[index]).abs(),
             lessThanOrEqualTo(frameRgbaTolerance),
             reason:
-                '${sample.name} final output channel $index differs from '
+                '${phase.name} final output channel $index differs from '
                 'original input: original ${originalPixel[index]}, '
                 'final ${outputPixel[index]}',
           );
         }
+        originalSignatures.add(originalPixel.join(','));
+        outputSignatures.add(outputPixel.join(','));
       }
+      expect(originalSignatures, hasLength(frameContractPhases.length));
+      expect(outputSignatures, hasLength(frameContractPhases.length));
     } finally {
       for (final file in [File(originalFramePath), File(outputFramePath)]) {
         if (file.existsSync()) {
@@ -841,7 +849,7 @@ void main() async {
       if (kDebugMode) print(session.getOutput());
     });
 
-    testWidgets('Generated video preserves the frame pixel contract', (
+    testWidgets('Generated video changes frame colors over time', (
       WidgetTester tester,
     ) async {
       await verifyGeneratedVideoFramePixels();

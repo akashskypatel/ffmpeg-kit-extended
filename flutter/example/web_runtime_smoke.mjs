@@ -3,7 +3,11 @@ import {mkdirSync, mkdtempSync, rmSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
-import {assertFramePixels} from '../../scripts/ffplay-surface-pixels.mjs';
+import {
+  assertFramePixels,
+  assertFrameSequence,
+  readContract,
+} from '../../scripts/ffplay-surface-pixels.mjs';
 
 const require = createRequire(import.meta.url);
 let chromium;
@@ -22,12 +26,24 @@ const page = await browser.newPage({locale: 'en-US'});
 const pageErrors = [];
 const consoleErrors = [];
 const runtimeRoot = process.argv[3];
-const surfaceScreenshot = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
-const temporaryCaptureDirectory = surfaceScreenshot
-  ? undefined
-  : mkdtempSync(path.join(tmpdir(), 'ffmpeg-kit-flutter-web-'));
-const pixelScreenshot =
-  surfaceScreenshot ?? path.join(temporaryCaptureDirectory, 'ffplay-surface.png');
+const contract = readContract();
+const configuredScreenshots = process.env.FFMPEG_KIT_SURFACE_SCREENSHOTS;
+const legacyScreenshot = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
+const temporaryCaptureDirectory =
+  configuredScreenshots || legacyScreenshot
+    ? undefined
+    : mkdtempSync(path.join(tmpdir(), 'ffmpeg-kit-flutter-web-'));
+const screenshotPaths = configuredScreenshots
+  ? JSON.parse(configuredScreenshots)
+  : legacyScreenshot
+    ? [
+        legacyScreenshot,
+        ...contract.phases.slice(1).map((_, index) =>
+          `${legacyScreenshot}.phase-${index + 1}.png`),
+      ]
+    : contract.phases.map((_, index) =>
+        path.join(temporaryCaptureDirectory, `ffplay-phase-${index}.png`),
+      );
 const runtimeRequests = [];
 const failedAssetResponses = [];
 
@@ -52,19 +68,48 @@ try {
     null,
     {timeout: 120_000},
   );
-  await page.waitForTimeout(500);
-  mkdirSync(path.dirname(pixelScreenshot), {recursive: true});
-  await page.screenshot({
-    path: pixelScreenshot,
-    clip: {x: 0, y: 0, width: 160, height: 90},
+  assert.equal(
+    screenshotPaths.length,
+    contract.phases.length,
+    `Expected ${contract.phases.length} screenshot paths, got ${screenshotPaths.length}`,
+  );
+  for (let index = 0; index < screenshotPaths.length; index += 1) {
+    const screenshotPath = screenshotPaths[index];
+    mkdirSync(path.dirname(screenshotPath), {recursive: true});
+    const phase = contract.phases[index];
+    const phaseDeadline = Date.now() + 4000;
+    let lastPixelError;
+    while (Date.now() < phaseDeadline) {
+      await page.screenshot({
+        path: screenshotPath,
+        clip: {x: 0, y: 0, width: 320, height: 320},
+      });
+      try {
+        assertFramePixels({
+          imagePath: screenshotPath,
+          label: `Flutter Web FFplay ${phase.name} phase`,
+          phaseIndex: index,
+        });
+        lastPixelError = undefined;
+        break;
+      } catch (error) {
+        lastPixelError = error;
+        await page.waitForTimeout(100);
+      }
+    }
+    assert.equal(
+      lastPixelError,
+      undefined,
+      `Did not capture the ${phase.name} phase: ${lastPixelError?.message ?? 'timed out'}`,
+    );
+  }
+  const frameSequence = assertFrameSequence({
+    imagePaths: screenshotPaths,
+    label: 'Flutter Web FFplay playback surface',
   });
-  const frame = assertFramePixels({
-    imagePath: pixelScreenshot,
-    label: 'Flutter Web FFplay surface',
-  });
-  console.log(`Flutter Web FFplay surface pixel check: ${JSON.stringify(frame)}`);
-  if (surfaceScreenshot) {
-    console.log(`Flutter Web FFplay surface screenshot: ${surfaceScreenshot}`);
+  console.log(`Flutter Web FFplay changing-frame check: ${JSON.stringify(frameSequence)}`);
+  if (configuredScreenshots || legacyScreenshot) {
+    console.log(`Flutter Web FFplay screenshots: ${screenshotPaths.join(', ')}`);
   }
   try {
     await page.waitForFunction(

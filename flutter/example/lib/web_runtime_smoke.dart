@@ -6,11 +6,11 @@ import 'package:web/web.dart' as web;
 
 const _smokeMediaPath = '/runtime-smoke.mp4';
 const _smokeFrameSource =
-    'color=c=black:size=160x90:rate=4,'
-    'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
-    'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
-    'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
-    'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+    'color=c=red:size=512x512:rate=30:duration=2[red];'
+    'color=c=green:size=512x512:rate=30:duration=2[green];'
+    'color=c=blue:size=512x512:rate=30:duration=2[blue];'
+    'color=c=white:size=512x512:rate=30:duration=2[white];'
+    '[red][green][blue][white]concat=n=4:v=1:a=0';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,12 +51,8 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       });
 
       final ffmpegSession = await FFmpegKit.executeAsync(
-        '-hide_banner -nostdin -f lavfi -i '
-        'color=c=black:size=160x90:rate=4,drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,'
-        'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,'
-        'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,'
-        'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill -f lavfi -i '
-        'sine=frequency=1000:duration=1 -c:v mpeg2video -c:a aac '
+        '-hide_banner -nostdin -f lavfi -i "$_smokeFrameSource" -f lavfi -i '
+        'sine=frequency=1000:duration=8 -c:v mpeg2video -c:a aac '
         '-shortest -y $_smokeMediaPath',
       );
       if (!ReturnCode.isSuccess(ffmpegSession.getReturnCode())) {
@@ -95,7 +91,7 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       }
       _addStatus('MEDIA_INFO_OK');
 
-      final surface = await FFplaySurface.create(width: 160, height: 90);
+      final surface = await FFplaySurface.create(width: 512, height: 512);
       if (surface == null) {
         throw StateError('Flutter Web FFplay surface could not be created.');
       }
@@ -107,7 +103,7 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
 
       final playbackCompleted = Completer<void>();
       final ffplaySession = await FFplayKit.executeAsync(
-        '-loglevel fatal -f lavfi -i $_smokeFrameSource -t 1 -autoexit',
+        '-loglevel fatal -f lavfi -i "$_smokeFrameSource" -t 8 -autoexit',
         onComplete: (_) {
           if (!playbackCompleted.isCompleted) playbackCompleted.complete();
         },
@@ -119,10 +115,6 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
           if (FFplayKit.playing) FFplayKit.stop();
         },
       );
-      // Keep the mounted surface visible long enough for the browser smoke to
-      // capture it even when Wasm decodes the short fixture faster than real
-      // time. The screenshot is still taken only after FFPLAY_STARTED.
-      await Future<void>.delayed(const Duration(seconds: 2));
       if (ffplaySession.isPlaying()) {
         ffplaySession.stop();
       }
@@ -159,13 +151,13 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
           children: [
             if (_surface != null)
               SizedBox(
-                width: 160,
-                height: 90,
+                width: 320,
+                height: 320,
                 child: FFplayView(
                   surface: _surface!,
-                  aspectRatio: 160 / 90,
-                  videoWidth: 160,
-                  videoHeight: 90,
+                  aspectRatio: 1,
+                  videoWidth: 512,
+                  videoHeight: 512,
                 ),
               ),
             SelectableText(_statuses.join('\n')),

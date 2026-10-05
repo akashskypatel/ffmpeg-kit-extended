@@ -13,17 +13,17 @@ import 'package:marionette_flutter/marionette_flutter.dart';
 import 'platform_flags.dart' as platform;
 
 const _ffplayFrameSource =
-    'color=c=black:size=512x512:rate=30,'
-    'drawbox=x=0:y=0:w=256:h=256:color=red:t=fill,'
-    'drawbox=x=256:y=0:w=256:h=256:color=green:t=fill,'
-    'drawbox=x=0:y=256:w=256:h=256:color=blue:t=fill,'
-    'drawbox=x=256:y=256:w=256:h=256:color=white:t=fill';
+    'color=c=red:size=512x512:rate=30:duration=2[red];'
+    'color=c=green:size=512x512:rate=30:duration=2[green];'
+    'color=c=blue:size=512x512:rate=30:duration=2[blue];'
+    'color=c=white:size=512x512:rate=30:duration=2[white];'
+    '[red][green][blue][white]concat=n=4:v=1:a=0';
 
-const _ffplayFrameSamples = <({String name, int x, int y, List<int> rgba})>[
-  (name: 'top-left red', x: 128, y: 128, rgba: [253, 0, 0, 255]),
-  (name: 'top-right green', x: 384, y: 128, rgba: [0, 127, 0, 255]),
-  (name: 'bottom-left blue', x: 128, y: 384, rgba: [0, 0, 254, 255]),
-  (name: 'bottom-right white', x: 384, y: 384, rgba: [255, 255, 255, 255]),
+const _ffplayFramePhases = <({String name, double atSeconds, List<int> rgba})>[
+  (name: 'red phase', atSeconds: 0.5, rgba: [253, 0, 0, 255]),
+  (name: 'green phase', atSeconds: 2.5, rgba: [0, 127, 0, 255]),
+  (name: 'blue phase', atSeconds: 4.5, rgba: [0, 0, 254, 255]),
+  (name: 'white phase', atSeconds: 6.5, rgba: [255, 255, 255, 255]),
 ];
 const _ffplayFrameWidth = 512;
 const _ffplayFrameHeight = 512;
@@ -482,7 +482,7 @@ class _HomePageState extends State<HomePage>
     // Command with both video and audio streams
     final command =
         // "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
-        "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i $_ffplayFrameSource -f lavfi -i sine=frequency=1000:duration=30 -c:v mpeg2video -c:a aac -shortest -y";
+        "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i \"$_ffplayFrameSource\" -f lavfi -i sine=frequency=1000:duration=8 -c:v mpeg2video -c:a aac -shortest -y";
 
     await FFmpegKit.executeAsync(
       "$command \"$tempOutputPath\"",
@@ -547,28 +547,34 @@ class _HomePageState extends State<HomePage>
     );
     final outputFramePath = path.join(directory, '.ffplay-output-frame.rgba');
     try {
-      final originalFrame = await _decodeFrameRgba(
-        inputArguments: '-f lavfi -i "$_ffplayFrameSource"',
-        outputPath: originalFramePath,
-        label: 'Original input',
-      );
-      final outputFrame = await _decodeFrameRgba(
-        inputArguments: '-ss 0 -i "$videoPath"',
-        outputPath: outputFramePath,
-        label: 'Final output',
-      );
-      for (final sample in _ffplayFrameSamples) {
-        final offset = (sample.y * _ffplayFrameWidth + sample.x) * 4;
+      final originalSignatures = <String>{};
+      final outputSignatures = <String>{};
+      for (final phase in _ffplayFramePhases) {
+        final originalFrame = await _decodeFrameRgba(
+          inputArguments:
+              '-f lavfi -i "$_ffplayFrameSource" -ss ${phase.atSeconds}',
+          outputPath: originalFramePath,
+          label: 'Original input at ${phase.atSeconds}s',
+        );
+        final outputFrame = await _decodeFrameRgba(
+          inputArguments: '-ss ${phase.atSeconds} -i "$videoPath"',
+          outputPath: outputFramePath,
+          label: 'Final output at ${phase.atSeconds}s',
+        );
+        final offset =
+            ((_ffplayFrameHeight ~/ 2) * _ffplayFrameWidth +
+                (_ffplayFrameWidth ~/ 2)) *
+            4;
         final originalPixel = originalFrame.sublist(offset, offset + 4);
         final outputPixel = outputFrame.sublist(offset, offset + 4);
         if (originalPixel.asMap().entries.any(
           (entry) =>
-              (entry.value - sample.rgba[entry.key]).abs() >
+              (entry.value - phase.rgba[entry.key]).abs() >
               _ffplayFrameRgbaTolerance,
         )) {
           throw StateError(
-            'Original input pixel mismatch for ${sample.name}: '
-            'expected RGBA=${sample.rgba}, actual=$originalPixel',
+            'Original input pixel mismatch for ${phase.name}: '
+            'expected RGBA=${phase.rgba}, actual=$originalPixel',
           );
         }
         if (outputPixel.asMap().entries.any(
@@ -577,14 +583,23 @@ class _HomePageState extends State<HomePage>
               _ffplayFrameRgbaTolerance,
         )) {
           throw StateError(
-            'Final output frame differs from original input for ${sample.name}: '
+            'Final output frame differs from original input for ${phase.name}: '
             'original RGBA=$originalPixel, final RGBA=$outputPixel',
           );
         }
+        originalSignatures.add(originalPixel.join(','));
+        outputSignatures.add(outputPixel.join(','));
         _addLog(
-          'Verified ${sample.name}: '
+          'Verified ${phase.name} at ${phase.atSeconds}s: '
           'original RGBA=${originalPixel.join(',')}, '
           'final RGBA=${outputPixel.join(',')}',
+        );
+      }
+      if (originalSignatures.length != _ffplayFramePhases.length ||
+          outputSignatures.length != _ffplayFramePhases.length) {
+        throw StateError(
+          'Generated video did not change pixel values across all four '
+          'playback phases',
         );
       }
     } finally {

@@ -90,16 +90,16 @@ const FFPLAY_MONITOR_INTERVAL_MS = 250;
 const TEST_VIDEO_FRAME_WIDTH = 512;
 const TEST_VIDEO_FRAME_HEIGHT = 512;
 const TEST_VIDEO_SOURCE =
-  `color=c=black:size=${TEST_VIDEO_FRAME_WIDTH}x${TEST_VIDEO_FRAME_HEIGHT}:rate=30,` +
-  'drawbox=x=0:y=0:w=256:h=256:color=red:t=fill,' +
-  'drawbox=x=256:y=0:w=256:h=256:color=green:t=fill,' +
-  'drawbox=x=0:y=256:w=256:h=256:color=blue:t=fill,' +
-  'drawbox=x=256:y=256:w=256:h=256:color=white:t=fill';
+  `color=c=red:size=${TEST_VIDEO_FRAME_WIDTH}x${TEST_VIDEO_FRAME_HEIGHT}:rate=30:duration=2[red];` +
+  `color=c=green:size=${TEST_VIDEO_FRAME_WIDTH}x${TEST_VIDEO_FRAME_HEIGHT}:rate=30:duration=2[green];` +
+  `color=c=blue:size=${TEST_VIDEO_FRAME_WIDTH}x${TEST_VIDEO_FRAME_HEIGHT}:rate=30:duration=2[blue];` +
+  `color=c=white:size=${TEST_VIDEO_FRAME_WIDTH}x${TEST_VIDEO_FRAME_HEIGHT}:rate=30:duration=2[white];` +
+  '[red][green][blue][white]concat=n=4:v=1:a=0';
 const TEST_VIDEO_FRAME_SAMPLES = [
-  {name: 'top-left red', x: 128, y: 128, yuv: [81, 90, 240]},
-  {name: 'top-right green', x: 384, y: 128, yuv: [81, 91, 81]},
-  {name: 'bottom-left blue', x: 128, y: 384, yuv: [41, 240, 110]},
-  {name: 'bottom-right white', x: 384, y: 384, yuv: [235, 128, 128]},
+  {name: 'red phase', atSeconds: 0.5, yuv: [81, 90, 240]},
+  {name: 'green phase', atSeconds: 2.5, yuv: [81, 91, 81]},
+  {name: 'blue phase', atSeconds: 4.5, yuv: [41, 240, 110]},
+  {name: 'white phase', atSeconds: 6.5, yuv: [235, 128, 128]},
 ] as const;
 const TEST_VIDEO_FRAME_SAMPLE_TOLERANCE = 12;
 
@@ -369,8 +369,8 @@ export function ExampleApp({
     setGeneratedVideoVerification('Generating test video...');
     appendLog(`--- Generating Test Video with Audio: ${TEST_VIDEO_PATH} ---`);
     const command =
-      `-hide_banner -loglevel error -f lavfi -i ${TEST_VIDEO_SOURCE} ` +
-      '-f lavfi -i sine=frequency=1000:duration=30 -c:v mpeg2video -c:a aac -shortest -y ' +
+      `-hide_banner -loglevel error -f lavfi -i ${quote(TEST_VIDEO_SOURCE)} ` +
+      '-f lavfi -i sine=frequency=1000:duration=8 -c:v mpeg2video -c:a aac -shortest -y ' +
       quote(TEST_VIDEO_PATH);
     const session = await FFmpegKit.executeAsync(command, {
       logCallback: log => appendLog(log.message),
@@ -379,10 +379,8 @@ export function ExampleApp({
       throw new Error(`Generation failed. Code: ${session.getReturnCode()}`);
     }
 
-    appendLog(
-      '--- Verifying decoded video frame pixels against original input ---',
-    );
-    setGeneratedVideoVerification('Verifying decoded video frame...');
+    appendLog('--- Verifying changing decoded video frames against original input ---');
+    setGeneratedVideoVerification('Verifying changing video frames...');
     const readFrameYuv = async (
       inputArguments: string,
       sample: (typeof TEST_VIDEO_FRAME_SAMPLES)[number],
@@ -390,7 +388,7 @@ export function ExampleApp({
     ): Promise<number[]> => {
       const verification = await FFmpegKit.executeAsync(
         `-hide_banner -loglevel info ${inputArguments} ` +
-          `-vf "crop=2:2:${sample.x}:${sample.y},signalstats,metadata=print:direct=1" ` +
+          '-vf "signalstats,metadata=print:direct=1" ' +
           '-frames:v 1 -an -f null -',
         {logCallback: log => appendLog(log.message)},
       );
@@ -412,9 +410,11 @@ export function ExampleApp({
       return actual.map(value => value as number);
     };
 
+    const originalSignatures: string[] = [];
+    const outputSignatures: string[] = [];
     for (const sample of TEST_VIDEO_FRAME_SAMPLES) {
       const originalYuv = await readFrameYuv(
-        `-f lavfi -i ${quote(TEST_VIDEO_SOURCE)}`,
+        `-f lavfi -i ${quote(TEST_VIDEO_SOURCE)} -ss ${sample.atSeconds}`,
         sample,
         'original input',
       );
@@ -431,9 +431,10 @@ export function ExampleApp({
             `actual=${originalYuv.join(',')}`,
         );
       }
+      originalSignatures.push(originalYuv.join(','));
 
       const outputYuv = await readFrameYuv(
-        `-ss 0 -i ${quote(TEST_VIDEO_PATH)}`,
+        `-ss ${sample.atSeconds} -i ${quote(TEST_VIDEO_PATH)}`,
         sample,
         `final output ${TEST_VIDEO_PATH}`,
       );
@@ -450,12 +451,21 @@ export function ExampleApp({
             `final YUV=${outputYuv.join(',')}`,
         );
       }
+      outputSignatures.push(outputYuv.join(','));
       appendLog(
-        `Verified ${sample.name}: original YUV=${originalYuv.join(',')}, ` +
-          `final YUV=${outputYuv.join(',')}`,
+        `Verified ${sample.name} at ${sample.atSeconds}s: ` +
+          `original YUV=${originalYuv.join(',')}, final YUV=${outputYuv.join(',')}`,
       );
     }
-    setGeneratedVideoVerification('Verified frame pixel contract');
+    if (
+      new Set(originalSignatures).size !== TEST_VIDEO_FRAME_SAMPLES.length ||
+      new Set(outputSignatures).size !== TEST_VIDEO_FRAME_SAMPLES.length
+    ) {
+      throw new Error(
+        'Generated video did not change pixel values across all four playback phases',
+      );
+    }
+    setGeneratedVideoVerification('Verified 4 changing video frames');
     appendLog('Video with audio generated successfully.');
   }, [TEST_VIDEO_PATH, appendLog]);
 

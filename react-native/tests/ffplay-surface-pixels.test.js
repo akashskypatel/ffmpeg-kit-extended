@@ -16,56 +16,84 @@ function readSurfaceRect(value) {
   return { x: values[0], y: values[1], width: values[2], height: values[3] };
 }
 
-test("FFplay surface pixel contract accepts the source-frame samples", async () => {
-  const { evaluateFrameSamples, readContract } = await import(
+test("FFplay playback contract accepts each changing source-frame phase", async () => {
+  const { evaluateFrameSequence, readContract } = await import(
     "../../scripts/ffplay-surface-pixels.mjs"
   );
   const contract = readContract();
-  const samples = contract.samples.map((sample) => ({
-    name: sample.name,
-    rgba: [...sample.rgba],
+  const frames = contract.phases.map((phase) => ({
+    width: contract.width,
+    height: contract.height,
+    samples: contract.samples.map((sample) => ({
+      name: sample.name,
+      rgba: [...phase.rgba],
+    })),
   }));
 
   assert.doesNotThrow(() =>
-    evaluateFrameSamples(
-      { width: contract.width, height: contract.height, samples },
-      contract
-    )
+    evaluateFrameSequence(frames, contract)
   );
 });
 
-test("FFplay surface pixel contract rejects an all-black final frame", async () => {
-  const { evaluateFrameSamples, readContract } = await import(
+test("FFplay playback contract rejects a static frame across all timestamps", async () => {
+  const { evaluateFrameSequence, readContract } = await import(
     "../../scripts/ffplay-surface-pixels.mjs"
   );
   const contract = readContract();
-  const samples = contract.samples.map((sample) => ({
-    name: sample.name,
-    rgba: [0, 0, 0, 255],
-  }));
+  const staticFrame = {
+    width: contract.width,
+    height: contract.height,
+    samples: contract.samples.map((sample) => ({
+      name: sample.name,
+      rgba: [...contract.phases[0].rgba],
+    })),
+  };
 
   assert.throws(
-    () =>
-      evaluateFrameSamples(
-        { width: contract.width, height: contract.height, samples },
-        contract
-      ),
-    /FFplay frame pixel mismatch/
+    () => evaluateFrameSequence(contract.phases.map(() => staticFrame), contract),
+    /FFplay (green|blue|white) frame pixel mismatch|did not change/
   );
 });
 
+test("FFplay playback contract rejects black frames at every timestamp", async () => {
+  const { evaluateFrameSequence, readContract } = await import(
+    "../../scripts/ffplay-surface-pixels.mjs"
+  );
+  const contract = readContract();
+  const blackFrame = {
+    width: contract.width,
+    height: contract.height,
+    samples: contract.samples.map((sample) => ({
+      name: sample.name,
+      rgba: [0, 0, 0, 255],
+    })),
+  };
+
+  assert.throws(
+    () => evaluateFrameSequence(contract.phases.map(() => blackFrame), contract),
+    /FFplay .* frame pixel mismatch/
+  );
+});
+
+function readSurfaceScreenshots() {
+  const configured = process.env.FFMPEG_KIT_SURFACE_SCREENSHOTS;
+  if (configured) return JSON.parse(configured);
+  const legacy = process.env.FFMPEG_KIT_SURFACE_SCREENSHOT;
+  return legacy ? [legacy] : undefined;
+}
+
 test(
-  "FFplay playback screenshot matches the original frame pixel contract",
-  { skip: !process.env.FFMPEG_KIT_SURFACE_SCREENSHOT },
+  "FFplay playback screenshots match all changing frame phases",
+  { skip: !readSurfaceScreenshots() },
   async () => {
-    const { assertFramePixels } = await import(
+    const { assertFrameSequence } = await import(
       "../../scripts/ffplay-surface-pixels.mjs"
     );
-    const result = assertFramePixels({
-      imagePath: process.env.FFMPEG_KIT_SURFACE_SCREENSHOT,
+    const result = assertFrameSequence({
+      imagePaths: readSurfaceScreenshots(),
       rect: readSurfaceRect(process.env.FFMPEG_KIT_SURFACE_RECT),
       label: "React Native FFplay playback surface",
     });
-    assert.equal(result.results.length, 4);
+    assert.equal(result.phases.length, 4);
   }
 );

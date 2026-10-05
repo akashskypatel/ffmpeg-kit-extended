@@ -126,18 +126,25 @@ function normalizedRect(frame, rect) {
   return result;
 }
 
-export function evaluateFrameSamples({width, height, samples}, contract = readContract()) {
+export function evaluateFrameSamples(
+  {width, height, samples},
+  contract = readContract(),
+  phaseIndex = 0,
+) {
+  const phase = contract.phases[phaseIndex];
+  assert.ok(phase, `unknown FFplay frame phase index ${phaseIndex}`);
   assert.equal(width, contract.width, `expected frame width ${contract.width}, got ${width}`);
   assert.equal(height, contract.height, `expected frame height ${contract.height}, got ${height}`);
   const results = samples.map((actual, index) => {
     const expected = contract.samples[index];
-    const tolerance = expected.tolerance ?? 0;
+    assert.ok(expected, `unexpected frame sample at index ${index}`);
+    const tolerance = phase.tolerance ?? 0;
     const deltas = actual.rgba.map((value, channel) =>
-      Math.abs(value - expected.rgba[channel]),
+      Math.abs(value - phase.rgba[channel]),
     );
     return {
       name: expected.name,
-      expected: expected.rgba,
+      expected: phase.rgba,
       actual: actual.rgba,
       deltas,
       tolerance,
@@ -147,13 +154,12 @@ export function evaluateFrameSamples({width, height, samples}, contract = readCo
   assert.equal(results.length, contract.samples.length, 'sample count mismatch');
   assert.ok(
     results.every(result => result.matches),
-    `FFplay frame pixel mismatch: ${JSON.stringify(results)}`,
+    `FFplay ${phase.name} frame pixel mismatch: ${JSON.stringify(results)}`,
   );
   return results;
 }
 
-export function assertFramePixels({imagePath, rect, label = 'FFplay surface'}, contract = readContract()) {
-  const frame = readPngRgba(imagePath);
+function readFrameSamples(frame, rect, contract) {
   const surface = normalizedRect(frame, rect);
   const samples = contract.samples.map(expected => {
     const x = surface.x + Math.min(
@@ -166,22 +172,86 @@ export function assertFramePixels({imagePath, rect, label = 'FFplay surface'}, c
     );
     return {name: expected.name, rgba: samplePixel(frame, x, y)};
   });
-  const results = evaluateFrameSamples(
-    {width: contract.width, height: contract.height, samples},
-    contract,
-  );
-  return {label, screenshot: imagePath, surface, results};
+  return {surface, width: contract.width, height: contract.height, samples};
 }
 
-export function assertCanvasFramePixels({width, height, rgba, label = 'FFplay canvas'}, contract = readContract()) {
+export function evaluateFrameSequence(frames, contract = readContract()) {
+  assert.equal(
+    frames.length,
+    contract.phases.length,
+    `expected ${contract.phases.length} playback frames, got ${frames.length}`,
+  );
+  const phases = frames.map((frame, phaseIndex) => ({
+    name: contract.phases[phaseIndex].name,
+    results: evaluateFrameSamples(frame, contract, phaseIndex),
+  }));
+  const signatures = phases.map(({results}) =>
+    results.map(result => result.actual.join(',')).join('|'),
+  );
+  assert.equal(
+    new Set(signatures).size,
+    contract.phases.length,
+    `FFplay playback frames did not change across phases: ${signatures.join(' -> ')}`,
+  );
+  return phases;
+}
+
+export function assertFramePixels(
+  {imagePath, rect, label = 'FFplay surface', phaseIndex = 0},
+  contract = readContract(),
+) {
+  const frame = readPngRgba(imagePath);
+  const sampled = readFrameSamples(frame, rect, contract);
+  const results = evaluateFrameSamples(
+    sampled,
+    contract,
+    phaseIndex,
+  );
+  return {label, screenshot: imagePath, surface: sampled.surface, results};
+}
+
+export function assertFrameSequence(
+  {imagePaths, rect, label = 'FFplay surface'},
+  contract = readContract(),
+) {
+  const frames = imagePaths.map(imagePath => {
+    const frame = readPngRgba(imagePath);
+    return readFrameSamples(frame, rect, contract);
+  });
+  const phases = evaluateFrameSequence(frames, contract);
+  return {label, screenshots: imagePaths, phases};
+}
+
+function sampleCanvasFrame({width, height, rgba}, contract) {
+  assert.equal(width, contract.width, `expected canvas width ${contract.width}, got ${width}`);
+  assert.equal(height, contract.height, `expected canvas height ${contract.height}, got ${height}`);
   const samples = contract.samples.map(expected => {
     const x = Math.min(width - 1, Math.round((expected.x / contract.width) * width));
     const y = Math.min(height - 1, Math.round((expected.y / contract.height) * height));
     const offset = (y * width + x) * 4;
     return {name: expected.name, rgba: Array.from(rgba.slice(offset, offset + 4))};
   });
-  const results = evaluateFrameSamples({width: contract.width, height: contract.height, samples}, contract);
+  return {width: contract.width, height: contract.height, samples};
+}
+
+export function assertCanvasFramePixels(
+  {width, height, rgba, label = 'FFplay canvas', phaseIndex = 0},
+  contract = readContract(),
+) {
+  const samples = sampleCanvasFrame({width, height, rgba}, contract);
+  const results = evaluateFrameSamples(samples, contract, phaseIndex);
   return {label, width, height, results};
+}
+
+export function assertCanvasFrameSequence(
+  {frames, label = 'FFplay canvas'},
+  contract = readContract(),
+) {
+  const phases = evaluateFrameSequence(
+    frames.map(frame => sampleCanvasFrame(frame, contract)),
+    contract,
+  );
+  return {label, phases};
 }
 
 export {readContract};
@@ -197,9 +267,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   const imageIndex = process.argv.indexOf('--image');
   assert.ok(imageIndex >= 0 && process.argv[imageIndex + 1], 'usage: --image <png> [--rect x,y,w,h]');
   const rectIndex = process.argv.indexOf('--rect');
+  const phaseIndex = process.argv.indexOf('--phase-index');
   const result = assertFramePixels({
     imagePath: process.argv[imageIndex + 1],
     rect: rectIndex >= 0 ? parseRect(process.argv[rectIndex + 1]) : undefined,
+    phaseIndex: phaseIndex >= 0 ? Number(process.argv[phaseIndex + 1]) : 0,
   });
   console.log(JSON.stringify(result));
 }

@@ -9,11 +9,11 @@ import {
 } from 'ffmpeg-kit-extended';
 
 const TEST_FRAME_SOURCE =
-  'color=c=black:size=160x90:rate=4,' +
-  'drawbox=x=0:y=0:w=80:h=45:color=red:t=fill,' +
-  'drawbox=x=80:y=0:w=80:h=45:color=green:t=fill,' +
-  'drawbox=x=0:y=45:w=80:h=45:color=blue:t=fill,' +
-  'drawbox=x=80:y=45:w=80:h=45:color=white:t=fill';
+  'color=c=red:size=512x512:rate=30:duration=2[red];' +
+  'color=c=green:size=512x512:rate=30:duration=2[green];' +
+  'color=c=blue:size=512x512:rate=30:duration=2[blue];' +
+  'color=c=white:size=512x512:rate=30:duration=2[white];' +
+  '[red][green][blue][white]concat=n=4:v=1:a=0';
 
 function App() {
   const [status, setStatus] = useState('Not initialized');
@@ -34,7 +34,7 @@ function App() {
     let logCallbacks = 0;
     let statisticsCallbacks = 0;
     const session = await FFmpegKit.executeAsync(
-      `-hide_banner -loglevel info -f lavfi -i ${TEST_FRAME_SOURCE} -t 1 -f null -`,
+      `-hide_banner -loglevel info -f lavfi -i "${TEST_FRAME_SOURCE}" -t 8 -f null -`,
       {
         logCallback: () => {
           logCallbacks += 1;
@@ -63,7 +63,7 @@ function App() {
   const mediaInfo = async () => {
     setStatus('Generating media for FFprobe');
     const generated = await FFmpegKit.executeAsync(
-      `-loglevel fatal -f lavfi -i ${TEST_FRAME_SOURCE} -t 1 -c:v mpeg4 -f matroska /tmp/ffmpeg-kit-web-test.mkv`,
+      `-loglevel fatal -f lavfi -i "${TEST_FRAME_SOURCE}" -t 8 -c:v mpeg4 -f matroska /tmp/ffmpeg-kit-web-test.mkv`,
     );
     if (generated.getReturnCode() !== 0) {
       setStatus(`Media generation failed: ${generated.getReturnCode()}`);
@@ -79,7 +79,7 @@ function App() {
 
   const play = async () => {
     const session = FFplayKit.createSession(
-      `-loglevel fatal -f lavfi -i ${TEST_FRAME_SOURCE} -t 1 -autoexit`,
+      `-loglevel fatal -f lavfi -i "${TEST_FRAME_SOURCE}" -t 8 -autoexit`,
     );
     setPlayer(session);
     setStatus('Running FFplay');
@@ -108,8 +108,8 @@ function App() {
       {' '}<button onClick={() => player?.cancel()} disabled={!player}>Cancel</button>
       <FFplayView
         style={{
-          width: '100%',
-          height: 180,
+          width: 512,
+          height: 512,
           marginTop: '1rem',
           backgroundColor: '#111',
         }}
