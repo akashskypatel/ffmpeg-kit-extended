@@ -8,6 +8,9 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if command -v cygpath >/dev/null 2>&1; then
+  script_dir="$(cygpath -u "$script_dir")"
+fi
 example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
 appletvos_runtime_dir="$example_dir/.appletvos-runtime"

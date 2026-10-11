@@ -78,3 +78,5 @@ yarn-error.log
 **/x86/*
 
 **/packages/*
+
+public/*

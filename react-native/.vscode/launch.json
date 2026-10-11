@@ -7,8 +7,7 @@
             "type": "node-terminal",
             "request": "launch",
             "cwd": "${workspaceFolder}/example",
-            "command": "npm run android -- --active-arch-only",
-            "preLaunchTask": "Start Android Emulator (emulator-5554)"
+            "command": "npm run android -- --active-arch-only"
         },
         {
             "name": "Launch React Native (iOS Simulator)",
@@ -18,7 +17,41 @@
             "command": "npm run ios -- --udid 82CE0151-227E-4A29-831E-DDB9348EF8AE"
         },
         {
-            "name": "Launch Android Emulator",
+            "name": "Launch React Native (Apple tvOS Simulator)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/example",
+            "command": "npm run appletvos"
+        },
+        {
+            "name": "Launch React Native (macOS)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/example",
+            "command": "npm run macos"
+        },
+        {
+            "name": "Launch React Native (Windows)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/example",
+            "command": "npm run windows"
+        },
+        {
+            "name": "Launch React Native (Web)",
+            "type": "node-terminal",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/example",
+            "command": "npm run web -- --open"
+        },
+        {
+            "name": "Launch Android Emulator (PowerShell)",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "cmd.exe /d /c \"adb devices | findstr /C:\\\"emulator-5554\\\" >nul || emulator -avd Medium_Phone_API_36.1 -gpu swiftshader_indirect\""
+        },
+        {
+            "name": "Launch Android Emulator (Bash)",
             "type": "node-terminal",
             "request": "launch",
             "command": "adb devices | grep -q 'emulator-5554' || emulator -avd Medium_Phone_API_36.1 -gpu swiftshader_indirect"

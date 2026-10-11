@@ -10,7 +10,7 @@
     "test": "jest",
     "macos": "react-native run-macos --mode Debug",
     "appletvos": "../launch.sh appletvos",
-    "windows": "bash ../launch.sh windows",
+    "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/launch-windows.ps1",
     "prepare-web": "node ../scripts/prepare-web.js --app-root .",
     "web": "npm run prepare-web && vite --config web/vite.config.js",
     "web:build": "npm run prepare-web && vite build --config web/vite.config.js",
