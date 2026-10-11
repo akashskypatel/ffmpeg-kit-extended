@@ -16,14 +16,14 @@ dependencies:
   ffmpeg_kit_extended_flutter:
     path: ../
 
-  cupertino_icons: ^1.0.9
+  cupertino_icons: ^2.0.0
   path: ^1.9.1
   file_picker: ^13.1.0
   android_media_store: ^0.0.4
   permission_handler: ^13.0.1
   path_provider: ^2.1.6
   window_manager: ^0.5.2
-  marionette_flutter: ^0.6.0
+  marionette_flutter: ^0.7.0
   web: ^1.1.1
 
 dev_dependencies:
