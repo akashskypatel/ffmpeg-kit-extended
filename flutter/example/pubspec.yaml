@@ -16,6 +16,7 @@ dependencies:
   ffmpeg_kit_extended_flutter:
     path: ../
 
+  crypto: 3.0.7
   cupertino_icons: ^1.0.9
   path: ^1.9.1
   file_picker: ^13.1.0
