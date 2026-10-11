@@ -1,0 +1,433 @@
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-width: 320px;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: #141218;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.app-shell {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: #141218;
+}
+
+.top-toolbar {
+  gap: 8px;
+}
+
+.app-title {
+  flex: 0 0 auto;
+  letter-spacing: 0.01em;
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.runtime-status {
+  max-width: min(38vw, 460px);
+  margin-right: 4px;
+}
+
+.runtime-status .MuiChip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-tabs {
+  flex: 0 0 auto;
+  border-bottom: 1px solid #393540;
+}
+
+.tab-label {
+  display: inline;
+}
+
+.workspace {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 2fr) minmax(170px, 1fr);
+  overflow: hidden;
+}
+
+.content-frame {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tab-panel {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px 18px;
+  scrollbar-color: #51495b transparent;
+  scrollbar-width: thin;
+}
+
+.tab-panel-inactive {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.tab-panel-active {
+  visibility: visible;
+}
+
+.screen-stack {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quick-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.command-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.command-row-field {
+  min-width: 0;
+}
+
+.workflow-card {
+  padding: 14px 16px;
+}
+
+.workflow-card + .workflow-card {
+  margin-top: 2px;
+}
+
+.log-pane {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  border-top: 1px solid #393540;
+  background: #050505;
+}
+
+.log-pane.MuiPaper-root {
+  background: #050505 !important;
+}
+
+.log-toolbar {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 16px;
+  border-bottom: 1px solid #242126;
+}
+
+.log-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 8px 14px 12px;
+  overscroll-behavior: contain;
+  scrollbar-color: #51495b #090909;
+  scrollbar-width: thin;
+}
+
+.log-output {
+  min-height: 100%;
+  margin: 0;
+  color: #69f0ae;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.log-placeholder {
+  color: #718878;
+}
+
+.alert-inline {
+  margin-bottom: 2px;
+}
+
+.card-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-description {
+  margin-top: 3px;
+  color: #c4bdca;
+}
+
+.stream-url-field {
+  margin-top: 12px !important;
+}
+
+.stream-action-row {
+  margin-top: 8px;
+}
+
+.active-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.active-session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #393540;
+  border-radius: 8px;
+  background: #19171e;
+}
+
+.session-details {
+  min-width: 0;
+}
+
+.session-details .MuiTypography-root {
+  overflow-wrap: anywhere;
+}
+
+.ffplay-screen {
+  gap: 10px;
+}
+
+.ffplay-video-host {
+  position: relative;
+  width: 100%;
+  height: clamp(180px, 33vh, 360px);
+  min-height: 150px;
+  overflow: hidden;
+  border: 1px solid #302c37;
+  border-radius: 7px;
+  background: #000;
+}
+
+.ffplay-video-host:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+.ffplay-video-host > div {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: #000;
+}
+
+.ffplay-video-host canvas {
+  object-fit: contain;
+}
+
+.fullscreen-button {
+  position: absolute !important;
+  right: 6px;
+  bottom: 6px;
+  z-index: 1;
+  color: #f2edf6 !important;
+  background: #141218aa !important;
+}
+
+.ffplay-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.ffplay-position-row,
+.ffplay-volume-row {
+  display: grid;
+  grid-template-columns: auto minmax(90px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.ffplay-state {
+  min-width: 112px;
+  color: #c4bdca;
+}
+
+.transcode-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(280px, 1.5fr);
+  gap: 12px;
+}
+
+.about-list {
+  margin: 10px 0 0;
+  padding-left: 20px;
+  color: #c4bdca;
+  line-height: 1.7;
+}
+
+.metadata-output {
+  max-height: 260px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 10px;
+  border-radius: 7px;
+  background: #111015;
+  color: #d7c5ee;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .top-toolbar {
+    gap: 2px;
+    padding-inline: 8px;
+  }
+
+  .top-toolbar .runtime-status {
+    max-width: 64px;
+    flex-shrink: 0;
+    margin-right: 0;
+  }
+
+  .top-toolbar .MuiIconButton-root {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    padding: 4px;
+  }
+
+  .top-toolbar .MuiButton-root {
+    flex-shrink: 0;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 0.7rem;
+  }
+
+  .app-title {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .runtime-status .MuiChip-label {
+    padding-inline: 5px;
+    font-size: 0.65rem;
+  }
+
+  .tab-panel {
+    padding: 12px 10px 14px;
+  }
+
+  .workspace {
+    grid-template-rows: minmax(0, 3fr) minmax(145px, 2fr);
+  }
+
+  .transcode-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 599px) {
+  .tab-label {
+    display: none;
+  }
+
+  .top-tabs .MuiTab-root {
+    padding: 6px 4px 5px;
+  }
+
+  .command-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px;
+  }
+
+  .ffplay-video-host {
+    height: clamp(150px, 24vh, 220px);
+  }
+
+  .ffplay-position-row,
+  .ffplay-volume-row {
+    grid-template-columns: auto minmax(70px, 1fr) auto;
+    gap: 5px;
+  }
+
+  .ffplay-state {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 359px) {
+  .top-toolbar {
+    padding-inline: 6px !important;
+  }
+
+  .app-title {
+    max-width: 64px;
+    font-size: 0.9rem;
+  }
+
+  .top-toolbar .MuiIconButton-root {
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+  }
+
+  .top-toolbar .MuiButton-root {
+    padding: 3px 4px;
+    font-size: 0.62rem;
+  }
+
+  .top-toolbar .runtime-status {
+    max-width: 46px;
+  }
+
+  .runtime-status .MuiChip-label {
+    padding-inline: 3px;
+    font-size: 0.58rem;
+  }
+}
