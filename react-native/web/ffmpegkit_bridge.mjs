@@ -7,26 +7,14 @@ import {
   createCallbackRegistry,
   discoverWasmTable,
 } from "./ffmpegkit_callback_runtime.mjs";
+import { installHeapViews } from "./ffmpegkit_heap_runtime.mjs";
 
 function installFfigenRuntime(module, wasmMemory, wasmTable) {
   const heap = (View) => new View(wasmMemory.buffer);
-  const defineRuntime = (name, descriptor) => {
-    try {
-      Object.defineProperty(module, name, descriptor);
-    } catch (error) {
-      if (!Object.prototype.hasOwnProperty.call(module, name)) throw error;
-    }
-  };
+  const defineRuntime = (name, descriptor) =>
+    Object.defineProperty(module, name, descriptor);
 
-  defineRuntime("HEAPU8", { configurable: true, get: () => heap(Uint8Array) });
-  defineRuntime("HEAPU32", {
-    configurable: true,
-    get: () => heap(Uint32Array),
-  });
-  defineRuntime("HEAPF32", {
-    configurable: true,
-    get: () => heap(Float32Array),
-  });
+  installHeapViews(module, wasmMemory);
   defineRuntime("getValue", {
     configurable: true,
     value: (address, type = "i8") => {
