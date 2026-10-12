@@ -677,7 +677,8 @@ export default function App(): React.JSX.Element {
       videoGenerationRef.current = (async () => {
         const command =
           `-hide_banner -nostdin -loglevel info -f lavfi -i ${quoteCommandArg(TEST_FRAME_SOURCE)} ` +
-          `-t 8 -an -c:v mpeg4 -f mp4 -y ${quoteCommandArg(VIDEO_PATH)}`;
+          `-f lavfi -i ${quoteCommandArg('sine=frequency=440:sample_rate=44100:duration=8')} ` +
+          `-t 8 -map 0:v:0 -map 1:a:0 -c:v mpeg4 -c:a aac -b:a 128k -shortest -f mp4 -y ${quoteCommandArg(VIDEO_PATH)}`;
         const session = await runFFmpeg('Generate test video', command);
         if (session.getReturnCode() !== ReturnCode.Success) {
           throw new Error(`Video generation returned code ${session.getReturnCode()}.`);
@@ -1262,7 +1263,7 @@ export default function App(): React.JSX.Element {
             'ffmpeg',
             <Stack className="screen-stack">
               <Box className="quick-actions">
-                <ActionButton label="Gen Video" icon={<MovieCreationRounded />} onClick={() => void generateVideo()} disabled={!fileApiReady || !capabilities.video || runtimeState !== 'ready' || busyActions['generate-video']} title={fileApiReady && capabilities.video ? 'Create an eight-second four-color MP4 in the browser Wasm filesystem.' : fileApiError ?? capabilities.detail} />
+                <ActionButton label="Gen Video" icon={<MovieCreationRounded />} onClick={() => void generateVideo()} disabled={!fileApiReady || !capabilities.video || runtimeState !== 'ready' || busyActions['generate-video']} title={fileApiReady && capabilities.video ? 'Create an eight-second four-color MP4 with a generated 440 Hz audio tone in the browser Wasm filesystem.' : fileApiError ?? capabilities.detail} />
                 <ActionButton label="Gen Audio" icon={<MusicNoteRounded />} onClick={() => void generateAudio()} disabled={!fileApiReady || !capabilities.audio || runtimeState !== 'ready' || busyActions['generate-audio']} title={fileApiReady && capabilities.audio ? 'Create an eight-second WAV in the browser Wasm filesystem.' : fileApiError ?? capabilities.detail} />
                 <ActionButton label="Async Version" icon={<PlayArrowRounded />} onClick={() => void getFFmpegVersion(false)} disabled={runtimeState !== 'ready' || busyActions['ffmpeg-version-async']} title="Start an asynchronous FFmpeg session and keep the browser responsive." />
                 <ActionButton label="Sync Version" icon={<TimerRounded />} onClick={() => void getFFmpegVersion(true)} disabled={runtimeState !== 'ready' || busyActions['ffmpeg-version-awaited']} title="Await the Web Promise; JavaScript remains responsive." />
