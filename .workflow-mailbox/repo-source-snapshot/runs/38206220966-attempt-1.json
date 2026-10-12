@@ -1,0 +1,27 @@
+{
+  "schema_version": "1",
+  "workflow_key": "repo-source-snapshot",
+  "workflow": "Reusable Repository Source Snapshot",
+  "repository": "akashskypatel/ffmpeg-kit-extended",
+  "event": "workflow_dispatch",
+  "event_sha": "2050b25e9a1165669bdbbdfcdcb12a306fa07cdf",
+  "source_sha": "2050b25e9a1165669bdbbdfcdcb12a306fa07cdf",
+  "source_ref": "2050b25e9a1165669bdbbdfcdcb12a306fa07cdf",
+  "run_id": 38206220966,
+  "run_attempt": 1,
+  "run_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38206220966",
+  "result": "success",
+  "summary": "Repository source snapshot for the requested frozen implementation source.",
+  "artifacts": [
+    {
+      "id": "11727795911",
+      "name": "repo-source-snapshot-38206220966",
+      "artifact_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38206220966/artifacts/11727795911",
+      "archive_download_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38206220966/artifacts/11727795911",
+      "digest": "32ded303fc320c536434231bd2a2466a0227595eeca8e3050aa38e9667f7913e",
+      "expired": false,
+      "expires_at": null
+    }
+  ],
+  "published_at": "2026-10-12T05:02:32Z"
+}
