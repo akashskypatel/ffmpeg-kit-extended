@@ -19,6 +19,7 @@ void main() {
     for (final name in <String>[
       'ffmpegkit_bridge.mjs',
       'ffmpegkit_callback_runtime.mjs',
+      'ffmpegkit_heap_runtime.mjs',
       'ffmpegkit_loader.mjs',
     ]) {
       final file = File('web/$name');
@@ -26,6 +27,22 @@ void main() {
       expect(file.lengthSync(), greaterThan(0), reason: name);
     }
   });
+
+  test(
+    'keeps shipped bridge and heap helper copies identical to staging sources',
+    () {
+      for (final name in <String>[
+        'ffmpegkit_bridge.mjs',
+        'ffmpegkit_heap_runtime.mjs',
+      ]) {
+        expect(
+          File('assets/wasm/$name').readAsBytesSync(),
+          orderedEquals(File('web/$name').readAsBytesSync()),
+          reason: name,
+        );
+      }
+    },
+  );
 
   test('does not declare DataAssets or pinned runtime Flutter assets', () {
     final source = File('pubspec.yaml').readAsStringSync();

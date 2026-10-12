@@ -192,7 +192,7 @@ async function main(argv = process.argv.slice(2)) {
       fs.copyFileSync(runtime[name], path.join(target, name));
     }
     const webRoot = path.resolve(__dirname, '..', 'web');
-    for (const name of ['ffmpegkit_bridge.mjs', 'ffmpegkit_loader.mjs', 'ffmpegkit_callback_runtime.mjs']) {
+    for (const name of ['ffmpegkit_bridge.mjs', 'ffmpegkit_loader.mjs', 'ffmpegkit_callback_runtime.mjs', 'ffmpegkit_heap_runtime.mjs']) {
       fs.copyFileSync(path.join(webRoot, name), path.join(target, name));
     }
     process.stdout.write(`${JSON.stringify({target, filename: resolution.filename, version: resolution.version})}\n`);

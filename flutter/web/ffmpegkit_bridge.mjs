@@ -8,6 +8,7 @@ import {
   fetchAndCompileWasm,
   raceWasmModuleAttempt,
 } from './ffmpegkit_loader.mjs';
+import { installHeapViews } from './ffmpegkit_heap_runtime.mjs';
 
   // ffigen_js uses a small subset of Emscripten runtime helpers for
   // pointer/string and callback marshalling. Some runtimes expose these
@@ -27,18 +28,7 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
     }
   };
 
-  defineRuntime('HEAPU8', {
-    configurable: true,
-    get: () => heap(Uint8Array),
-  });
-  defineRuntime('HEAPU32', {
-    configurable: true,
-    get: () => heap(Uint32Array),
-  });
-  defineRuntime('HEAPF32', {
-    configurable: true,
-    get: () => heap(Float32Array),
-  });
+  installHeapViews(module, wasmMemory);
 
   defineRuntime('getValue', { configurable: true, value: (address, type = 'i8') => {
     switch (type.endsWith('*') ? '*' : type) {

@@ -12,7 +12,7 @@ node .\node_modules\vite\bin\vite.js --config web/vite.config.js --host 127.0.0.
 
 The regular `web` and `web:build` scripts call `prepare-web`; use them only when runtime staging is intended. The Vite config supplies `Cross-Origin-Opener-Policy: same-origin` and `Cross-Origin-Embedder-Policy: require-corp`, which the threaded Wasm runtime needs for browser isolation.
 
-`prepare-web` can resolve a published runtime from the configured bundle. For offline validation, either start Vite directly after staging a local runtime as above, or set `web`/`wasm` to an explicit local directory or ZIP and set `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true` in the staging process. Local-only mode rejects default release resolution and HTTP(S) overrides. Direct Vite does not invoke the resolver or download a runtime. See [React Native Web setup](../../README.md#react-native-web-setup) for the override format.
+`prepare-web` stages the runtime pair and all four bridge support modules: `ffmpegkit_bridge.mjs`, `ffmpegkit_loader.mjs`, `ffmpegkit_callback_runtime.mjs`, and `ffmpegkit_heap_runtime.mjs`. Its tests check the copied source bytes and local relative-import closure, including a missing-module failure. For offline validation, either start Vite directly after staging a local runtime as above, or set `web`/`wasm` to an explicit local directory or ZIP and set `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true` in the staging process. Local-only mode rejects default release resolution and HTTP(S) overrides. Direct Vite does not invoke the resolver or download a runtime. See [React Native Web setup](../../README.md#react-native-web-setup) for the override format.
 
 For a Web-only type check from the same directory:
 
@@ -51,7 +51,7 @@ Imported media and generated outputs live in the Wasm module's temporary in-memo
 
 After initialization the example checks the exported filesystem surface with `exists()` and does not create a probe file. If `FS` or a required method is missing, the page shows a runtime compatibility message and disables file import, media generation, metadata reads, imported playback, downloads, and file transcoding. Version and introspection actions stay available when the runtime supports them.
 
-When a new file replaces an imported selection, the previous virtual path is retained while any tracked FFmpeg, FFprobe, or FFplay job is active. It is removed after the last tracked job settles and a safe cleanup pass runs. This conservative rule can keep a large file in memory longer than its own job; reloading the page clears the temporary filesystem.
+When a new file replaces an imported selection, the previous virtual path is retained while any tracked FFmpeg, FFprobe, or FFplay job is active. An imported transcode also takes an outer reservation before its duration probe and holds it until the FFmpeg session reaches terminal settlement; the nested probe reservation cannot create a gap before FFmpeg registration. Probe failure, session startup failure, and cancellation release the reservation through the same `finally` path. The previous file is removed after the last reservation/job settles and a safe cleanup pass runs. This conservative rule can keep a large file in memory longer than its own job; reloading the page clears the temporary filesystem.
 
 ## Local remediation evidence (2026-10-11)
 

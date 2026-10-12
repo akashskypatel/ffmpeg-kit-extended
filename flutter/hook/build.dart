@@ -136,6 +136,9 @@ Future<void> _buildWebAssets(
   final callbackRuntimeSource = File(
     p.fromUri(input.packageRoot.resolve('web/ffmpegkit_callback_runtime.mjs')),
   );
+  final heapRuntimeSource = File(
+    p.fromUri(input.packageRoot.resolve('web/ffmpegkit_heap_runtime.mjs')),
+  );
   final loaderSource = File(
     p.fromUri(input.packageRoot.resolve('web/ffmpegkit_loader.mjs')),
   );
@@ -145,6 +148,7 @@ Future<void> _buildWebAssets(
     'ffmpegkit.wasm': File(p.join(runtimeDir.path, 'ffmpegkit.wasm')),
     'ffmpegkit_bridge.mjs': bridgeSource,
     'ffmpegkit_callback_runtime.mjs': callbackRuntimeSource,
+    'ffmpegkit_heap_runtime.mjs': heapRuntimeSource,
     'ffmpegkit_loader.mjs': loaderSource,
   };
 
@@ -158,6 +162,7 @@ Future<void> _buildWebAssets(
 
   output.dependencies.add(bridgeSource.uri);
   output.dependencies.add(callbackRuntimeSource.uri);
+  output.dependencies.add(heapRuntimeSource.uri);
   output.dependencies.add(loaderSource.uri);
 
   await stageWebRuntimeFiles(

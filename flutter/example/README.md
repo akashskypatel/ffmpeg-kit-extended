@@ -83,7 +83,9 @@ Verify `window.crossOriginIsolated === true` in the browser.
 
 The repository's executable local Wasm smoke target uses the current local
 builder archive when the ABI is unpublished. Run it from this directory after
-setting the Web override in `pubspec.yaml` or the migration config JSON:
+setting the Web override in `pubspec.yaml` or the migration config JSON. For
+offline verification, set `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true`; this makes the
+hook reject default release resolution and HTTP(S) overrides:
 
 ```bash
 flutter build web --wasm --release --target lib/web_runtime_smoke.dart
@@ -110,6 +112,26 @@ the Web app is reloaded. Large files can exhaust browser memory. The
 `FFmpegKitExtended.initialize()`. The selected Wasm runtime must export `FS`
 with `writeFile`, `readFile`, `unlink`, and `stat` in
 `EXPORTED_RUNTIME_METHODS` for file transfer to work.
+
+The Web bridge refreshes `HEAPU8`, `HEAPU32`, and `HEAPF32` after shared Wasm
+memory growth. Compatible writable Emscripten-owned heap properties remain
+owned by the runtime; fallback accessors accept refreshed views and reject
+incompatible non-configurable properties. The build hook stages
+`ffmpegkit_heap_runtime.mjs` alongside the bridge and its callback/loader
+modules.
+
+When an imported file is replaced, built-in jobs keep the retired path while
+their session still uses it. Custom FFprobe and FFplay hold a conservative Web
+media-operation lease from before asynchronous startup through terminal
+completion, so retired imports remain available even when the command's input
+path cannot be safely inferred. FFplay position-stream completion also runs a
+cleanup pass. The lease count decreases only once, while each terminal signal
+retries cleanup in case an earlier callback arrived before the session state
+became terminal. Overlapping custom sessions hold the retired files until the
+last lease ends; failed startup releases its lease, while a running job is
+released by its terminal callback. Large inputs may therefore remain in
+memory longer than a single session; reloading the Web app clears the Wasm
+filesystem.
 
 ## Implementation Details
 

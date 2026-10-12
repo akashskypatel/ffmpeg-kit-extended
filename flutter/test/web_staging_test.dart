@@ -28,6 +28,7 @@ void main() {
       'ffmpegkit.wasm',
       'ffmpegkit_bridge.mjs',
       'ffmpegkit_callback_runtime.mjs',
+      'ffmpegkit_heap_runtime.mjs',
       'ffmpegkit_loader.mjs',
     ]) {
       final file = File(p.join(runtime.path, name));

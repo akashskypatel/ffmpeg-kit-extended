@@ -9,6 +9,16 @@ export function shouldRetainImportedPath(
   state: ImportedPathRetention,
 ): boolean;
 
+export function withImportedPathReservation<T>(
+  path: string,
+  reservation: {
+    retainPath: (path: string) => void;
+    releasePath: (path: string) => void;
+    cleanupPath: (path: string) => void;
+  },
+  operation: () => Promise<T>,
+): Promise<T>;
+
 export function readDurationSeconds(value: unknown): number | undefined;
 
 export function advanceTranscodeProgressPercent(

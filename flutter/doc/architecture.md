@@ -23,7 +23,7 @@ The main shared layer is under `lib/src/`: `session.dart`, the FFmpeg/FFprobe/FF
 
 Native-only code lives under `lib/src/platform/native/` and includes `backend_native.dart`, `callback_bridge_native.dart`, `session_finalizer_native.dart`, the native loader, native FFplay surfaces, and `generated/ffmpeg_kit_bindings_native.dart`. It loads the native code asset, converts Dart strings and argument arrays to native memory, invokes the C wrapper, routes callbacks, and releases native handles.
 
-Web-only code lives under `lib/src/platform/web/` and `lib/src/web/`. `backend_web.dart` invokes `generated/ffmpeg_kit_bindings_web.dart` through `wasm_loader.dart`; `wasm_memory.dart` reads and writes the Emscripten heap; `callback_bridge_web.dart` adapts Web events; and `web/ffplay_surface_web.dart` renders copied RGBA frames. `hook/build.dart` resolves the selected default or custom Wasm pair and stages it with `web/ffmpegkit_bridge.mjs` and its support modules at the canonical `assets/packages/ffmpeg_kit_extended_flutter/wasm/` browser root.
+Web-only code lives under `lib/src/platform/web/` and `lib/src/web/`. `backend_web.dart` invokes `generated/ffmpeg_kit_bindings_web.dart` through `wasm_loader.dart`; `wasm_memory.dart` reads and writes the Emscripten heap; `callback_bridge_web.dart` adapts Web events; and `web/ffplay_surface_web.dart` renders copied RGBA frames. `hook/build.dart` resolves the selected default or custom Wasm pair and stages it with `web/ffmpegkit_bridge.mjs`, `web/ffmpegkit_heap_runtime.mjs`, and the callback/loader support modules at the canonical `assets/packages/ffmpeg_kit_extended_flutter/wasm/` browser root. The shipped `assets/wasm/` copies of the bridge and heap helper are kept byte-identical to their `web/` staging sources.
 
 Conditional exports are concentrated in the platform barrels (`ffmpeg_kit_extended_flutter_native.dart` and `ffplay_surface.dart`). Shared session/business logic must not import `dart:ffi`, `package:ffi`, JS interop, generated platform bindings, or platform surface implementations.
 
@@ -36,6 +36,12 @@ cd flutter
 dart run ffigen --config ffigen_native.yaml
 dart run ffigen_js --config ffigen_js.yaml
 ```
+
+The bridge installs writable `HEAPU8`, `HEAPU32`, and `HEAPF32` views for the
+generated bindings. Compatible writable data properties remain under
+Emscripten ownership; fallback accessors accept refreshed views and rebuild
+their typed views after `WebAssembly.Memory.grow()`. Incompatible locked
+properties fail with a clear error instead of silently leaving stale views.
 
 The Web generator currently uses the accepted published prerelease
 `ffigen_js: ^0.0.16-pre`, which contains the required Wasm `uint64` interop

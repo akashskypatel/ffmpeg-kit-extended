@@ -31,6 +31,22 @@ const _ffplayFrameWidth = 512;
 const _ffplayFrameHeight = 512;
 const _ffplayFrameRgbaTolerance = 32;
 
+class WebMediaOperationLeaseManager {
+  int activeCount = 0;
+
+  void Function() begin(void Function() onTerminalSignal) {
+    activeCount++;
+    var released = false;
+    return () {
+      if (!released) {
+        released = true;
+        activeCount--;
+      }
+      onTerminalSignal();
+    };
+  }
+}
+
 void main() {
   if (kDebugMode) {
     MarionetteBinding.ensureInitialized();
@@ -190,6 +206,8 @@ class _HomePageState extends State<HomePage>
   String? _selectedProbePath;
   String? _selectedWebMediaPath;
   final Set<String> _retiredWebMediaPaths = <String>{};
+  final WebMediaOperationLeaseManager _customWebMediaOperations =
+      WebMediaOperationLeaseManager();
   final Set<String> _webDownloadableFiles = <String>{};
   String _status = 'Ready';
   final _mediaStore = AndroidMediaStore.instance;
@@ -501,7 +519,11 @@ class _HomePageState extends State<HomePage>
   }
 
   void _cleanupRetiredWebMediaPaths() {
-    if (!kIsWeb || _retiredWebMediaPaths.isEmpty) return;
+    if (!kIsWeb ||
+        _retiredWebMediaPaths.isEmpty ||
+        _customWebMediaOperations.activeCount > 0) {
+      return;
+    }
     for (final filePath in _retiredWebMediaPaths.toList()) {
       if (_webMediaPathIsInUse(filePath)) continue;
       try {
@@ -513,6 +535,11 @@ class _HomePageState extends State<HomePage>
         _addLog('Unable to remove retired Web media $filePath: $error');
       }
     }
+  }
+
+  void Function() _beginCustomWebMediaOperation() {
+    if (!kIsWeb) return () {};
+    return _customWebMediaOperations.begin(_cleanupRetiredWebMediaPaths);
   }
 
   Future<void> _downloadWebFile(String filePath) async {
@@ -1336,14 +1363,26 @@ class _HomePageState extends State<HomePage>
   Future<void> _runCustomFFprobe() async {
     final command = _removeNoStdin(_ffprobeCommandController.text);
     _addLog("--- Running Custom FFprobe: $command ---", printToConsole: true);
-    await FFprobeKit.executeAsync(
-      command,
-      onComplete: (session) {
-        final output = session.getOutput();
-        if (output != null) _addLog(output);
-        _addLog("Return code: ${session.getReturnCode()}");
-      },
-    );
+    final releaseMediaOperation = _beginCustomWebMediaOperation();
+    var submitted = false;
+    try {
+      await FFprobeKit.executeAsync(
+        command,
+        onComplete: (session) {
+          try {
+            final output = session.getOutput();
+            if (output != null) _addLog(output);
+            _addLog("Return code: ${session.getReturnCode()}");
+          } finally {
+            releaseMediaOperation();
+          }
+        },
+      );
+      submitted = true;
+    } catch (_) {
+      if (!submitted) releaseMediaOperation();
+      rethrow;
+    }
   }
 
   // --- FFplay Example ---
@@ -1359,7 +1398,10 @@ class _HomePageState extends State<HomePage>
     await old?.release();
   }
 
-  void _attachPositionStream(FFplaySession session) {
+  void _attachPositionStream(
+    FFplaySession session, {
+    void Function()? onTerminal,
+  }) {
     _positionSub?.cancel();
     _videoSizeSub?.cancel();
     setState(() {
@@ -1385,6 +1427,8 @@ class _HomePageState extends State<HomePage>
       },
       onDone: () {
         if (mounted) setState(() => _hasActiveSession = false);
+        _cleanupRetiredWebMediaPaths();
+        onTerminal?.call();
         surfaceToRelease?.release().then((_) {
           if (mounted) {
             setState(() {
@@ -1457,20 +1501,32 @@ class _HomePageState extends State<HomePage>
     final command = _ffplayCommandController.text.trim();
     _addLog("--- Running Custom FFplay: $command ---", printToConsole: true);
 
-    await _prepareSurface();
-    final surface = await FFplaySurface.create();
-    if (surface != null && mounted) {
-      setState(() => _surface = surface);
-    }
+    final releaseMediaOperation = _beginCustomWebMediaOperation();
+    var submitted = false;
+    try {
+      await _prepareSurface();
+      final surface = await FFplaySurface.create();
+      if (surface != null && mounted) {
+        setState(() => _surface = surface);
+      }
 
-    final session = await FFplayKit.executeAsync(
-      command,
-      onComplete: (session) {
-        final output = session.getOutput();
-        _addLog("FFplay playback finished. Output: $output");
-      },
-    );
-    _attachPositionStream(session);
+      final session = await FFplayKit.executeAsync(
+        command,
+        onComplete: (session) {
+          try {
+            final output = session.getOutput();
+            _addLog("FFplay playback finished. Output: $output");
+          } finally {
+            releaseMediaOperation();
+          }
+        },
+      );
+      submitted = true;
+      _attachPositionStream(session, onTerminal: releaseMediaOperation);
+    } catch (_) {
+      if (!submitted) releaseMediaOperation();
+      rethrow;
+    }
   }
 
   void _seekForward() {

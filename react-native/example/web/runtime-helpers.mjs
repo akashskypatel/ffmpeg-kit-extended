@@ -9,6 +9,20 @@ export function shouldRetainImportedPath(
   );
 }
 
+export async function withImportedPathReservation(
+  path,
+  { retainPath, releasePath, cleanupPath },
+  operation,
+) {
+  retainPath(path);
+  try {
+    return await operation();
+  } finally {
+    releasePath(path);
+    cleanupPath(path);
+  }
+}
+
 export function readDurationSeconds(value) {
   if (typeof value !== "number" && typeof value !== "string") return undefined;
   if (typeof value === "string" && value.trim() === "") return undefined;

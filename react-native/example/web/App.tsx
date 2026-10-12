@@ -64,6 +64,7 @@ import {
   advanceTranscodeProgressPercent,
   readDurationSeconds,
   shouldRetainImportedPath,
+  withImportedPathReservation,
 } from './runtime-helpers.mjs';
 
 const TEST_FRAME_SOURCE =
@@ -961,40 +962,51 @@ export default function App(): React.JSX.Element {
         if (FFmpegKitWebFiles.exists(TRANSCODE_PATH)) FFmpegKitWebFiles.deleteFile(TRANSCODE_PATH);
         const imported = selectedMediaRef.current;
         const path = imported?.path ?? await ensureVideo();
-        const durationSeconds = imported ? await readTranscodeInputDuration(path) : 8;
-        setTranscodeDurationSeconds(durationSeconds);
-        setTranscodeProgressPercent(durationSeconds === undefined ? undefined : 0);
-        const command =
-          `-hide_banner -nostdin -loglevel info -i ${quoteCommandArg(path)} ` +
-          `-an -c:v mpeg4 -y ${quoteCommandArg(TRANSCODE_PATH)}`;
-        const session = await runFFmpeg(
-          'Transcode media to AVI',
-          command,
-          'transcode',
-          (statistics) => {
-            if (transcodeProgressRunRef.current !== progressRun) return;
-            setTranscodeStats(statistics);
-            if (durationSeconds !== undefined) {
-              setTranscodeProgressPercent((previous) =>
-                advanceTranscodeProgressPercent(
-                  statistics.time,
-                  durationSeconds,
-                  previous,
-                ) ?? previous,
-              );
-            }
-          },
-          path,
-        );
-        if (session.getReturnCode() !== ReturnCode.Success) {
-          throw new Error(`Transcode returned code ${session.getReturnCode()}.`);
+        const transcode = async () => {
+          const durationSeconds = imported ? await readTranscodeInputDuration(path) : 8;
+          setTranscodeDurationSeconds(durationSeconds);
+          setTranscodeProgressPercent(durationSeconds === undefined ? undefined : 0);
+          const command =
+            `-hide_banner -nostdin -loglevel info -i ${quoteCommandArg(path)} ` +
+            `-an -c:v mpeg4 -y ${quoteCommandArg(TRANSCODE_PATH)}`;
+          const session = await runFFmpeg(
+            'Transcode media to AVI',
+            command,
+            'transcode',
+            (statistics) => {
+              if (transcodeProgressRunRef.current !== progressRun) return;
+              setTranscodeStats(statistics);
+              if (durationSeconds !== undefined) {
+                setTranscodeProgressPercent((previous) =>
+                  advanceTranscodeProgressPercent(
+                    statistics.time,
+                    durationSeconds,
+                    previous,
+                  ) ?? previous,
+                );
+              }
+            },
+            path,
+          );
+          if (session.getReturnCode() !== ReturnCode.Success) {
+            throw new Error(`Transcode returned code ${session.getReturnCode()}.`);
+          }
+          if (!FFmpegKitWebFiles.exists(TRANSCODE_PATH)) throw new Error('FFmpeg completed without creating the AVI file.');
+          transcodeProgressRunRef.current += 1;
+          setTranscodeReady(true);
+          setTranscodeProgressPercent(100);
+          setStatus(`Transcode complete at Wasm path ${TRANSCODE_PATH}`);
+          appendLog(`Transcode output is ready to download from the browser Wasm filesystem: ${TRANSCODE_PATH}.`);
+        };
+        if (imported) {
+          await withImportedPathReservation(path, {
+            retainPath: retainMediaInfoPath,
+            releasePath: releaseMediaInfoPath,
+            cleanupPath: cleanupImportedFile,
+          }, transcode);
+        } else {
+          await transcode();
         }
-        if (!FFmpegKitWebFiles.exists(TRANSCODE_PATH)) throw new Error('FFmpeg completed without creating the AVI file.');
-        transcodeProgressRunRef.current += 1;
-        setTranscodeReady(true);
-        setTranscodeProgressPercent(100);
-        setStatus(`Transcode complete at Wasm path ${TRANSCODE_PATH}`);
-        appendLog(`Transcode output is ready to download from the browser Wasm filesystem: ${TRANSCODE_PATH}.`);
       } catch (error) {
         if (transcodeProgressRunRef.current === progressRun) {
           transcodeProgressRunRef.current += 1;
