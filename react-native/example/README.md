@@ -16,7 +16,7 @@ For the local interactive test contract and evidence requirements, see
 - FFmpeg test video/audio generation.
 - FFmpeg version/help/custom commands.
 - FFmpegKit build, bundle, license, component, and log-level introspection.
-- Remote HLS/network stream recording with concurrent session tracking and cancellation.
+- Remote HLS/network stream recording with concurrent session tracking and cancellation on supported native targets. Web/Wasm builds do not support network stream recording, including RTMP/RTMPE.
 - FFprobe version/custom commands and media-information inspection.
 - Native document picking with a durable app-local copy before handing the path to FFmpeg/FFprobe.
 - FFplay execution, pause/resume/stop/seek/position/duration/volume controls.

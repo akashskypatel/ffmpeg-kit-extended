@@ -53,7 +53,7 @@ Native targets use a Turbo Native Module and require React Native's New Architec
 | --------- | ---- | ----- | ----- | -------------- | ---- |
 | Video     |      |       | x     | x              | x    |
 | Audio     |      | x     | x     | x              | x    |
-| Streaming |      | x     | x     | x              | x    |
+| Streaming (native bundle support) |      | x     | x     | x              | x    |
 | Hardware  |      |       |       | x              | x    |
 | AI*       |      |       |       |                | x*   |
 | HTTPS     | *    | x     | x     | x              | x    |
@@ -62,6 +62,12 @@ Native targets use a Turbo Native Module and require React Native's New Architec
 
 1. AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable certain AI features.
    - See [Supported External Libraries](#libraries) for more information.
+
+| Runtime | Network stream input/recording |
+| --- | --- |
+| React Native Web (Wasm) | Not supported, including RTMP/RTMPE |
+
+The bundle-level Streaming row applies to native targets; it does not imply Web/Wasm network streaming support.
 
 2. Platform features are built-in platform libraries that FFmpeg support like AVFounation, VideoToolbox, etc. on apple platforms or DirectX, MediaFoundation on Windows.
 

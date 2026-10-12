@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
@@ -186,7 +188,9 @@ class _HomePageState extends State<HomePage>
         text: "https://endpnt.com/hls/nasa4k/playlist.m3u8",
       );
   String? _selectedProbePath;
-  final Set<String> _webGeneratedFiles = <String>{};
+  String? _selectedWebMediaPath;
+  final Set<String> _retiredWebMediaPaths = <String>{};
+  final Set<String> _webDownloadableFiles = <String>{};
   String _status = 'Ready';
   final _mediaStore = AndroidMediaStore.instance;
   StreamSubscription<bool>? _permissionStreamSub;
@@ -452,11 +456,9 @@ class _HomePageState extends State<HomePage>
 
   Future<String> _exampleDirectoryPath() async {
     if (kIsWeb) {
-      // Web FFmpeg uses Emscripten's in-memory filesystem. Keep generated
-      // media at its always-present root so FFplay and FFprobe can reuse it
-      // without relying on the native-only path_provider plugin or a separate
-      // virtual-filesystem directory API.
-      return '/';
+      // Web FFmpeg uses Emscripten's temporary in-memory filesystem. Keep all
+      // demo and imported media under the same flat /tmp/ namespace.
+      return '/tmp';
     }
 
     final tempDir = await getTemporaryDirectory();
@@ -467,9 +469,80 @@ class _HomePageState extends State<HomePage>
     return exampleDir.path;
   }
 
-  bool _exampleFileExists(String filePath) => kIsWeb
-      ? _webGeneratedFiles.contains(filePath)
-      : File(filePath).existsSync();
+  bool _exampleFileExists(String filePath) =>
+      kIsWeb ? FFmpegKitWebFiles.exists(filePath) : File(filePath).existsSync();
+
+  String _importWebMedia(String fileName, Uint8List bytes) {
+    final baseName = fileName.replaceAll('\\', '/').split('/').last;
+    final safeName = baseName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+    final suffix = safeName.isEmpty ? 'media.bin' : safeName;
+    var unique = DateTime.now().microsecondsSinceEpoch;
+    var virtualPath = '/tmp/ffmpeg-kit-import-$unique-$suffix';
+    while (FFmpegKitWebFiles.exists(virtualPath)) {
+      unique++;
+      virtualPath = '/tmp/ffmpeg-kit-import-$unique-$suffix';
+    }
+    FFmpegKitWebFiles.writeFile(virtualPath, bytes);
+    return virtualPath;
+  }
+
+  bool _webMediaPathIsInUse(String filePath) =>
+      FFmpegKitExtended.listSessions().any((session) {
+        final state = session.getState();
+        return (state == SessionState.created ||
+                state == SessionState.running) &&
+            session.getCommand().contains(filePath);
+      });
+
+  void _retireWebMediaPath(String filePath) {
+    if (!kIsWeb) return;
+    _retiredWebMediaPaths.add(filePath);
+    _cleanupRetiredWebMediaPaths();
+  }
+
+  void _cleanupRetiredWebMediaPaths() {
+    if (!kIsWeb || _retiredWebMediaPaths.isEmpty) return;
+    for (final filePath in _retiredWebMediaPaths.toList()) {
+      if (_webMediaPathIsInUse(filePath)) continue;
+      try {
+        if (FFmpegKitWebFiles.exists(filePath)) {
+          FFmpegKitWebFiles.deleteFile(filePath);
+        }
+        _retiredWebMediaPaths.remove(filePath);
+      } catch (error) {
+        _addLog('Unable to remove retired Web media $filePath: $error');
+      }
+    }
+  }
+
+  Future<void> _downloadWebFile(String filePath) async {
+    if (!kIsWeb) return;
+    try {
+      if (!FFmpegKitWebFiles.exists(filePath)) {
+        throw StateError('No Wasm file exists at $filePath.');
+      }
+      final fileName = path.basename(filePath);
+      final extension = path.extension(fileName).toLowerCase();
+      final mimeType = switch (extension) {
+        '.mp4' => 'video/mp4',
+        '.wav' => 'audio/wav',
+        '.avi' => 'video/x-msvideo',
+        _ => 'application/octet-stream',
+      };
+      final saved = await FilePicker.saveFile(
+        fileName: fileName,
+        bytes: FFmpegKitWebFiles.readFile(filePath),
+        mimeType: mimeType,
+      );
+      _addLog(
+        saved == null
+            ? 'Download cancelled for $fileName.'
+            : 'Browser download started for $fileName.',
+      );
+    } catch (error) {
+      _addLog('Web file download failed for $filePath: $error');
+    }
+  }
 
   Future<void> _generateTestVideo() async {
     final exampleDirPath = await _exampleDirectoryPath();
@@ -484,6 +557,10 @@ class _HomePageState extends State<HomePage>
         // "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i testsrc=duration=5:size=512x512:rate=30 -f lavfi -i sine=frequency=1000:duration=5 -c:v mpeg2video -c:a aac -shortest -y";
         "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i \"$_ffplayFrameSource\" -f lavfi -i sine=frequency=1000:duration=8 -c:v mpeg2video -c:a aac -shortest -y";
 
+    if (kIsWeb) {
+      setState(() => _webDownloadableFiles.remove(tempOutputPath));
+    }
+
     await FFmpegKit.executeAsync(
       "$command \"$tempOutputPath\"",
       onLog: (log) {
@@ -491,7 +568,9 @@ class _HomePageState extends State<HomePage>
       },
       onComplete: (session) {
         if (ReturnCode.isSuccess(session.getReturnCode())) {
-          if (kIsWeb) _webGeneratedFiles.add(tempOutputPath);
+          if (kIsWeb && mounted) {
+            setState(() => _webDownloadableFiles.add(tempOutputPath));
+          }
           _addLog("✅ Video with audio generated successfully!");
         } else {
           _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
@@ -623,6 +702,10 @@ class _HomePageState extends State<HomePage>
     final command =
         "-hide_banner -nostdin -loglevel ${_currentLogLevel.name} -f lavfi -i sine=frequency=1000:duration=10 -y";
 
+    if (kIsWeb) {
+      setState(() => _webDownloadableFiles.remove(outputPath));
+    }
+
     await FFmpegKit.executeAsync(
       "$command \"$outputPath\"",
       onLog: (log) {
@@ -630,7 +713,9 @@ class _HomePageState extends State<HomePage>
       },
       onComplete: (session) {
         if (ReturnCode.isSuccess(session.getReturnCode())) {
-          if (kIsWeb) _webGeneratedFiles.add(outputPath);
+          if (kIsWeb && mounted) {
+            setState(() => _webDownloadableFiles.add(outputPath));
+          }
           _addLog("✅ Audio generated successfully!");
         } else {
           _addLog("❌ Generation failed. Code: ${session.getReturnCode()}");
@@ -640,10 +725,19 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _pickTranscodeFile() async {
-    final result = await FilePicker.pickFiles(type: FileType.video);
-    if (result.single.path != null) {
-      final pickedPath = result.single.path!;
-      final pickedDir = path.dirname(pickedPath);
+    try {
+      final result = await FilePicker.pickFiles(type: FileType.video);
+      if (result.isEmpty) return;
+      final file = result.single;
+      final previousWebPath = _selectedWebMediaPath;
+      final pickedPath = kIsWeb
+          ? _importWebMedia(file.name, await file.readAsBytes())
+          : file.path;
+      if (pickedPath == null) {
+        _addLog('The selected file did not provide a local path.');
+        return;
+      }
+      final pickedDir = kIsWeb ? '/tmp' : path.dirname(pickedPath);
       final baseName = path.basenameWithoutExtension(pickedPath);
       setState(() {
         _transcodeInputPath = pickedPath;
@@ -651,8 +745,17 @@ class _HomePageState extends State<HomePage>
           pickedDir,
           '${baseName}_transcoded.avi',
         );
+        if (kIsWeb) {
+          _selectedWebMediaPath = pickedPath;
+          _selectedProbePath = pickedPath;
+        }
       });
+      if (kIsWeb && previousWebPath != null && previousWebPath != pickedPath) {
+        _retireWebMediaPath(previousWebPath);
+      }
       _addLog("Selected file: $pickedPath");
+    } catch (error) {
+      _addLog('Unable to import the selected video: $error');
     }
   }
 
@@ -668,9 +771,11 @@ class _HomePageState extends State<HomePage>
     String inputPath;
     String outputPath;
 
-    if (_transcodeInputPath != null &&
-        _exampleFileExists(_transcodeInputPath!)) {
-      inputPath = _transcodeInputPath!;
+    final selectedInputPath = kIsWeb
+        ? _selectedWebMediaPath
+        : _transcodeInputPath;
+    if (selectedInputPath != null && _exampleFileExists(selectedInputPath)) {
+      inputPath = selectedInputPath;
       outputPath =
           _transcodeOutputPath ?? path.join(exampleDirPath, 'test_video.avi');
     } else {
@@ -687,6 +792,10 @@ class _HomePageState extends State<HomePage>
         _addLog("❌ Failed to generate source video.");
         return;
       }
+    }
+
+    if (kIsWeb) {
+      setState(() => _webDownloadableFiles.remove(outputPath));
     }
 
     setState(() {
@@ -744,6 +853,7 @@ class _HomePageState extends State<HomePage>
             if (ReturnCode.isSuccess(session.getReturnCode())) {
               _transcodeProgress = 1.0;
               _transcodeStatus = '✅ Transcode complete!';
+              if (kIsWeb) _webDownloadableFiles.add(outputPath);
               _addLog("✅ Video transcoded successfully to AVI!");
             } else {
               _transcodeStatus = '❌ Transcode failed.';
@@ -751,6 +861,7 @@ class _HomePageState extends State<HomePage>
             }
           });
         }
+        _cleanupRetiredWebMediaPaths();
       },
     );
   }
@@ -1132,12 +1243,35 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _pickProbeFile() async {
-    final result = await FilePicker.pickFiles();
-    if (result.single.path != null) {
+    try {
+      final result = await FilePicker.pickFiles();
+      if (result.isEmpty) return;
+      final file = result.single;
+      final previousWebPath = _selectedWebMediaPath;
+      final pickedPath = kIsWeb
+          ? _importWebMedia(file.name, await file.readAsBytes())
+          : file.path;
+      if (pickedPath == null) {
+        _addLog('The selected file did not provide a local path.');
+        return;
+      }
       setState(() {
-        _selectedProbePath = result.single.path;
+        _selectedProbePath = pickedPath;
+        if (kIsWeb) {
+          _selectedWebMediaPath = pickedPath;
+          _transcodeInputPath = pickedPath;
+          _transcodeOutputPath = path.join(
+            '/tmp',
+            '${path.basenameWithoutExtension(pickedPath)}_transcoded.avi',
+          );
+        }
       });
-      _addLog("Selected for probe: $_selectedProbePath");
+      if (kIsWeb && previousWebPath != null && previousWebPath != pickedPath) {
+        _retireWebMediaPath(previousWebPath);
+      }
+      _addLog("Selected for probe: $pickedPath");
+    } catch (error) {
+      _addLog('Unable to import the selected media: $error');
     }
   }
 
@@ -1147,10 +1281,20 @@ class _HomePageState extends State<HomePage>
     final localTestPath = path.join(exampleDirPath, 'test_video.mp4');
 
     final String probePath;
-    if (_selectedProbePath != null && _exampleFileExists(_selectedProbePath!)) {
+    if (kIsWeb &&
+        _selectedWebMediaPath != null &&
+        _exampleFileExists(_selectedWebMediaPath!)) {
+      probePath = _selectedWebMediaPath!;
+    } else if (_selectedProbePath != null &&
+        _exampleFileExists(_selectedProbePath!)) {
       probePath = _selectedProbePath!;
     } else if (_exampleFileExists(localTestPath)) {
       probePath = localTestPath;
+    } else if (kIsWeb) {
+      _addLog(
+        'Pick a local file or generate the example video before probing.',
+      );
+      return;
     } else {
       probePath =
           "https://raw.githubusercontent.com/tanersener/ffmpeg-kit/master/test-data/video.mp4";
@@ -1184,6 +1328,7 @@ class _HomePageState extends State<HomePage>
             _addLog(session.getLogs() ?? "Empty logs.");
           }
         }
+        _cleanupRetiredWebMediaPaths();
       },
     );
   }
@@ -1266,7 +1411,9 @@ class _HomePageState extends State<HomePage>
 
   Future<void> _runFFplay(String fileName) async {
     final exampleDirPath = await _exampleDirectoryPath();
-    final localPath = path.join(exampleDirPath, fileName);
+    final localPath = path.isAbsolute(fileName)
+        ? fileName
+        : path.join(exampleDirPath, fileName);
 
     if (!_exampleFileExists(localPath)) {
       _addLog("⚠️ File not found: $localPath. Please generate it first!");
@@ -1287,11 +1434,23 @@ class _HomePageState extends State<HomePage>
       "-autoexit -i \"$localPath\"",
       onComplete: (session) {
         _addLog("FFplay playback of $fileName finished");
+        _cleanupRetiredWebMediaPaths();
       },
       onLog: (log) => _addLog("FFplay: ${log.message}"),
     );
     _attachPositionStream(session);
     _addLog("Playback started.");
+  }
+
+  Future<void> _playImportedMedia() async {
+    final filePath = kIsWeb
+        ? _selectedWebMediaPath
+        : _selectedProbePath ?? _transcodeInputPath;
+    if (filePath == null || !_exampleFileExists(filePath)) {
+      _addLog('Pick a local media file before playing imported media.');
+      return;
+    }
+    await _runFFplay(filePath);
   }
 
   Future<void> _runCustomFFplay() async {
@@ -1784,6 +1943,31 @@ class _HomePageState extends State<HomePage>
               ),
             ],
           ),
+          if (kIsWeb &&
+              (_webDownloadableFiles.contains('/tmp/test_video.mp4') ||
+                  _webDownloadableFiles.contains('/tmp/test_audio.wav'))) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                if (_webDownloadableFiles.contains('/tmp/test_video.mp4'))
+                  _demoButton(
+                    () => _downloadWebFile('/tmp/test_video.mp4'),
+                    Icons.download,
+                    'Download MP4',
+                    key: const ValueKey<String>('ffmpeg.download-mp4'),
+                  ),
+                if (_webDownloadableFiles.contains('/tmp/test_audio.wav'))
+                  _demoButton(
+                    () => _downloadWebFile('/tmp/test_audio.wav'),
+                    Icons.download,
+                    'Download WAV',
+                    key: const ValueKey<String>('ffmpeg.download-wav'),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           _buildCustomCommandSection(
             _ffmpegCommandController,
@@ -1798,6 +1982,29 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildStreamScenarioTab() {
+    if (kIsWeb) {
+      return const SingleChildScrollView(
+        padding: EdgeInsets.all(16.0),
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Network streaming is unsupported in the Flutter Web/Wasm build, including RTMP/RTMPE.',
+                  key: ValueKey<String>('stream.unsupported'),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Use a supported native Flutter target for network stream input or recording.',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -1812,14 +2019,17 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildFFprobeTab() {
+    final selectedProbePath = kIsWeb
+        ? _selectedWebMediaPath
+        : _selectedProbePath;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_selectedProbePath != null) ...[
+          if (selectedProbePath != null) ...[
             Text(
-              "Selected: ${path.basename(_selectedProbePath!)}",
+              "Selected: ${path.basename(selectedProbePath)}",
               style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 8),
@@ -1946,6 +2156,15 @@ class _HomePageState extends State<HomePage>
               ),
             ],
           ),
+          if (kIsWeb) ...[
+            const SizedBox(height: 12),
+            _demoButton(
+              _playImportedMedia,
+              Icons.play_circle_outline,
+              'Play Imported File',
+              key: const ValueKey<String>('ffplay.play-imported'),
+            ),
+          ],
           const SizedBox(height: 20),
           const Text(
             "2. Play Generated:",
@@ -2061,6 +2280,11 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildTranscodeTab() {
+    final selectedInputPath = kIsWeb
+        ? _selectedWebMediaPath
+        : _transcodeInputPath;
+    final webTranscodeOutputPath =
+        _transcodeOutputPath ?? (kIsWeb ? '/tmp/test_video.avi' : null);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -2089,7 +2313,7 @@ class _HomePageState extends State<HomePage>
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  if (_transcodeInputPath != null) ...[
+                  if (selectedInputPath != null) ...[
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
@@ -2102,7 +2326,7 @@ class _HomePageState extends State<HomePage>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              path.basename(_transcodeInputPath!),
+                              path.basename(selectedInputPath),
                               style: const TextStyle(fontSize: 12),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2115,10 +2339,19 @@ class _HomePageState extends State<HomePage>
                             onPressed: _isTranscoding
                                 ? null
                                 : () {
+                                    final previousWebPath =
+                                        _selectedWebMediaPath;
                                     setState(() {
                                       _transcodeInputPath = null;
                                       _transcodeOutputPath = null;
+                                      if (kIsWeb) {
+                                        _selectedWebMediaPath = null;
+                                        _selectedProbePath = null;
+                                      }
                                     });
+                                    if (previousWebPath != null) {
+                                      _retireWebMediaPath(previousWebPath);
+                                    }
                                   },
                             tooltip: "Clear selection",
                           ),
@@ -2219,6 +2452,17 @@ class _HomePageState extends State<HomePage>
               ),
             ],
           ),
+          if (kIsWeb &&
+              webTranscodeOutputPath != null &&
+              _webDownloadableFiles.contains(webTranscodeOutputPath)) ...[
+            const SizedBox(height: 12),
+            _demoButton(
+              () => _downloadWebFile(webTranscodeOutputPath),
+              Icons.download,
+              'Download AVI',
+              key: const ValueKey<String>('transcode.download-avi'),
+            ),
+          ],
           const SizedBox(height: 24),
           // Info card
           Card(

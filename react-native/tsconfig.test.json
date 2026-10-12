@@ -18,6 +18,8 @@
     "src/callback-demand.ts",
     "src/platform/web/session-registry.ts",
     "src/platform/web/session-history-registry.ts",
+    "src/platform/web/wasm-loader.ts",
+    "src/platform/web/wasm-files.ts",
     "src/platform/web/ffplay-frame-reader.ts",
     "src/platform/backend-registry.ts",
     "src/platform/native-session-reconciliation.ts",

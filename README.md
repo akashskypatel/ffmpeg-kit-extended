@@ -102,7 +102,7 @@ You will have to update your app's minimum requirements on your own to match the
 | --------- | ---- | ----- | ----- | -------------- | ---- |
 | Video     |      |       | x     | x              | x    |
 | Audio     |      | x     | x     | x              | x    |
-| Streaming |      | x     | x     | x              | x    |
+| Streaming (native bundle support) |      | x     | x     | x              | x    |
 | Hardware  |      |       |       | x              | x    |
 | AI*       |      |       |       |                | x*   |
 | HTTPS     | *    | x     | x     | x              | x    |
@@ -111,6 +111,12 @@ You will have to update your app's minimum requirements on your own to match the
 
 1. AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable certain AI features.
    - See [Supported External Libraries](#libraries) for more information.
+
+| Runtime | Network stream input/recording |
+| --- | --- |
+| Web (Wasm) | Not supported, including RTMP/RTMPE |
+
+The bundle-level Streaming row applies to native targets; it does not imply Web/Wasm network streaming support.
 
 2. Platform features are built-in platform libraries that FFmpeg support like AVFounation, VideoToolbox, etc. on apple platforms or DirectX, MediaFoundation on Windows.
 
@@ -233,7 +239,7 @@ Apple table entries measure the uncompressed framework binaries and exclude debu
 | schannel, dxva2, d3d12va, d3d11va, mediafoundation                                         |         |       | b+      |      |     |       |            |
 | alsa                                                                                       |         | b+    |         |      |     |       |            |
 
-The Web column uses the same bundle keys as the other columns. ` ` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries.
+The Web column uses the same bundle keys as the other columns. ` ` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries. These entries describe bundled libraries, not browser network capability: Web/Wasm builds do not support network stream I/O, including RTMP/RTMPE.
 
 > frei0r, liblensfun, librsvg, and pocketsphinx are not available on `tvOS`.
 

@@ -14,7 +14,7 @@ historical artifacts.
 
 - **Flutter SDK**
 - **C++ Compiler** (GCC/Clang) for native library linking
-- **Platform**: Android, iOS, macOS, Windows or Linux
+- **Platform**: Android, iOS, macOS, Windows, Linux, or Flutter Web/Wasm
 
 The package requires Flutter **3.47.0** or newer and Dart **3.12.0** or newer.
 
@@ -100,7 +100,16 @@ FFmpeg, FFprobe, and callback path.
 - **FFmpeg Execution**: Asynchronous video conversion with real-time statistics and log tracking.
 - **FFprobe Integration**: Extracting detailed metadata, stream information, and chapters from media files.
 - **FFplay Playback**: A functional media player implementation showing playback control (seek, pause, resume) and duration tracking.
+- **Web/Wasm file transfer**: Pick a browser media file into temporary `/tmp/` Wasm storage, probe/transcode/play the selected file, and download generated MP4/WAV/AVI output.
+- **Streaming support**: Remote HLS/network stream recording is available on supported native targets. Web/Wasm does not support network stream input or recording, including RTMP/RTMPE; its Stream tab explains the limitation and exposes no stream controls.
 - **Session Management**: Monitoring active tasks and handling session lifecycles.
+
+Imported files and generated media remain in browser memory until removed or
+the Web app is reloaded. Large files can exhaust browser memory. The
+`FFmpegKitWebFiles` API is Web/Wasm-only and requires
+`FFmpegKitExtended.initialize()`. The selected Wasm runtime must export `FS`
+with `writeFile`, `readFile`, `unlink`, and `stat` in
+`EXPORTED_RUNTIME_METHODS` for file transfer to work.
 
 ## Implementation Details
 

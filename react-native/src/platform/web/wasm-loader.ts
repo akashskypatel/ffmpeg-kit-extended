@@ -1,6 +1,7 @@
 export interface WasmModule {
   HEAPU8: Uint8Array;
   HEAPU32: Uint32Array;
+  FS?: WasmFileSystem;
   _malloc(size: number): number;
   _free(pointer: number): void;
   UTF8ToString(pointer: number): string;
@@ -10,6 +11,14 @@ export interface WasmModule {
   addFunction?(callback: (...args: unknown[]) => unknown, signature: string): number;
   removeFunction?(pointer: number): void;
   [name: string]: unknown;
+}
+
+/** The Emscripten filesystem operations used by the Web file facade. */
+export interface WasmFileSystem {
+  writeFile(path: string, data: Uint8Array): void;
+  readFile(path: string): Uint8Array;
+  unlink(path: string): void;
+  stat(path: string): {mode: number; size: number};
 }
 
 export interface WasmInitializeOptions {

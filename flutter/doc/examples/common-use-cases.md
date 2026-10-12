@@ -85,6 +85,9 @@ void recordScreenWindows(String output) {
 
 ## 9. Stream to RTMP (Live Streaming)
 
+This example applies to supported native Flutter targets. Flutter Web/Wasm
+builds do not support network stream I/O, including RTMP/RTMPE.
+
 ```dart
 void startLiveStream(String input, String rtmpUrl) {
   FFmpegKit.executeAsync(

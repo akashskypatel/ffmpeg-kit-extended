@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
@@ -43,6 +44,9 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       await FFmpegKitExtended.initialize();
       await FFmpegKitExtended.initialize();
       _addStatus('INITIALIZED');
+
+      _verifyWebFileApi();
+      _addStatus('WASM_FILES_OK');
 
       FFmpegKitConfig.enableLogCallback((log) {
         logCount++;
@@ -131,6 +135,28 @@ class _WebRuntimeSmokeAppState extends State<WebRuntimeSmokeApp> {
       final surface = _surface;
       _surface = null;
       await surface?.release();
+    }
+  }
+
+  void _verifyWebFileApi() {
+    const path = '/tmp/ffmpeg-kit-web-files-smoke.bin';
+    final expected = Uint8List.fromList([0, 1, 0x7f, 0x80, 0xff]);
+    try {
+      FFmpegKitWebFiles.writeFile(path, expected);
+      if (!FFmpegKitWebFiles.exists(path)) {
+        throw StateError('The Web file API did not create the smoke file.');
+      }
+      final actual = FFmpegKitWebFiles.readFile(path);
+      if (actual.length != expected.length ||
+          actual.asMap().entries.any(
+            (entry) => entry.value != expected[entry.key],
+          )) {
+        throw StateError('The Web file API changed binary bytes.');
+      }
+    } finally {
+      if (FFmpegKitWebFiles.exists(path)) {
+        FFmpegKitWebFiles.deleteFile(path);
+      }
     }
   }
 

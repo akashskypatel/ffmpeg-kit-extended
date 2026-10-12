@@ -24,6 +24,11 @@ test-owned background sessions, and leaves no agent-owned process/session.
 | Native file picker | Boundary-only | Boundary-only | Boundary-only | Boundary-only | Boundary-only | Not core |
 | Remote stream recording | Non-core/network | Non-core/network | Non-core/network | Non-core/network | Non-core/network | Non-core/network |
 
+This scenario matrix covers Flutter native targets and native React Native
+targets. Remote stream recording, including RTMP/RTMPE, is **not supported**
+by Flutter Web/Wasm or React Native Web/Wasm builds and is not an applicable
+Web scenario.
+
 Platform-specific tools own only the target assigned to them: Marionette for
 Flutter, Maestro for RN Android/iOS, Appium with Mac2 for RN macOS, Appium with
 XCUITest for RN tvOS, and AutoGenesis pywinauto for RN Windows. Build/simulator

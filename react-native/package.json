@@ -15,6 +15,10 @@
       "react-native": "./src/index.ts",
       "default": "./lib/module/index.js"
     },
+    "./web-files": {
+      "types": "./lib/typescript/src/platform/web/wasm-files.d.ts",
+      "browser": "./src/platform/web/wasm-files.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [

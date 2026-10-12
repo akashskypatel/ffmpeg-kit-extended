@@ -24,3 +24,5 @@
 library;
 
 export 'src/ffmpeg_kit_extended_flutter_native.dart';
+export 'src/ffmpeg_kit_web_files_stub.dart'
+    if (dart.library.js_interop) 'src/platform/web/ffmpeg_kit_web_files.dart';

@@ -64,9 +64,15 @@ try {
   console.log('STARTING');
   await page.goto(url, {waitUntil: 'domcontentloaded', timeout: 30_000});
   await page.waitForFunction(
-    () => document.title.includes('FFPLAY_STARTED'),
+    () => /(?:FFPLAY_STARTED|FAIL:)/.test(document.title),
     null,
     {timeout: 120_000},
+  );
+  const startupStatus = await page.title();
+  assert.match(
+    startupStatus,
+    /FFPLAY_STARTED/,
+    `Flutter Web runtime failed before playback: ${startupStatus}`,
   );
   assert.equal(
     screenshotPaths.length,
@@ -128,6 +134,7 @@ try {
   const status = await page.title();
   assert.match(status, /STARTING/);
   assert.match(status, /INITIALIZED/);
+  assert.match(status, /WASM_FILES_OK/);
   assert.match(status, /FFMPEG_OK/);
   assert.match(status, /LOG_OK/);
   assert.match(status, /FFPROBE_OK/);

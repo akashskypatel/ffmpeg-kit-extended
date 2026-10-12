@@ -26,6 +26,7 @@ import {
   CheckCircleRounded,
   CloudUploadRounded,
   DeleteOutlineRounded,
+  DownloadRounded,
   FastForwardRounded,
   FastRewindRounded,
   FileOpenRounded,
@@ -58,6 +59,7 @@ import {
   SessionState,
 } from 'ffmpeg-kit-extended';
 import type {FFmpegSession, FFplaySession, Session, Statistics} from 'ffmpeg-kit-extended';
+import {FFmpegKitWebFiles} from 'ffmpeg-kit-extended/web-files';
 
 const TEST_FRAME_SOURCE =
   'color=c=red:size=512x512:rate=30:duration=2[red];' +
@@ -80,7 +82,14 @@ type ActiveJob = {
   label: string;
   kind: JobKind;
   session: Session;
+  inputPath?: string;
   statistics?: Statistics;
+};
+
+type ImportedMedia = {
+  name: string;
+  size: number;
+  path: string;
 };
 
 type RuntimeCapabilities = {
@@ -235,6 +244,9 @@ export default function App(): React.JSX.Element {
   });
   const [videoPath, setVideoPath] = useState<string>();
   const [audioPath, setAudioPath] = useState<string>();
+  const [selectedMedia, setSelectedMedia] = useState<ImportedMedia>();
+  const [transcodeReady, setTranscodeReady] = useState(false);
+  const [streamReady, setStreamReady] = useState(false);
   const [ffmpegCommand, setFFmpegCommand] = useState('-nostdin -version');
   const [ffprobeCommand, setFFprobeCommand] = useState('-version');
   const [ffplayCommand, setFFplayCommand] = useState(`-hide_banner -i ${VIDEO_PATH} -autoexit`);
@@ -253,7 +265,11 @@ export default function App(): React.JSX.Element {
   const jobsRef = useRef(new Map<number, ActiveJob>());
   const logScrollRef = useRef<HTMLDivElement>(null);
   const videoHostRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const playerRef = useRef<FFplaySession | undefined>(undefined);
+  const selectedMediaRef = useRef<ImportedMedia | undefined>(undefined);
+  const importedPathsRef = useRef(new Set<string>());
+  const mediaInfoPathRef = useRef<string | undefined>(undefined);
   const previousVolumeRef = useRef(1);
   const queuedLogsRef = useRef('');
   const logTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -284,6 +300,24 @@ export default function App(): React.JSX.Element {
     [flushLogs],
   );
 
+  const cleanupImportedFile = useCallback((path: string) => {
+    if (
+      selectedMediaRef.current?.path === path ||
+      mediaInfoPathRef.current === path ||
+      Array.from(jobsRef.current.values()).some((job) => job.inputPath === path)
+    ) {
+      return;
+    }
+    if (!importedPathsRef.current.has(path)) return;
+    try {
+      if (FFmpegKitWebFiles.exists(path)) FFmpegKitWebFiles.deleteFile(path);
+      importedPathsRef.current.delete(path);
+      appendLog(`Removed unused imported media from the Wasm filesystem: ${path}.`);
+    } catch (error) {
+      appendLog(`Could not remove unused imported media ${path}: ${errorMessage(error)}`);
+    }
+  }, [appendLog]);
+
   useLayoutEffect(() => {
     const scroller = logScrollRef.current;
     if (scroller && shouldAutoScrollRef.current) scroller.scrollTop = scroller.scrollHeight;
@@ -307,7 +341,8 @@ export default function App(): React.JSX.Element {
   const removeJob = useCallback((id: number) => {
     jobsRef.current.delete(id);
     setActiveJobs(Array.from(jobsRef.current.values()));
-  }, []);
+    for (const path of importedPathsRef.current) cleanupImportedFile(path);
+  }, [cleanupImportedFile]);
 
   const trackSession = useCallback(
     function trackSession<T extends Session>(
@@ -315,9 +350,10 @@ export default function App(): React.JSX.Element {
       label: string,
       kind: JobKind,
       start: () => Promise<T>,
+      inputPath?: string,
     ): Promise<T> {
       const id = session.getSessionId();
-      updateJob({id, label, kind, session});
+      updateJob({id, label, kind, session, inputPath});
       setStatus(`${label} running`);
       appendLog(`${label} started (session ${id}).`);
 
@@ -360,6 +396,7 @@ export default function App(): React.JSX.Element {
       command: string,
       kind: JobKind = 'ffmpeg',
       onStatistics?: (statistics: Statistics) => void,
+      inputPath?: string,
     ): Promise<FFmpegSession> => {
       const session = FFmpegKit.createSession(command);
       const id = session.getSessionId();
@@ -384,6 +421,7 @@ export default function App(): React.JSX.Element {
             }
           },
         }),
+        inputPath,
       ).then((completed) => {
         appendLog(`${label} callback counts: log=${logCount}, statistics=${statisticsCount}.`);
         return completed;
@@ -393,11 +431,12 @@ export default function App(): React.JSX.Element {
   );
 
   const runFFprobe = useCallback(
-    (label: string, command: string): Promise<Session> => {
+    (label: string, command: string, inputPath?: string): Promise<Session> => {
       const session = FFprobeKit.createSession(command);
       appendLog(`$ ffprobe ${command}`);
       return trackSession(session, label, 'ffprobe', () =>
         session.executeAsync({logCallback: (log) => appendLog(log.message)}),
+        inputPath,
       );
     },
     [appendLog, trackSession],
@@ -423,6 +462,58 @@ export default function App(): React.JSX.Element {
     },
     [appendLog],
   );
+
+  const importMedia = (file: File) =>
+    runUiAction('import-media', async () => {
+      const random = new Uint32Array(4);
+      if (typeof globalThis.crypto?.getRandomValues !== 'function') {
+        throw new Error('This browser cannot create a collision-resistant temporary media path.');
+      }
+      globalThis.crypto.getRandomValues(random);
+      const token = Array.from(random, (value) => value.toString(16).padStart(8, '0')).join('');
+      const dot = file.name.lastIndexOf('.');
+      const candidateExtension = dot >= 0 ? file.name.slice(dot + 1) : '';
+      const extension = /^[a-z0-9]{1,12}$/i.test(candidateExtension)
+        ? `.${candidateExtension.toLowerCase()}`
+        : '';
+      const path = `/tmp/ffmpeg-kit-web-import-${token}${extension}`;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      FFmpegKitWebFiles.writeFile(path, bytes);
+      const imported = {name: file.name, size: bytes.byteLength, path};
+      const previous = selectedMediaRef.current;
+      importedPathsRef.current.add(path);
+      selectedMediaRef.current = imported;
+      setSelectedMedia(imported);
+      if (previous) cleanupImportedFile(previous.path);
+      appendLog(`Imported ${file.name} (${formatBytes(bytes.byteLength)}) to ${path}.`);
+      setStatus(`Imported ${file.name} to the Wasm filesystem`);
+    });
+
+  const downloadFile = (label: string, path: string, filename: string, mimeType: string) =>
+    runUiAction(`download-${label}`, () => {
+      if (!FFmpegKitWebFiles.exists(path)) throw new Error(`The Wasm file is missing: ${path}`);
+      const bytes = FFmpegKitWebFiles.readFile(path);
+      if (typeof document === 'undefined' || typeof URL.createObjectURL !== 'function') {
+        throw new Error('This browser does not support downloading local Wasm files.');
+      }
+      const blob = new Blob([bytes.slice().buffer as ArrayBuffer], {type: mimeType});
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      let dispatched = false;
+      try {
+        document.body.appendChild(anchor);
+        anchor.click();
+        dispatched = true;
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+        appendLog(`Browser download started for ${filename} (${formatBytes(bytes.byteLength)}).`);
+        setStatus(`Download started: ${filename}`);
+      } finally {
+        anchor.remove();
+        if (!dispatched) URL.revokeObjectURL(objectUrl);
+      }
+    });
 
   const readRuntimeCapabilities = useCallback(() => {
     try {
@@ -541,6 +632,7 @@ export default function App(): React.JSX.Element {
         if (session.getReturnCode() !== ReturnCode.Success) {
           throw new Error(`Video generation returned code ${session.getReturnCode()}.`);
         }
+        if (!FFmpegKitWebFiles.exists(VIDEO_PATH)) throw new Error('FFmpeg completed without creating the MP4 file.');
         setVideoPath(VIDEO_PATH);
         appendLog(`Generated browser-runtime video at ${VIDEO_PATH}.`);
         return VIDEO_PATH;
@@ -566,6 +658,7 @@ export default function App(): React.JSX.Element {
         if (session.getReturnCode() !== ReturnCode.Success) {
           throw new Error(`Audio generation returned code ${session.getReturnCode()}.`);
         }
+        if (!FFmpegKitWebFiles.exists(AUDIO_PATH)) throw new Error('FFmpeg completed without creating the WAV file.');
         setAudioPath(AUDIO_PATH);
         appendLog(`Generated browser-runtime audio at ${AUDIO_PATH}.`);
         return AUDIO_PATH;
@@ -591,7 +684,7 @@ export default function App(): React.JSX.Element {
     });
 
   const launchPlayback = useCallback(
-    async (label: string, command: string) => {
+    async (label: string, command: string, inputPath?: string) => {
       if (!FFmpegKitExtended.initialized) throw new Error('Initialize the Web runtime before starting playback.');
       if (playerRef.current) throw new Error('Stop the current FFplay session before starting another.');
       const session = FFplayKit.createSession(command);
@@ -601,6 +694,7 @@ export default function App(): React.JSX.Element {
       appendLog(`$ ffplay ${command}`);
       const completion = trackSession(session, label, 'playback', () =>
         session.executeAsync({logCallback: (log) => appendLog(log.message)}),
+        inputPath,
       );
       void completion
         .then((completed) => {
@@ -630,6 +724,15 @@ export default function App(): React.JSX.Element {
       const path = await ensureAudio();
       const command = `-hide_banner -loglevel info -i ${quoteCommandArg(path)} -autoexit`;
       await launchPlayback('Play generated audio', command);
+    });
+
+  const playImportedMedia = () =>
+    runUiAction('play-imported-media', async () => {
+      const imported = selectedMediaRef.current;
+      if (!imported) throw new Error('Pick a media file before starting imported playback.');
+      if (!FFmpegKitWebFiles.exists(imported.path)) throw new Error(`The imported file is missing: ${imported.path}`);
+      const command = `-hide_banner -loglevel info -i ${quoteCommandArg(imported.path)} -autoexit`;
+      await launchPlayback(`Play ${imported.name}`, command, imported.path);
     });
 
   const runCustomPlayback = () =>
@@ -684,15 +787,25 @@ export default function App(): React.JSX.Element {
 
   const runMediaInfo = () =>
     runUiAction('get-media-info', async () => {
-      const path = await ensureVideo();
+      const imported = selectedMediaRef.current;
+      const path = imported?.path ?? await ensureVideo();
+      if (imported) mediaInfoPathRef.current = path;
       appendLog(`$ ffprobe media information ${quoteCommandArg(path)}`);
-      const session = await FFprobeKit.getMediaInformation(path);
-      const information = session.getMediaInformation();
-      if (!information) throw new Error(session.getOutput() || 'FFprobe returned no media information.');
-      const rendered = JSON.stringify(information, null, 2);
-      setMediaInfoText(rendered);
-      appendLog(`Media information for ${path}:\n${rendered}`);
-      setStatus(`Media info: ${information.streams?.length ?? 0} stream(s)`);
+      try {
+        const session = await FFprobeKit.getMediaInformation(path);
+        if (session.getReturnCode() !== ReturnCode.Success) {
+          throw new Error(session.getOutput() || `FFprobe returned code ${session.getReturnCode()}.`);
+        }
+        const information = session.getMediaInformation();
+        if (!information) throw new Error(session.getOutput() || 'FFprobe returned no media information.');
+        const rendered = JSON.stringify(information, null, 2);
+        setMediaInfoText(rendered);
+        appendLog(`Media information for ${path}:\n${rendered}`);
+        setStatus(`Media info: ${information.streams?.length ?? 0} stream(s)`);
+      } finally {
+        if (mediaInfoPathRef.current === path) mediaInfoPathRef.current = undefined;
+        cleanupImportedFile(path);
+      }
     });
 
   const startStream = () =>
@@ -702,6 +815,8 @@ export default function App(): React.JSX.Element {
       if (activeJobs.some((job) => job.kind === 'stream')) {
         throw new Error('A remote stream recording is already active.');
       }
+      setStreamReady(false);
+      if (FFmpegKitWebFiles.exists(STREAM_PATH)) FFmpegKitWebFiles.deleteFile(STREAM_PATH);
       const command =
         `-hide_banner -nostdin -loglevel info -i ${quoteCommandArg(url)} ` +
         `-c copy -y ${quoteCommandArg(STREAM_PATH)}`;
@@ -715,7 +830,17 @@ export default function App(): React.JSX.Element {
           },
         }),
       );
-      void completion.catch(() => undefined);
+      void completion
+        .then((completed) => {
+          if (completed.getReturnCode() !== ReturnCode.Success) return;
+          if (!FFmpegKitWebFiles.exists(STREAM_PATH)) {
+            setLastError('The stream session completed without creating its MKV output.');
+            return;
+          }
+          setStreamReady(true);
+          appendLog(`Completed stream recording is ready to download: ${STREAM_PATH}.`);
+        })
+        .catch(() => undefined);
       setStatus(`Recording stream to Wasm path ${STREAM_PATH}`);
     });
 
@@ -742,17 +867,21 @@ export default function App(): React.JSX.Element {
   const runTranscode = () =>
     runUiAction('transcode-video', async () => {
       if (!capabilities.transcode) throw new Error(capabilities.detail);
-      const path = await ensureVideo();
+      setTranscodeReady(false);
+      if (FFmpegKitWebFiles.exists(TRANSCODE_PATH)) FFmpegKitWebFiles.deleteFile(TRANSCODE_PATH);
+      const path = selectedMediaRef.current?.path ?? await ensureVideo();
       setTranscodeStats(undefined);
       const command =
-        `-hide_banner -nostdin -loglevel info -i ${quoteCommandArg(path)} ` +
-        `-an -c:v mpeg4 -y ${quoteCommandArg(TRANSCODE_PATH)}`;
-      const session = await runFFmpeg('Transcode MP4 to AVI', command, 'transcode', setTranscodeStats);
+        `-hide_banner -nostdin -loglevel info -threads 1 -i ${quoteCommandArg(path)} ` +
+        `-an -c:v mpeg4 -threads 1 -y ${quoteCommandArg(TRANSCODE_PATH)}`;
+      const session = await runFFmpeg('Transcode media to AVI', command, 'transcode', setTranscodeStats, path);
       if (session.getReturnCode() !== ReturnCode.Success) {
         throw new Error(`Transcode returned code ${session.getReturnCode()}.`);
       }
+      if (!FFmpegKitWebFiles.exists(TRANSCODE_PATH)) throw new Error('FFmpeg completed without creating the AVI file.');
+      setTranscodeReady(true);
       setStatus(`Transcode complete at Wasm path ${TRANSCODE_PATH}`);
-      appendLog(`Transcode output remains in the browser Wasm filesystem: ${TRANSCODE_PATH}.`);
+      appendLog(`Transcode output is ready to download from the browser Wasm filesystem: ${TRANSCODE_PATH}.`);
     });
 
   const refreshPlayback = useCallback(() => {
@@ -895,6 +1024,19 @@ export default function App(): React.JSX.Element {
 
   return (
     <Box className="app-shell">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*,audio/*,application/octet-stream"
+        aria-label="Import media file"
+        data-testid="import-media-input"
+        hidden
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = '';
+          if (file) void importMedia(file);
+        }}
+      />
       <AppBar position="static" elevation={0}>
         <Toolbar className="top-toolbar">
           <Typography variant="h6" className="app-title">FFmpeg Kit Extended</Typography>
@@ -995,6 +1137,10 @@ export default function App(): React.JSX.Element {
                 runLabel="Run FFmpeg"
                 disabled={runtimeState !== 'ready' || busyActions['run-ffmpeg-command']}
               />
+              <Box className="quick-actions">
+                {videoPath && <ActionButton label="Download MP4" icon={<DownloadRounded />} onClick={() => void downloadFile('mp4', VIDEO_PATH, 'ffmpeg-kit-web-test.mp4', 'video/mp4')} />}
+                {audioPath && <ActionButton label="Download WAV" icon={<DownloadRounded />} onClick={() => void downloadFile('wav', AUDIO_PATH, 'ffmpeg-kit-web-test.wav', 'audio/wav')} />}
+              </Box>
               {!capabilities.video && <Alert severity="info">Generated MP4 video is unavailable: {capabilities.detail}</Alert>}
               {videoPath && <Typography variant="caption" color="text.secondary">Generated video: {videoPath} (browser Wasm filesystem)</Typography>}
               {audioPath && <Typography variant="caption" color="text.secondary">Generated audio: {audioPath} (browser Wasm filesystem)</Typography>}
@@ -1006,9 +1152,9 @@ export default function App(): React.JSX.Element {
             <Stack className="screen-stack">
               <Card className="workflow-card" variant="outlined">
                 <CardContent sx={{p: '0 !important'}}>
-                  <Typography variant="subtitle1">Remote Stream Recording</Typography>
+                  <Typography variant="subtitle1">Stream Recording Unsupported</Typography>
                   <Typography variant="body2" className="card-description">
-                    Record an HTTP(S) stream to a virtual file in the browser runtime.
+                    The current FFmpeg Wasm build does not support network stream input or RTMP/RTMPE streaming.
                   </Typography>
                   <TextField
                     className="stream-url-field"
@@ -1017,18 +1163,20 @@ export default function App(): React.JSX.Element {
                     label="Remote stream URL"
                     value={streamUrl}
                     onChange={(event) => setStreamUrl(event.target.value)}
+                    disabled
                     inputProps={{'aria-label': 'Remote stream URL'}}
                   />
-                  <Alert severity="info" sx={{mt: 1, py: 0}}>
-                    Browser CORS and the configured FFmpeg protocols can block remote input. Output stays in Wasm memory; no OS file is saved.
+                  <Alert severity="warning" sx={{mt: 1, py: 0}}>
+                    Stream recording and MKV download are unavailable in Web/Wasm builds. Use a supported native build for stream I/O.
                   </Alert>
                   <Box className="stream-action-row">
                     <ActionButton
-                      label="Record Stream"
+                      label="Record Stream (Unsupported)"
                       icon={<CloudUploadRounded />}
                       onClick={() => void startStream()}
-                      disabled={runtimeState !== 'ready' || !streamUrl.trim() || activeStreamJobs.length > 0 || busyActions['record-stream']}
+                      disabled
                     />
+                    {streamReady && <Typography variant="caption" color="error">The Wasm runtime reported a stream output, but this Web build does not offer stream downloads.</Typography>}
                   </Box>
                 </CardContent>
               </Card>
@@ -1074,16 +1222,13 @@ export default function App(): React.JSX.Element {
             'ffprobe',
             <Stack className="screen-stack">
               <Box className="quick-actions">
-                <Tooltip title="Browser File objects are not exposed to the FFmpeg Wasm filesystem by this public SDK.">
-                  <span>
-                    <ActionButton label="Pick File" icon={<FileOpenRounded />} onClick={() => undefined} disabled title="Browser file import into the Wasm filesystem is not available." />
-                  </span>
-                </Tooltip>
-                <ActionButton label="Get Media Info" icon={<InfoOutlined />} onClick={() => void runMediaInfo()} disabled={runtimeState !== 'ready' || !capabilities.video || busyActions['get-media-info']} title={capabilities.video ? 'Generate the example video if needed, then read its FFprobe metadata.' : capabilities.detail} />
+                <ActionButton label="Pick File" icon={<FileOpenRounded />} onClick={() => fileInputRef.current?.click()} disabled={runtimeState !== 'ready' || busyActions['import-media']} title="Copy a local media file into the browser Wasm filesystem." />
+                <ActionButton label="Get Media Info" icon={<InfoOutlined />} onClick={() => void runMediaInfo()} disabled={runtimeState !== 'ready' || (!selectedMedia && !capabilities.video) || busyActions['get-media-info']} title={selectedMedia ? `Read FFprobe metadata from ${selectedMedia.name}.` : 'Generate the example video if needed, then read its FFprobe metadata.'} />
                 <ActionButton label="Async Version" icon={<PlayArrowRounded />} onClick={() => void getFFprobeVersion(false)} disabled={runtimeState !== 'ready' || busyActions['ffprobe-version-async']} title="Start an asynchronous FFprobe session." />
                 <ActionButton label="Sync Version" icon={<TimerRounded />} onClick={() => void getFFprobeVersion(true)} disabled={runtimeState !== 'ready' || busyActions['ffprobe-version-awaited']} title="Await the Web Promise; JavaScript remains responsive." />
               </Box>
-              {!capabilities.video && <Alert severity="info">Media information uses a generated video because browser file import is unavailable. {capabilities.detail}</Alert>}
+              {selectedMedia && <Alert severity="info">Selected {selectedMedia.name} ({formatBytes(selectedMedia.size)}). Wasm path: {selectedMedia.path}</Alert>}
+              {!selectedMedia && !capabilities.video && <Alert severity="info">Media information uses a generated video when the bundle supports it. {capabilities.detail}</Alert>}
               <CommandRow
                 label="Custom Command:"
                 value={ffprobeCommand}
@@ -1094,7 +1239,7 @@ export default function App(): React.JSX.Element {
               />
               {mediaInfoText && (
                 <Paper variant="outlined" sx={{p: 1.25, bgcolor: 'background.paper'}}>
-                  <Typography variant="subtitle2">Generated Media Information</Typography>
+                  <Typography variant="subtitle2">Media Information</Typography>
                   <pre className="metadata-output">{mediaInfoText}</pre>
                 </Paper>
               )}
@@ -1133,11 +1278,13 @@ export default function App(): React.JSX.Element {
               </Box>
 
               <Box>
-                <Typography variant="caption" fontWeight={700}>2. Play Generated:</Typography>
+                <Typography variant="caption" fontWeight={700}>2. Play Media:</Typography>
                 <Box className="quick-actions">
                   <ActionButton label="Play Video" icon={<PlayCircleOutlineRounded />} onClick={() => void playGeneratedVideo()} disabled={!capabilities.video || runtimeState !== 'ready' || Boolean(player) || busyActions['play-generated-video']} />
                   <ActionButton label="Play Audio" icon={<AudioFileRounded />} onClick={() => void playGeneratedAudio()} disabled={!capabilities.audio || runtimeState !== 'ready' || Boolean(player) || busyActions['play-generated-audio']} />
+                  <ActionButton label="Play Imported File" icon={<PlayCircleOutlineRounded />} onClick={() => void playImportedMedia()} disabled={!selectedMedia || runtimeState !== 'ready' || Boolean(player) || busyActions['play-imported-media']} title={selectedMedia ? `Play ${selectedMedia.name} through the FFplay view.` : 'Pick a media file in FFprobe or Transcode first.'} />
                 </Box>
+                {selectedMedia && <Typography variant="caption" color="text.secondary">Imported file: {selectedMedia.name} ({formatBytes(selectedMedia.size)})</Typography>}
               </Box>
 
               <Box>
@@ -1208,9 +1355,9 @@ export default function App(): React.JSX.Element {
             'transcode',
             <Stack className="screen-stack">
               <Box>
-                <Typography variant="h6">Video Transcode (MP4 → AVI)</Typography>
+                <Typography variant="h6">Video Transcode (to AVI)</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Convert the generated browser-runtime MP4 to AVI and show real FFmpeg progress when the bundle reports it.
+                  Convert the selected media file, or the generated MP4, to AVI and show FFmpeg progress when the bundle reports it.
                 </Typography>
               </Box>
               <Box className="transcode-grid">
@@ -1218,17 +1365,13 @@ export default function App(): React.JSX.Element {
                   <CardContent sx={{p: '0 !important'}}>
                     <Typography variant="subtitle1">Input File</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{mt: 0.5}}>
-                      {videoPath ? videoPath : 'No file selected; the generated test video will be used.'}
+                      {selectedMedia ? `${selectedMedia.name} (${formatBytes(selectedMedia.size)}) · ${selectedMedia.path}` : videoPath ? videoPath : 'No file selected; the generated test video will be used.'}
                     </Typography>
-                    <Tooltip title="A browser File object cannot be imported into the Wasm filesystem through this public API.">
-                      <span>
-                        <Button variant="text" size="small" startIcon={<FileOpenRounded />} disabled sx={{mt: 1}}>
-                          Pick Video File
-                        </Button>
-                      </span>
-                    </Tooltip>
+                    <Button variant="text" size="small" startIcon={<FileOpenRounded />} disabled={runtimeState !== 'ready' || busyActions['import-media']} onClick={() => fileInputRef.current?.click()} sx={{mt: 1}}>
+                      Pick Video File
+                    </Button>
                     <Typography variant="caption" display="block" color="text.secondary" sx={{mt: 0.5}}>
-                      Generate an MP4 in the browser filesystem, or use the existing generated file.
+                      The selected file is shared with FFprobe and FFplay and stays in temporary Wasm memory.
                     </Typography>
                   </CardContent>
                 </Card>
@@ -1236,21 +1379,22 @@ export default function App(): React.JSX.Element {
                   <CardContent sx={{p: '0 !important'}}>
                     <Typography variant="subtitle1">About Transcoding</Typography>
                     <ul className="about-list">
-                      <li>Input: generated eight-second MP4 test video.</li>
+                      <li>Input: selected media file, or generated eight-second MP4.</li>
                       <li>Output: {TRANSCODE_PATH} in Wasm memory.</li>
                       <li>Progress, elapsed time, speed and frame count come from FFmpeg statistics callbacks.</li>
-                      <li>The public Web SDK does not expose a browser download for this virtual file.</li>
+                      <li>The completed AVI can be downloaded to the browser.</li>
                     </ul>
                   </CardContent>
                 </Card>
               </Box>
               <ActionButton
-                label="Transcode MP4 → AVI"
+                label="Transcode to AVI"
                 icon={<TransformRounded />}
                 onClick={() => void runTranscode()}
                 disabled={runtimeState !== 'ready' || !capabilities.transcode || busyActions['transcode-video']}
-                title={capabilities.transcode ? 'Transcode the generated MP4 to an AVI virtual path.' : capabilities.detail}
+                title={capabilities.transcode ? 'Transcode the selected media file or generated MP4 to an AVI file.' : capabilities.detail}
               />
+              {transcodeReady && <ActionButton label="Download AVI" icon={<DownloadRounded />} onClick={() => void downloadFile('transcode-avi', TRANSCODE_PATH, 'ffmpeg-kit-web-output.avi', 'video/x-msvideo')} />}
               {transcodeJob && (
                 <Paper variant="outlined" sx={{p: 1.25, bgcolor: 'background.paper'}}>
                   <Box className="card-heading-row">
@@ -1272,7 +1416,8 @@ export default function App(): React.JSX.Element {
                 </Paper>
               )}
               {!capabilities.transcode && <Alert severity="info">Transcoding is disabled because required runtime codecs or muxers are unavailable. {capabilities.detail}</Alert>}
-              {videoPath && <Typography variant="caption" color="text.secondary">Input: {videoPath}</Typography>}
+              {selectedMedia && <Typography variant="caption" color="text.secondary">Imported input: {selectedMedia.path}</Typography>}
+              {videoPath && !selectedMedia && <Typography variant="caption" color="text.secondary">Generated input: {videoPath}</Typography>}
             </Stack>,
           )}
         </Box>

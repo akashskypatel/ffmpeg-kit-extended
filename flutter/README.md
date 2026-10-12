@@ -259,6 +259,38 @@ Cross-Origin-Embedder-Policy: require-corp
 
 Confirm that `window.crossOriginIsolated` is `true` before using the WebAssembly bundle. All Wasm, JavaScript, worker, and other fetched assets must be same-origin or explicitly compatible with the selected COEP policy. See the [architecture and maintenance handoff](doc/architecture.md) for more details.
 
+#### Temporary Web/Wasm file access
+
+`FFmpegKitWebFiles` copies binary data between Dart and the initialized
+Emscripten filesystem. It is available only on Web/Wasm; native calls throw
+`UnsupportedError`. Every path must be an absolute flat filename directly
+under `/tmp/`. Files remain in browser memory until deleted or the page/runtime
+is reloaded, so account for the browser's available memory when importing large
+media. The selected runtime must export `FS` with `writeFile`, `readFile`,
+`unlink`, and `stat`; otherwise the API throws a `StateError` explaining the
+missing export.
+
+```dart
+import 'dart:typed_data';
+
+await FFmpegKitExtended.initialize();
+
+const inputPath = '/tmp/input.mp4';
+final Uint8List browserFileBytes = await pickedFile.readAsBytes();
+FFmpegKitWebFiles.writeFile(inputPath, browserFileBytes);
+final probeSession = await FFprobeKit.getMediaInformationAsync(inputPath);
+
+const outputPath = '/tmp/output.mp4';
+// Read after the FFmpeg command has successfully created the output.
+final outputBytes = FFmpegKitWebFiles.readFile(outputPath);
+FFmpegKitWebFiles.deleteFile(inputPath);
+```
+
+Use a browser file picker to obtain the input `Uint8List` and a user-triggered
+browser save action for `outputBytes`. The plugin's Wasm build does not support
+network stream input or recording, including RTMP/RTMPE; the native streaming
+support described in the feature matrix remains native-only.
+
 #### Flutter test-target limitation
 
 Flutter evaluates the native-assets build hook for the host
@@ -375,7 +407,7 @@ The legacy `streaming` value is accepted as an alias for `video`.
 | --------- | ---- | ----- | ----- | -------------- | ---- |
 | Video     |      |       | x     | x              | x    |
 | Audio     |      | x     | x     | x              | x    |
-| Streaming |      | x     | x     | x              | x    |
+| Streaming (native bundle support) |      | x     | x     | x              | x    |
 | Hardware  |      |       |       | x              | x    |
 | AI*       |      |       |       |                | x*   |
 | HTTPS     | *    | x     | x     | x              | x    |
@@ -384,6 +416,12 @@ The legacy `streaming` value is accepted as an alias for `video`.
 
 1. AI features are not supported on all platforms. You must deploy your own custom build of ffmpeg-kit-extended to enable certain AI features.
    - See [Supported External Libraries](#libraries) for more information.
+
+| Runtime | Network stream input/recording |
+| --- | --- |
+| Web (Wasm) | Not supported, including RTMP/RTMPE |
+
+The bundle-level Streaming row applies to native targets; it does not imply Web/Wasm network streaming support.
 
 2. Platform features are built-in platform libraries that FFmpeg support like AVFounation, VideoToolbox, etc. on apple platforms or DirectX, MediaFoundation on Windows.
 
@@ -729,7 +767,7 @@ print('Paused: ${session.isPaused()}');
 | schannel, dxva2, d3d12va, d3d11va, mediafoundation                                         |         |       | b+      |      |     |       | —          |
 | alsa                                                                                       |         | b+    |         |      |     |       | —          |
 
-The Web column uses the same bundle keys as the other columns. `—` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries.
+The Web column uses the same bundle keys as the other columns. `—` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries. These entries describe bundled libraries, not browser network capability: Web/Wasm builds do not support network stream I/O, including RTMP/RTMPE.
 
 > frei0r, liblensfun, librsvg, and pocketsphinx are not available on `tvOS`.
 
