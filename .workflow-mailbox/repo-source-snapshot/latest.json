@@ -4,24 +4,24 @@
   "workflow": "Reusable Repository Source Snapshot",
   "repository": "akashskypatel/ffmpeg-kit-extended",
   "event": "workflow_dispatch",
-  "event_sha": "d6fc59729bca9bc23deca760eae79f78caeddba8",
-  "source_sha": "d6fc59729bca9bc23deca760eae79f78caeddba8",
-  "source_ref": "d6fc59729bca9bc23deca760eae79f78caeddba8",
-  "run_id": 38214410243,
+  "event_sha": "a4fa934813109b2e9d2d5d87b34af9de9e7c5799",
+  "source_sha": "a4fa934813109b2e9d2d5d87b34af9de9e7c5799",
+  "source_ref": "a4fa934813109b2e9d2d5d87b34af9de9e7c5799",
+  "run_id": 38220637279,
   "run_attempt": 1,
-  "run_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38214410243",
+  "run_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38220637279",
   "result": "success",
   "summary": "Repository source snapshot for the requested frozen implementation source.",
   "artifacts": [
     {
-      "id": "11730930681",
-      "name": "web-wasm-fs-cross-bridge-38214410243",
-      "artifact_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38214410243/artifacts/11730930681",
-      "archive_download_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38214410243/artifacts/11730930681",
-      "digest": "eb308e3466558c67cf1d96b9cda25e2b91bcc96ef98d1f6221d643f774197745",
+      "id": "11733259084",
+      "name": "repo-source-snapshot-dev-wasm-38220637279",
+      "artifact_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38220637279/artifacts/11733259084",
+      "archive_download_url": "https://github.com/akashskypatel/ffmpeg-kit-extended/actions/runs/38220637279/artifacts/11733259084",
+      "digest": "fc148baa10efe5d88153b29de453a9e5104bbedd1d6a7d92438cf20e0175a8e1",
       "expired": false,
       "expires_at": null
     }
   ],
-  "published_at": "2026-10-12T06:49:32Z"
+  "published_at": "2026-10-12T07:57:23Z"
 }
