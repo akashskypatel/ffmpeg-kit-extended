@@ -118,11 +118,9 @@ class SessionQueueManager {
     return completer.future;
   }
 
-  bool _containsSession(Session session) {
-    return _reservedSessionIds.contains(session.sessionId) ||
+  bool _containsSession(Session session) => _reservedSessionIds.contains(session.sessionId) ||
         _activeSessions.any((active) => identical(active, session)) ||
         _queue.any((queued) => identical(queued.session, session));
-  }
 
   /// Processes the session queue, starting as many sessions as allowed.
   void _processQueue() {
@@ -225,11 +223,11 @@ class SessionQueueManager {
         );
       }
       if (!queued.completer.isCompleted) {
-        queued.completer.completeError(executionError!, executionStackTrace!);
+        queued.completer.completeError(executionError, executionStackTrace!);
       }
     } else if (settlementError != null) {
       if (!queued.completer.isCompleted) {
-        queued.completer.completeError(settlementError!, settlementStackTrace!);
+        queued.completer.completeError(settlementError, settlementStackTrace!);
       }
     } else if (!queued.completer.isCompleted) {
       queued.completer.complete();

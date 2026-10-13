@@ -684,9 +684,6 @@ class MediaInformationSession extends FFprobeSession {
     super.onDispose();
   }
 
-  @override
-  @protected
-  void onRestoredCompletionSettled() => super.onRestoredCompletionSettled();
 
   @override
   @protected

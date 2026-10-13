@@ -4,7 +4,6 @@ library;
 import 'dart:async';
 import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
-import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -27,7 +26,7 @@ bool _alwaysReady() => true;
 class FFplaySurface {
   FFplaySurface._() : _reader = _WasmFrameReader() {
     _timer = Timer.periodic(
-      Duration(milliseconds: kDebugMode ? 33 : 16),
+      const Duration(milliseconds: kDebugMode ? 33 : 16),
       (_) => _poll(),
     );
   }
@@ -216,7 +215,7 @@ final class _WasmFrameReader {
     // Read frame metadata first. The 16 ms timer often polls faster than the
     // video frame rate, so avoid copying an unchanged RGBA frame out of Wasm.
     bindings.ffplay_kit_copy_frame(
-      bindings.Pointer<bindings.Uint8>.fromAddress(0),
+      const bindings.Pointer<bindings.Uint8>.fromAddress(0),
       0,
       _metadataAt<bindings.Int32>(0),
       _metadataAt<bindings.Int32>(4),

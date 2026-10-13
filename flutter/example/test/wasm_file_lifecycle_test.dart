@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/main.dart';
+import 'package:ffmpeg_kit_extended_flutter_example/main.dart';
 
 void main() {
   group('WebMediaOperationLeaseManager', () {

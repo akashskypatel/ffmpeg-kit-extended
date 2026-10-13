@@ -708,7 +708,7 @@ void main() {
       original.restoreForTest(SessionState.running);
       original.throwOnStateRead = true;
 
-      expect(() => original.cancel(), throwsA(isA<StateError>()));
+      expect(original.cancel, throwsA(isA<StateError>()));
       expect(FFmpegKitExtended.isCancellationRequested(373), isTrue);
 
       final reconstructed = _NoopFFmpegSession(373);

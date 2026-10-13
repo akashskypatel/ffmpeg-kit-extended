@@ -23,7 +23,6 @@ import 'package:meta/meta.dart';
 
 import '../ffmpeg_kit_extended_flutter.dart';
 import 'callback_manager.dart';
-import 'ffplay_surface.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 

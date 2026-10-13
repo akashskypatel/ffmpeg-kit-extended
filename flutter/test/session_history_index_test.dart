@@ -1,6 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-
 import 'package:ffmpeg_kit_extended_flutter/src/session_history_index.dart';
+import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(

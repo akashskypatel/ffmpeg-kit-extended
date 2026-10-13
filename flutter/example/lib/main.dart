@@ -1248,7 +1248,7 @@ class _HomePageState extends State<HomePage>
         .replaceFirst(RegExp(r'(^|\s)-version(?=\s|$)'), '')
         .trim();
     final prefix = appendBase.isEmpty ? '' : '$appendBase ';
-    return '${prefix}-i $quotedPath';
+    return '$prefix-i $quotedPath';
   }
 
   String _ensureNoStdin(String command) {
@@ -2092,29 +2092,6 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildStreamScenarioTab() {
-    if (kIsWeb) {
-      return const SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: Card(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Network streaming is unsupported in the Flutter Web/Wasm build, including RTMP/RTMPE.',
-                  key: ValueKey<String>('stream.unsupported'),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Use a supported native Flutter target for network stream input or recording.',
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
