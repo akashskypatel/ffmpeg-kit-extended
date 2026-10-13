@@ -41,18 +41,24 @@ late final Architecture targetArch;
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    // Flutter Web builds do not expose a CodeAsset target. Resolve the
-    // selected Wasm runtime and stage it into the consuming Web app instead.
-    if (!input.config.buildCodeAssets &&
-        input.config.buildAssetTypes.isNotEmpty) {
-      await _buildWebAssets(input, output);
-      return;
-    }
     if (!input.config.buildCodeAssets) {
-      // Flutter can invoke a package hook for a host build with no requested
-      // asset types. There is no Web/Wasm target to stage in that invocation;
-      // selecting the shared web override here would make a macOS/iOS build
-      // depend on a host-specific Web artifact that is intentionally absent.
+      if (input.config.buildAssetTypes.isNotEmpty) {
+        // Flutter Web builds do not expose a CodeAsset target. Resolve the
+        // selected Wasm runtime and stage it into the consuming Web app.
+        await _buildWebAssets(input, output);
+        return;
+      }
+
+      // An explicit user-defined Web/Wasm override opts asset-free Web debug
+      // invocations into runtime staging. Without one, leave host-only hooks
+      // alone because they do not identify a Web target.
+      final userOverride = _webArtifactOverride({
+        'wasm': input.userDefines['wasm'],
+        'web': input.userDefines['web'],
+      });
+      if (userOverride != null) {
+        await _buildWebAssets(input, output);
+      }
       return;
     }
     final packageName = input.packageName;
@@ -99,11 +105,14 @@ Future<void> _buildWebAssets(
   BuildInput input,
   BuildOutputBuilder output,
 ) async {
-  final configResult = _loadConfig(input, output);
-  validateWebBundleSelection(configResult.config);
+  final selectedConfig = _loadConfig(input, output);
+  final artifactSelection =
+      _webArtifactOverride(selectedConfig.config) ??
+      configDiagnosticSummary(selectedConfig.config);
+  validateWebBundleSelection(selectedConfig.config);
 
   final source = await _resolveWebArtifact(
-    configResult,
+    selectedConfig,
     input,
     output.dependencies.add,
   );
@@ -124,7 +133,7 @@ Future<void> _buildWebAssets(
     packageName: input.packageName,
     packageRoot: packageRoot,
     packageConfig: Platform.packageConfig,
-    configBaseDir: configResult.configBaseDir,
+    configBaseDir: selectedConfig.configBaseDir,
     outputFile: input.outputFile.toFilePath(),
     addDependency: output.dependencies.add,
     log: _log,
@@ -173,7 +182,7 @@ Future<void> _buildWebAssets(
 
   _log(
     'Staged selected Flutter Web runtime '
-    '(${configDiagnosticSummary(configResult.config)}) for ${input.packageName} '
+    '($artifactSelection) for ${input.packageName} '
     'under assets/packages/${input.packageName}/wasm/ in '
     '${stagingBaseDirs.join(', ')}. Dart DataAssets are not required.',
   );
@@ -240,7 +249,7 @@ Future<void> stageWebRuntimeFiles({
 @visibleForTesting
 void validateWebBundleSelection(dynamic config) {
   final type = config['type']?.toString() ?? 'base';
-  final override = config['web']?.toString() ?? config['wasm']?.toString();
+  final override = _webArtifactOverride(config);
   if (type == 'debug' && (override == null || override.trim().isEmpty)) {
     throw _exception(
       'The automatic prebuilt Flutter Web debug artifact is unsupported '
@@ -249,6 +258,14 @@ void validateWebBundleSelection(dynamic config) {
       'containing one coherent ffmpegkit.mjs + ffmpegkit.wasm pair.',
     );
   }
+}
+
+String? _webArtifactOverride(dynamic config) {
+  for (final key in const ['wasm', 'web']) {
+    final value = config[key]?.toString();
+    if (value != null && value.trim().isNotEmpty) return value;
+  }
+  return null;
 }
 
 @visibleForTesting
@@ -356,28 +373,20 @@ Future<WebRuntimeSource> _resolveWebArtifact(
   void Function(Uri uri) addDependency,
 ) async {
   final config = configResult.config;
-  var type = config['type']?.toString() ?? 'base';
-  if (type == 'streaming') type = 'video';
-  if (type == 'debug') type = 'debug';
-  if (!_validTypes.contains(type)) {
-    throw _exception('Invalid bundle type: $type');
-  }
-
-  final gpl = config['gpl'] == true;
-  final small = config['small'] == true;
-  final cacheDir = Directory(
-    p.fromUri(input.outputDirectoryShared.resolve('ffmpeg_kit_cache/wasm/')),
-  )..createSync(recursive: true);
-  final overrideUrl = config['web']?.toString() ?? config['wasm']?.toString();
+  final overrideUrl = _webArtifactOverride(config);
   validateLocalArtifactSelection(
     platformName: 'Web',
     overrideValue: overrideUrl,
     localOnly: isLocalArtifactOnlyEnabled(),
   );
+  final cacheDir = Directory(
+    p.fromUri(input.outputDirectoryShared.resolve('ffmpeg_kit_cache/wasm/')),
+  )..createSync(recursive: true);
 
-  String filename;
-  String url;
+  // A target-specific artifact path is authoritative. Bundle selectors only
+  // choose the automatic download when no explicit Web/Wasm override exists.
   if (overrideUrl != null) {
+    _log('Artifact: explicit Web/WASM override $overrideUrl');
     final overrideUri = parseRemoteOverride(overrideUrl);
     if (overrideUri == null) {
       final localPath = resolveLocalOverridePath(
@@ -424,25 +433,34 @@ Future<WebRuntimeSource> _resolveWebArtifact(
       useExtractionRoot: true,
     );
     return _webRuntimeSourceFromArtifact(artifact);
-  } else {
-    final currentType = type == 'debug' ? 'base' : type;
-    final parts = [
-      'bundle',
-      currentType,
-      _wasmPlatformName,
-      _wasmArchitectureName,
-      'static',
-    ];
-    if (type == 'debug') {
-      parts.add('debug');
-    }
-    if (small) {
-      parts.add('small');
-    }
-    parts.add(gpl ? 'gpl' : 'lgpl');
-    filename = '${parts.join('-')}.zip';
-    url = '$_baseUrlTemplate/v$version-wasm/$filename';
   }
+
+  var type = config['type']?.toString() ?? 'base';
+  if (type == 'streaming') type = 'video';
+  if (type == 'debug') type = 'debug';
+  if (!_validTypes.contains(type)) {
+    throw _exception('Invalid bundle type: $type');
+  }
+
+  final gpl = config['gpl'] == true;
+  final small = config['small'] == true;
+  final currentType = type == 'debug' ? 'base' : type;
+  final parts = [
+    'bundle',
+    currentType,
+    _wasmPlatformName,
+    _wasmArchitectureName,
+    'static',
+  ];
+  if (type == 'debug') {
+    parts.add('debug');
+  }
+  if (small) {
+    parts.add('small');
+  }
+  parts.add(gpl ? 'gpl' : 'lgpl');
+  final filename = '${parts.join('-')}.zip';
+  final url = '$_baseUrlTemplate/v$version-wasm/$filename';
 
   final targetFile = File(p.join(cacheDir.path, filename));
   if (!targetFile.existsSync()) {

@@ -123,6 +123,10 @@ body {
   gap: 8px;
 }
 
+.command-row.command-row-with-picker {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
 .command-row-field {
   min-width: 0;
 }

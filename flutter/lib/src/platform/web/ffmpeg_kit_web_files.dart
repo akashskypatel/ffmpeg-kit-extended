@@ -14,11 +14,10 @@ abstract final class FFmpegKitWebFiles {
   static void writeFile(String filePath, Uint8List bytes) {
     _validateFilePath(filePath);
     final fileSystem = _requireFileSystem();
-    final copiedBytes = Uint8List.fromList(bytes).toJS;
     _method(
       fileSystem,
       'writeFile',
-    ).callAsFunction(fileSystem, filePath.toJS, copiedBytes);
+    ).callAsFunction(fileSystem, filePath.toJS, bytes.toJS);
   }
 
   /// Returns an independent byte copy from the Wasm filesystem.

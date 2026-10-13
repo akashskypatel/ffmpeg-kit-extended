@@ -15,6 +15,9 @@ final class FFplayWebFrameIdentity {
   int _lastEpoch = -1;
   int _lastGeneration = -1;
 
+  bool isDuplicate({required int epoch, required int generation}) =>
+      epoch == _lastEpoch && generation == _lastGeneration;
+
   bool accept({required int epoch, required int generation}) {
     if (epoch != _lastEpoch) {
       _lastEpoch = epoch;

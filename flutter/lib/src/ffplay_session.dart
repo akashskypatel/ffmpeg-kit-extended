@@ -31,6 +31,7 @@ import 'platform/backend_selector.dart';
 ///
 /// Provides methods to control playback (start, pause, resume, stop, seek)
 /// and query/playback properties such as position and volume.
+/// Playback commands enable FFplay's auto-exit behavior on every platform.
 ///
 /// ### Lifecycle
 /// Use [FFplayKit] to create and execute sessions for global tracking.
@@ -145,8 +146,11 @@ class FFplaySession extends Session {
   }) {
     FFmpegKitExtended.requireInitialized();
     try {
-      final ownedHandle = ffmpegKitBackend.createFFplaySession(command);
-      this.command = command;
+      final effectiveCommand = _addAutoExit(command);
+      final ownedHandle = ffmpegKitBackend.createFFplaySession(
+        effectiveCommand,
+      );
+      this.command = effectiveCommand;
       adoptOwnedHandle(
         ownedHandle,
         readSessionId: ffmpegKitBackend.getSessionId,
@@ -181,9 +185,12 @@ class FFplaySession extends Session {
       throw ArgumentError.value(arguments, 'arguments', 'must not be empty');
     }
 
-    final displayCommand = FFmpegKitExtended.argumentsToString(arguments);
+    final effectiveArguments = _addAutoExitArgument(arguments);
+    final displayCommand = FFmpegKitExtended.argumentsToString(
+      effectiveArguments,
+    );
     final ownedHandle = ffmpegKitBackend.createFFplaySessionFromArguments(
-      arguments,
+      effectiveArguments,
     );
     command = displayCommand;
     adoptOwnedHandle(ownedHandle, readSessionId: ffmpegKitBackend.getSessionId);
@@ -193,6 +200,18 @@ class FFplaySession extends Session {
     if (completeCallback != null) {
       _ensureRegisteredForSinkDemand();
     }
+  }
+
+  static String _addAutoExit(String command) {
+    if (RegExp(r'(^|\s)-autoexit(?=\s|$)').hasMatch(command)) {
+      return command;
+    }
+    return '-autoexit $command';
+  }
+
+  static List<String> _addAutoExitArgument(List<String> arguments) {
+    if (arguments.contains('-autoexit')) return arguments;
+    return <String>['-autoexit', ...arguments];
   }
 
   // ---------------------------------------------------------------------------
@@ -574,6 +593,7 @@ class FFplaySession extends Session {
         recordCleanupFailure(error, stackTrace);
       } finally {
         releaseAllBridgeLeases();
+        FFplaySurface.endPlayback();
         _telemetryExecutionActive = false;
         _stopPositionStream();
         _stopVideoSizeStream();
@@ -914,6 +934,7 @@ class FFplaySession extends Session {
               _unregister();
             } finally {
               releaseAllBridgeLeases();
+              FFplaySurface.endPlayback();
               _telemetryExecutionActive = false;
               _stopPositionStream();
               _stopVideoSizeStream();
@@ -947,6 +968,7 @@ class FFplaySession extends Session {
             _unregister();
           } finally {
             releaseAllBridgeLeases();
+            FFplaySurface.endPlayback();
             _stopPositionStream();
             _stopVideoSizeStream();
             commitTerminalHistory();
@@ -990,6 +1012,7 @@ class FFplaySession extends Session {
       }
       _stopPositionStream();
       _stopVideoSizeStream();
+      FFplaySurface.endPlayback();
       if (!startup.isCompleted) startup.completeError(e, st);
       if (!sessionCompleter.isCompleted) sessionCompleter.complete();
       rethrow;
@@ -1076,7 +1099,9 @@ class FFplaySession extends Session {
   /// generation on every public FFplay execution path.
   @protected
   void notifyPlaybackStarted() {
-    FFplaySurface.beginPlayback();
+    FFplaySurface.beginPlayback(
+      isReady: () => ffmpegKitBackend.getFFplayVolume(handle) >= 0,
+    );
   }
 
   @protected

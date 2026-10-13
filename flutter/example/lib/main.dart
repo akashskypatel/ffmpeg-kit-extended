@@ -1033,6 +1033,7 @@ class _HomePageState extends State<HomePage>
       },
       onComplete: (session) {
         _addLog("Return code: ${session.getReturnCode()}");
+        _cleanupRetiredWebMediaPaths();
       },
     );
   }
@@ -1229,6 +1230,27 @@ class _HomePageState extends State<HomePage>
     return input;
   }
 
+  String _commandWithInputFile(String command, String filePath) {
+    final inputPattern = RegExp(
+      r"""(^|\s)-i(?=\s|$)(?:\s+(?:"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s]+))?""",
+    );
+    final quotedPath = '"$filePath"';
+    final match = inputPattern.firstMatch(command);
+    if (match != null) {
+      return command.replaceRange(
+        match.start,
+        match.end,
+        '${match.group(1)}-i $quotedPath',
+      );
+    }
+
+    final appendBase = command
+        .replaceFirst(RegExp(r'(^|\s)-version(?=\s|$)'), '')
+        .trim();
+    final prefix = appendBase.isEmpty ? '' : '$appendBase ';
+    return '${prefix}-i $quotedPath';
+  }
+
   String _ensureNoStdin(String command) {
     final trimmed = command.trim();
     if (RegExp(r'(^|\s)-nostdin(?:\s|$)').hasMatch(trimmed)) {
@@ -1299,6 +1321,31 @@ class _HomePageState extends State<HomePage>
       _addLog("Selected for probe: $pickedPath");
     } catch (error) {
       _addLog('Unable to import the selected media: $error');
+    }
+  }
+
+  Future<void> _pickCommandInputFile(TextEditingController controller) async {
+    if (!kIsWeb) return;
+    try {
+      final result = await FilePicker.pickFiles(type: FileType.any);
+      if (result.isEmpty) return;
+      final file = result.single;
+      final previousWebPath = _selectedWebMediaPath;
+      final pickedPath = _importWebMedia(file.name, await file.readAsBytes());
+      final baseName = path.basenameWithoutExtension(pickedPath);
+      controller.text = _commandWithInputFile(controller.text, pickedPath);
+      setState(() {
+        _selectedProbePath = pickedPath;
+        _selectedWebMediaPath = pickedPath;
+        _transcodeInputPath = pickedPath;
+        _transcodeOutputPath = path.join('/tmp', '${baseName}_transcoded.avi');
+      });
+      if (previousWebPath != null && previousWebPath != pickedPath) {
+        _retireWebMediaPath(previousWebPath);
+      }
+      _addLog('Selected input file: $pickedPath');
+    } catch (error) {
+      _addLog('Unable to import the selected input file: $error');
     }
   }
 
@@ -1419,7 +1466,10 @@ class _HomePageState extends State<HomePage>
 
     _positionSub = session.positionStream.listen(
       (pos) {
-        if (mounted) {
+        // The position label only displays tenths of a second. Avoid rebuilding
+        // the full example screen for every ~16 ms stream tick, especially in
+        // Flutter's instrumented Web debug build.
+        if (mounted && (pos - _playbackPosition).abs() >= 0.1) {
           setState(() {
             _playbackPosition = pos;
           });
@@ -2031,6 +2081,10 @@ class _HomePageState extends State<HomePage>
             "Enter FFmpeg command",
             inputKey: const ValueKey<String>('ffmpeg.command.input'),
             runKey: const ValueKey<String>('ffmpeg.command.run'),
+            onPickFile: kIsWeb
+                ? () => _pickCommandInputFile(_ffmpegCommandController)
+                : null,
+            pickKey: const ValueKey<String>('ffmpeg.command.pick-file'),
           ),
         ],
       ),
@@ -2188,6 +2242,10 @@ class _HomePageState extends State<HomePage>
             "Enter FFplay command",
             inputKey: const ValueKey<String>('ffplay.command.input'),
             runKey: const ValueKey<String>('ffplay.command.run'),
+            onPickFile: kIsWeb
+                ? () => _pickCommandInputFile(_ffplayCommandController)
+                : null,
+            pickKey: const ValueKey<String>('ffplay.command.pick-file'),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -2762,6 +2820,8 @@ class _HomePageState extends State<HomePage>
     String hint, {
     Key? inputKey,
     Key? runKey,
+    VoidCallback? onPickFile,
+    Key? pickKey,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2786,6 +2846,15 @@ class _HomePageState extends State<HomePage>
               ),
             ),
             const SizedBox(width: 8),
+            if (onPickFile != null) ...[
+              _demoButton(
+                onPickFile,
+                Icons.file_open,
+                "Pick File",
+                key: pickKey,
+              ),
+              const SizedBox(width: 8),
+            ],
             _demoButton(onRun, Icons.play_arrow, "Run", key: runKey),
           ],
         ),

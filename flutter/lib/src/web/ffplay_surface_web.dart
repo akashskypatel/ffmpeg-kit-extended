@@ -2,10 +2,13 @@
 library;
 
 import 'dart:async';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
+import 'dart:ui_web' as ui_web;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:web/web.dart' as web;
 
 import '../generated/ffmpeg_kit_bindings_web.dart' as bindings;
 import '../platform/web/wasm_loader.dart';
@@ -13,25 +16,32 @@ import '../platform/web/wasm_memory.dart';
 import 'ffplay_playback_epoch.dart';
 
 final FFplayWebPlaybackEpoch _playbackEpoch = FFplayWebPlaybackEpoch();
+bool Function()? _isPlaybackReady;
+bool _alwaysReady() => true;
 
-/// Flutter widget surface backed by frames copied from the Emscripten heap.
+/// Browser canvas surface backed by frames copied from the Emscripten heap.
 ///
 /// FFplay publishes the most recent RGBA frame through the wrapper ABI. The
-/// reader owns its Wasm allocations and copies frame bytes before decoding so
-/// the native buffer can be reused on the next poll.
+/// reader owns a Wasm scratch buffer and copies each new frame directly from
+/// that buffer into browser image data before yielding to the event loop.
 class FFplaySurface {
   FFplaySurface._() : _reader = _WasmFrameReader() {
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (_) => _poll());
+    _timer = Timer.periodic(
+      Duration(milliseconds: kDebugMode ? 33 : 16),
+      (_) => _poll(),
+    );
   }
 
   @visibleForTesting
   FFplaySurface.test() : _reader = null;
 
   final _WasmFrameReader? _reader;
-  final ValueNotifier<ui.Image?> _image = ValueNotifier<ui.Image?>(null);
   final FFplayWebSurfaceEpoch _surfaceEpoch = FFplayWebSurfaceEpoch();
+  web.HTMLCanvasElement? _canvas;
+  web.CanvasRenderingContext2D? _context;
+  web.ImageData? _imageData;
   Timer? _timer;
-  bool _decoding = false;
+  bool _rendering = false;
   bool _released = false;
 
   /// Creates a WebAssembly frame surface after package initialization.
@@ -41,47 +51,116 @@ class FFplaySurface {
   }
 
   /// Commits a new rendering epoch after FFplay native startup succeeds.
-  static void beginPlayback() => _playbackEpoch.beginPlayback();
+  static void beginPlayback({required bool Function() isReady}) {
+    _isPlaybackReady = isReady;
+    _playbackEpoch.beginPlayback();
+  }
+
+  /// Stops reading the FFplay frame buffer after terminal cleanup.
+  static void endPlayback() => _isPlaybackReady = null;
 
   void _poll() {
-    if (_released || _decoding) return;
+    if (_released || _rendering) return;
     final reader = _reader;
-    if (reader == null) return;
+    final canvas = _canvas;
+    final context = _context;
+    if (reader == null || canvas == null || context == null) return;
     final epoch = _playbackEpoch.value;
     if (_surfaceEpoch.observe(epoch)) {
-      final previous = _image.value;
-      _image.value = null;
-      previous?.dispose();
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    final isReady = _isPlaybackReady;
+    if (isReady == null) return;
+    try {
+      if (!isReady()) return;
+      _isPlaybackReady = _alwaysReady;
+    } catch (_) {
+      return;
     }
     final frame = reader.copyLatest(epoch: epoch);
     if (frame == null) return;
-    _decoding = true;
-    ui.decodeImageFromPixels(
-      frame.pixels,
-      frame.width,
-      frame.height,
-      ui.PixelFormat.rgba8888,
-      (image) {
-        _decoding = false;
-        if (_released) {
-          image.dispose();
-          return;
-        }
-        final previous = _image.value;
-        _image.value = image;
-        previous?.dispose();
-      },
-      rowBytes: frame.linesize,
-    );
+
+    if (canvas.width != frame.width) canvas.width = frame.width;
+    if (canvas.height != frame.height) canvas.height = frame.height;
+    final image = _imageDataFromFrame(frame);
+    _rendering = true;
+    unawaited(_renderFrame(image, epoch));
   }
 
-  /// Returns the widget displaying the most recently decoded frame.
-  Widget toWidget() => ValueListenableBuilder<ui.Image?>(
-    valueListenable: _image,
-    builder: (context, image, child) => image == null
-        ? const SizedBox.expand()
-        : RawImage(image: image, fit: BoxFit.contain),
-  );
+  web.ImageData _imageDataFromFrame(_WasmFrame frame) {
+    final rowBytes = frame.width * 4;
+    var image = _imageData;
+    if (image == null ||
+        image.width != frame.width ||
+        image.height != frame.height) {
+      image = web.ImageData(frame.width.toJS, frame.height);
+      _imageData = image;
+    }
+    final imagePixels = image.data;
+    final source = wasmMemory
+        .readBytes(frame.pixels, frame.linesize * frame.height)
+        .toJS;
+    if (frame.linesize == rowBytes) {
+      imagePixels.callMethod<JSAny?>('set'.toJS, source);
+    } else {
+      for (var row = 0; row < frame.height; row++) {
+        final sourceOffset = row * frame.linesize;
+        final sourceRow = source.callMethod<JSUint8Array>(
+          'subarray'.toJS,
+          sourceOffset.toJS,
+          (sourceOffset + rowBytes).toJS,
+        );
+        imagePixels.callMethod<JSAny?>(
+          'set'.toJS,
+          sourceRow,
+          (row * rowBytes).toJS,
+        );
+      }
+    }
+    return image;
+  }
+
+  Future<void> _renderFrame(web.ImageData image, int epoch) async {
+    try {
+      final bitmap = await web.window.createImageBitmap(image).toDart;
+      try {
+        if (_released || _playbackEpoch.value != epoch) return;
+        final context = _context;
+        if (context == null) return;
+        context.drawImage(bitmap, 0, 0);
+      } finally {
+        bitmap.close();
+      }
+    } catch (error, stackTrace) {
+      FlutterError.reportError(
+        FlutterErrorDetails(
+          exception: error,
+          stack: stackTrace,
+          library: 'FFplay web surface',
+        ),
+      );
+    } finally {
+      _rendering = false;
+    }
+  }
+
+  /// Creates the DOM canvas used to display the latest copied frame.
+  Widget toWidget() {
+    if (_reader == null) return const SizedBox.expand();
+    return HtmlElementView.fromTagName(
+      tagName: 'canvas',
+      onElementCreated: (element) {
+        final canvas = element as web.HTMLCanvasElement;
+        canvas.style
+          ..display = 'block'
+          ..width = '100%'
+          ..height = '100%'
+          ..setProperty('object-fit', 'contain');
+        _canvas = canvas;
+        _context = canvas.getContext('2d') as web.CanvasRenderingContext2D;
+      },
+    );
+  }
 
   /// Stops polling and releases Wasm and decoded-image resources.
   Future<void> release() async {
@@ -90,8 +169,14 @@ class FFplaySurface {
     _timer?.cancel();
     _timer = null;
     _reader?.dispose();
-    _image.value?.dispose();
-    _image.dispose();
+    final canvas = _canvas;
+    if (canvas != null) {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+    _canvas = null;
+    _context = null;
+    _imageData = null;
   }
 }
 
@@ -103,7 +188,7 @@ final class _WasmFrame {
     required this.linesize,
   });
 
-  final Uint8List pixels;
+  final bindings.Pointer<bindings.Uint8> pixels;
   final int width;
   final int height;
   final int linesize;
@@ -128,8 +213,29 @@ final class _WasmFrameReader {
     if (_disposed) return null;
     wasmLoader.requireInitialized();
 
-    final required = bindings.ffplay_kit_get_frame_buffer_size();
+    // Read frame metadata first. The 16 ms timer often polls faster than the
+    // video frame rate, so avoid copying an unchanged RGBA frame out of Wasm.
+    bindings.ffplay_kit_copy_frame(
+      bindings.Pointer<bindings.Uint8>.fromAddress(0),
+      0,
+      _metadataAt<bindings.Int32>(0),
+      _metadataAt<bindings.Int32>(4),
+      _metadataAt<bindings.Int32>(8),
+      _metadataAt<bindings.Int64>(16),
+    );
+    final width = wasmMemory.readInt32(_metadataAt<bindings.Int32>(0));
+    final height = wasmMemory.readInt32(_metadataAt<bindings.Int32>(4));
+    final linesize = wasmMemory.readInt32(_metadataAt<bindings.Int32>(8));
+    final generation = wasmMemory.readInt64(_metadataAt<bindings.Int64>(16));
+    if (width <= 0 ||
+        height <= 0 ||
+        linesize < width * 4 ||
+        _frameIdentity.isDuplicate(epoch: epoch, generation: generation)) {
+      return null;
+    }
+    final required = linesize * height;
     if (required <= 0) return null;
+
     if (_capacity < required) {
       final oldPixels = _pixels;
       if (oldPixels != null) wasmMemory.free(oldPixels);
@@ -148,24 +254,28 @@ final class _WasmFrameReader {
     );
     if (result != 1) return null;
 
-    final width = wasmMemory.readInt32(_metadataAt<bindings.Int32>(0));
-    final height = wasmMemory.readInt32(_metadataAt<bindings.Int32>(4));
-    final linesize = wasmMemory.readInt32(_metadataAt<bindings.Int32>(8));
-    final generation = wasmMemory.readInt64(_metadataAt<bindings.Int64>(16));
-    if (width <= 0 ||
-        height <= 0 ||
-        linesize <= 0 ||
-        !_frameIdentity.accept(epoch: epoch, generation: generation)) {
+    final copiedWidth = wasmMemory.readInt32(_metadataAt<bindings.Int32>(0));
+    final copiedHeight = wasmMemory.readInt32(_metadataAt<bindings.Int32>(4));
+    final copiedLinesize = wasmMemory.readInt32(_metadataAt<bindings.Int32>(8));
+    final copiedGeneration = wasmMemory.readInt64(
+      _metadataAt<bindings.Int64>(16),
+    );
+    if (copiedWidth <= 0 ||
+        copiedHeight <= 0 ||
+        copiedLinesize < copiedWidth * 4) {
       return null;
     }
 
-    final byteCount = linesize * height;
+    final byteCount = copiedLinesize * copiedHeight;
     if (byteCount > _capacity) return null;
+    if (!_frameIdentity.accept(epoch: epoch, generation: copiedGeneration)) {
+      return null;
+    }
     return _WasmFrame(
-      pixels: Uint8List.fromList(wasmMemory.readBytes(pixels, byteCount)),
-      width: width,
-      height: height,
-      linesize: linesize,
+      pixels: pixels,
+      width: copiedWidth,
+      height: copiedHeight,
+      linesize: copiedLinesize,
     );
   }
 

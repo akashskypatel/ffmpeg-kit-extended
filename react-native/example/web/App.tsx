@@ -98,6 +98,8 @@ type ImportedMedia = {
   path: string;
 };
 
+type CommandInputTarget = 'ffmpeg' | 'ffplay';
+
 type RuntimeCapabilities = {
   video: boolean;
   audio: boolean;
@@ -142,6 +144,18 @@ function quoteCommandArg(value: string): string {
   return `"${value.replace(/["\\]/g, '\\$1')}"`;
 }
 
+function withInputFile(command: string, path: string): string {
+  const inputPattern = /(^|\s)-i(?=\s|$)(?:\s+(?:"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^\s]+))?/;
+  const match = inputPattern.exec(command);
+  const inputArgument = `-i ${quoteCommandArg(path)}`;
+  if (match) {
+    return `${command.slice(0, match.index)}${match[1]}${inputArgument}${command.slice(match.index + match[0].length)}`;
+  }
+
+  const appendBase = command.replace(/(^|\s)-version(?=\s|$)/, '$1').trim();
+  return `${appendBase}${appendBase ? ' ' : ''}${inputArgument}`;
+}
+
 function containsName(list: string, name: string): boolean {
   return new RegExp(`(^|[^a-z0-9_])${name}([^a-z0-9_]|$)`, 'i').test(list);
 }
@@ -168,6 +182,9 @@ function CommandRow({
   onRun,
   runLabel,
   disabled = false,
+  onPickFile,
+  pickFileLabel,
+  pickDisabled = false,
 }: {
   label: string;
   value: string;
@@ -175,9 +192,12 @@ function CommandRow({
   onRun: () => void;
   runLabel: string;
   disabled?: boolean;
+  onPickFile?: () => void;
+  pickFileLabel?: string;
+  pickDisabled?: boolean;
 }): React.JSX.Element {
   return (
-    <Box className="command-row">
+    <Box className={`command-row${onPickFile ? ' command-row-with-picker' : ''}`}>
       <TextField
         className="command-row-field"
         fullWidth
@@ -190,6 +210,18 @@ function CommandRow({
         }}
         inputProps={{'aria-label': label}}
       />
+      {onPickFile && (
+        <Button
+          variant="text"
+          color="primary"
+          startIcon={<FileOpenRounded />}
+          disabled={pickDisabled}
+          onClick={onPickFile}
+          aria-label={pickFileLabel ?? 'Pick input file'}
+        >
+          Pick File
+        </Button>
+      )}
       <Button
         variant="text"
         color="primary"
@@ -276,6 +308,7 @@ export default function App(): React.JSX.Element {
   const logScrollRef = useRef<HTMLDivElement>(null);
   const videoHostRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingCommandInputRef = useRef<CommandInputTarget | undefined>(undefined);
   const playerRef = useRef<FFplaySession | undefined>(undefined);
   const selectedMediaRef = useRef<ImportedMedia | undefined>(undefined);
   const importedPathsRef = useRef(new Set<string>());
@@ -287,6 +320,11 @@ export default function App(): React.JSX.Element {
   const videoGenerationRef = useRef<Promise<string> | undefined>(undefined);
   const audioGenerationRef = useRef<Promise<string> | undefined>(undefined);
   const transcodeProgressRunRef = useRef(0);
+
+  const openMediaPicker = (target?: CommandInputTarget) => {
+    pendingCommandInputRef.current = target;
+    fileInputRef.current?.click();
+  };
 
   const retainMediaInfoPath = (path: string) => {
     const current = mediaInfoPathCountsRef.current.get(path) ?? 0;
@@ -485,7 +523,7 @@ export default function App(): React.JSX.Element {
     [appendLog],
   );
 
-  const importMedia = (file: File) =>
+  const importMedia = (file: File, commandTarget?: CommandInputTarget) =>
     runUiAction('import-media', async () => {
       if (!fileApiReady) {
         throw new Error(fileApiError ?? 'The initialized Web runtime does not have a usable exported FS API.');
@@ -509,6 +547,11 @@ export default function App(): React.JSX.Element {
       importedPathsRef.current.add(path);
       selectedMediaRef.current = imported;
       setSelectedMedia(imported);
+      if (commandTarget === 'ffmpeg') {
+        setFFmpegCommand((command) => withInputFile(command, path));
+      } else if (commandTarget === 'ffplay') {
+        setFFplayCommand((command) => withInputFile(command, path));
+      }
       if (previous) cleanupImportedFile(previous.path);
       appendLog(`Imported ${file.name} (${formatBytes(bytes.byteLength)}) to ${path}.`);
       setStatus(`Imported ${file.name} to the Wasm filesystem`);
@@ -1173,8 +1216,10 @@ export default function App(): React.JSX.Element {
         disabled={!fileApiReady || runtimeState !== 'ready'}
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
+          const commandTarget = pendingCommandInputRef.current;
+          pendingCommandInputRef.current = undefined;
           event.currentTarget.value = '';
-          if (file) void importMedia(file);
+          if (file) void importMedia(file, commandTarget);
         }}
       />
       <AppBar position="static" elevation={0}>
@@ -1276,6 +1321,9 @@ export default function App(): React.JSX.Element {
                 onRun={() => void runFFmpegCommand()}
                 runLabel="Run FFmpeg"
                 disabled={runtimeState !== 'ready' || busyActions['run-ffmpeg-command']}
+                onPickFile={() => openMediaPicker('ffmpeg')}
+                pickFileLabel="Pick input file for FFmpeg"
+                pickDisabled={!fileApiReady || runtimeState !== 'ready' || busyActions['import-media']}
               />
               <Box className="quick-actions">
                 {videoPath && <ActionButton label="Download MP4" icon={<DownloadRounded />} onClick={() => void downloadFile('mp4', VIDEO_PATH, 'ffmpeg-kit-web-test.mp4', 'video/mp4')} disabled={!fileApiReady} />}
@@ -1362,7 +1410,7 @@ export default function App(): React.JSX.Element {
             'ffprobe',
             <Stack className="screen-stack">
               <Box className="quick-actions">
-                <ActionButton label="Pick File" icon={<FileOpenRounded />} onClick={() => fileInputRef.current?.click()} disabled={!fileApiReady || runtimeState !== 'ready' || busyActions['import-media']} title={fileApiError ?? 'Copy a local media file into the browser Wasm filesystem.'} />
+                <ActionButton label="Pick File" icon={<FileOpenRounded />} onClick={() => openMediaPicker()} disabled={!fileApiReady || runtimeState !== 'ready' || busyActions['import-media']} title={fileApiError ?? 'Copy a local media file into the browser Wasm filesystem.'} />
                 <ActionButton label="Get Media Info" icon={<InfoOutlined />} onClick={() => void runMediaInfo()} disabled={!fileApiReady || runtimeState !== 'ready' || (!selectedMedia && !capabilities.video) || busyActions['get-media-info']} title={selectedMedia ? `Read FFprobe metadata from ${selectedMedia.name}.` : 'Generate the example video if needed, then read its FFprobe metadata.'} />
                 <ActionButton label="Async Version" icon={<PlayArrowRounded />} onClick={() => void getFFprobeVersion(false)} disabled={runtimeState !== 'ready' || busyActions['ffprobe-version-async']} title="Start an asynchronous FFprobe session." />
                 <ActionButton label="Sync Version" icon={<TimerRounded />} onClick={() => void getFFprobeVersion(true)} disabled={runtimeState !== 'ready' || busyActions['ffprobe-version-awaited']} title="Await the Web Promise; JavaScript remains responsive." />
@@ -1407,6 +1455,9 @@ export default function App(): React.JSX.Element {
                 onRun={() => void runCustomPlayback()}
                 runLabel="Run FFplay"
                 disabled={runtimeState !== 'ready' || Boolean(player) || busyActions['run-ffplay-command']}
+                onPickFile={() => openMediaPicker('ffplay')}
+                pickFileLabel="Pick input file for FFplay"
+                pickDisabled={!fileApiReady || runtimeState !== 'ready' || busyActions['import-media']}
               />
 
               <Box>
@@ -1507,7 +1558,7 @@ export default function App(): React.JSX.Element {
                     <Typography variant="body2" color="text.secondary" sx={{mt: 0.5}}>
                       {selectedMedia ? `${selectedMedia.name} (${formatBytes(selectedMedia.size)}) · ${selectedMedia.path}` : videoPath ? videoPath : 'No file selected; the generated test video will be used.'}
                     </Typography>
-                    <Button variant="text" size="small" startIcon={<FileOpenRounded />} disabled={!fileApiReady || runtimeState !== 'ready' || busyActions['import-media']} onClick={() => fileInputRef.current?.click()} sx={{mt: 1}}>
+                    <Button variant="text" size="small" startIcon={<FileOpenRounded />} disabled={!fileApiReady || runtimeState !== 'ready' || busyActions['import-media']} onClick={() => openMediaPicker()} sx={{mt: 1}}>
                       Pick Video File
                     </Button>
                     <Typography variant="caption" display="block" color="text.secondary" sx={{mt: 0.5}}>

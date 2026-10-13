@@ -61,7 +61,10 @@ class FFplaySurface {
 
   /// Records a successful Web playback handoff. Native textures do not need
   /// a playback epoch because their platform callback owners carry lifecycle.
-  static void beginPlayback() {}
+  static void beginPlayback({required bool Function() isReady}) {}
+
+  /// Native texture delivery ends with the platform playback lifecycle.
+  static void endPlayback() {}
 
   /// Returns the Flutter widget displaying the native texture.
   Widget toWidget() => Texture(key: ValueKey(textureId), textureId: textureId);
