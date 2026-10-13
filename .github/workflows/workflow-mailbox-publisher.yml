@@ -48,10 +48,6 @@ permissions:
   actions: read
   contents: write
 
-concurrency:
-  group: workflow-mailbox-${{ github.repository_id }}-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   publish:
     runs-on: ubuntu-24.04
@@ -68,6 +64,7 @@ jobs:
 
       - name: Publish race-safe mailbox record
         env:
+          MAILBOX_BRANCH: workflow-mailbox
           MAILBOX_KEY: ${{ inputs.workflow_key }}
           SOURCE_SHA: ${{ inputs.source_sha }}
           SOURCE_REF: ${{ inputs.source_ref }}
@@ -81,27 +78,48 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "${GITHUB_REF_TYPE}" != "branch" ]]; then
-            echo "Mailbox publication requires a branch ref; got ${GITHUB_REF}." >&2
+          if [[ ! "${MAILBOX_KEY}" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "Invalid workflow mailbox key: ${MAILBOX_KEY}" >&2
             exit 2
           fi
 
-          branch="${GITHUB_REF#refs/heads/}"
           mailbox_dir=".workflow-mailbox/${MAILBOX_KEY}"
           runs_dir="${mailbox_dir}/runs"
           run_file="${runs_dir}/${GITHUB_RUN_ID}-attempt-${GITHUB_RUN_ATTEMPT}.json"
+          published_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          record_tmp="${RUNNER_TEMP}/workflow-mailbox-record.json"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           for retry in 1 2 3 4 5 6; do
             echo "mailbox_push_attempt=${retry}"
-            git fetch --no-tags origin "${branch}"
-            git reset --hard "origin/${branch}"
+
+            if git ls-remote --exit-code --heads origin "refs/heads/${MAILBOX_BRANCH}" >/dev/null; then
+              git fetch --no-tags origin \
+                "refs/heads/${MAILBOX_BRANCH}:refs/remotes/origin/${MAILBOX_BRANCH}"
+              git checkout -B "${MAILBOX_BRANCH}" "refs/remotes/origin/${MAILBOX_BRANCH}"
+            else
+              branch_lookup_status=$?
+              if [[ "${branch_lookup_status}" -ne 2 ]]; then
+                echo "Could not check whether ${MAILBOX_BRANCH} exists (git ls-remote exit ${branch_lookup_status})." >&2
+                exit 5
+              fi
+
+              initial_branch="workflow-mailbox-init-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${retry}"
+              git checkout --orphan "${initial_branch}"
+              git rm -rf --ignore-unmatch .
+            fi
+
+            while IFS= read -r -d '' tracked_file; do
+              case "${tracked_file}" in
+                .workflow-mailbox/*|latest.json) ;;
+                *) git rm -f -- "${tracked_file}" ;;
+              esac
+            done < <(git ls-files -z)
+
             mkdir -p "${runs_dir}"
 
-            published_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            record_tmp="${RUNNER_TEMP}/workflow-mailbox-record.json"
             jq -n \
               --arg schema_version "1" \
               --arg workflow_key "${MAILBOX_KEY}" \
@@ -156,31 +174,32 @@ jobs:
               cp "${record_tmp}" "${run_file}"
             fi
 
-            latest_file="${mailbox_dir}/latest.json"
-            publish_latest=false
-            if [[ ! -f "${latest_file}" ]]; then
-              publish_latest=true
-            elif jq -e \
-              --argjson candidate_id "${GITHUB_RUN_ID}" \
-              --argjson candidate_attempt "${GITHUB_RUN_ATTEMPT}" \
-              '($candidate_id > .run_id) or ($candidate_id == .run_id and $candidate_attempt > .run_attempt)' \
-              "${latest_file}" >/dev/null; then
-              publish_latest=true
-            fi
+            for latest_file in "${mailbox_dir}/latest.json" latest.json; do
+              publish_latest=false
+              if [[ ! -f "${latest_file}" ]]; then
+                publish_latest=true
+              elif jq -e \
+                --argjson candidate_id "${GITHUB_RUN_ID}" \
+                --argjson candidate_attempt "${GITHUB_RUN_ATTEMPT}" \
+                '($candidate_id > .run_id) or ($candidate_id == .run_id and $candidate_attempt > .run_attempt)' \
+                "${latest_file}" >/dev/null; then
+                publish_latest=true
+              fi
 
-            if [[ "${publish_latest}" == true ]]; then
-              cp "${run_file}" "${latest_file}.tmp"
-              mv "${latest_file}.tmp" "${latest_file}"
-            fi
+              if [[ "${publish_latest}" == true ]]; then
+                cp "${run_file}" "${latest_file}.tmp"
+                mv "${latest_file}.tmp" "${latest_file}"
+              fi
+            done
 
-            git add "${mailbox_dir}"
+            git add "${mailbox_dir}" latest.json
             if git diff --cached --quiet; then
               echo "mailbox record is already published"
               exit 0
             fi
 
             git commit -m "chore: publish ${MAILBOX_KEY} run ${GITHUB_RUN_ID} attempt ${GITHUB_RUN_ATTEMPT}"
-            if git push origin "HEAD:${branch}"; then
+            if git push origin "HEAD:refs/heads/${MAILBOX_BRANCH}"; then
               echo "mailbox publication succeeded"
               exit 0
             fi

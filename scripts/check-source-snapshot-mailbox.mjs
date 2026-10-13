@@ -15,10 +15,17 @@ function requireText(text, pattern, label) {
 
 requireText(publisher, /\.workflow-mailbox\/\$\{MAILBOX_KEY\}/, "publisher mailbox directory");
 requireText(publisher, /runs_dir=.*\/runs/, "publisher immutable run directory");
-requireText(publisher, /latest_file=.*latest\.json/, "publisher latest pointer");
+requireText(publisher, /MAILBOX_BRANCH: workflow-mailbox/, "dedicated mailbox branch");
+requireText(publisher, /git checkout --orphan/, "publisher creates the mailbox branch without source files");
+requireText(publisher, /git ls-remote --exit-code --heads origin "refs\/heads\/\$\{MAILBOX_BRANCH\}"/, "publisher checks for the dedicated branch");
+requireText(publisher, /git rm -rf --ignore-unmatch \./, "initial branch drops the source checkout tree");
+requireText(publisher, /for latest_file in .*latest\.json/, "publisher per-workflow and root latest pointers");
+requireText(publisher, /git add .*latest\.json/, "publisher stages the root latest pointer");
 requireText(publisher, /candidate_id.*candidate_attempt/, "numeric run and attempt comparison");
-requireText(publisher, /git fetch --no-tags origin/, "branch-head refresh before push");
-requireText(publisher, /git push origin \"HEAD:\$\{branch\}\"/, "non-force push");
+requireText(publisher, /git fetch --no-tags origin/, "mailbox branch-head refresh before push");
+requireText(publisher, /git push origin \"HEAD:refs\/heads\/\$\{MAILBOX_BRANCH\}\"/, "non-force push to mailbox branch");
+assert.ok(publisher.includes('.workflow-mailbox/*|latest.json)'), "branch content allowlist");
+assert.ok(publisher.includes('*) git rm -f -- "${tracked_file}" ;;'), "publisher prunes files outside the allowlist");
 assert.doesNotMatch(publisher, /--force(?:-with-lease)?\b/, "publisher must never force-push");
 requireText(snapshot, /workflow-mailbox-publisher\.yml/, "snapshot calls mailbox publisher");
 requireText(snapshot, /if: always\(\)/, "mailbox runs after snapshot result");
