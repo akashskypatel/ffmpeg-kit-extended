@@ -29,6 +29,9 @@ const full = process.argv.includes('--full');
 const playback = process.argv.includes('--playback');
 const rnAdapter = process.argv.includes('--rn-adapter');
 const dartAdapter = process.argv.includes('--dart-adapter');
+const callbackOrder = process.argv.includes('--callback-order');
+const callbackLifetime = process.argv.includes('--callback-lifetime');
+const debugMessageCounter = process.argv.includes('--debug-message-counter');
 const recordFlag = process.argv.indexOf('--record');
 const recordPath = recordFlag < 0 ? undefined : process.argv[recordFlag + 1];
 let fixture;
@@ -66,6 +69,16 @@ const server = http.createServer(async (req, res) => {
       res.end(nativeBackendBundle);
       return;
     }
+    if (url.pathname === '/callback-order-contract.mjs') {
+      res.setHeader('Content-Type', 'text/javascript');
+      res.end(await readFile(path.join(root, 'scripts/fixtures/wasm-callback-order-contract.mjs')));
+      return;
+    }
+    if (url.pathname === '/callback-lifetime-contract.mjs') {
+      res.setHeader('Content-Type', 'text/javascript');
+      res.end(await readFile(path.join(root, 'scripts/fixtures/wasm-callback-lifetime-contract.mjs')));
+      return;
+    }
     if (url.pathname.startsWith('/dart/')) {
       const buildRoot = path.join(root, 'flutter/example/build/web');
       const target = path.resolve(buildRoot, decodeURIComponent(url.pathname.slice('/dart/'.length)) || 'index.html');
@@ -77,7 +90,7 @@ const server = http.createServer(async (req, res) => {
     const match = /^\/(flutter|rn)\/([^/]+)$/.exec(url.pathname);
     const target = match
       ? path.join(directories[match[1]], match[2])
-      : ['/contract.mjs', '/playback-contract.mjs'].includes(url.pathname)
+      : ['/contract.mjs', '/playback-contract.mjs', '/wasm-bridge-playback.mjs'].includes(url.pathname)
         ? path.join(root, 'scripts/fixtures', url.pathname === '/contract.mjs'
           ? 'wasm-bridge-contract.mjs' : 'wasm-bridge-playback.mjs')
         : undefined;
@@ -115,7 +128,7 @@ try {
       record.supportModules[framework][name] = hash;
     }
   }
-  if (full || playback || rnAdapter || dartAdapter) {
+  if (full || playback || rnAdapter || dartAdapter || callbackOrder || debugMessageCounter) {
     const { createStreamingFixtureServer } = await import(pathToFileURL(path.join(builders, 'FFmpegKit/tests/wasm_streaming/server.mjs')));
     fixture = createStreamingFixtureServer({
       port: 0,
@@ -135,7 +148,7 @@ try {
     });
     console.log(`CODEX_contract ${framework}: loading staged bridge`);
     await page.goto(origin);
-    const result = await evaluate(page, async ({ framework, full, playback, rnAdapter, fixtureOrigin }) => {
+    const result = await evaluate(page, async ({ framework, full, playback, rnAdapter, callbackOrder, callbackLifetime, debugMessageCounter, fixtureOrigin }) => {
       const bridge = await import(`/${framework}/ffmpegkit_bridge.mjs`);
       const factory = framework === 'flutter' ? globalThis.ffmpegKitExtendedModuleFactory : bridge.createFFmpegKitModule;
       const module = await factory();
@@ -152,6 +165,30 @@ try {
       let playbackContract;
       let memoryContract;
       let nativeBackendContract;
+      let callbackOrderContract;
+      let callbackLifetimeContract;
+      let debugMessageCounterContract;
+      if (debugMessageCounter) {
+        try {
+          debugMessageCounterContract = await (await import('/callback-order-contract.mjs')).runDebugMessageCounterContract(module, fixtureOrigin);
+        } catch (error) {
+          debugMessageCounterContract = error.report || {status: 'failed', error: error.message};
+        }
+      }
+      if (callbackOrder) {
+        try {
+          callbackOrderContract = await (await import('/callback-order-contract.mjs')).runCallbackOrderContract(module, fixtureOrigin);
+        } catch (error) {
+          callbackOrderContract = error.report || {status: 'failed', error: error.message};
+        }
+      }
+      if (callbackLifetime) {
+        try {
+          callbackLifetimeContract = await (await import('/callback-lifetime-contract.mjs')).runCallbackLifetimeContract(module);
+        } catch (error) {
+          callbackLifetimeContract = error.report || {status: 'failed', error: error.message};
+        }
+      }
       if (full) {
         try {
           contract = await (await import('/contract.mjs')).runBridgeContract(module, fixtureOrigin);
@@ -181,8 +218,8 @@ try {
         }
       }
       return { framework, version, protocol: bridge.BRIDGE_PROTOCOL_VERSION,
-        required, isolated: crossOriginIsolated, contract, playbackContract, memoryContract, nativeBackendContract };
-    }, { framework, full, playback, rnAdapter, fixtureOrigin: record.fixtureOrigin });
+        required, isolated: crossOriginIsolated, contract, playbackContract, memoryContract, nativeBackendContract, callbackOrderContract, callbackLifetimeContract, debugMessageCounterContract };
+    }, { framework, full, playback, rnAdapter, callbackOrder, callbackLifetime, debugMessageCounter, fixtureOrigin: record.fixtureOrigin });
     assert.deepEqual(errors, [], `${framework} page errors`);
     assert.equal(result.protocol, 1, 'staged bridge protocol');
     record.cases.push({ ...result, pageErrors: errors });
@@ -190,6 +227,9 @@ try {
     if (result.playbackContract?.status === 'failed') record.errors.push(`${framework} playback contract failed`);
     if (result.memoryContract?.status === 'failed') record.errors.push(`${framework} MEMFS contract failed`);
     if (result.nativeBackendContract?.status === 'failed') record.errors.push(`${framework} native backend contract failed`);
+    if (result.callbackOrderContract?.status === 'failed') record.errors.push(`${framework} callback ordering contract failed`);
+    if (result.callbackLifetimeContract?.status === 'failed') record.errors.push(`${framework} callback lifetime contract failed`);
+    if (result.debugMessageCounterContract?.status === 'failed') record.errors.push(`${framework} debug message counter contract failed`);
     await page.reload();
     const reloaded = await evaluate(page, async framework => {
       const bridge = await import(`/${framework}/ffmpegkit_bridge.mjs`);
@@ -300,5 +340,8 @@ try {
     framework: item.framework, case: item.case || 'native-contract',
     version: item.version, probe: item.contract?.status,
     playback: item.playbackContract?.status, memfs: item.memoryContract?.status,
+    callbacks: item.callbackOrderContract?.status,
+    callbackLifetime: item.callbackLifetimeContract?.status,
+    debugMessageCounter: item.debugMessageCounterContract?.status,
   })) }, null, 2));
 }

@@ -108,7 +108,7 @@ function pixelSignature(bytes, width, height, linesize) {
   };
 }
 
-function copyLatestFrame(module, pointers) {
+export function copyLatestFrame(module, pointers) {
   const copyFrame = requireFunction(module, '_ffplay_kit_copy_frame');
   const probeResult = numberResult(copyFrame(
     0,

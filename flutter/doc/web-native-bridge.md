@@ -82,4 +82,6 @@ Then run `node scripts/wasm-bridge-contract.mjs --rn-adapter --dart-adapter --re
 
 ## Scope
 
+The pinned package has a native callback-accounting defect when Debug logging is enabled before session creation: `ffmpeg_kit_config_messages_in_transmit` can remain `-1` after a successful command. `--debug-message-counter` reproduces this without changing registrations in flight; it currently fails on the pin. `--callback-order` verifies applicable log/statistics/frame-readback/completion ordering at normal logging. The separate `--callback-lifetime` probe has not established its queued-old-log observation and is not passing evidence. This is a Phase 1 reopen; no negative-count clamp or bridge workaround is applied.
+
 The bridge is a private implementation detail. Do not add exports or alter the C ABI, public Dart API, or non-Web native integrations as part of this work. Phase 3 owns public wrapper behavior, example UI, and package-level sync policy. Interactive audible playback is deferred to Phase 3's final manual verification.
