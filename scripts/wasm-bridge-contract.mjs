@@ -32,6 +32,24 @@ const dartAdapter = process.argv.includes('--dart-adapter');
 const callbackOrder = process.argv.includes('--callback-order');
 const callbackLifetime = process.argv.includes('--callback-lifetime');
 const debugMessageCounter = process.argv.includes('--debug-message-counter');
+const heapFlag = process.argv.indexOf('--heap-diagnostic');
+const diagnostic = heapFlag < 0 ? null : JSON.parse(await readFile(process.argv[heapFlag + 1], 'utf8'));
+if (diagnostic) {
+  assert.equal(diagnostic.artifactRole, 'same-source-diagnostic-heap-only');
+  assert.equal(diagnostic.sourceCommit, '779cecd74bb7b10ab9f0d28c1e14e2a440eacd4a');
+  assert.equal(diagnostic.productionWasmSha256, expected['ffmpegkit.wasm']);
+  assert.equal(diagnostic.productionHashesUnchanged, true);
+  assert.equal(diagnostic.hooks, 'ON');
+  assert.ok(!full && !playback && !rnAdapter && !dartAdapter && !callbackOrder &&
+    !callbackLifetime && !debugMessageCounter, 'Diagnostic heap evidence cannot replace production contracts');
+  for (const name of Object.keys(expected)) {
+    assert.match(diagnostic.hashes[name], /^[a-f0-9]{64}$/);
+    const bytes = await readFile(path.join(diagnostic.directory, name));
+    assert.equal(createHash('sha256').update(bytes).digest('hex'), diagnostic.hashes[name]);
+  }
+  record.artifactRole = 'diagnostic-heap-only';
+  record.diagnostic = diagnostic;
+}
 const recordFlag = process.argv.indexOf('--record');
 const recordPath = recordFlag < 0 ? undefined : process.argv[recordFlag + 1];
 let fixture;
@@ -79,6 +97,11 @@ const server = http.createServer(async (req, res) => {
       res.end(await readFile(path.join(root, 'scripts/fixtures/wasm-callback-lifetime-contract.mjs')));
       return;
     }
+    if (url.pathname === '/heap-baseline-contract.mjs') {
+      res.setHeader('Content-Type', 'text/javascript');
+      res.end(await readFile(path.join(root, 'scripts/fixtures/wasm-heap-baseline-contract.mjs')));
+      return;
+    }
     if (url.pathname.startsWith('/dart/')) {
       const buildRoot = path.join(root, 'flutter/example/build/web');
       const target = path.resolve(buildRoot, decodeURIComponent(url.pathname.slice('/dart/'.length)) || 'index.html');
@@ -89,7 +112,8 @@ const server = http.createServer(async (req, res) => {
     }
     const match = /^\/(flutter|rn)\/([^/]+)$/.exec(url.pathname);
     const target = match
-      ? path.join(directories[match[1]], match[2])
+      ? path.join(diagnostic && Object.hasOwn(expected, match[2])
+        ? diagnostic.directory : directories[match[1]], match[2])
       : ['/contract.mjs', '/playback-contract.mjs', '/wasm-bridge-playback.mjs'].includes(url.pathname)
         ? path.join(root, 'scripts/fixtures', url.pathname === '/contract.mjs'
           ? 'wasm-bridge-contract.mjs' : 'wasm-bridge-playback.mjs')
@@ -128,7 +152,7 @@ try {
       record.supportModules[framework][name] = hash;
     }
   }
-  if (full || playback || rnAdapter || dartAdapter || callbackOrder || debugMessageCounter) {
+  if (full || playback || rnAdapter || dartAdapter || callbackOrder || debugMessageCounter || diagnostic) {
     const { createStreamingFixtureServer } = await import(pathToFileURL(path.join(builders, 'FFmpegKit/tests/wasm_streaming/server.mjs')));
     fixture = createStreamingFixtureServer({
       port: 0,
@@ -148,7 +172,7 @@ try {
     });
     console.log(`CODEX_contract ${framework}: loading staged bridge`);
     await page.goto(origin);
-    const result = await evaluate(page, async ({ framework, full, playback, rnAdapter, callbackOrder, callbackLifetime, debugMessageCounter, fixtureOrigin }) => {
+    const result = await evaluate(page, async ({ framework, full, playback, rnAdapter, callbackOrder, callbackLifetime, debugMessageCounter, heapIdentity, fixtureOrigin }) => {
       const bridge = await import(`/${framework}/ffmpegkit_bridge.mjs`);
       const factory = framework === 'flutter' ? globalThis.ffmpegKitExtendedModuleFactory : bridge.createFFmpegKitModule;
       const module = await factory();
@@ -164,6 +188,14 @@ try {
       let contract;
       let playbackContract;
       let memoryContract;
+      let heapContract;
+      if (heapIdentity) {
+        try {
+          heapContract = await (await import('/heap-baseline-contract.mjs')).runHeapBaselineContract(module, fixtureOrigin, {...heapIdentity, runtimeVersion: version});
+        } catch (error) {
+          heapContract = error.report || {status: 'failed', error: error.message};
+        }
+      }
       let nativeBackendContract;
       let callbackOrderContract;
       let callbackLifetimeContract;
@@ -218,8 +250,11 @@ try {
         }
       }
       return { framework, version, protocol: bridge.BRIDGE_PROTOCOL_VERSION,
-        required, isolated: crossOriginIsolated, contract, playbackContract, memoryContract, nativeBackendContract, callbackOrderContract, callbackLifetimeContract, debugMessageCounterContract };
-    }, { framework, full, playback, rnAdapter, callbackOrder, callbackLifetime, debugMessageCounter, fixtureOrigin: record.fixtureOrigin });
+        required, isolated: crossOriginIsolated, contract, playbackContract, memoryContract, heapContract, nativeBackendContract, callbackOrderContract, callbackLifetimeContract, debugMessageCounterContract };
+    }, { framework, full, playback, rnAdapter, callbackOrder, callbackLifetime, debugMessageCounter,
+      heapIdentity: diagnostic ? {artifactRole: diagnostic.artifactRole, sourceCommit: diagnostic.sourceCommit,
+        wasmSha256: diagnostic.hashes['ffmpegkit.wasm'], loaderSha256: diagnostic.hashes['ffmpegkit.mjs'],
+        productionPinUsed: false} : null, fixtureOrigin: record.fixtureOrigin });
     assert.deepEqual(errors, [], `${framework} page errors`);
     assert.equal(result.protocol, 1, 'staged bridge protocol');
     record.cases.push({ ...result, pageErrors: errors });
@@ -230,6 +265,7 @@ try {
     if (result.callbackOrderContract?.status === 'failed') record.errors.push(`${framework} callback ordering contract failed`);
     if (result.callbackLifetimeContract?.status === 'failed') record.errors.push(`${framework} callback lifetime contract failed`);
     if (result.debugMessageCounterContract?.status === 'failed') record.errors.push(`${framework} debug message counter contract failed`);
+    if (result.heapContract?.status === 'failed') record.errors.push(`${framework} native heap baseline contract failed`);
     await page.reload();
     const reloaded = await evaluate(page, async framework => {
       const bridge = await import(`/${framework}/ffmpegkit_bridge.mjs`);
@@ -343,5 +379,6 @@ try {
     callbacks: item.callbackOrderContract?.status,
     callbackLifetime: item.callbackLifetimeContract?.status,
     debugMessageCounter: item.debugMessageCounterContract?.status,
+    heap: item.heapContract?.status,
   })) }, null, 2));
 }

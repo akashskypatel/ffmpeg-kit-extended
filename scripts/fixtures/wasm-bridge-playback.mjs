@@ -164,7 +164,7 @@ export function copyLatestFrame(module, pointers) {
   }
 }
 
-async function runSession(module, callbackRecords, callbackTokens, callbackPointer, name, command, {
+export async function runSession(module, callbackRecords, callbackTokens, callbackPointer, name, command, {
   stopAfterProgress = false,
   frames,
 } = {}) {
