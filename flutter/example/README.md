@@ -4,6 +4,20 @@ This example application demonstrates the core features of the `ffmpeg_kit_exten
 
 ## Getting Started
 
+On Web, open the **Stream** tab for direct HTTP(S) and HLS input. **Probe** reads
+metadata; **Play** uses the FFplay tab's video surface and SDL audio; **Record
+15 s** writes a bounded Matroska file in browser memory. After completion use
+**Probe Recording** and **Download Recording**. **Stop** requests cancellation;
+wait for the operation to settle before starting another. Download or delete
+recordings before closing the page. See the [copyable commands and Web limits](../doc/guides/advanced.md#web-remote-urls-direct-http-and-hls).
+
+Use the exact local runtime hashes and cross-origin isolation headers in the
+[Web bridge guide](../doc/web-native-bridge.md). ABI `0.11.2` is required but does
+not distinguish older builds with the same ABI; verified asset hashes are also
+required. HTTPS pages require HTTPS media and the media server's CORS grant.
+RTMP, RTSP, raw sockets and DRM are unsupported. Codec support follows the
+selected bundle; do not assume all HLS codecs or encryption modes work.
+
 For the complete local interactive test sequence, see
 [`flutter/TEST.md`](../TEST.md) and
 [`interactive-tests/marionette.md`](interactive-tests/marionette.md). Those

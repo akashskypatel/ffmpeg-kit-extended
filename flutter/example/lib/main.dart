@@ -27,6 +27,9 @@ const _ffplayFramePhases = <({String name, double atSeconds, List<int> rgba})>[
   (name: 'blue phase', atSeconds: 4.5, rgba: [0, 0, 254, 255]),
   (name: 'white phase', atSeconds: 6.5, rgba: [255, 255, 255, 255]),
 ];
+
+/// ABI of the Phase 2 Web bundle that supports direct HTTP(S) input.
+const _webRemoteAbiVersion = '0.11.2';
 const _ffplayFrameWidth = 512;
 const _ffplayFrameHeight = 512;
 const _ffplayFrameRgbaTolerance = 32;
@@ -259,6 +262,7 @@ class _HomePageState extends State<HomePage>
     _outputLogFlushTimer?.cancel();
     _remoteScenarioFileFlushTimer?.cancel();
     _remoteStreamUrlController.dispose();
+    _webRemoteUrlController.dispose();
     _surface?.release();
     _fsController.dispose();
     super.dispose();
@@ -556,16 +560,13 @@ class _HomePageState extends State<HomePage>
         '.avi' => 'video/x-msvideo',
         _ => 'application/octet-stream',
       };
-      final saved = await FilePicker.saveFile(
+      await FilePicker.saveFile(
         fileName: fileName,
         bytes: FFmpegKitWebFiles.readFile(filePath),
         mimeType: mimeType,
       );
-      _addLog(
-        saved == null
-            ? 'Download cancelled for $fileName.'
-            : 'Browser download started for $fileName.',
-      );
+      // Web saveFile returns null after dispatching the browser download.
+      _addLog('Browser download requested for $fileName.');
     } catch (error) {
       _addLog('Web file download failed for $filePath: $error');
     }
@@ -1036,6 +1037,260 @@ class _HomePageState extends State<HomePage>
         _cleanupRetiredWebMediaPaths();
       },
     );
+  }
+
+  // --- Web remote URL: direct HTTP(S) input through the async APIs only ---
+
+  // A ?remoteUrl= query parameter prefills the field on Web (a deep link). It
+  // never starts an operation by itself.
+  final TextEditingController _webRemoteUrlController = TextEditingController(
+    text: kIsWeb && Uri.base.queryParameters['remoteUrl'] != null
+        ? Uri.base.queryParameters['remoteUrl']!
+        : "https://endpnt.com/hls/nasa4k/playlist.m3u8",
+  );
+  String _webRemoteState = "idle";
+  String _webRemoteDetail = "";
+  String? _webRemoteRecordingPath;
+  void Function()? _webRemoteCancelAction;
+  bool _webRemoteCancelRequested = false;
+  int _webRemoteRecordingCounter = 0;
+
+  bool get _webRemoteBusy =>
+      _webRemoteState == "loading" ||
+      _webRemoteState == "playing" ||
+      _webRemoteState == "recording";
+
+  /// Returns a finite validation message, or null when [raw] is a direct URL.
+  String? _validateWebRemoteUrl(String raw) {
+    final url = raw.trim();
+    final uri = Uri.tryParse(url);
+    if (url.isEmpty || uri == null || uri.host.isEmpty) {
+      return "Enter a direct http:// or https:// URL.";
+    }
+    if (uri.scheme != "http" && uri.scheme != "https") {
+      return "Only direct http:// and https:// URLs run on Web. RTMP, RTSP, file and chained schemes such as hls+https:// are not supported.";
+    }
+    if (url.contains('"') || url.contains(RegExp(r"\s"))) {
+      return "The URL must not contain spaces or double quotes.";
+    }
+    return null;
+  }
+
+  /// Maps captured FFmpeg output to a short, honest failure reason.
+  String _diagnoseWebRemoteFailure(String output) {
+    final text = output.toLowerCase();
+    if (text.contains("eperm") ||
+        text.contains("operation not permitted") ||
+        text.contains("pthread")) {
+      return "The Web runtime could not open this network input (EPERM). Check that the URL is a direct media URL. Remote segments listed in a local playlist fail the same way.";
+    }
+    if (text.contains("403")) {
+      return "The server refused the request (HTTP 403).";
+    }
+    if (text.contains("404")) return "The media was not found (HTTP 404).";
+    if (text.contains("cors") ||
+        text.contains("failed to fetch") ||
+        text.contains("cross-origin")) {
+      return "The browser blocked the request (CORS). The server must allow this page's origin and expose Content-Range.";
+    }
+    return "The command failed. See the output below.";
+  }
+
+  void _setWebRemote(String state, [String detail = ""]) {
+    if (!mounted) return;
+    setState(() {
+      _webRemoteState = state;
+      _webRemoteDetail = detail;
+    });
+  }
+
+  /// Keeps a cancel action only while the operation is still running.
+  void _trackWebRemoteAction(void Function() cancel) {
+    if (!_webRemoteBusy) return;
+    if (_webRemoteCancelRequested) {
+      cancel();
+    } else {
+      _webRemoteCancelAction = cancel;
+    }
+  }
+
+  Future<void> _runWebRemoteFFprobe(String command, String label) async {
+    _webRemoteCancelRequested = false;
+    _setWebRemote("loading", label);
+    try {
+      // Register the cancel action before waiting, so Stop works during the probe.
+      final session = FFprobeKit.createSession(command);
+      _trackWebRemoteAction(session.cancel);
+      await session.executeAsync(
+        completeCallback: (completed) {
+          _webRemoteCancelAction = null;
+          final output = completed.getOutput() ?? "";
+          if (_webRemoteCancelRequested) {
+            _setWebRemote("cancelled", "Probe cancelled.");
+          } else if (completed.getReturnCode() == 0) {
+            _setWebRemote("completed", output);
+          } else {
+            _setWebRemote(
+              "failed",
+              "${_diagnoseWebRemoteFailure(output)}\n\n$output",
+            );
+          }
+        },
+      );
+    } catch (error) {
+      _webRemoteCancelAction = null;
+      _setWebRemote("failed", "$error");
+    }
+  }
+
+  Future<void> _runWebRemoteProbe() async {
+    final url = _webRemoteUrlController.text.trim();
+    final invalid = _validateWebRemoteUrl(url);
+    if (invalid != null) {
+      _setWebRemote("failed", invalid);
+      return;
+    }
+    await _runWebRemoteFFprobe(
+      '-hide_banner -v error -show_format -show_streams -of json "$url"',
+      "Probing $url",
+    );
+  }
+
+  Future<void> _runWebRemotePlay() async {
+    final url = _webRemoteUrlController.text.trim();
+    final invalid = _validateWebRemoteUrl(url);
+    if (invalid != null) {
+      _setWebRemote("failed", invalid);
+      return;
+    }
+    _webRemoteCancelRequested = false;
+    _setWebRemote("loading", "Starting playback of $url");
+    try {
+      await _prepareSurface();
+      final surface = await FFplaySurface.create();
+      if (surface != null && mounted) {
+        setState(() => _surface = surface);
+      }
+      final session = await FFplayKit.executeAsync(
+        '-hide_banner -loglevel info -i "$url"',
+        onComplete: (session) {
+          _webRemoteCancelAction = null;
+          final output = session.getOutput() ?? "";
+          if (_webRemoteCancelRequested) {
+            _setWebRemote("cancelled", "Playback stopped.");
+          } else if (session.getReturnCode() == 0) {
+            _setWebRemote(
+              "completed",
+              "Playback reached the end of the media.",
+            );
+          } else {
+            _setWebRemote(
+              "failed",
+              "${_diagnoseWebRemoteFailure(output)}\n\n$output",
+            );
+          }
+        },
+      );
+      _attachPositionStream(session);
+      if (_webRemoteState == "loading" && !_webRemoteCancelRequested) {
+        _setWebRemote(
+          "playing",
+          "Playing $url. Video renders in the FFplay tab.",
+        );
+      }
+      _trackWebRemoteAction(session.stop);
+    } catch (error) {
+      _webRemoteCancelAction = null;
+      _setWebRemote("failed", "$error");
+    }
+  }
+
+  Future<void> _runWebRemoteRecord() async {
+    final url = _webRemoteUrlController.text.trim();
+    final invalid = _validateWebRemoteUrl(url);
+    if (invalid != null) {
+      _setWebRemote("failed", invalid);
+      return;
+    }
+    _webRemoteRecordingCounter++;
+    final previousPath = _webRemoteRecordingPath;
+    if (previousPath != null && FFmpegKitWebFiles.exists(previousPath)) {
+      FFmpegKitWebFiles.deleteFile(previousPath);
+    }
+    // Recordings live in the Wasm MEMFS until the user downloads them.
+    final outputPath =
+        "/tmp/web-remote-recording-$_webRemoteRecordingCounter.mkv";
+    if (FFmpegKitWebFiles.exists(outputPath)) {
+      FFmpegKitWebFiles.deleteFile(outputPath);
+    }
+    _webRemoteRecordingPath = null;
+    _webRemoteCancelRequested = false;
+    _setWebRemote("recording", "Recording 15 seconds to $outputPath");
+    try {
+      // Register the cancel action before waiting, so Stop works during the recording.
+      final session = FFmpegKit.createSession(
+        '-hide_banner -nostdin -y -t 15 -i "$url" '
+        '-map 0:v:0 -map 0:a:0? -c copy -f matroska "$outputPath"',
+      );
+      _trackWebRemoteAction(session.cancel);
+      await session.executeAsync(
+        completeCallback: (completed) {
+          _webRemoteCancelAction = null;
+          final output = completed.getOutput() ?? "";
+          if (_webRemoteCancelRequested) {
+            if (FFmpegKitWebFiles.exists(outputPath)) {
+              FFmpegKitWebFiles.deleteFile(outputPath);
+            }
+            _setWebRemote("cancelled", "Recording cancelled.");
+            return;
+          }
+          final bytes = FFmpegKitWebFiles.exists(outputPath)
+              ? FFmpegKitWebFiles.readFile(outputPath).length
+              : 0;
+          if (completed.getReturnCode() == 0 && bytes > 0) {
+            _webRemoteRecordingPath = outputPath;
+            _setWebRemote(
+              "completed",
+              "Recorded $bytes bytes to $outputPath. Probe or download it.",
+            );
+          } else {
+            if (FFmpegKitWebFiles.exists(outputPath)) {
+              FFmpegKitWebFiles.deleteFile(outputPath);
+            }
+            _setWebRemote(
+              "failed",
+              "${_diagnoseWebRemoteFailure(output)}\n\n$output",
+            );
+          }
+        },
+      );
+    } catch (error) {
+      _webRemoteCancelAction = null;
+      if (FFmpegKitWebFiles.exists(outputPath)) {
+        FFmpegKitWebFiles.deleteFile(outputPath);
+      }
+      _setWebRemote("failed", "$error");
+    }
+  }
+
+  /// Cancels the running Web remote operation once.
+  void _cancelWebRemote() {
+    if (!_webRemoteBusy || _webRemoteCancelRequested) return;
+    final cancel = _webRemoteCancelAction;
+    _webRemoteCancelAction = null;
+    _webRemoteCancelRequested = true;
+    try {
+      cancel?.call();
+    } catch (error) {
+      _addLog("Web remote cancel failed: $error");
+    }
+    // Completion owns the terminal state; another operation cannot start yet.
+    if (_webRemoteBusy) {
+      _setWebRemote(
+        _webRemoteState,
+        "Cancellation requested; waiting for completion.",
+      );
+    }
   }
 
   Future<void> _runRemoteRecordingScenario() async {
@@ -2097,7 +2352,12 @@ class _HomePageState extends State<HomePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildRemoteRecordingScenarioSection(),
+          // Native builds keep the dart:io recording scenario. Web uses the
+          // MEMFS-backed remote URL panel instead.
+          if (kIsWeb)
+            _buildWebRemoteSection()
+          else
+            _buildRemoteRecordingScenarioSection(),
           const SizedBox(height: 20),
           _buildActiveSessionsPanel(),
         ],
@@ -2594,6 +2854,152 @@ class _HomePageState extends State<HomePage>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _webRemoteButton(
+    String label,
+    IconData icon,
+    FutureOr<void> Function()? onPressed,
+    String key,
+  ) {
+    return ElevatedButton.icon(
+      key: ValueKey<String>(key),
+      onPressed: onPressed == null ? null : () => onPressed(),
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+    );
+  }
+
+  Widget _buildWebRemoteSection() {
+    final validation = _validateWebRemoteUrl(_webRemoteUrlController.text);
+    final busy = _webRemoteBusy;
+    // Remote URL input needs the Phase 2 bundle. The version string is the
+    // native ABI reported by the runtime.
+    final runtimeAbi = FFmpegKitExtended.getVersion();
+    final abiSupported = runtimeAbi == _webRemoteAbiVersion;
+    final canStart = !busy && validation == null && abiSupported;
+    final recordingPath = _webRemoteRecordingPath;
+    return Card(
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Remote URL (Web)",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              "Direct http:// and https:// URLs run through the async APIs. Recordings stay in browser memory until you download them. Video renders in the FFplay tab.",
+              style: TextStyle(fontSize: 12),
+            ),
+            if (!abiSupported) ...[
+              const SizedBox(height: 8),
+              Text(
+                "This Web runtime reports ABI $runtimeAbi. Remote URL input needs the Phase 2 bundle (ABI $_webRemoteAbiVersion).",
+                key: const ValueKey<String>('web.remote.abi'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.orangeAccent,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey<String>('web.remote.url'),
+              controller: _webRemoteUrlController,
+              enabled: !busy,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: "Direct media URL",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+            if (validation != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                validation,
+                key: const ValueKey<String>('web.remote.validation'),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.orangeAccent,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _webRemoteButton(
+                  "Probe",
+                  Icons.info_outline,
+                  canStart ? _runWebRemoteProbe : null,
+                  'web.remote.probe',
+                ),
+                _webRemoteButton(
+                  "Play",
+                  Icons.play_circle_outline,
+                  canStart ? _runWebRemotePlay : null,
+                  'web.remote.play',
+                ),
+                _webRemoteButton(
+                  "Record 15 s",
+                  Icons.fiber_manual_record,
+                  canStart ? _runWebRemoteRecord : null,
+                  'web.remote.record',
+                ),
+                _webRemoteButton(
+                  "Stop",
+                  Icons.stop,
+                  busy && !_webRemoteCancelRequested ? _cancelWebRemote : null,
+                  'web.remote.cancel',
+                ),
+                _webRemoteButton(
+                  "Probe Recording",
+                  Icons.search,
+                  !busy && recordingPath != null
+                      ? () => _runWebRemoteFFprobe(
+                          '-hide_banner -v error -show_format -show_streams -of json "$recordingPath"',
+                          "Probing $recordingPath",
+                        )
+                      : null,
+                  'web.remote.probe-recording',
+                ),
+                _webRemoteButton(
+                  "Download Recording",
+                  Icons.download,
+                  !busy && recordingPath != null
+                      ? () => _downloadWebFile(recordingPath)
+                      : null,
+                  'web.remote.download',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "State: $_webRemoteState",
+              key: const ValueKey<String>('web.remote.state'),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            if (_webRemoteDetail.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              // Plain Text keeps the detail in the accessibility tree, where the
+              // acceptance harness reads it. SelectableText does not.
+              Text(
+                _webRemoteDetail,
+                key: const ValueKey<String>('web.remote.detail'),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

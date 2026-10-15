@@ -95,3 +95,32 @@ void startLiveStream(String input, String rtmpUrl) {
   );
 }
 ```
+
+## 10. Probe and Record a Direct URL on Web
+
+On Web, use the asynchronous APIs for direct `https://` media. Recording is
+bounded and writes to browser memory until you download it (see
+[Web Remote URLs](../guides/advanced.md#web-remote-urls-direct-http-and-hls)).
+
+```dart
+final url = 'https://example.com/live/playlist.m3u8';
+
+// 1. Probe the stream.
+await FFprobeKit.executeAsync(
+  '-hide_banner -v error -show_format -show_streams -of json "$url"',
+  onComplete: (session) => print(session.getOutput()),
+);
+
+// 2. Record 15 seconds into the Wasm filesystem.
+await FFmpegKit.executeAsync(
+  '-hide_banner -nostdin -y -t 15 -i "$url" -map 0:v:0 -map 0:a:0? '
+  '-c copy -f matroska /tmp/clip.mkv',
+  onComplete: (session) {
+    if (session.getReturnCode() == 0) {
+      // Read the bytes for a browser download. Delete the file after the download.
+      final bytes = FFmpegKitWebFiles.readFile('/tmp/clip.mkv');
+      print('Recorded ${bytes.length} bytes');
+    }
+  },
+);
+```

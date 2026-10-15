@@ -287,9 +287,11 @@ FFmpegKitWebFiles.deleteFile(inputPath);
 ```
 
 Use a browser file picker to obtain the input `Uint8List` and a user-triggered
-browser save action for `outputBytes`. The plugin's Wasm build does not support
-network stream input or recording, including RTMP/RTMPE; the native streaming
-support described in the feature matrix remains native-only.
+browser save action for `outputBytes`. The pinned streaming Wasm runtime supports
+direct HTTP(S) and HLS input through the async APIs, including bounded recording.
+See the [Web streaming guide](doc/guides/advanced.md#web-remote-urls-direct-http-and-hls)
+for the exact runtime requirement and browser limits. Direct RTMP/RTMPE and RTSP
+remain unsupported.
 
 #### Flutter test-target limitation
 
@@ -419,9 +421,10 @@ The legacy `streaming` value is accepted as an alias for `video`.
 
 | Runtime | Network stream input/recording |
 | --- | --- |
-| Web (Wasm) | Not supported, including RTMP/RTMPE |
+| Web (Wasm), pinned streaming runtime | Async HTTP(S)/HLS input and bounded recording; no RTMP/RTMPE or RTSP |
 
-The bundle-level Streaming row applies to native targets; it does not imply Web/Wasm network streaming support.
+The bundle-level Streaming row covers native protocols. Web input requires the
+pinned streaming runtime and the browser's CORS and cross-origin isolation setup.
 
 2. Platform features are built-in platform libraries that FFmpeg support like AVFounation, VideoToolbox, etc. on apple platforms or DirectX, MediaFoundation on Windows.
 
@@ -767,7 +770,7 @@ print('Paused: ${session.isPaused()}');
 | schannel, dxva2, d3d12va, d3d11va, mediafoundation                                         |         |       | b+      |      |     |       | —          |
 | alsa                                                                                       |         | b+    |         |      |     |       | —          |
 
-The Web column uses the same bundle keys as the other columns. `—` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries. These entries describe bundled libraries, not browser network capability: Web/Wasm builds do not support network stream I/O, including RTMP/RTMPE.
+The Web column uses the same bundle keys as the other columns. `—` is explicitly disabled by `CONFIG_WASM_UNSUPPORTED`; `a+*`, `v+*`, and `h+*` mark grouped rows containing both supported and disabled libraries. These entries describe bundled libraries. The pinned streaming runtime supports async HTTP(S)/HLS input under browser networking rules; direct RTMP/RTMPE remains unsupported.
 
 > frei0r, liblensfun, librsvg, and pocketsphinx are not available on `tvOS`.
 
