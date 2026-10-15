@@ -45,12 +45,12 @@ flutter:
 hooks:
   user_defines:
     ffmpeg_kit_extended_flutter:
-      type: "base"
-      gpl: false
+      type: "video"
+      gpl: true
       small: true
       # Local-only test inputs
       # android: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\tools\android\build\outputs\aar\bundle-base-shared-small-lgpl-release.aar'
-      # wasm: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
+      wasm: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-video-wasm-wasm32-static-small-gpl.zip'
       # web: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-base-wasm-wasm32-static-lgpl.zip'
       # windows: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\windows-x86_64\releases\bundle-base-windows-x86_64-shared-small-lgpl.zip'
       # linux: '\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\linux-x86_64\releases\bundle-base-linux-x86_64-shared-small-lgpl.zip'
