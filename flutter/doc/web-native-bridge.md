@@ -16,8 +16,8 @@ Phase 2 pins the local small video/GPL Wasm bundle:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `bundle-video-wasm-wasm32-static-small-gpl.zip` | `e913266c16c5bb9eb3a6eda55751ad3b39d56d4460f492a5628279cccce3ebb3` |
-| `ffmpegkit.wasm` | `2ed543215239a8e5f6c726a1b65e5c57c47e3cda4ae76c9e3c94c8e4f7df3548` |
+| `bundle-video-wasm-wasm32-static-small-gpl.zip` | `fd51b8d749040529239fcf992c0f9f348ac07f3c102b4952e0133a42ab5d89fd` |
+| `ffmpegkit.wasm` | `7544659af661f4e716c98e28bb5545c9a8da28aba88012f7fd4ed9969ec99e7e` |
 | `ffmpegkit.mjs` | `fd21f1a1296790b18f284afa49d878ab730ad3bdd7f7e62dfeef6260ef0ec83b` |
 
 The expected runtime is FFmpegKit `0.11.2`: 527 Wasm exports and 22 verified public mappings. The C ABI, calling conventions, callbacks, session semantics, and public Dart/TypeScript APIs are frozen. The JS bridge checks the runtime version and required exports before handing the module to Dart. Other versions, missing exports, incompatible memory imports, and mismatched Wasm/loader pairs fail initialization.
@@ -82,6 +82,6 @@ Then run `node scripts/wasm-bridge-contract.mjs --rn-adapter --dart-adapter --re
 
 ## Scope
 
-The pinned package has a native callback-accounting defect when Debug logging is enabled before session creation: `ffmpeg_kit_config_messages_in_transmit` can remain `-1` after a successful command. `--debug-message-counter` reproduces this without changing registrations in flight; it currently fails on the pin. `--callback-order` verifies applicable log/statistics/frame-readback/completion ordering at normal logging. The separate `--callback-lifetime` probe has not established its queued-old-log observation and is not passing evidence. This is a Phase 1 reopen; no negative-count clamp or bridge workaround is applied.
+The local `releases/callback-accounting/` pin fixes native Debug callback accounting by preserving balanced enqueue/drain counts throughout execution. `--debug-message-counter` checks FFmpeg, FFprobe and FFplay with live callbacks, nonnegative samples, successful completion, zero drain and handle release. The previous pin returned `-1`; its artifact and failure evidence are preserved. `--callback-order` checks applicable log/statistics/frame-readback/completion ordering. The separate `--callback-lifetime` probe has not established its queued-old-log observation and remains unproven.
 
 The bridge is a private implementation detail. Do not add exports or alter the C ABI, public Dart API, or non-Web native integrations as part of this work. Phase 3 owns public wrapper behavior, example UI, and package-level sync policy. Interactive audible playback is deferred to Phase 3's final manual verification.

@@ -31,6 +31,7 @@ export function assertCallbackOrderTrace(trace, {
   expectedUserData,
   requireStatistics = false,
   requireFrames = false,
+  requireSessionSettlement = false,
 } = {}) {
   const events = trace?.events;
   assert(Array.isArray(events) && events.length > 0, 'Callback trace is empty.');
@@ -81,6 +82,21 @@ export function assertCallbackOrderTrace(trace, {
     assert(frames.every((frame) => frame.signature.nonBlackSamples > 0),
       'FFplay frame readback contained only black pixels.');
   }
+  if (requireSessionSettlement) {
+    const samples = trace.messagesInTransmitSamples;
+    assert(Array.isArray(samples) && samples.length > 0,
+      'No native messages-in-transmit samples were recorded.');
+    assert(samples.every((count) => Number.isInteger(count) && count >= 0),
+      `Native messages-in-transmit counter was negative or invalid: ${JSON.stringify(samples)}.`);
+    assert(samples[samples.length - 1] === 0 && trace.messagesInTransmit === 0,
+      `Native callback counter did not drain to zero: ${JSON.stringify(samples)}.`);
+    assert(trace.nativeState === 2,
+      `Native session did not complete successfully (state=${trace.nativeState}).`);
+    assert(trace.returnCode === 0,
+      `Native session returned ${trace.returnCode}, expected success.`);
+    assert(trace.handleReleased === true,
+      'Native session handle was not released after callback drain.');
+  }
   return trace;
 }
 
@@ -108,7 +124,32 @@ function allocateUtf8(module, value) {
 }
 
 function makeTrace(label, command) {
-  return {label, events: [{type: 'start', phase: 'invocation', command}]};
+  return {
+    label,
+    events: [{type: 'start', phase: 'invocation', command}],
+    messagesInTransmitSamples: [],
+  };
+}
+
+function readPendingMessages(module, trace) {
+  const pending = number(requireFunction(module, '_ffmpeg_kit_config_messages_in_transmit')(
+    BigInt(trace.sessionId),
+  ));
+  trace.messagesInTransmitSamples.push(pending);
+  trace.messagesInTransmit = pending;
+  assert(pending >= 0,
+    `${trace.label}: native pending-message counter underflowed (${pending}).`);
+  return pending;
+}
+
+async function assertCounterRemainsDrained(module, trace, durationMs = SETTLE_MS) {
+  const deadline = Date.now() + durationMs;
+  do {
+    const pending = readPendingMessages(module, trace);
+    assert(pending === 0,
+      `${trace.label}: pending-message counter left zero after completion (${pending}).`);
+    await delay(25);
+  } while (Date.now() < deadline);
 }
 
 async function runCase(module, context, {
@@ -116,6 +157,7 @@ async function runCase(module, context, {
   command,
   executeExport,
   executeArguments = [],
+  executeCallbackArguments = [0, 0],
   sessionIdExport,
   cancel,
   requireStatistics = false,
@@ -132,7 +174,11 @@ async function runCase(module, context, {
 
   try {
     commandPointer = allocateUtf8(module, command);
-    handle = number(requireFunction(module, executeExport)(commandPointer, 0, 0, ...executeArguments));
+    handle = number(requireFunction(module, executeExport)(
+      commandPointer,
+      ...executeCallbackArguments,
+      ...executeArguments,
+    ));
     assert(handle !== 0, `${label}: ${executeExport} returned a null handle.`);
     sessionId = String(requireFunction(module, sessionIdExport)(handle));
     assert(sessionId !== '0', `${label}: native session ID is zero.`);
@@ -157,6 +203,7 @@ async function runCase(module, context, {
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline &&
         !trace.events.some((event) => event.type === COMPLETE)) {
+      readPendingMessages(module, trace);
       const state = number(getState(handle));
       if (requireFrames && state === RUNNING) {
         const frame = copyLatestFrame(module, pointers);
@@ -186,13 +233,10 @@ async function runCase(module, context, {
     assert(trace.nativeState === 2 && trace.returnCode === 0,
       `${label}: representative command failed (state=${trace.nativeState}, return=${trace.returnCode}).`);
     await waitFor(`${label} callback queue to drain`, () => {
-      trace.messagesInTransmit = number(requireFunction(module, '_ffmpeg_kit_config_messages_in_transmit')(BigInt(sessionId)));
-      assert(trace.messagesInTransmit >= 0,
-        `${label}: native pending-message counter underflowed (${trace.messagesInTransmit}).`);
-      return trace.messagesInTransmit === 0;
+      return readPendingMessages(module, trace) === 0;
     }, 3000);
 
-    await delay(SETTLE_MS);
+    await assertCounterRemainsDrained(module, trace);
     assertCallbackOrderTrace(trace, {
       expectedSessionId: sessionId,
       expectedUserData: context.userData,
@@ -215,8 +259,8 @@ async function runCase(module, context, {
           await waitFor(`${label} cleanup completion callback`, () =>
             trace.events.some((event) => event.type === COMPLETE), 5000);
         }
-        await delay(SETTLE_MS);
-        const pending = number(requireFunction(module, '_ffmpeg_kit_config_messages_in_transmit')(BigInt(sessionId)));
+        await assertCounterRemainsDrained(module, trace);
+        const pending = readPendingMessages(module, trace);
         if (pending === 0) {
           requireFunction(module, '_ffmpeg_kit_handle_release')(handle);
           trace.handleReleased = true;
@@ -249,7 +293,7 @@ async function runCase(module, context, {
 }
 
 /** Runs pinned public-ABI FFmpeg and FFplay cases with real global callbacks. */
-export async function runCallbackOrderContract(module, fixtureOrigin) {
+export async function runCallbackOrderContract(module, fixtureOrigin, {includeFFprobe = false} = {}) {
   const report = {
     contract: 'wasm-callback-order',
     status: 'running',
@@ -342,6 +386,23 @@ export async function runCallbackOrderContract(module, fixtureOrigin) {
     });
     report.ffmpegSessionId = ffmpegTrace.sessionId;
 
+    if (includeFFprobe) {
+      const mp4Url = new URL('/media/progressive.mp4', origin).href;
+      requireFunction(module, '_ffmpeg_kit_config_enable_ffprobe_session_complete_callback')(
+        completePointer,
+        userData,
+      );
+      const ffprobeTrace = await runCase(module, context, {
+        label: 'remote progressive MP4 FFprobe',
+        command: `-v debug -show_entries format=format_name -of json ${mp4Url}`,
+        executeExport: '_ffprobe_kit_execute_async',
+        sessionIdExport: '_ffmpeg_kit_session_get_session_id',
+        cancel: (sessionId) => requireFunction(module, '_ffprobe_kit_cancel_session')(BigInt(sessionId)),
+      });
+      requireFunction(module, '_ffmpeg_kit_config_enable_ffprobe_session_complete_callback')(0, 0);
+      report.ffprobeSessionId = ffprobeTrace.sessionId;
+    }
+
     requireFunction(module, '_ffmpeg_kit_config_enable_statistics_callback')(0, 0);
     requireFunction(module, '_ffmpeg_kit_config_enable_ffmpeg_session_complete_callback')(0, 0);
     requireFunction(module, '_ffmpeg_kit_config_enable_ffplay_session_complete_callback')(completePointer, userData);
@@ -376,18 +437,19 @@ export async function runCallbackOrderContract(module, fixtureOrigin) {
       report.cleanupError = String(error?.stack || error);
       report.status = 'failed';
     }
-    await delay(SETTLE_MS);
     for (const trace of report.traces) {
       try {
         if (trace.sessionId) {
           await waitFor(`session ${trace.sessionId} callback queue cleanup`, () =>
-            number(requireFunction(module, '_ffmpeg_kit_config_messages_in_transmit')(BigInt(trace.sessionId))) === 0, 5000);
+            readPendingMessages(module, trace) === 0, 5000);
+          await assertCounterRemainsDrained(module, trace);
         }
         assertCallbackOrderTrace(trace, {
           expectedSessionId: trace.sessionId,
           expectedUserData: userData,
           requireStatistics: trace.label.startsWith('realtime local lavfi'),
           requireFrames: trace.label === 'remote HLS FFplay',
+          requireSessionSettlement: true,
         });
       } catch (error) {
         report.lateOrInvalidTrace = String(error?.stack || error);
@@ -427,7 +489,10 @@ export async function runDebugMessageCounterContract(module, fixtureOrigin) {
   const previous = requireFunction(module, '_ffmpeg_kit_config_get_log_level')();
   requireFunction(module, '_ffmpeg_kit_config_set_log_level')(48);
   try {
-    return await runCallbackOrderContract(module, fixtureOrigin);
+    const report = await runCallbackOrderContract(module, fixtureOrigin, {includeFFprobe: true});
+    report.contract = 'wasm-debug-message-counter';
+    report.debugLogLevel = 48;
+    return report;
   } finally {
     requireFunction(module, '_ffmpeg_kit_config_set_log_level')(previous);
   }

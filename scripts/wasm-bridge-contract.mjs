@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const builders = process.env.FFMPEG_KIT_BUILDERS_ROOT
   || '\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders';
 const expected = {
-  'ffmpegkit.wasm': '2ed543215239a8e5f6c726a1b65e5c57c47e3cda4ae76c9e3c94c8e4f7df3548',
+  'ffmpegkit.wasm': '7544659af661f4e716c98e28bb5545c9a8da28aba88012f7fd4ed9969ec99e7e',
   'ffmpegkit.mjs': 'fd21f1a1296790b18f284afa49d878ab730ad3bdd7f7e62dfeef6260ef0ec83b',
 };
 const directories = {
@@ -20,7 +20,7 @@ const directories = {
   rn: path.join(root, 'react-native/example/public/ffmpeg-kit-extended/wasm'),
 };
 const record = {
-  zipSha256: 'e913266c16c5bb9eb3a6eda55751ad3b39d56d4460f492a5628279cccce3ebb3',
+  zipSha256: 'fd51b8d749040529239fcf992c0f9f348ac07f3c102b4952e0133a42ab5d89fd',
   expected, staged: {}, cases: [], errors: [],
   supportModules: {},
   cleanSequence: process.env.CODEX_CLEAN_RECORD,

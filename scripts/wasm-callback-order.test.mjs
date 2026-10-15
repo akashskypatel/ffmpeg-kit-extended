@@ -18,6 +18,14 @@ const log = (sequence) => ({
 });
 const end = () => ({type: 'end', sessionId, userData});
 const options = {expectedSessionId: sessionId, expectedUserData: userData};
+const settlement = (overrides = {}) => ({
+  nativeState: 2,
+  returnCode: 0,
+  messagesInTransmit: 0,
+  messagesInTransmitSamples: [3, 1, 0],
+  handleReleased: true,
+  ...overrides,
+});
 
 test('accepts native FFmpeg callback ordering with interleaved log and statistics', () => {
   const trace = {events: [
@@ -40,6 +48,64 @@ test('accepts FFplay log and changing frame observations without statistics', ()
     end(),
   ]};
   assert.equal(assertCallbackOrderTrace(trace, {...options, requireFrames: true}), trace);
+});
+
+test('accepts successful FFmpeg, FFprobe, and FFplay callback settlement', () => {
+  const traces = [
+    {
+      kind: 'FFmpeg',
+      events: [{type: 'start'}, log(0), {type: 'statistics', sessionId, userData}, end()],
+      requireStatistics: true,
+    },
+    {
+      kind: 'FFprobe',
+      events: [{type: 'start'}, log(0), end()],
+    },
+    {
+      kind: 'FFplay',
+      events: [{type: 'start'}, log(0), frame(8), frame(9), end()],
+      requireFrames: true,
+    },
+  ];
+
+  for (const {kind, events, requireStatistics, requireFrames} of traces) {
+    const trace = settlement({events});
+    assert.equal(assertCallbackOrderTrace(trace, {
+      ...options,
+      requireStatistics,
+      requireFrames,
+      requireSessionSettlement: true,
+    }), trace, `${kind} should have one successful, drained session settlement.`);
+  }
+});
+
+test('rejects negative or undrained native counters and unsafe handle lifetime', () => {
+  for (const invalid of [
+    {messagesInTransmitSamples: [2, -1, 0]},
+    {messagesInTransmit: 1, messagesInTransmitSamples: [2, 1]},
+    {handleReleased: false},
+    {nativeState: 3},
+    {returnCode: 1},
+  ]) {
+    const trace = settlement({events: [{type: 'start'}, log(0), end()], ...invalid});
+    assert.throws(() => assertCallbackOrderTrace(trace, {
+      ...options,
+      requireSessionSettlement: true,
+    }), /negative or invalid|drain to zero|handle was not released|complete successfully|expected success/);
+  }
+});
+
+test('rejects native callback counts that underflow or reappear after completion', () => {
+  for (const invalid of [
+    {messagesInTransmitSamples: [0, -1, 0]},
+    {messagesInTransmitSamples: [0, 1], messagesInTransmit: 1},
+  ]) {
+    const trace = settlement({events: [{type: 'start'}, log(0), end()], ...invalid});
+    assert.throws(() => assertCallbackOrderTrace(trace, {
+      ...options,
+      requireSessionSettlement: true,
+    }), /negative or invalid|drain to zero/);
+  }
 });
 
 test('rejects callbacks before the invocation boundary', () => {
