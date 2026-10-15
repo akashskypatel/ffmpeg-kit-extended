@@ -16,25 +16,29 @@ function encodeString(value) {
 
 function wasmType(type) {
   switch (type) {
-    case 'p':
-    case 'i': return 0x7f;
-    case 'j': return 0x7e;
-    case 'f': return 0x7d;
-    case 'd': return 0x7c;
-    default: throw new TypeError(`Unsupported callback type: ${type}`);
+    case "p":
+    case "i":
+      return 0x7f;
+    case "j":
+      return 0x7e;
+    case "f":
+      return 0x7d;
+    case "d":
+      return 0x7c;
+    default:
+      throw new TypeError(`Unsupported callback type: ${type}`);
   }
 }
 
 export function makeCallbackWrapper(fn, signature) {
-  if (typeof fn !== 'function') {
-    throw new TypeError('Callback must be a function.');
-  }
-  if (typeof signature !== 'string' || !/^[vifdjp]+$/.test(signature)) {
+  if (typeof fn !== "function")
+    throw new TypeError("Callback must be a function.");
+  if (typeof signature !== "string" || !/^[vifdjp]+$/.test(signature)) {
     throw new TypeError(`Unsupported callback signature: ${signature}`);
   }
 
   const parameterTypes = Array.from(signature.slice(1), wasmType);
-  const resultType = signature[0] === 'v' ? [] : [wasmType(signature[0])];
+  const resultType = signature[0] === "v" ? [] : [wasmType(signature[0])];
   const functionType = [
     0x60,
     ...encodeU32(parameterTypes.length),
@@ -45,58 +49,68 @@ export function makeCallbackWrapper(fn, signature) {
   const body = [
     0x00,
     ...parameterTypes.map((_, index) => [0x20, ...encodeU32(index)]).flat(),
-    0x10, 0x00,
+    0x10,
+    0x00,
     0x0b,
   ];
   const importSection = [
     0x01,
-    ...encodeString('env'),
-    ...encodeString('callback'),
-    0x00, 0x00,
+    ...encodeString("env"),
+    ...encodeString("callback"),
+    0x00,
+    0x00,
   ];
   const functionSection = [0x01, 0x00];
-  const exportName = encodeString('wrapper');
-  const exportSection = [
-    0x01,
-    ...exportName,
-    0x00, 0x01,
-  ];
+  const exportName = encodeString("wrapper");
+  const exportSection = [0x01, ...exportName, 0x00, 0x01];
   const codeBody = [...encodeU32(body.length), ...body];
   const codeSection = [0x01, ...codeBody];
-  const section = (id, payload) => [id, ...encodeU32(payload.length), ...payload];
+  const section = (id, payload) => [
+    id,
+    ...encodeU32(payload.length),
+    ...payload,
+  ];
   const binary = new Uint8Array([
-    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+    0x00,
+    0x61,
+    0x73,
+    0x6d,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
     ...section(1, [0x01, ...functionType]),
     ...section(2, importSection),
     ...section(3, functionSection),
     ...section(7, exportSection),
     ...section(10, codeSection),
   ]);
-  const instance = new WebAssembly.Instance(
-    new WebAssembly.Module(binary),
-    {env: {callback: fn}},
-  );
+  const instance = new WebAssembly.Instance(new WebAssembly.Module(binary), {
+    env: { callback: fn },
+  });
   return instance.exports.wrapper;
 }
 
 export function discoverWasmTable(exports) {
   const tables = Object.values(exports).filter(
-    (value) => value instanceof WebAssembly.Table,
+    (value) => value instanceof WebAssembly.Table
   );
   if (tables.length !== 1) {
-    throw new Error(`Expected exactly one exported WebAssembly.Table, found ${tables.length}.`);
+    throw new Error(
+      `Expected exactly one exported WebAssembly.Table, found ${tables.length}.`
+    );
   }
   return tables[0];
 }
 
-export function createCallbackRegistry(table) {
+export function createCallbackRegistry(table, {recycleRemoved = true} = {}) {
   if (!(table instanceof WebAssembly.Table)) {
-    throw new TypeError('Callback registry requires a WebAssembly.Table.');
+    throw new TypeError("Callback registry requires a WebAssembly.Table.");
   }
 
   const freeSlots = [];
   const owners = new Map();
-
+  const retainedSlots = new Set();
   const allocateSlot = () => {
     while (freeSlots.length > 0) {
       const index = freeSlots.pop();
@@ -116,9 +130,11 @@ export function createCallbackRegistry(table) {
     try {
       table.set(index, wrapper);
     } catch (error) {
-      throw new Error(`Unable to register callback in Wasm table slot ${index}: ${error}`);
+      throw new Error(
+        `Unable to register callback in Wasm table slot ${index}: ${error}`
+      );
     }
-    owners.set(index, {fn, signature, wrapper});
+    owners.set(index, { fn, signature, wrapper });
     return index;
   };
 
@@ -127,21 +143,38 @@ export function createCallbackRegistry(table) {
       throw new RangeError(`Invalid callback table index: ${index}`);
     }
     const owner = owners.get(index);
-    if (!owner) {
-      throw new Error(`Callback table slot ${index} is not owned by this registry.`);
-    }
+    if (!owner)
+      throw new Error(
+        `Callback table slot ${index} is not owned by this registry.`
+      );
     if (table.get(index) !== owner.wrapper) {
-      throw new Error(`Callback table slot ${index} no longer contains its registered function.`);
+      throw new Error(
+        `Callback table slot ${index} no longer contains its registered function.`
+      );
     }
-    table.set(index, null);
     owners.delete(index);
-    freeSlots.push(index);
+    if (recycleRemoved) {
+      table.set(index, null);
+      freeSlots.push(index);
+    } else {
+      // Native work can retain a numeric callback pointer after the native
+      // callback setter is disabled. Keep the table entry occupied so a later
+      // registration cannot alias that pointer to a different callback.
+      retainedSlots.add(index);
+    }
   };
 
   return {
     addFunction,
     removeFunction,
-    get ownedCount() { return owners.size; },
-    get freeSlotCount() { return freeSlots.length; },
+    get ownedCount() {
+      return owners.size;
+    },
+    get freeSlotCount() {
+      return freeSlots.length;
+    },
+    get retainedSlotCount() {
+      return retainedSlots.size;
+    },
   };
 }

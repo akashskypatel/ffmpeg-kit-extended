@@ -1,22 +1,22 @@
 const HEAP_VIEWS = [
-  ["HEAPU8", Uint8Array],
-  ["HEAPU32", Uint32Array],
-  ["HEAPF32", Float32Array],
+  ['HEAPU8', Uint8Array],
+  ['HEAPU32', Uint32Array],
+  ['HEAPF32', Float32Array],
 ];
 
 export function installHeapViews(module, wasmMemory) {
-  if (!module || typeof module !== "object") {
-    throw new TypeError("The Emscripten module must be an object.");
+  if (!module || typeof module !== 'object') {
+    throw new TypeError('The Emscripten module must be an object.');
   }
   if (!wasmMemory || !wasmMemory.buffer) {
-    throw new TypeError("The WebAssembly memory must expose a buffer.");
+    throw new TypeError('The WebAssembly memory must expose a buffer.');
   }
 
   for (const [name, View] of HEAP_VIEWS) {
     const descriptor = Object.getOwnPropertyDescriptor(module, name);
     if (
       descriptor &&
-      "value" in descriptor &&
+      'value' in descriptor &&
       descriptor.writable &&
       descriptor.value instanceof View &&
       descriptor.value.buffer === wasmMemory.buffer

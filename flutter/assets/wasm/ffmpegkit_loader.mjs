@@ -16,7 +16,10 @@ export async function fetchAndCompileWasm(url, fetchImpl = globalThis.fetch) {
   return WebAssembly.compile(bytes);
 }
 
-export function createInstantiateWasm(wasmModule) {
+export function createInstantiateWasm(
+  wasmModule,
+  instantiate = WebAssembly.instantiate,
+) {
   let started = false;
   let settled = false;
   let rejectFailure;
@@ -25,39 +28,48 @@ export function createInstantiateWasm(wasmModule) {
   const failure = new Promise((_, reject) => {
     rejectFailure = reject;
   });
+  failure.catch(() => {});
   const completion = new Promise((resolve, reject) => {
     resolveCompletion = resolve;
     rejectCompletion = reject;
   });
   completion.catch(() => {});
 
+  const reject = (error) => {
+    if (settled) return;
+    settled = true;
+    rejectFailure(error);
+    rejectCompletion(error);
+  };
+
   const instantiateWasm = (imports, receiveInstance) => {
     if (started || settled) return {};
     started = true;
-    WebAssembly.instantiate(wasmModule, imports).then(
+    let attempt;
+    try {
+      attempt = instantiate(wasmModule, imports);
+    } catch (error) {
+      reject(error);
+      return {};
+    }
+    Promise.resolve(attempt).then(
       (result) => {
         if (settled) return;
-        settled = true;
         try {
           const instance = result instanceof WebAssembly.Instance
             ? result
-            : result.instance;
+            : result?.instance ?? result;
           const module = result instanceof WebAssembly.Instance
             ? wasmModule
-            : result.module;
+            : result?.module ?? wasmModule;
           receiveInstance(instance, module);
+          settled = true;
           resolveCompletion(instance);
         } catch (error) {
-          rejectFailure(error);
-          rejectCompletion(error);
+          reject(error);
         }
       },
-      (error) => {
-        if (settled) return;
-        settled = true;
-        rejectFailure(error);
-        rejectCompletion(error);
-      },
+      reject,
     );
     return {};
   };
@@ -78,4 +90,28 @@ export async function raceWasmModuleAttempt(factory, instantiator) {
   } finally {
     instantiator.cancel();
   }
+}
+
+/** Adapts the shared instantiation lifecycle to the React Native module factory. */
+export function createModuleWithCompiledWasm({
+  createModule,
+  wasmModule,
+  options = {},
+  onInstance,
+  instantiate = WebAssembly.instantiate,
+}) {
+  const instantiator = createInstantiateWasm(wasmModule, instantiate);
+  return raceWasmModuleAttempt(
+    () => createModule({
+      ...options,
+      instantiateWasm(imports, receiveInstance) {
+        instantiator.instantiateWasm(imports, (instance, module) => {
+          onInstance?.(instance, module);
+          receiveInstance(instance, module);
+        });
+        return {};
+      },
+    }),
+    instantiator,
+  );
 }
