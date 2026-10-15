@@ -26,6 +26,20 @@ For a production bundle without writing generated files into the repository, cho
 node .\node_modules\vite\bin\vite.js build --config web/vite.config.js --outDir "$env:TEMP\rn-web-parity-build" --emptyOutDir
 ```
 
+## Runtime integration
+
+The browser package loads the private bridge modules from `public/ffmpeg-kit-extended/wasm/`: the generated `ffmpegkit.mjs` and `ffmpegkit.wasm` pair plus `ffmpegkit_bridge.mjs`, `ffmpegkit_loader.mjs`, `ffmpegkit_callback_runtime.mjs`, and `ffmpegkit_heap_runtime.mjs`. The bridge requires a secure, cross-origin-isolated page (`crossOriginIsolated` and `SharedArrayBuffer`); this Vite server supplies COOP `same-origin` and COEP `require-corp`.
+
+For reproducible offline staging, configure the local small video/GPL Wasm ZIP in `ffmpeg-kit-extended.config.json`, then run from the repository root:
+
+```bash
+bash react-native/clean.sh
+npm --prefix react-native run prepare
+FFMPEG_KIT_EXTENDED_LOCAL_ONLY=1 npm --prefix react-native/example run prepare-web
+```
+
+The local-only resolver accepts `1` or `true` and rejects default or remote artifact resolution. After staging, compare both generated runtime hashes with the pinned values in [the RN bridge guide](../../doc/web-native-bridge.md). Media input must reach the native runtime through asynchronous FFmpeg/FFprobe execution; the wrapper's sync-operation policy remains Phase 3 work. See [React Native Web setup](../../README.md#react-native-web-setup) for the local override fields.
+
 ## Web action map
 
 | Panel or control | Browser behavior |
