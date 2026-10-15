@@ -49,6 +49,9 @@ function boolResult(value: unknown): boolean {
   return Boolean(value);
 }
 
+/** Matches direct HTTP(S) inputs, including chained `scheme+` prefixes. */
+const WEB_NETWORK_INPUT_PATTERN = /^([a-z][a-z0-9.-]*\+)*https?:\/\//i;
+
 function jsonArray(value: unknown): string {
   return JSON.stringify(Array.isArray(value) ? value : []);
 }
@@ -978,8 +981,18 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
     );
   }
   ffplayHasVideoStream(path: string): boolean {
-    return this.withString(path, (p) =>
-      boolResult(this.call('ffplay_kit_has_video_stream')(p))
+    // The C probe opens input without the Web HTTP AVIO, so network schemes
+    // are rejected here instead of reporting a misleading result.
+    if (WEB_NETWORK_INPUT_PATTERN.test(path)) {
+      throw new Error(
+        'FFplayKit.hasVideoStream() does not accept network URLs on Web. Use the async FFprobeKit.getMediaInformation() for direct HTTP and HLS input.'
+      );
+    }
+    // The C probe returns 1 for a video stream, 0 for none and -1 on failure.
+    // Only 1 may report true; -1 must not become true.
+    return this.withString(
+      path,
+      (p) => numberResult(this.call('ffplay_kit_has_video_stream')(p)) === 1
     );
   }
 

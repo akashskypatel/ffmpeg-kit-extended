@@ -8,6 +8,12 @@ import 'statistics_dispatcher.dart';
 import 'wasm_loader.dart';
 import 'wasm_memory.dart';
 
+/// Matches direct HTTP(S) inputs, including chained `scheme+` prefixes.
+final _webNetworkInputPattern = RegExp(
+  r'^([a-z][a-z0-9.-]*\+)*https?://',
+  caseSensitive: false,
+);
+
 FFmpegKitBackend createPlatformBackend() => WebFFmpegKitBackend();
 
 /// Converts a Wasm session pointer only when the C factory returned one.
@@ -216,8 +222,33 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   @override
   void enableFFprobeLogCallback() => webCallbackBridge.configureLogCallback();
 
+  /// Rejects direct network input before a synchronous Web execution starts.
+  ///
+  /// The main thread cannot wait for HTTP reads, so the native open fails with
+  /// EPERM. Tokens are checked with the existing read-only accessors, so no
+  /// execution call is made when the command is rejected. Indirect network
+  /// opens, such as a local playlist that points at remote segments, are not
+  /// visible here and fail with EPERM inside the module instead.
+  void _rejectNetworkInput(
+    SessionHandle handle,
+    String api,
+    String replacement,
+  ) {
+    final command = getCommand(handle);
+    if (command == null) return;
+    for (final token in parseArguments(command)) {
+      if (_webNetworkInputPattern.hasMatch(token)) {
+        throw UnsupportedError(
+          '$api does not accept direct HTTP or HLS input on Web. '
+          'Use $replacement instead.',
+        );
+      }
+    }
+  }
+
   @override
   void executeFFmpegSession(SessionHandle handle) {
+    _rejectNetworkInput(handle, 'FFmpegKit.execute', 'FFmpegKit.executeAsync');
     bindings.ffmpeg_kit_session_execute(_pointer(handle));
 
     // Synchronous Wasm execution cannot use the native callback bridge. Drain
@@ -237,8 +268,14 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
-  void executeFFprobeSession(SessionHandle handle) =>
-      bindings.ffprobe_kit_session_execute(_pointer(handle));
+  void executeFFprobeSession(SessionHandle handle) {
+    _rejectNetworkInput(
+      handle,
+      'FFprobeKit.execute',
+      'FFprobeKit.executeAsync',
+    );
+    bindings.ffprobe_kit_session_execute(_pointer(handle));
+  }
 
   @override
   void executeFFprobeSessionAsync(SessionHandle handle) {
@@ -318,11 +355,17 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
       bindings.ffplay_kit_session_get_video_height(_pointer(handle));
 
   @override
-  void executeMediaInformationSession(SessionHandle handle, int timeout) =>
-      bindings.media_information_session_execute(
-        _pointer(handle),
-        BigInt.from(timeout),
-      );
+  void executeMediaInformationSession(SessionHandle handle, int timeout) {
+    _rejectNetworkInput(
+      handle,
+      'FFprobeKit.getMediaInformation',
+      'FFprobeKit.getMediaInformationAsync',
+    );
+    bindings.media_information_session_execute(
+      _pointer(handle),
+      BigInt.from(timeout),
+    );
+  }
 
   @override
   void executeMediaInformationSessionAsync(SessionHandle handle, int timeout) {
