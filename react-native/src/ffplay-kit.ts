@@ -14,6 +14,10 @@ const NativeFFmpegKitExtended = getBackend();
  * `FFplaySession` when your UI needs pause, resume, seek, stop, position, or
  * volume operations.
  *
+ * On Web, async playback accepts local/MEMFS files and direct HTTP(S)/HLS
+ * with the pinned streaming runtime. Use the FFplay surface and SDL audio,
+ * and retain the session to request playback stop.
+ *
  * @hideconstructor
  * @category FFplay UI
  */
@@ -121,6 +125,8 @@ export class FFplayKit {
    *
    * Use this to decide whether a visible `FFplayView` is required before
    * starting playback.
+   * On Web, failed local opens return false. Network URLs throw an Error;
+   * use asynchronous FFprobe for remote media information instead.
    */
   static hasVideoStream(path: string): boolean {
     return NativeFFmpegKitExtended.ffplayHasVideoStream(path);

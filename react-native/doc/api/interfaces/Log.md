@@ -22,7 +22,7 @@ Numeric FFmpeg log level; compare with `LogLevel` when applicable.
 
 > **message**: `string`
 
-Message text exactly as buffered by the native wrapper.
+Message text, terminated with a line feed when non-empty.
 
 ***
 

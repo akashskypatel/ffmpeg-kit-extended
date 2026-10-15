@@ -6,6 +6,7 @@ module.exports = {
   publicDir: path.resolve(__dirname, '..', 'public'),
   plugins: [react()],
   resolve: {
+    dedupe: ['react', 'react-dom'],
     alias: [
       {find: 'react-native', replacement: require.resolve('react-native-web')},
     ],

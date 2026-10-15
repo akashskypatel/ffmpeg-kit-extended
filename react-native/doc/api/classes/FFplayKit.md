@@ -13,6 +13,10 @@ require a view. Playback controls are session-based; retain the returned
 `FFplaySession` when your UI needs pause, resume, seek, stop, position, or
 volume operations.
 
+On Web, async playback accepts local/MEMFS files and direct HTTP(S)/HLS
+with the pinned streaming runtime. Use the FFplay surface and SDL audio,
+and retain the session to request playback stop.
+
 ## Accessors
 
 ### currentSession
@@ -217,6 +221,8 @@ Synchronously checks whether an input contains a video stream.
 
 Use this to decide whether a visible `FFplayView` is required before
 starting playback.
+On Web, failed local opens return false. Network URLs throw an Error;
+use asynchronous FFprobe for remote media information instead.
 
 #### Parameters
 

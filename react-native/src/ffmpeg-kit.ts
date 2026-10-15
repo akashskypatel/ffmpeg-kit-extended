@@ -14,6 +14,10 @@ const NativeFFmpegKitExtended = getBackend();
  * omit the `ffmpeg` executable name and execute asynchronously so the JavaScript
  * thread remains responsive.
  *
+ * On Web, async input supports local/MEMFS files and direct HTTP(S)/HLS with
+ * the pinned streaming runtime. Recording output stays in browser memory;
+ * bound its duration and read or delete it only after execution settles.
+ *
  * @hideconstructor
  * @category Execution
  */

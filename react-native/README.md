@@ -65,9 +65,11 @@ Native targets use a Turbo Native Module and require React Native's New Architec
 
 | Runtime | Network stream input/recording |
 | --- | --- |
-| React Native Web (Wasm) | Not supported, including RTMP/RTMPE |
+| React Native Web (Wasm), pinned streaming runtime | Async HTTP(S)/HLS input and bounded recording; no RTMP/RTMPE or RTSP |
 
-The bundle-level Streaming row applies to native targets; it does not imply Web/Wasm network streaming support.
+The bundle-level Streaming row covers native protocols. Web input requires the
+pinned streaming runtime and browser CORS/cross-origin isolation. See the
+[Web streaming API guide](doc/web-streaming.md) for commands and limits.
 
 2. Platform features are built-in platform libraries that FFmpeg support like AVFounation, VideoToolbox, etc. on apple platforms or DirectX, MediaFoundation on Windows.
 

@@ -77,7 +77,7 @@ const TEST_FRAME_SOURCE =
 const VIDEO_PATH = '/tmp/ffmpeg-kit-web-test.mp4';
 const AUDIO_PATH = '/tmp/ffmpeg-kit-web-test.wav';
 const TRANSCODE_PATH = '/tmp/ffmpeg-kit-web-output.avi';
-const STREAM_PATH = '/tmp/ffmpeg-kit-web-stream.mkv';
+const WEB_REMOTE_RECORDING_PREFIX = '/tmp/web-remote-recording-';
 const MAX_LOG_LENGTH = 50_000;
 
 type TabId = 'ffmpeg' | 'stream' | 'ffprobe' | 'ffplay' | 'transcode';
@@ -106,6 +106,8 @@ type RuntimeCapabilities = {
   transcode: boolean;
   detail: string;
 };
+
+type WebRemoteState = 'idle' | 'loading' | 'playing' | 'recording' | 'completed' | 'cancelled' | 'failed';
 
 type PlaybackSnapshot = {
   playing: boolean;
@@ -142,6 +144,44 @@ function errorMessage(error: unknown): string {
 
 function quoteCommandArg(value: string): string {
   return `"${value.replace(/["\\]/g, '\\$1')}"`;
+}
+
+/** ABI of the Phase 2 Web bundle that supports direct HTTP(S) input. */
+const WEB_REMOTE_ABI_VERSION = '0.11.2';
+
+/** Returns a finite validation message, or undefined for a direct URL. */
+function validateWebRemoteUrl(raw: string): string | undefined {
+  const url = raw.trim();
+  const match = /^([a-z][a-z0-9+.-]*):\/\/([^/?#\s]+)/i.exec(url);
+  if (!match) return 'Enter a direct http:// or https:// URL.';
+  const scheme = match[1].toLowerCase();
+  if (scheme !== 'http' && scheme !== 'https') {
+    return 'Only direct http:// and https:// URLs run on Web. RTMP, RTSP, file and chained schemes such as hls+https:// are not supported.';
+  }
+  if (/[\s"]/.test(url)) return 'The URL must not contain spaces or double quotes.';
+  return undefined;
+}
+
+/** Maps captured FFmpeg output to a short, honest failure reason. */
+function diagnoseWebRemoteFailure(output: string): string {
+  const text = output.toLowerCase();
+  if (text.includes('eperm') || text.includes('operation not permitted') || text.includes('pthread')) {
+    return 'The Web runtime could not open this network input (EPERM). Check that the URL is a direct media URL. Remote segments listed in a local playlist fail the same way.';
+  }
+  if (text.includes('403')) return 'The server refused the request (HTTP 403).';
+  if (text.includes('404')) return 'The media was not found (HTTP 404).';
+  if (text.includes('cors') || text.includes('failed to fetch') || text.includes('cross-origin')) {
+    return "The browser blocked the request (CORS). The server must allow this page's origin and expose Content-Range.";
+  }
+  return 'The command failed. See the output below.';
+}
+
+function readRuntimeAbiVersion(): string | undefined {
+  try {
+    return FFmpegKitExtended.getVersion();
+  } catch {
+    return undefined;
+  }
 }
 
 function withInputFile(command: string, path: string): string {
@@ -286,7 +326,12 @@ export default function App(): React.JSX.Element {
   const [audioPath, setAudioPath] = useState<string>();
   const [selectedMedia, setSelectedMedia] = useState<ImportedMedia>();
   const [transcodeReady, setTranscodeReady] = useState(false);
-  const [streamReady, setStreamReady] = useState(false);
+  const [webRemoteState, setWebRemoteState] = useState<WebRemoteState>('idle');
+  const [webRemoteDetail, setWebRemoteDetail] = useState('');
+  const [webRemoteRecordingPath, setWebRemoteRecordingPath] = useState<string | undefined>(undefined);
+  const webRemoteCancelRef = useRef<(() => void) | undefined>(undefined);
+  const webRemoteCancelRequestedRef = useRef(false);
+  const webRemoteRecordingCounterRef = useRef(0);
   const [ffmpegCommand, setFFmpegCommand] = useState('-nostdin -version');
   const [ffprobeCommand, setFFprobeCommand] = useState('-version');
   const [ffplayCommand, setFFplayCommand] = useState(`-hide_banner -i ${VIDEO_PATH} -autoexit`);
@@ -781,7 +826,12 @@ export default function App(): React.JSX.Element {
     });
 
   const launchPlayback = useCallback(
-    async (label: string, command: string, inputPath?: string) => {
+    async (
+      label: string,
+      command: string,
+      inputPath?: string,
+      onTerminal?: (completed: Session | undefined, error?: unknown) => void,
+    ) => {
       if (!FFmpegKitExtended.initialized) throw new Error('Initialize the Web runtime before starting playback.');
       if (playerRef.current) throw new Error('Stop the current FFplay session before starting another.');
       const session = FFplayKit.createSession(command);
@@ -797,8 +847,11 @@ export default function App(): React.JSX.Element {
         .then((completed) => {
           const code = completed.getReturnCode();
           if (code !== ReturnCode.Success) setLastError(`FFplay returned code ${code}.`);
+          onTerminal?.(completed);
         })
-        .catch(() => undefined)
+        .catch((error: unknown) => {
+          onTerminal?.(undefined, error);
+        })
         .finally(() => {
           if (playerRef.current?.sessionId === session.sessionId) {
             playerRef.current = undefined;
@@ -911,41 +964,166 @@ export default function App(): React.JSX.Element {
       }
     });
 
-  const startStream = () =>
-    runUiAction('record-stream', async () => {
-      const url = streamUrl.trim();
-      if (!/^https?:\/\//i.test(url)) throw new Error('Enter an HTTP or HTTPS stream URL.');
-      if (activeJobs.some((job) => job.kind === 'stream')) {
-        throw new Error('A remote stream recording is already active.');
-      }
-      setStreamReady(false);
-      if (FFmpegKitWebFiles.exists(STREAM_PATH)) FFmpegKitWebFiles.deleteFile(STREAM_PATH);
-      const command =
-        `-hide_banner -nostdin -loglevel info -i ${quoteCommandArg(url)} ` +
-        `-c copy -y ${quoteCommandArg(STREAM_PATH)}`;
-      const session = FFmpegKit.createSession(command);
-      const completion = trackSession(session, 'Remote stream recording', 'stream', () =>
-        session.executeAsync({
-          logCallback: (log) => appendLog(log.message),
-          statisticsCallback: (statistics) => {
-            const current = jobsRef.current.get(session.sessionId);
-            if (current) updateJob({...current, statistics});
-          },
-        }),
-      );
-      void completion
-        .then((completed) => {
-          if (completed.getReturnCode() !== ReturnCode.Success) return;
-          if (!FFmpegKitWebFiles.exists(STREAM_PATH)) {
-            setLastError('The stream session completed without creating its MKV output.');
-            return;
+  // --- Web remote URL: direct HTTP(S) input through the async APIs only ---
+
+  const webRemoteValidation = validateWebRemoteUrl(streamUrl);
+  const webRemoteBusy =
+    webRemoteState === 'loading' || webRemoteState === 'playing' || webRemoteState === 'recording';
+  const webRemoteAbi = runtimeState === 'ready' ? readRuntimeAbiVersion() : undefined;
+  const webRemoteSupported = webRemoteAbi === WEB_REMOTE_ABI_VERSION;
+  const canStartWebRemote =
+    runtimeState === 'ready' && webRemoteSupported && !webRemoteBusy && !webRemoteValidation;
+
+  const setWebRemote = (state: WebRemoteState, detail = '') => {
+    setWebRemoteState(state);
+    setWebRemoteDetail(detail);
+  };
+
+  const runWebRemoteFFprobe = (label: string, command: string) => {
+    webRemoteCancelRequestedRef.current = false;
+    setWebRemote('loading', label);
+    // The cancel action is registered before waiting, so Stop works during the probe.
+    const session = FFprobeKit.createSession(command);
+    appendLog(`$ ffprobe ${command}`);
+    webRemoteCancelRef.current = () => void session.cancel();
+    void trackSession(session, label, 'ffprobe', () =>
+      session.executeAsync({logCallback: (log) => appendLog(log.message)}),
+    )
+      .then((completed) => {
+        webRemoteCancelRef.current = undefined;
+        const output = completed.getOutput();
+        if (webRemoteCancelRequestedRef.current) setWebRemote('cancelled', 'Probe cancelled.');
+        else if (completed.getReturnCode() === ReturnCode.Success) setWebRemote('completed', output);
+        else setWebRemote('failed', `${diagnoseWebRemoteFailure(output)}\n\n${output}`);
+      })
+      .catch((error: unknown) => {
+        webRemoteCancelRef.current = undefined;
+        setWebRemote('failed', errorMessage(error));
+      });
+  };
+
+  const runWebRemoteProbe = () => {
+    const url = streamUrl.trim();
+    if (webRemoteValidation) {
+      setWebRemote('failed', webRemoteValidation);
+      return;
+    }
+    runWebRemoteFFprobe(
+      `Probing ${url}`,
+      `-hide_banner -v error -show_format -show_streams -of json ${quoteCommandArg(url)}`,
+    );
+  };
+
+  const runWebRemoteProbeRecording = () => {
+    const path = webRemoteRecordingPath;
+    if (!path) return;
+    runWebRemoteFFprobe(
+      `Probing ${path}`,
+      `-hide_banner -v error -show_format -show_streams -of json ${quoteCommandArg(path)}`,
+    );
+  };
+
+  const runWebRemotePlay = async () => {
+    const url = streamUrl.trim();
+    if (webRemoteValidation) {
+      setWebRemote('failed', webRemoteValidation);
+      return;
+    }
+    webRemoteCancelRequestedRef.current = false;
+    setWebRemote('loading', `Starting playback of ${url}`);
+    // The player reference is set synchronously by launchPlayback before its
+    // first await, so Stop can request cancellation during startup too.
+    webRemoteCancelRef.current = () => void playerRef.current?.stop();
+    // Playback can finish before the handoff returns, so the terminal state is
+    // recorded first and "playing" is only set when playback is still running.
+    const terminal = {done: false};
+    try {
+      await launchPlayback(
+        'Web remote playback',
+        `-hide_banner -loglevel info -autoexit -i ${quoteCommandArg(url)}`,
+        undefined,
+        (completed, error) => {
+          terminal.done = true;
+          webRemoteCancelRef.current = undefined;
+          if (webRemoteCancelRequestedRef.current) setWebRemote('cancelled', 'Playback stopped.');
+          else if (error !== undefined) setWebRemote('failed', errorMessage(error));
+          else if (completed && completed.getReturnCode() === ReturnCode.Success) {
+            setWebRemote('completed', 'Playback reached the end of the media.');
+          } else {
+            const output = completed?.getOutput() ?? '';
+            setWebRemote('failed', `${diagnoseWebRemoteFailure(output)}\n\n${output}`);
           }
-          setStreamReady(true);
-          appendLog(`Completed stream recording is ready to download: ${STREAM_PATH}.`);
-        })
-        .catch(() => undefined);
-      setStatus(`Recording stream to Wasm path ${STREAM_PATH}`);
-    });
+        },
+      );
+      if (!terminal.done && !webRemoteCancelRequestedRef.current) {
+        setWebRemote('playing', `Playing ${url}. Video renders in the FFplay tab.`);
+      }
+    } catch (error) {
+      webRemoteCancelRef.current = undefined;
+      setWebRemote('failed', errorMessage(error));
+    }
+  };
+
+  const runWebRemoteRecord = () => {
+    const url = streamUrl.trim();
+    if (webRemoteValidation) {
+      setWebRemote('failed', webRemoteValidation);
+      return;
+    }
+    webRemoteRecordingCounterRef.current += 1;
+    if (webRemoteRecordingPath && FFmpegKitWebFiles.exists(webRemoteRecordingPath)) {
+      FFmpegKitWebFiles.deleteFile(webRemoteRecordingPath);
+    }
+    // Recordings live in the Wasm filesystem until the user downloads them.
+    const outputPath = `${WEB_REMOTE_RECORDING_PREFIX}${webRemoteRecordingCounterRef.current}.mkv`;
+    if (FFmpegKitWebFiles.exists(outputPath)) FFmpegKitWebFiles.deleteFile(outputPath);
+    setWebRemoteRecordingPath(undefined);
+    webRemoteCancelRequestedRef.current = false;
+    setWebRemote('recording', `Recording 15 seconds to ${outputPath}`);
+    const command =
+      `-hide_banner -nostdin -y -t 15 -i ${quoteCommandArg(url)} ` +
+      `-map 0:v:0 -map 0:a:0? -c copy -f matroska ${quoteCommandArg(outputPath)}`;
+    const session = FFmpegKit.createSession(command);
+    appendLog(`$ ffmpeg ${command}`);
+    webRemoteCancelRef.current = () => void session.cancel();
+    void trackSession(session, 'Web remote recording', 'stream', () =>
+      session.executeAsync({logCallback: (log) => appendLog(log.message)}),
+    )
+      .then((completed) => {
+        webRemoteCancelRef.current = undefined;
+        const output = completed.getOutput();
+        const bytes = FFmpegKitWebFiles.exists(outputPath)
+          ? FFmpegKitWebFiles.readFile(outputPath).byteLength
+          : 0;
+        if (webRemoteCancelRequestedRef.current) {
+          if (FFmpegKitWebFiles.exists(outputPath)) FFmpegKitWebFiles.deleteFile(outputPath);
+          setWebRemote('cancelled', 'Recording cancelled.');
+        } else if (completed.getReturnCode() === ReturnCode.Success && bytes > 0) {
+          setWebRemoteRecordingPath(outputPath);
+          setWebRemote('completed', `Recorded ${bytes} bytes to ${outputPath}. Probe or download it.`);
+        } else {
+          if (FFmpegKitWebFiles.exists(outputPath)) FFmpegKitWebFiles.deleteFile(outputPath);
+          setWebRemote('failed', `${diagnoseWebRemoteFailure(output)}\n\n${output}`);
+        }
+      })
+      .catch((error: unknown) => {
+        webRemoteCancelRef.current = undefined;
+        if (FFmpegKitWebFiles.exists(outputPath)) FFmpegKitWebFiles.deleteFile(outputPath);
+        setWebRemote('failed', errorMessage(error));
+      });
+  };
+
+  /** Cancels the running Web remote operation once. */
+  const cancelWebRemote = () => {
+    if (webRemoteCancelRequestedRef.current) return;
+    const cancel = webRemoteCancelRef.current;
+    if (!cancel) return;
+    webRemoteCancelRef.current = undefined;
+    webRemoteCancelRequestedRef.current = true;
+    cancel();
+    // Completion owns the terminal state; another operation cannot start yet.
+    setWebRemoteDetail('Cancellation requested; waiting for completion.');
+  };
 
   const refreshStreams = () => {
     const current = Array.from(jobsRef.current.values()).filter((job) => job.kind === 'stream');
@@ -1340,32 +1518,46 @@ export default function App(): React.JSX.Element {
             <Stack className="screen-stack">
               <Card className="workflow-card" variant="outlined">
                 <CardContent sx={{p: '0 !important'}}>
-                  <Typography variant="subtitle1">Stream Recording Unsupported</Typography>
+                  <Typography variant="subtitle1">Remote URL (Web)</Typography>
                   <Typography variant="body2" className="card-description">
-                    The current FFmpeg Wasm build does not support network stream input or RTMP/RTMPE streaming.
+                    Direct http:// and https:// URLs run through the async APIs. Recordings stay in browser memory until you download them. Video renders in the FFplay tab.
                   </Typography>
                   <TextField
                     className="stream-url-field"
                     fullWidth
                     size="small"
-                    label="Remote stream URL"
+                    label="Direct media URL"
                     value={streamUrl}
                     onChange={(event) => setStreamUrl(event.target.value)}
-                    disabled
-                    inputProps={{'aria-label': 'Remote stream URL'}}
+                    disabled={webRemoteBusy}
+                    error={Boolean(webRemoteValidation)}
+                    helperText={webRemoteValidation}
+                    inputProps={{'aria-label': 'Direct media URL'}}
                   />
-                  <Alert severity="warning" sx={{mt: 1, py: 0}}>
-                    Stream recording and MKV download are unavailable in Web/Wasm builds. Use a supported native build for stream I/O.
-                  </Alert>
+                  {!webRemoteSupported && (
+                    <Alert severity="warning" sx={{mt: 1, py: 0}}>
+                      This Web runtime reports ABI {webRemoteAbi ?? 'none'}. Remote URL input needs the Phase 2 bundle (ABI {WEB_REMOTE_ABI_VERSION}).
+                    </Alert>
+                  )}
                   <Box className="stream-action-row">
+                    <ActionButton label="Probe" icon={<InfoOutlined />} onClick={() => runWebRemoteProbe()} disabled={!canStartWebRemote} />
+                    <ActionButton label="Play" icon={<PlayArrowRounded />} onClick={() => void runWebRemotePlay()} disabled={!canStartWebRemote} />
+                    <ActionButton label="Record 15 s" icon={<CloudUploadRounded />} onClick={() => runWebRemoteRecord()} disabled={!canStartWebRemote} />
+                    <ActionButton label="Stop" icon={<StopRounded />} onClick={() => cancelWebRemote()} disabled={!webRemoteBusy} />
+                    <ActionButton label="Probe Recording" icon={<InfoOutlined />} onClick={() => runWebRemoteProbeRecording()} disabled={webRemoteBusy || !webRemoteRecordingPath} />
                     <ActionButton
-                      label="Record Stream (Unsupported)"
-                      icon={<CloudUploadRounded />}
-                      onClick={() => void startStream()}
-                      disabled
+                      label="Download Recording"
+                      icon={<DownloadRounded />}
+                      onClick={() => {
+                        if (webRemoteRecordingPath) void downloadFile('Web remote recording', webRemoteRecordingPath, 'web-remote-recording.mkv', 'video/x-matroska');
+                      }}
+                      disabled={webRemoteBusy || !webRemoteRecordingPath}
                     />
-                    {streamReady && <Typography variant="caption" color="error">The Wasm runtime reported a stream output, but this Web build does not offer stream downloads.</Typography>}
                   </Box>
+                  <Typography variant="subtitle2" sx={{mt: 1}}>State: {webRemoteState}</Typography>
+                  {webRemoteDetail && (
+                    <Typography variant="body2" component="pre" sx={{whiteSpace: 'pre-wrap', fontSize: 12}}>{webRemoteDetail}</Typography>
+                  )}
                 </CardContent>
               </Card>
 

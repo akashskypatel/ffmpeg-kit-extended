@@ -12,6 +12,10 @@ Call `FFmpegKitExtended.initialize()` once before use. Commands omit the
 `ffprobe` executable name. For common structured metadata, prefer
 `getMediaInformation()` over manually parsing FFprobe JSON output.
 
+On Web, execute and media-information methods return Promises and support
+local/MEMFS files and direct HTTP(S)/HLS with the pinned streaming runtime.
+No synchronous network probe is exposed.
+
 ## Methods
 
 ### cancel()
