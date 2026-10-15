@@ -29,7 +29,7 @@ The expected runtime is FFmpegKit `0.11.2`: 527 Wasm exports and 22 verified pub
 - `ffmpegkit_callback_runtime.mjs`
 - `ffmpegkit_heap_runtime.mjs`
 
-The bridge creates the shared memory required by this pinned artifact (initial 1024 pages, maximum 32768 pages), supplies loader hooks, creates a module-local SDL canvas, and installs ffigen JS shims for heap access, strings, and callbacks. The exact pinned artifact accepted those limits. Check a future artifact's imports before changing them.
+The bridge reads the initial and maximum page counts of the module's single imported shared memory from the Wasm binary and creates a matching shared memory, supplies loader hooks, creates a module-local SDL canvas, and installs ffigen JS shims for heap access, strings, and callbacks.
 
 Browser loading requires a secure context with `crossOriginIsolated === true` and `SharedArrayBuffer`. The example Vite server sends COOP `same-origin` and COEP `require-corp`. Cross-origin media servers must permit CORS/CORP, support byte ranges, and expose `Content-Range`; a missing CORS response is surfaced as a failed session and native diagnostic. The module's SDL canvas is separate from the React view that presents copied FFplay frames.
 

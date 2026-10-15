@@ -5,7 +5,7 @@ import {
 } from './ffmpegkit_callback_runtime.mjs';
 import {
   createInstantiateWasm,
-  fetchAndCompileWasm,
+  fetchAndCompileWasmWithMemory,
   raceWasmModuleAttempt,
 } from './ffmpegkit_loader.mjs';
 import { installHeapViews } from './ffmpegkit_heap_runtime.mjs';
@@ -153,13 +153,9 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
 
 async function loadFFmpegKitModule() {
   const browserOptions = createBrowserModuleOptions();
-  const wasmMemory = new WebAssembly.Memory({
-    initial: 1024,
-    maximum: 32768,
-    shared: true,
-  });
   const wasmUrl = new URL('ffmpegkit.wasm', import.meta.url);
-  const wasmModule = await fetchAndCompileWasm(wasmUrl);
+  const { wasmModule, memoryLimits } = await fetchAndCompileWasmWithMemory(wasmUrl);
+  const wasmMemory = new WebAssembly.Memory(memoryLimits);
   let wasmTable;
   const instantiator = createInstantiateWasm(wasmModule);
   const module = await raceWasmModuleAttempt(

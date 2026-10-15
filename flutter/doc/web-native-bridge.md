@@ -29,7 +29,7 @@ The bridge and its three private helper modules are maintained in `flutter/web/`
 - `ffmpegkit_callback_runtime.mjs`
 - `ffmpegkit_heap_runtime.mjs`
 
-The generated `ffmpegkit.mjs` and `ffmpegkit.wasm` complete the staged runtime pair. The bridge allocates the shared memory required by this pinned artifact (initial 1024 pages, maximum 32768 pages), supplies the loader hooks, creates a module-local canvas for SDL, and installs ffigen JS shims for memory access, strings, and callbacks. The pinned artifact accepted those memory limits; a future artifact must be checked against its actual import contract before changing this setup.
+The generated `ffmpegkit.mjs` and `ffmpegkit.wasm` complete the staged runtime pair. The bridge reads the initial and maximum page counts of the module's single imported shared memory from the Wasm binary and allocates a matching shared memory, supplies the loader hooks, creates a module-local canvas for SDL, and installs ffigen JS shims for memory access, strings, and callbacks.
 
 Browser loading requires a secure context with `crossOriginIsolated === true` and `SharedArrayBuffer`. Serve the example with COOP `same-origin` and COEP `require-corp`; cross-origin media must permit CORS/CORP, support byte ranges, and expose `Content-Range`. The SDL canvas belongs to this Emscripten module. It is separate from Flutter's FFplay presentation surface.
 

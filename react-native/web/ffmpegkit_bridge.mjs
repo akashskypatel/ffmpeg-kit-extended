@@ -1,7 +1,7 @@
 import createFFmpegKit from "./ffmpegkit.mjs";
 import {
   createModuleWithCompiledWasm,
-  fetchAndCompileWasm,
+  fetchAndCompileWasmWithMemory,
 } from "./ffmpegkit_loader.mjs";
 import {
   createCallbackRegistry,
@@ -163,14 +163,10 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
 
 export async function createFFmpegKitModule() {
   const browserOptions = createBrowserModuleOptions();
-  const wasmMemory = new WebAssembly.Memory({
-    initial: 1024,
-    maximum: 32768,
-    shared: true,
-  });
-  const wasmModule = await fetchAndCompileWasm(
+  const { wasmModule, memoryLimits } = await fetchAndCompileWasmWithMemory(
     new URL("ffmpegkit.wasm", import.meta.url)
   );
+  const wasmMemory = new WebAssembly.Memory(memoryLimits);
   let wasmTable;
   const module = await createModuleWithCompiledWasm({
     createModule: createFFmpegKit,

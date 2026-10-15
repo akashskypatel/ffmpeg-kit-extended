@@ -83,9 +83,12 @@ async function createHarness(bridge) {
         }
       `),
       writeFile(path.join(directory, 'ffmpegkit_loader.mjs'), bridge.flutter ? `
-        export async function fetchAndCompileWasm() {
+        export async function fetchAndCompileWasmWithMemory() {
           ${fixture}.fetches++;
-          return {};
+          return {
+            wasmModule: {},
+            memoryLimits: { initial: 1024, maximum: 32768, shared: true },
+          };
         }
         export function createInstantiateWasm(wasmModule) {
           return {
@@ -99,9 +102,12 @@ async function createHarness(bridge) {
           return factory();
         }
       ` : `
-        export async function fetchAndCompileWasm() {
+        export async function fetchAndCompileWasmWithMemory() {
           ${fixture}.fetches++;
-          return {};
+          return {
+            wasmModule: {},
+            memoryLimits: { initial: 1024, maximum: 32768, shared: true },
+          };
         }
         export async function createModuleWithCompiledWasm({
           createModule, wasmModule, onInstance, options,
