@@ -9,13 +9,14 @@ import 'package:ffmpeg_kit_extended_flutter/src/platform/backend.dart'
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
 import 'package:test/test.dart';
 
-mixin _SynchronousFixture {
+mixin _SynchronousFixture on Session {
   final List<String> events = <String>[];
   SessionState state = SessionState.created;
   bool historyCommitted = false;
   bool fail = false;
   final StateError failure = StateError('synchronous backend failed');
 
+  @override
   void dispatchPendingLogs() {}
 
   @override

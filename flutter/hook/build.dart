@@ -633,38 +633,38 @@ Future<T> _withCacheLock<T>(
   final lock = Directory('$targetPath.lock');
   lock.parent.createSync(recursive: true);
   final ownerToken = _cacheTempToken();
+  final claim = _uniqueSiblingDirectory(lock, 'claiming');
   var acquired = false;
 
-  while (!acquired) {
-    var created = false;
-    try {
-      lock.createSync();
-      created = true;
-      File(p.join(lock.path, 'owner')).writeAsStringSync(ownerToken);
-      acquired = true;
-    } on FileSystemException {
-      if (created) {
-        deleteIfExists(lock);
-        rethrow;
-      }
-      if (!lock.existsSync()) {
-        continue;
-      }
-      if (await _isStaleCacheLock(lock)) {
-        deleteIfExists(lock);
-        continue;
-      }
-      await Future<void>.delayed(_cacheLockPollInterval);
-    }
-  }
-
   try {
+    claim.createSync();
+    File(p.join(claim.path, 'owner')).writeAsStringSync(ownerToken);
+    while (!acquired) {
+      try {
+        // Directory.create is idempotent. Publishing a nonempty claim by
+        // rename instead provides exclusive acquisition across processes.
+        claim.renameSync(lock.path);
+        acquired = true;
+      } on FileSystemException {
+        if (!claim.existsSync()) rethrow;
+        if (!lock.existsSync()) continue;
+        if (await _isStaleCacheLock(lock)) {
+          deleteIfExists(lock);
+          continue;
+        }
+        await Future<void>.delayed(_cacheLockPollInterval);
+      }
+    }
+
     return await action();
   } finally {
-    final owner = File(p.join(lock.path, 'owner'));
-    if (owner.existsSync() && owner.readAsStringSync() == ownerToken) {
-      deleteIfExists(lock);
+    if (acquired) {
+      final owner = File(p.join(lock.path, 'owner'));
+      if (owner.existsSync() && owner.readAsStringSync() == ownerToken) {
+        deleteIfExists(lock);
+      }
     }
+    deleteIfExists(claim);
   }
 }
 

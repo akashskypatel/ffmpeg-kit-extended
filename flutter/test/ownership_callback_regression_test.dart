@@ -97,7 +97,11 @@ class _CleanupFailingSession extends _ReleasableSession {
   void onDispose() => throw StateError('cleanup failed');
 }
 
-class _NoopFFmpegSession extends FFmpegSession {
+mixin _BridgeLeaseFixture on Session {
+  void releaseLeasesForTest() => releaseAllBridgeLeases();
+}
+
+class _NoopFFmpegSession extends FFmpegSession with _BridgeLeaseFixture {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
   int nativeCancellationCalls = 0;
@@ -159,7 +163,7 @@ class _FailingBridgeFFmpegSession extends _NoopFFmpegSession {
   }
 }
 
-class _NoopFFprobeSession extends FFprobeSession {
+class _NoopFFprobeSession extends FFprobeSession with _BridgeLeaseFixture {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
   int releases = 0;
@@ -192,7 +196,7 @@ class _NoopFFprobeSession extends FFprobeSession {
   }
 }
 
-class _NoopFFplaySession extends FFplaySession {
+class _NoopFFplaySession extends FFplaySession with _BridgeLeaseFixture {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
   int releases = 0;
@@ -225,7 +229,8 @@ class _NoopFFplaySession extends FFplaySession {
   }
 }
 
-class _NoopMediaInformationSession extends MediaInformationSession {
+class _NoopMediaInformationSession extends MediaInformationSession
+    with _BridgeLeaseFixture {
   SessionState restoredState = SessionState.created;
   bool throwOnStateRead = false;
   int releases = 0;
@@ -273,7 +278,7 @@ void main() {
       ...manager.mediaInformationSessions.values,
     };
     for (final session in previousSessions) {
-      session.releaseAllBridgeLeases();
+      (session as _BridgeLeaseFixture).releaseLeasesForTest();
     }
     manager.ffmpegSessions.clear();
     manager.ffprobeSessions.clear();

@@ -149,8 +149,11 @@ String? _filePathForCurrentHost(Uri uri) {
     if (uri.authority != 'localhost') return null;
     uri = Uri.file(uri.path);
   }
+  // Uri.toFilePath uses UnsupportedError for unrepresentable file paths.
+  // Preserve the non-local/config-value fallback rather than failing the hook.
   try {
     return uri.toFilePath(windows: Platform.isWindows);
+    // ignore: avoid_catching_errors
   } on UnsupportedError {
     return null;
   }
@@ -219,8 +222,9 @@ List<String> resolveWebStagingBaseDirs({
       addDependency,
     );
     if (packageGraph != null) {
-      final dependentRootNames =
-          packageGraph.dependentRootNames(packageName).toSet();
+      final dependentRootNames = packageGraph
+          .dependentRootNames(packageName)
+          .toSet();
       for (final package in _readPackageEntries(packageConfigUri, log)) {
         if (dependentRootNames.contains(package.name) &&
             isWebAppRoot(package.root)) {

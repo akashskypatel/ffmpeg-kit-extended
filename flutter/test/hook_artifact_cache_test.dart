@@ -172,40 +172,53 @@ void main() {
         'bin',
         Platform.isWindows ? 'dart.exe' : 'dart',
       );
+      // These workers exercise cache I/O only. DartDev's `run` command would
+      // re-enter package hooks while the enclosing Flutter test owns them.
+      final workerArguments = [
+        '--disable-dart-dev',
+        '--packages=${p.join(Directory.current.path, '.dart_tool', 'package_config.json')}',
+        worker,
+      ];
 
       final processes = await Future.wait([
         Process.start(
           dartExecutable,
-          ['run', worker, sourceA.path, destination.path],
+          [...workerArguments, sourceA.path, destination.path],
           workingDirectory: Directory.current.path,
           environment: {
             ...Platform.environment,
-            'REVIEW30_PROCESS': 'review30-g4-cache-worker-a',
+            'CODEX_TASK_TAG': 'CODEX_cache_worker_a',
           },
         ),
         Process.start(
           dartExecutable,
-          ['run', worker, sourceB.path, destination.path],
+          [...workerArguments, sourceB.path, destination.path],
           workingDirectory: Directory.current.path,
           environment: {
             ...Platform.environment,
-            'REVIEW30_PROCESS': 'review30-g4-cache-worker-b',
+            'CODEX_TASK_TAG': 'CODEX_cache_worker_b',
           },
         ),
       ]);
       final results = await Future.wait(
         processes.map((process) async {
-          final stdout = await process.stdout
+          final stdout = process.stdout
               .transform(systemEncoding.decoder)
               .join();
-          final stderr = await process.stderr
+          final stderr = process.stderr
               .transform(systemEncoding.decoder)
               .join();
-          return (
-            exitCode: await process.exitCode,
-            stdout: stdout,
-            stderr: stderr,
-          );
+          try {
+            return (
+              exitCode: await process.exitCode.timeout(
+                const Duration(seconds: 30),
+              ),
+              stdout: await stdout,
+              stderr: await stderr,
+            );
+          } finally {
+            process.kill();
+          }
         }),
       );
 
@@ -232,6 +245,7 @@ void main() {
         cacheEntries.where(
           (name) =>
               name.contains('.copying.') ||
+              name.contains('.claiming.') ||
               name.contains('.refreshing.') ||
               name.contains('.downloading.') ||
               name.contains('.extracting.') ||

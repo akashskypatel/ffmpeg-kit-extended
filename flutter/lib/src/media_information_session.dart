@@ -166,6 +166,8 @@ class MediaInformationSession extends FFprobeSession {
     String command = 'test',
     MediaInformationSessionCompleteCallback? completeCallback,
     this._timeout = 500,
+    // This test-only factory must preserve the base's no-finalizer test seam.
+    // ignore: invalid_use_of_visible_for_testing_member
   }) : super.internalNoFinalizer() {
     handle = const SessionHandle(Object());
     this.sessionId = sessionId;
@@ -683,7 +685,6 @@ class MediaInformationSession extends FFprobeSession {
     _mediaInfoCompleteCallback = null;
     super.onDispose();
   }
-
 
   @override
   @protected

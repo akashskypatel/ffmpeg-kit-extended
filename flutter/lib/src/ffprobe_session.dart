@@ -483,9 +483,6 @@ class FFprobeSession extends Session {
     ensureRoutingForSinkDemand(ensureRegistered);
   }
 
-  /// Backwards-compatible alias used throughout this file.
-  void _ensureRegistered() => ensureRegistered();
-
   /// Whether this session is currently registered with the [CallbackManager].
   ///
   /// Exposed as protected so subclasses can override [ensureRegistered] /
