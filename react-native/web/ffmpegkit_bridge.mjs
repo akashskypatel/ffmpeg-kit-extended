@@ -9,6 +9,62 @@ import {
 } from "./ffmpegkit_callback_runtime.mjs";
 import { installHeapViews } from "./ffmpegkit_heap_runtime.mjs";
 
+export const BRIDGE_PROTOCOL_VERSION = 1;
+
+function createBrowserModuleOptions() {
+  const runningInNode = typeof process !== "undefined" &&
+    process.versions?.node;
+  if (typeof document === "undefined" && runningInNode) return {};
+  if (globalThis.crossOriginIsolated !== true) {
+    throw new Error(
+      "FFmpegKit Web requires cross-origin isolation (crossOriginIsolated)."
+    );
+  }
+  if (typeof globalThis.SharedArrayBuffer !== "function") {
+    throw new Error(
+      "FFmpegKit Web requires SharedArrayBuffer for shared Wasm memory."
+    );
+  }
+  return typeof document === "undefined"
+    ? {}
+    : { canvas: document.createElement("canvas") };
+}
+
+function validateFFmpegKitModule(module) {
+  const requiredExports = [
+    "_ffmpeg_kit_initialize",
+    "_ffmpeg_kit_session_execute_async",
+    "_ffprobe_kit_session_execute_async",
+    "_ffplay_kit_session_execute_async",
+    "_ffplay_kit_copy_frame",
+    "_ffmpeg_kit_session_cancel",
+    "_ffmpeg_kit_config_get_version",
+    "_ffmpeg_kit_free",
+    "UTF8ToString",
+  ];
+  const missing = requiredExports.filter((name) => typeof module[name] !== "function");
+  if (missing.length) {
+    throw new Error(`FFmpegKit Web runtime is missing required exports: ${missing.join(", ")}.`);
+  }
+
+  let versionPointer;
+  let version;
+  try {
+    versionPointer = module._ffmpeg_kit_config_get_version();
+    if (!versionPointer) {
+      throw new Error("version getter returned a null pointer");
+    }
+    version = module.UTF8ToString(versionPointer);
+  } catch (error) {
+    throw new Error(`FFmpegKit Web runtime version could not be read: ${String(error?.message ?? error)}`);
+  } finally {
+    if (versionPointer) module._ffmpeg_kit_free(versionPointer);
+  }
+  if (version !== "0.11.2") {
+    throw new Error(`Unsupported FFmpegKit Web runtime version "${version}"; expected "0.11.2".`);
+  }
+}
+
 function installFfigenRuntime(module, wasmMemory, wasmTable) {
   const heap = (View) => new View(wasmMemory.buffer);
   const defineRuntime = (name, descriptor) =>
@@ -106,6 +162,7 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
 }
 
 export async function createFFmpegKitModule() {
+  const browserOptions = createBrowserModuleOptions();
   const wasmMemory = new WebAssembly.Memory({
     initial: 1024,
     maximum: 32768,
@@ -122,6 +179,7 @@ export async function createFFmpegKitModule() {
       wasmTable = discoverWasmTable(instance.exports);
     },
     options: {
+      ...browserOptions,
       wasmMemory,
       stdin: () => null,
       locateFile: (file) => new URL(file, import.meta.url).href,
@@ -130,5 +188,6 @@ export async function createFFmpegKitModule() {
   if (!wasmTable)
     throw new Error("Emscripten did not expose the Wasm callback table.");
   installFfigenRuntime(module, wasmMemory, wasmTable);
+  validateFFmpegKitModule(module);
   return module;
 }

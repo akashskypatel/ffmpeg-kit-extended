@@ -10,6 +10,62 @@ import {
 } from './ffmpegkit_loader.mjs';
 import { installHeapViews } from './ffmpegkit_heap_runtime.mjs';
 
+export const BRIDGE_PROTOCOL_VERSION = 1;
+
+function createBrowserModuleOptions() {
+  const runningInNode = typeof process !== 'undefined' &&
+    process.versions?.node;
+  if (typeof document === 'undefined' && runningInNode) return {};
+  if (globalThis.crossOriginIsolated !== true) {
+    throw new Error(
+      'FFmpegKit Web requires cross-origin isolation (crossOriginIsolated).',
+    );
+  }
+  if (typeof globalThis.SharedArrayBuffer !== 'function') {
+    throw new Error(
+      'FFmpegKit Web requires SharedArrayBuffer for shared Wasm memory.',
+    );
+  }
+  return typeof document === 'undefined'
+    ? {}
+    : { canvas: document.createElement('canvas') };
+}
+
+function validateFFmpegKitModule(module) {
+  const requiredExports = [
+    '_ffmpeg_kit_initialize',
+    '_ffmpeg_kit_session_execute_async',
+    '_ffprobe_kit_session_execute_async',
+    '_ffplay_kit_session_execute_async',
+    '_ffplay_kit_copy_frame',
+    '_ffmpeg_kit_session_cancel',
+    '_ffmpeg_kit_config_get_version',
+    '_ffmpeg_kit_free',
+    'UTF8ToString',
+  ];
+  const missing = requiredExports.filter((name) => typeof module[name] !== 'function');
+  if (missing.length) {
+    throw new Error(`FFmpegKit Web runtime is missing required exports: ${missing.join(', ')}.`);
+  }
+
+  let versionPointer;
+  let version;
+  try {
+    versionPointer = module._ffmpeg_kit_config_get_version();
+    if (!versionPointer) {
+      throw new Error('version getter returned a null pointer');
+    }
+    version = module.UTF8ToString(versionPointer);
+  } catch (error) {
+    throw new Error(`FFmpegKit Web runtime version could not be read: ${String(error?.message ?? error)}`);
+  } finally {
+    if (versionPointer) module._ffmpeg_kit_free(versionPointer);
+  }
+  if (version !== '0.11.2') {
+    throw new Error(`Unsupported FFmpegKit Web runtime version "${version}"; expected "0.11.2".`);
+  }
+}
+
   // ffigen_js uses a small subset of Emscripten runtime helpers for
   // pointer/string and callback marshalling. Some runtimes expose these
   // helpers as read-only module properties, while others keep them private.
@@ -96,6 +152,7 @@ function installFfigenRuntime(module, wasmMemory, wasmTable) {
 }
 
 async function loadFFmpegKitModule() {
+  const browserOptions = createBrowserModuleOptions();
   const wasmMemory = new WebAssembly.Memory({
     initial: 1024,
     maximum: 32768,
@@ -108,6 +165,7 @@ async function loadFFmpegKitModule() {
   const module = await raceWasmModuleAttempt(
     () =>
         createFFmpegKit({
+          ...browserOptions,
           wasmMemory,
           // Web execution is non-interactive. Return EOF instead of allowing
           // the Emscripten default to open a browser prompt.
@@ -128,6 +186,7 @@ async function loadFFmpegKitModule() {
     throw new Error('Emscripten did not expose the Wasm callback table.');
   }
   installFfigenRuntime(module, wasmMemory, wasmTable);
+  validateFFmpegKitModule(module);
   return module;
 }
 

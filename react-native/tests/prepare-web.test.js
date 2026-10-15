@@ -126,8 +126,9 @@ test('prepare-web cache paths distinguish remote URLs with the same filename', (
       path.join(secondRoot, CONFIG_FILE_NAME),
       JSON.stringify({web: 'https://example.com/two/build.zip'}),
     );
-    const first = resolveConfig({appRoot: firstRoot, platform: 'web'});
-    const second = resolveConfig({appRoot: secondRoot, platform: 'web'});
+    // URL identity is independent of the caller's local-only staging policy.
+    const first = resolveConfig({appRoot: firstRoot, platform: 'web', localOnly: false});
+    const second = resolveConfig({appRoot: secondRoot, platform: 'web', localOnly: false});
 
     assert.equal(first.filename, second.filename);
     assert.notEqual(first.cacheKey, second.cacheKey);
