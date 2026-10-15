@@ -21,6 +21,19 @@ not require `SessionQueueManager().waitForAll()`. Avoid long synchronous work
 on the Flutter UI isolate. `executeAsync` returns a `Future`, is managed by
 `SessionQueueManager`, and honors its concurrency limit.
 
+#### Web support
+
+| API | Local and MEMFS input | Direct HTTP or HLS input |
+|---|---|---|
+| `FFmpegKit.execute` (sync) | Supported | Rejected with `UnsupportedError` before any native call: use `executeAsync` |
+| `FFmpegKit.executeAsync` | Supported | Supported (direct HTTPS and HLS through the Web bridge) |
+
+A playlist or concat list on local storage that references remote URLs cannot
+be seen before execution. Those indirect network opens fail with `EPERM` in the
+session state and logs. The synchronous call is blocking, and on Web it runs on
+the browser main thread, where network reads cannot complete, so network input
+belongs to `executeAsync`.
+
 ## Class Methods
 
 ### execute

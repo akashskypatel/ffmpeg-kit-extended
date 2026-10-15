@@ -35,9 +35,9 @@ import 'platform/backend_selector.dart';
 /// ### Lifecycle
 /// Use [FFplayKit] to create and execute sessions for global tracking.
 /// Deprecated static helpers still work but bypass tracking.
-/// The direct [execute] method blocks until native playback work and cleanup
-/// complete. Use [FFplayKit.executeAsync] for long-running playback from the
-/// Flutter UI isolate and for queue-managed execution.
+/// The direct [execute] method is not supported on any platform and always
+/// throws [UnsupportedError]. Use [FFplayKit.executeAsync] for long-running
+/// playback from the Flutter UI isolate and for queue-managed execution.
 class FFplaySession extends Session {
   FFplaySessionCompleteCallback? _completeCallback;
   FFmpegLogCallback? _logCallback;
@@ -542,71 +542,34 @@ class FFplaySession extends Session {
   // Execution
   // ---------------------------------------------------------------------------
 
-  /// Executes this session synchronously and returns only after native work and
-  /// cleanup have completed. Backend failures are rethrown after cleanup.
+  /// Synchronous execution is rejected on every platform.
+  ///
+  /// Playback blocks the calling thread until it ends. On Web that is the
+  /// browser main thread, so frames, audio, network callbacks and controls
+  /// cannot run. On native platforms the Dart isolate is blocked, so pause,
+  /// stop, seek, callbacks and streams cannot reach Dart.
+  ///
+  /// This method throws [UnsupportedError] before any backend call and changes
+  /// no session state. The session stays created, unregistered and
+  /// unsubmitted, so it can still be started with [executeAsync]. The
+  /// rejection does not use the synchronous cleanup path because that path
+  /// calls `FFplaySurface.endPlayback`, which would stop frame copying for a
+  /// Web playback that is already running.
+  @Deprecated(
+    'Synchronous FFplay execution is not supported on any platform. '
+    'Use FFplayKit.executeAsync or FFplaySession.executeAsync instead.',
+  )
   FFplaySession execute() {
-    claimExecutionSubmission();
-    requireInitializedForExecution();
-    _ensureRegistered();
-
-    Object? primaryError;
-    StackTrace? primaryStackTrace;
-    void recordCleanupFailure(Object error, StackTrace stackTrace) {
-      if (primaryError == null) {
-        primaryError = error;
-        primaryStackTrace = stackTrace;
-      } else {
-        log(
-          'FFplaySession.execute: cleanup failed after primary error for session $sessionId',
-          error: error,
-          stackTrace: stackTrace,
-        );
-      }
-    }
-
-    try {
-      _acquireOptionalBridgeLeases();
-      markExecutionStarted();
-      executeSynchronously();
-      notifyPlaybackStarted();
-      if (_hasLogDemand) dispatchPendingLogs();
-      commitTerminalHistory();
-      CallbackManager().dispatchFFplayComplete(sessionId);
-    } catch (error, stackTrace) {
-      primaryError = error;
-      primaryStackTrace = stackTrace;
-      log(
-        'FFplaySession.execute: synchronous execution failed for session $sessionId',
-        error: error,
-        stackTrace: stackTrace,
-      );
-    } finally {
-      try {
-        _closeLogStreams();
-      } catch (error, stackTrace) {
-        recordCleanupFailure(error, stackTrace);
-      }
-      try {
-        _unregister();
-      } catch (error, stackTrace) {
-        recordCleanupFailure(error, stackTrace);
-      } finally {
-        releaseAllBridgeLeases();
-        FFplaySurface.endPlayback();
-        _telemetryExecutionActive = false;
-        _stopPositionStream();
-        _stopVideoSizeStream();
-        markExecutionSettled();
-      }
-    }
-
-    if (primaryError != null) {
-      Error.throwWithStackTrace(primaryError!, primaryStackTrace!);
-    }
-    return this;
+    throw UnsupportedError(
+      'FFplaySession.execute() is not supported on any platform because it '
+      'blocks the calling thread for the whole playback. Use '
+      'FFplayKit.executeAsync() or FFplaySession.executeAsync() instead.',
+    );
   }
 
   /// @deprecated Use [FFplayKit.execute] for proper global session management.
+  /// Synchronous execution is rejected, so this helper always throws
+  /// [UnsupportedError].
   @Deprecated('Use FFplayKit.execute for proper global session management')
   static FFplaySession executeCommand(
     String command, {
@@ -1076,12 +1039,6 @@ class FFplaySession extends Session {
   void configureSynchronousNativeCallbacks() {
     // Synchronous completion is dispatched by the blocking return path and
     // does not need a process-global native completion callback.
-  }
-
-  /// Invokes the blocking FFplay backend operation.
-  @protected
-  void executeSynchronously() {
-    ffmpegKitBackend.executeFFplaySession(handle, _timeout);
   }
 
   /// Submits the non-blocking native playback handoff.

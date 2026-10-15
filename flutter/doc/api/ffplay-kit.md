@@ -17,8 +17,14 @@ implicitly cancel older tracked executions. The class provides:
 `FFplayKit.execute` and `executeAsync` are Future-based playback APIs managed
 by the session queue. Their Future completes after native startup has been
 handed off, not after full playback; use `onComplete` for the terminal event.
-The direct `FFplaySession.execute` compatibility method is blocking and should
-not be used for long playback work on the Flutter UI isolate.
+The direct `FFplaySession.execute` method is deprecated and always throws
+`UnsupportedError` on every platform. Synchronous playback blocks the calling
+thread for the whole session: on Web that is the browser main thread, so frames,
+audio, network callbacks and controls cannot run; on native platforms the Dart
+isolate is blocked, so pause, stop, seek, callbacks and streams cannot reach
+Dart. The rejection happens before any backend call and leaves the session
+created and unregistered, so it can still be started with `executeAsync()`.
+Use `FFplayKit.executeAsync` for all playback.
 
 ## Video Playback
 

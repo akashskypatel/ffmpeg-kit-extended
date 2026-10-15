@@ -135,9 +135,6 @@ class _SynchronousFFplaySession extends FFplaySession with _SynchronousFixture {
   void configureSynchronousNativeCallbacks() => events.add('configure');
 
   @override
-  void executeSynchronously() => recordNativeExecution();
-
-  @override
   void notifyPlaybackStarted() => events.add('playback-started');
 
   @override
@@ -224,26 +221,29 @@ void main() {
     );
   });
 
-  test('FFplay synchronous execution uses the direct blocking path', () {
+  // AUTH-FFPLAY-SYNC (owner granted 2026-10-15): synchronous FFplay is rejected.
+  // These tests were rewritten from the blocking-path cases; see the W-F04 file.
+  test('FFplay synchronous execution is rejected before any backend call', () {
     final session = _SynchronousFFplaySession();
 
-    session.execute();
-
-    expect(session.events, ['initialized', 'execute', 'playback-started']);
-    expect(session.settled, isTrue);
+    // ignore: deprecated_member_use
+    expect(session.execute, throwsA(isA<UnsupportedError>()));
+    expect(session.events, isEmpty);
+    expect(session.started, isFalse);
+    expect(session.historyCommitted, isFalse);
     expect(callbacks.ffplaySessions.containsKey(session.sessionId), isFalse);
   });
 
-  test(
-    'failed FFplay synchronous startup does not commit playback identity',
-    () {
-      final session = _SynchronousFFplaySession()..fail = true;
+  test('FFplay synchronous rejection does not run the blocking cleanup', () {
+    final session = _SynchronousFFplaySession();
 
-      expect(session.execute, throwsA(same(session.failure)));
-      expect(session.events, ['initialized', 'execute']);
-      expect(session.settled, isTrue);
-    },
-  );
+    // ignore: deprecated_member_use
+    expect(session.execute, throwsA(isA<UnsupportedError>()));
+    // ignore: deprecated_member_use
+    expect(session.execute, throwsA(isA<UnsupportedError>()));
+    expect(session.events, isEmpty);
+    expect(session.settled, isFalse);
+  });
 
   test('completion callback failure does not skip the global callback', () {
     var globalCalls = 0;

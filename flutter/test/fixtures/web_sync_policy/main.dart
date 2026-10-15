@@ -12,6 +12,7 @@ import 'dart:typed_data';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_kit_extended.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffmpeg_session.dart';
+import 'package:ffmpeg_kit_extended_flutter/src/ffplay_session.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/platform/web/ffmpeg_kit_web_files.dart';
 import 'package:ffmpeg_kit_extended_flutter/src/session.dart';
@@ -94,6 +95,29 @@ Map<String, Object?> _rejectedSessionState(String name, String command) {
   }
 }
 
+/// W-F04 (AUTH-FFPLAY-SYNC): the synchronous FFplay call is rejected on Web
+/// before any backend call, so the native state stays created.
+Map<String, Object?> _rejectedFFplayState(String name, String command) {
+  final session = FFplaySession.create(command);
+  try {
+    // ignore: deprecated_member_use
+    session.execute();
+    return _case(name, false, 'no UnsupportedError was thrown');
+  } catch (error) {
+    if (error is! UnsupportedError) {
+      return _case(name, false, 'unexpected ${error.runtimeType}: $error');
+    }
+    final message = '${error.message}';
+    final state = session.getState();
+    return _case(
+      name,
+      message.contains('FFplayKit.executeAsync') &&
+          state == SessionState.created,
+      'state=${state.name} error=$message',
+    );
+  }
+}
+
 Future<Uint8List> _fetchBytes(String url) async {
   final response = await _globalThis
       .callMethod<JSPromise<JSObject>>('fetch'.toJS, url.toJS)
@@ -172,6 +196,14 @@ Future<void> main() async {
       _rejectedSessionState(
         'W-F01 FFmpeg session state after rejection',
         '-hide_banner -nostdin -i "$progressive" -t 1 -f null -',
+      ),
+    );
+
+    // W-F04: synchronous FFplay is rejected on Web before any backend call.
+    cases.add(
+      _rejectedFFplayState(
+        'W-F04 FFplaySession.execute rejected on Web',
+        '-hide_banner -loglevel info -i "$hls"',
       ),
     );
 

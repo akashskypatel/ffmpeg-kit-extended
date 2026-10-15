@@ -20,6 +20,17 @@ for their own result. Use the asynchronous methods for long work on the
 Flutter UI isolate. Those Future-based methods are managed by
 `SessionQueueManager` and honor its concurrency limit.
 
+#### Web support
+
+| API | Local and MEMFS input | Direct HTTP or HLS input |
+|---|---|---|
+| `FFprobeKit.execute` (sync) | Supported | Rejected with `UnsupportedError` before any native call: use `executeAsync` |
+| `FFprobeKit.getMediaInformation` (sync) | Supported | Rejected with `UnsupportedError` before any native call: use `getMediaInformationAsync` |
+| `FFprobeKit.executeAsync` and `getMediaInformationAsync` | Supported | Supported (direct HTTPS and HLS through the Web bridge) |
+
+Indirect network opens, such as a local playlist that references remote
+segments, fail with `EPERM` in the session state and logs on Web.
+
 ## Class Methods
 
 ### getMediaInformation
