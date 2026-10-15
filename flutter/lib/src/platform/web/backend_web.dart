@@ -621,8 +621,14 @@ final class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   @override
-  void cancelSession(SessionHandle handle) =>
+  void cancelSession(SessionHandle handle) {
+    if (isFFprobeSession(handle) || isMediaInformationSession(handle)) {
+      bindings.ffprobe_kit_cancel_session(BigInt.from(getSessionId(handle)));
+    } else if (!isFFplaySession(handle)) {
       bindings.ffmpeg_kit_session_cancel(_pointer(handle));
+    }
+    // FFplaySession.cancel owns the playback-specific stop after super.cancel.
+  }
 
   @override
   void releaseSession(SessionHandle handle) =>

@@ -579,9 +579,16 @@ export class WebFFmpegKitBackend implements FFmpegKitBackend {
   }
 
   cancelSession(sessionId: number): void {
-    this.withSession(sessionId, (pointer) =>
-      this.call('ffmpeg_kit_session_cancel')(pointer)
-    );
+    this.withSession(sessionId, (pointer) => {
+      const type = this.sessionType(pointer);
+      if (type === 'ffprobe' || type === 'media-information') {
+        this.call('ffprobe_kit_cancel_session')(int64(sessionId));
+      } else if (type === 'ffplay') {
+        this.call('ffplay_kit_session_stop')(pointer);
+      } else {
+        this.call('ffmpeg_kit_session_cancel')(pointer);
+      }
+    });
   }
 
   recordCancellationIntent(sessionId: number): void {

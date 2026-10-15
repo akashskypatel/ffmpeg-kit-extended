@@ -85,6 +85,34 @@ function createSnapshotModule({
 test('Web backend registration selects the browser backend without native imports', () => {
   assert.strictEqual(getBackend(), webBackend);
 });
+
+test('Web cancellation uses the native entry point for each session type', () => {
+  for (const type of ['ffmpeg', 'ffprobe', 'media-information', 'ffplay']) {
+    const calls = [];
+    const { module } = createSnapshotModule({ pointers: [256] });
+    module.session_is_ffmpeg_session = () => type === 'ffmpeg';
+    module.session_is_ffprobe_session = () => type === 'ffprobe';
+    module.session_is_media_information_session = () => type === 'media-information';
+    module.session_is_ffplay_session = () => type === 'ffplay';
+    module.ffprobe_kit_create_session = module.ffmpeg_kit_create_session;
+    module.media_information_create_session = module.ffmpeg_kit_create_session;
+    module.ffplay_kit_create_session = module.ffmpeg_kit_create_session;
+    module.ffmpeg_kit_session_cancel = pointer => calls.push(['ffmpeg', pointer]);
+    module.ffprobe_kit_cancel_session = id => calls.push(['ffprobe', id]);
+    module.ffplay_kit_session_stop = pointer => calls.push(['ffplay', pointer]);
+    const backend = new WebFFmpegKitBackend(undefined, module);
+    const factory = {
+      ffmpeg: 'createFFmpegSession',
+      ffprobe: 'createFFprobeSession',
+      'media-information': 'createMediaInformationSession',
+      ffplay: 'createFFplaySession',
+    }[type];
+    const id = backend[factory]('-version');
+    backend.cancelSession(id);
+    assert.deepEqual(calls, [type === 'ffmpeg' || type === 'ffplay'
+      ? [type, 256] : ['ffprobe', 1n]], type);
+  }
+});
 test('Web backend emits the frozen structured log shape and frees owned memory once', () => {
   const events = [];
   const freeCalls = [];
