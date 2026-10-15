@@ -8,6 +8,29 @@ import 'package:test/test.dart';
 import '../hook/config.dart';
 
 void main() {
+  test('passes local-only policy through the hermetic hook input', () {
+    final result = resolveUserDefines(
+      read: (key) => key == 'local_only' ? true : null,
+      readPath: (_) => null,
+      readBase: (_) => null,
+      packageRoot: Directory.current.path,
+      addDependency: (_) {},
+      log: (_) {},
+    );
+    expect(result!.config['local_only'], isTrue);
+    expect(
+      () => resolveUserDefines(
+        read: (key) => key == 'local_only' ? 'true' : null,
+        readPath: (_) => null,
+        readBase: (_) => null,
+        packageRoot: Directory.current.path,
+        addDependency: (_) {},
+        log: (_) {},
+      ),
+      throwsA(isA<ConfigResolutionException>()),
+    );
+  });
+
   late Directory tempRoot;
 
   setUp(() async {

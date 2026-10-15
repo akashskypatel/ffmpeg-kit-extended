@@ -5,16 +5,43 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { afterEach, test } = require("node:test");
+const { afterEach, beforeEach, test } = require("node:test");
 
 const {
   BINARY_VERSION,
   CONFIG_FILE_NAME,
   DEFAULT_CONFIG,
+  LOCAL_ONLY_ENVIRONMENT_VARIABLE,
+  isLocalArtifactOnlyEnabled,
   resolveConfig,
 } = require("../scripts/resolve-ffmpeg-kit-config.js");
 
 const tempRoots = [];
+
+beforeEach(t => {
+  const previous = process.env[LOCAL_ONLY_ENVIRONMENT_VARIABLE];
+  delete process.env[LOCAL_ONLY_ENVIRONMENT_VARIABLE];
+  t.after(() => {
+    if (previous === undefined) delete process.env[LOCAL_ONLY_ENVIRONMENT_VARIABLE];
+    else process.env[LOCAL_ONLY_ENVIRONMENT_VARIABLE] = previous;
+  });
+});
+
+test("local-only environment flags reject defaults and remote overrides", () => {
+  for (const value of ["1", "true", " TRUE "]) {
+    process.env[LOCAL_ONLY_ENVIRONMENT_VARIABLE] = value;
+    assert.equal(isLocalArtifactOnlyEnabled(), true);
+    for (const config of [undefined, {wasm: "https://example.test/runtime.zip"}]) {
+      const {root} = createApp(config);
+      assert.throws(() => resolveConfig({appRoot: root, platform: "wasm"}), /local.only/i);
+    }
+    const {root} = createApp({wasm: "./local-runtime.zip"});
+    assert.equal(resolveConfig({appRoot: root, platform: "wasm"}).override.kind, "local");
+  }
+  for (const value of ["", "false", "0"]) {
+    assert.equal(isLocalArtifactOnlyEnabled({[LOCAL_ONLY_ENVIRONMENT_VARIABLE]: value}), false);
+  }
+});
 
 function createApp(config) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ffmpeg-kit-config-"));

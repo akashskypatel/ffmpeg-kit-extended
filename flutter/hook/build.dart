@@ -32,9 +32,12 @@ Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
 
 @visibleForTesting
 bool isLocalArtifactOnlyEnabled([Map<String, String>? environment]) =>
-    (environment ?? Platform.environment)[localArtifactOnlyEnvironmentVariable]
-        ?.toLowerCase() ==
-    'true';
+    const {'true', '1'}.contains(
+      (environment ??
+              Platform.environment)[localArtifactOnlyEnvironmentVariable]
+          ?.trim()
+          .toLowerCase(),
+    );
 
 late final OS targetOS;
 late final Architecture targetArch;
@@ -414,7 +417,7 @@ Future<WebRuntimeSource> _resolveWebArtifact(
   validateLocalArtifactSelection(
     platformName: 'Web',
     overrideValue: overrideUrl,
-    localOnly: isLocalArtifactOnlyEnabled(),
+    localOnly: config['local_only'] == true || isLocalArtifactOnlyEnabled(),
   );
 
   String filename;
@@ -797,7 +800,7 @@ Future<FFmpegArtifact?> _resolveArtifact(
   validateLocalArtifactSelection(
     platformName: platformName,
     overrideValue: overrideUrl,
-    localOnly: isLocalArtifactOnlyEnabled(),
+    localOnly: config['local_only'] == true || isLocalArtifactOnlyEnabled(),
   );
 
   final cacheDir = Directory(

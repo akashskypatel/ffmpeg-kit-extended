@@ -8,6 +8,43 @@ import '../hook/build.dart' as build_hook;
 import '../hook/config.dart';
 
 void main() {
+  test('local-only environment flags enforce local artifact selection', () {
+    for (final value in ['1', 'true', ' TRUE ']) {
+      final enabled = build_hook.isLocalArtifactOnlyEnabled({
+        build_hook.localArtifactOnlyEnvironmentVariable: value,
+      });
+      expect(enabled, isTrue, reason: value);
+      for (final override in <String?>[
+        null,
+        'https://example.test/runtime.zip',
+      ]) {
+        expect(
+          () => build_hook.validateLocalArtifactSelection(
+            platformName: 'Web',
+            overrideValue: override,
+            localOnly: enabled,
+          ),
+          throwsA(isA<Exception>()),
+          reason: '$value: $override',
+        );
+      }
+      build_hook.validateLocalArtifactSelection(
+        platformName: 'Web',
+        overrideValue: '/local/runtime.zip',
+        localOnly: enabled,
+      );
+    }
+    for (final value in ['', 'false', '0']) {
+      expect(
+        build_hook.isLocalArtifactOnlyEnabled({
+          build_hook.localArtifactOnlyEnvironmentVariable: value,
+        }),
+        isFalse,
+        reason: value,
+      );
+    }
+  });
+
   late Directory tempRoot;
 
   setUp(() async {

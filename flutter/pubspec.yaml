@@ -10,6 +10,7 @@ version: 1.0.0
 # package-level validation and must never resolve a historical published
 # runtime.
 ffmpeg_kit_extended_config:
+  local_only: true
   type: "video"
   gpl: true
   small: true

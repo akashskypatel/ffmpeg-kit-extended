@@ -37,6 +37,7 @@ const _userDefineKeys = <String>[
   'type',
   'gpl',
   'small',
+  'local_only',
   'android',
   'ios',
   'macos',
@@ -111,7 +112,8 @@ void _validateUserDefine(String key, Object value) {
       'hooks.user_defines.$key must be a string, got ${value.runtimeType}',
     );
   }
-  if ((key == 'gpl' || key == 'small') && value is! bool) {
+  if ((key == 'gpl' || key == 'small' || key == 'local_only') &&
+      value is! bool) {
     throw ConfigResolutionException(
       'hooks.user_defines.$key must be a boolean, got ${value.runtimeType}',
     );

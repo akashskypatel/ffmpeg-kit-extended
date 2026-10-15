@@ -105,9 +105,8 @@ function validateRemoteScheme(value) {
 }
 
 function isLocalArtifactOnlyEnabled(environment = process.env) {
-  return (
-    String(environment[LOCAL_ONLY_ENVIRONMENT_VARIABLE] || "").toLowerCase() ===
-    "true"
+  return ["true", "1"].includes(
+    String(environment[LOCAL_ONLY_ENVIRONMENT_VARIABLE] || "").trim().toLowerCase()
   );
 }
 
