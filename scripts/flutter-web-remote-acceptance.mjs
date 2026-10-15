@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import https from 'node:https';
 import { createRequire } from 'node:module';
@@ -111,6 +111,7 @@ const record = {
   ].map(async file => [file, createHash('sha256').update(await readFile(path.join(root, file))).digest('hex')]))),
   consoleErrors: [],
   pageErrors: [],
+  runtimeAssetResponses: [],
   pendingOwner: [
     'F04 audible audio: the owner must confirm sound plays from the FFplay tab for at least 30 seconds.',
     'F11 and F12: the owner must open the debug build and the release build in Chrome and confirm generated and imported MP4/TS playback.',
@@ -153,7 +154,11 @@ function installTransitionLog() {
   check();
 }
 
-const browser = await chromium.launch({ headless: true, args: ['--CODEX_PHASE3_FLUTTER'] });
+const browser = await chromium.launch({
+  headless: true,
+  executablePath: process.env.CODEX_PHASE3_BROWSER_EXECUTABLE,
+  args: ['--CODEX_PHASE3_FLUTTER'],
+});
 let page;
 try {
   page = await browser.newPage({ viewport: { width: 1280, height: 900 }, acceptDownloads: true, ignoreHTTPSErrors: Boolean(tlsCert && tlsKey) });
@@ -163,6 +168,12 @@ try {
     if (message.type() === 'error') record.consoleErrors.push(message.text().slice(0, 300));
   });
   page.on('pageerror', error => record.pageErrors.push(String(error).slice(0, 300)));
+  page.on('response', response => {
+    const name = new URL(response.url()).pathname.split('/').at(-1);
+    if (name === 'ffmpegkit.wasm' || name === 'ffmpegkit.mjs') {
+      record.runtimeAssetResponses.push({ name, status: response.status() });
+    }
+  });
   page.on('request', request => {
     if (request.url().includes('/hls/live.m3u8')) liveRequests.push(Date.now());
   });
@@ -281,9 +292,30 @@ try {
 
   // F05 and F06 share one page: the recording is downloaded and reprobed in place.
   let recorded = false;
+  let recordingProgressReported = false;
+  let downloadedRecordingBytes = 0;
   await step('F05 HLS 15 s recording produces a nonempty output', async () => {
     await openCase(`${fixtureOrigin}/hls/live.m3u8`);
-    const done = await run('Record 15 s', ['completed', 'failed'], 120_000);
+    const from = await mark();
+    await button('Record 15 s').click();
+    const started = await waitTransition(from, ['recording', 'completed', 'failed'], 120_000);
+    assert.equal(started.state, 'State: recording', 'recording must enter its active state');
+    const progressHandle = await page.waitForFunction(() => {
+      const joined = Array.from(document.querySelectorAll('input, flt-semantics'))
+        .map(node => (node.getAttribute('aria-label') || node.textContent || '').trim())
+        .filter(Boolean)
+        .join('\n');
+      return joined.includes('State: recording')
+        ? joined.match(/Recording: (\d+)% · (\d+) bytes · ([\d.]+) \/ 15 s/)
+        : null;
+    }, null, { timeout: 120_000 });
+    const progressDetail = await progressHandle.jsonValue();
+    assert.ok(progressDetail, 'statistics must report progress and bytes written');
+    assert.ok(Number(progressDetail[1]) > 0 || Number(progressDetail[2]) > 0 || Number(progressDetail[3]) > 0,
+      'reported media time, percentage or bytes must advance');
+    recordingProgressReported = true;
+    record.recordingProgress = progressDetail[0];
+    const done = await waitTransition(await mark(), ['completed', 'failed'], 120_000);
     assert.equal(done.state, 'State: completed', `recording failed: ${done.joined.slice(0, 300)}`);
     assert.match(done.joined, /Recorded \d+ bytes/, 'recording must report a nonzero byte count');
     recorded = true;
@@ -295,39 +327,44 @@ try {
     const downloadPromise = page.waitForEvent('download', { timeout: 60_000 });
     await button('Download Recording').click();
     const download = await downloadPromise;
-    const savedPath = path.join(root, '.agent', 'evidence', 'phase-3', 'f06-downloaded-recording.mkv');
-    await download.saveAs(savedPath);
-    const bytes = await readFile(savedPath);
-    assert.ok(bytes.length > 0, 'downloaded recording must be nonempty');
-    assert.deepEqual([...bytes.subarray(0, 4)], [0x1a, 0x45, 0xdf, 0xa3], 'downloaded file must start with an EBML header');
-    // Flutter rebuilds its semantics tree after the browser save; let it settle before the next press.
-    await page.waitForTimeout(2_000);
-    const done = await run('Probe Recording', ['completed', 'failed'], 60_000);
-    assert.equal(done.state, 'State: completed', `reprobe failed: ${done.joined.slice(0, 300)}`);
-    assert.match(done.joined, /matroska/, 'reprobe must report a Matroska container');
-    await selectTab('FFprobe');
-    await button('Clear Logs').click();
-    const choose = page.waitForEvent('filechooser');
-    await button('Pick File').click();
-    await (await choose).setFiles(savedPath);
-    await page.waitForTimeout(500);
-    await button('Clear Logs').click();
-    await button('Get Media Info').click();
-    // Flutter populates the editable DOM mirror when the log field gains focus.
-    await page.locator('textarea').last().focus();
+    const savedPath = path.join(root, '.agent', 'evidence', 'phase-3', `CODEX_f06-${process.pid}-${Date.now()}.mkv`);
     try {
-      await page.waitForFunction(() => Array.from(document.querySelectorAll('input, textarea, flt-semantics'))
-        .some(node => /Format: matroska/.test([
-          node.value, node.getAttribute('aria-label'), node.getAttribute('aria-valuetext'), node.textContent,
-        ].filter(Boolean).join('\n'))), null, { timeout: 60_000 });
-    } catch (error) {
-      record.downloadReprobeDom = await page.content();
-      record.downloadReprobeFields = await page.locator('input, textarea').evaluateAll(nodes => nodes.map(node => ({
-        tag: node.tagName, value: node.value, label: node.getAttribute('aria-label'),
-      })));
-      throw error;
+      await download.saveAs(savedPath);
+      const bytes = await readFile(savedPath);
+      assert.ok(bytes.length > 0, 'downloaded recording must be nonempty');
+      assert.deepEqual([...bytes.subarray(0, 4)], [0x1a, 0x45, 0xdf, 0xa3], 'downloaded file must start with an EBML header');
+      downloadedRecordingBytes = bytes.length;
+      // Flutter rebuilds its semantics tree after the browser save; let it settle before the next press.
+      await page.waitForTimeout(2_000);
+      const done = await run('Probe Recording', ['completed', 'failed'], 60_000);
+      assert.equal(done.state, 'State: completed', `reprobe failed: ${done.joined.slice(0, 300)}`);
+      assert.match(done.joined, /matroska/, 'reprobe must report a Matroska container');
+      await selectTab('FFprobe');
+      await button('Clear Logs').click();
+      const choose = page.waitForEvent('filechooser');
+      await button('Pick File').click();
+      await (await choose).setFiles(savedPath);
+      await page.waitForTimeout(500);
+      await button('Clear Logs').click();
+      await button('Get Media Info').click();
+      // Flutter populates the editable DOM mirror when the log field gains focus.
+      await page.locator('textarea').last().focus();
+      try {
+        await page.waitForFunction(() => Array.from(document.querySelectorAll('input, textarea, flt-semantics'))
+          .some(node => /Format: matroska/.test([
+            node.value, node.getAttribute('aria-label'), node.getAttribute('aria-valuetext'), node.textContent,
+          ].filter(Boolean).join('\n'))), null, { timeout: 60_000 });
+      } catch (error) {
+        record.downloadReprobeDom = await page.content();
+        record.downloadReprobeFields = await page.locator('input, textarea').evaluateAll(nodes => nodes.map(node => ({
+          tag: node.tagName, value: node.value, label: node.getAttribute('aria-label'),
+        })));
+        throw error;
+      }
+      return `downloaded ${bytes.length} bytes, reimported the saved file and probed Matroska metadata`;
+    } finally {
+      await unlink(savedPath).catch(() => {});
     }
-    return `downloaded ${bytes.length} bytes, reimported the saved file and probed Matroska metadata`;
   });
 
   // F07: Stop during a delayed response cancels once and re-enables the controls.
@@ -446,6 +483,23 @@ try {
       await playToClose(() => button('Play Imported File').click());
     }
     return 'generated AV MP4 + WAV; imported AV MP4 + AV TS + audio-only TS reached audio close and playback close';
+  });
+  await step('F12 Flutter Web assets, heap, callbacks and download', async () => {
+    for (const name of Object.keys(record.staged)) {
+      assert.ok(record.runtimeAssetResponses.some(asset => asset.name === name && asset.status === 200),
+        `${name} must load successfully in the browser`);
+    }
+    assert.ok(recordingProgressReported, 'recording statistics callback must report progress');
+    const playbackCloses = record.consoleErrors.filter(text => text.includes('event=playback_close ')).length;
+    assert.ok(playbackCloses > 0, 'FFplay completion callbacks must run');
+    assert.ok(record.consoleErrors.some(text => text.includes('event=audio_close ')), 'audio close callback must run');
+    const heap = await page.evaluate(() => performance.memory
+      ? { used: performance.memory.usedJSHeapSize, total: performance.memory.totalJSHeapSize, limit: performance.memory.jsHeapSizeLimit }
+      : null);
+    assert.ok(heap && heap.used > 0 && heap.used <= heap.limit, 'Chrome must report a valid JavaScript heap sample');
+    record.jsHeapAtEnd = heap;
+    assert.ok(downloadedRecordingBytes > 0, 'the downloaded recording must be nonempty');
+    return `pinned assets loaded; heap ${heap.used}/${heap.limit}; ${playbackCloses} playback closes; ${downloadedRecordingBytes} downloaded bytes`;
   });
   await step('no uncaught page or SDL callback exception', () => {
     assert.deepEqual(record.pageErrors, []);

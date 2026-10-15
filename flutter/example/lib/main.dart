@@ -12,6 +12,9 @@ import 'package:android_media_store/android_media_store.dart';
 import 'package:path_provider/path_provider.dart'; // Import for getTemporaryDirectory
 import 'package:window_manager/window_manager.dart';
 import 'package:marionette_flutter/marionette_flutter.dart';
+import 'web_download_stub.dart'
+    if (dart.library.js_interop) 'web_download.dart'
+    as web_download;
 import 'platform_flags.dart' as platform;
 
 const _ffplayFrameSource =
@@ -560,12 +563,11 @@ class _HomePageState extends State<HomePage>
         '.avi' => 'video/x-msvideo',
         _ => 'application/octet-stream',
       };
-      await FilePicker.saveFile(
-        fileName: fileName,
-        bytes: FFmpegKitWebFiles.readFile(filePath),
-        mimeType: mimeType,
+      web_download.downloadBytes(
+        fileName,
+        FFmpegKitWebFiles.readFile(filePath),
+        mimeType,
       );
-      // Web saveFile returns null after dispatching the browser download.
       _addLog('Browser download requested for $fileName.');
     } catch (error) {
       _addLog('Web file download failed for $filePath: $error');
@@ -1234,6 +1236,18 @@ class _HomePageState extends State<HomePage>
       );
       _trackWebRemoteAction(session.cancel);
       await session.executeAsync(
+        statisticsCallback: (statistics) {
+          if (_webRemoteCancelRequested) return;
+          final elapsed = (statistics.time / 1000).clamp(0, 15).toDouble();
+          final percent =
+              statistics.transcodingProgressPercent ??
+              (elapsed / 15 * 100).round().clamp(0, 100);
+          _setWebRemote(
+            "recording",
+            "Recording: $percent% · ${statistics.size} bytes · "
+                "${elapsed.toStringAsFixed(1)} / 15 s",
+          );
+        },
         completeCallback: (completed) {
           _webRemoteCancelAction = null;
           final output = completed.getOutput() ?? "";

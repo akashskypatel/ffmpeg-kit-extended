@@ -1087,7 +1087,17 @@ export default function App(): React.JSX.Element {
     appendLog(`$ ffmpeg ${command}`);
     webRemoteCancelRef.current = () => void session.cancel();
     void trackSession(session, 'Web remote recording', 'stream', () =>
-      session.executeAsync({logCallback: (log) => appendLog(log.message)}),
+      session.executeAsync({
+        logCallback: (log) => appendLog(log.message),
+        statisticsCallback: (statistics) => {
+          if (webRemoteCancelRequestedRef.current) return;
+          const elapsed = Math.max(0, Math.min(15, statistics.time / 1000));
+          const percent = Math.floor(elapsed / 15 * 100);
+          setWebRemoteDetail(
+            `Recording: ${percent}% · ${formatBytes(statistics.size)} · ${elapsed.toFixed(1)} / 15 s media`,
+          );
+        },
+      }),
     )
       .then((completed) => {
         webRemoteCancelRef.current = undefined;

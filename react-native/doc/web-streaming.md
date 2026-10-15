@@ -40,7 +40,12 @@ const recording = FFmpegKit.createSession(
   '-hide_banner -nostdin -y -t 15 -i "https://example.com/live/playlist.m3u8" ' +
   `-map 0:v:0 -map 0:a:0? -c copy -f matroska "${output}"`,
 );
-await recording.executeAsync();
+await recording.executeAsync({
+  statisticsCallback: (statistics) => console.log(
+    `Recorded ${Math.floor(statistics.time / 150)}% ` +
+    `(${statistics.size} bytes, ${statistics.time / 1000}s media)`,
+  ),
+});
 if (recording.getReturnCode() !== 0) throw new Error(recording.getOutput());
 const bytes = FFmpegKitWebFiles.readFile(output);
 // Download the bytes using a Blob URL and an <a download> link, as in the example.
@@ -55,6 +60,8 @@ Cancellation is a request. Keep controls busy until the execution settles, and
 track whether the user requested cancellation separately from the native return
 code: cancellation can return zero. Completion runs once. Read and delete output
 only after the writer finishes; partial cancelled recordings need not be valid.
+The example displays FFmpeg media time, percentage and bytes written from live
+statistics callbacks. A percentage may be indeterminate for unbounded media.
 
 Serve the application with `Cross-Origin-Opener-Policy: same-origin` and
 `Cross-Origin-Embedder-Policy: require-corp`; SharedArrayBuffer, workers and the

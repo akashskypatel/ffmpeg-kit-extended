@@ -111,6 +111,10 @@ FFplayKit.executeAsync(
 FFmpegKit.executeAsync(
   '-hide_banner -nostdin -y -t 15 -i "https://example.com/live/playlist.m3u8" '
   '-map 0:v:0 -map 0:a:0? -c copy -f matroska /tmp/hls-recording.mkv',
+  statisticsCallback: (statistics) => print(
+    'Recorded ${statistics.transcodingProgressPercent ?? 0}% '
+    '(${statistics.size} bytes, ${statistics.time / 1000}s media)',
+  ),
   onComplete: (session) {
     if (session.getReturnCode() == 0) {
       final bytes = FFmpegKitWebFiles.readFile('/tmp/hls-recording.mkv');
@@ -124,6 +128,8 @@ Recording rules on Web:
 
 - The output lives in the Wasm filesystem (`/tmp/...`) and occupies browser
   memory until it is read or deleted. Keep `-t` bounded.
+- FFmpeg statistics update the example's media-time, percentage and bytes-written
+  display while recording. The percentage is indeterminate if duration is unknown.
 - Read the file with `FFmpegKitWebFiles.readFile` only after the session
   completes, and delete it when it is no longer needed.
 - `session.cancel()` requests cancellation of a pending network request. Keep
