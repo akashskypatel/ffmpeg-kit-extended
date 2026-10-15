@@ -18,7 +18,13 @@ void main() {
         ),
       ),
     );
-    expect(source, isNot(contains('executeSynchronously')));
+    // The protected hook keeps its signature but only throws.
+    expect(
+      source,
+      matches(
+        RegExp(r'void executeSynchronously\(\) \{\s*throw UnsupportedError'),
+      ),
+    );
     expect(source, isNot(contains('executeFFplaySession(')));
   });
 }

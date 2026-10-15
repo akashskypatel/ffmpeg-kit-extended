@@ -26,6 +26,12 @@ import 'callback_manager.dart';
 import 'platform/backend.dart';
 import 'platform/backend_selector.dart';
 
+/// Message for the rejected synchronous FFplay path (AUTH-FFPLAY-SYNC).
+const _synchronousFFplayRejectedMessage =
+    'FFplaySession.execute() is not supported on any platform because it '
+    'blocks the calling thread for the whole playback. Use '
+    'FFplayKit.executeAsync() or FFplaySession.executeAsync() instead.';
+
 /// Session for playing media using FFplay.
 ///
 /// Provides methods to control playback (start, pause, resume, stop, seek)
@@ -560,11 +566,7 @@ class FFplaySession extends Session {
     'Use FFplayKit.executeAsync or FFplaySession.executeAsync instead.',
   )
   FFplaySession execute() {
-    throw UnsupportedError(
-      'FFplaySession.execute() is not supported on any platform because it '
-      'blocks the calling thread for the whole playback. Use '
-      'FFplayKit.executeAsync() or FFplaySession.executeAsync() instead.',
-    );
+    throw UnsupportedError(_synchronousFFplayRejectedMessage);
   }
 
   /// @deprecated Use [FFplayKit.execute] for proper global session management.
@@ -1039,6 +1041,15 @@ class FFplaySession extends Session {
   void configureSynchronousNativeCallbacks() {
     // Synchronous completion is dispatched by the blocking return path and
     // does not need a process-global native completion callback.
+  }
+
+  /// Rejected synchronous playback hook, kept with its protected signature.
+  ///
+  /// [execute] does not call this method; it throws [UnsupportedError] itself.
+  /// This override point therefore cannot re-enable blocking playback.
+  @protected
+  void executeSynchronously() {
+    throw UnsupportedError(_synchronousFFplayRejectedMessage);
   }
 
   /// Submits the non-blocking native playback handoff.
