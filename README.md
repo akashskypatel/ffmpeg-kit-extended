@@ -54,7 +54,7 @@ If you like the project and are using it in your app give it a ⭐ on [ffmpeg-ki
 | macOS                    | ✅ Supported | ✅ Supported          | ✅ Supported         | arm64, x86_64        | macOS 13+            |
 | Linux                    | ✅ Supported | ✅ Supported          | ❌ Not Supported     | x86_64               | glibc 2.28+          |
 | Windows                  | ✅ Supported | ✅ Supported          | ✅ Supported         | x86_64               | Windows 8+           |
-| Web (Flutter Wasm)       | ✅ Supported | ✅ Supported          | ❌ Not Supported      | wasm32               | Flutter Wasm build   |
+| Web (Flutter Wasm)       | ✅ Supported | ✅ Supported          | ✅ Supported         | wasm32               | Cross-origin isolation required |
 
 Flutter currently does not natively support tvOS, so tvOS support is not available for Flutter.
 

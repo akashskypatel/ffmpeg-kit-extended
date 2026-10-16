@@ -7,7 +7,7 @@ flowchart LR
   App[Flutter Web API] --> Dart[Web loader and Dart adapter]
   Dart --> Bridge[Private JS bridge and shims]
   Bridge --> Runtime[ffmpegkit.mjs and ffmpegkit.wasm]
-  Runtime --> C[Frozen FFmpegKit C ABI]
+  Runtime --> C[FFmpegKit C ABI]
 ```
 
 ## Runtime boundary
@@ -29,13 +29,13 @@ Both bridge modules export private protocol version `1`. Their heap, callback an
 
 `WasmLoader` owns retryable module initialization. It loads `ffmpegkit_bridge.mjs`, commits the returned module to the generated Dart bindings, then initializes FFmpegKit. `WasmMemory` owns temporary UTF-8 strings, argument vectors, and scratch allocations, freeing them in `finally` paths. C strings returned to Dart are released with `ffmpeg_kit_free` after reading.
 
-`WebCallbackBridge` registers the frozen C callback signatures through the module-local callback registry. It disables C callback registrations when disposed; callback table entries stay owned for the loaded module's lifetime because native work may already have queued a callback. Session and temporary native handles are released after their reads or terminal completion. The heap helper recreates `HEAPU8`, `HEAPU32`, and `HEAPF32` views after Wasm memory growth.
+`WebCallbackBridge` registers the C callback signatures through the module-local callback registry. It disables C callback registrations when disposed; callback table entries stay owned for the loaded module's lifetime because native work may already have queued a callback. Session and temporary native handles are released after their reads or terminal completion. The heap helper recreates `HEAPU8`, `HEAPU32`, and `HEAPF32` views after Wasm memory growth.
 
 The FFplay frame reader reads metadata first, skips unchanged generations, copies RGBA into an owned Wasm scratch buffer, and releases that buffer and its metadata allocation on dispose. Flutter paints through its own surface. This module canvas and the displayed frame surface have separate lifetimes.
 
-HTTP media input must use asynchronous FFmpeg/FFprobe execution. The native pthread queues Emscripten Fetch work onto the browser's main runtime thread; a synchronous main-thread network open fails with `EPERM`. Phase 2 preserves the frozen C entry points and does not change package-level synchronous-call policy. Phase 3 applies that policy in the Flutter Web backend: synchronous FFmpeg, FFprobe and media-information calls reject direct HTTP(S) input with `UnsupportedError` before any native call, and `FFplaySession.execute()` is deprecated and always throws on every platform. The C entry points are unchanged.
+HTTP media input must use asynchronous FFmpeg/FFprobe execution. The native pthread queues Emscripten Fetch work onto the browser's main runtime thread; a synchronous main-thread network open fails with `EPERM`. Phase 2 preserves the C entry points and does not change package-level synchronous-call policy. Phase 3 applies that policy in the Flutter Web backend: synchronous FFmpeg, FFprobe and media-information calls reject direct HTTP(S) input with `UnsupportedError` before any native call, and `FFplaySession.execute()` is deprecated and always throws on every platform. The C entry points are unchanged.
 
-Surface transport failures through native logs and the session result/state. Do not use a return code alone as proof of success: FFmpeg can stop an input after a read error without `-xerror`, and the frozen FFmpeg cancellation path can return zero. Cancellation should target the intended session, await its terminal callback/state, and allow the transport to drain its requests. The 1 MiB limit accounts only for accepted HTTP responses and their C copies, not total Wasm memory. Redirected URL-userinfo forwarding is unproven; the runtime also retains its SDL 2.32.8 private-state dependency.
+Surface transport failures through native logs and the session result/state. Do not use a return code alone as proof of success: FFmpeg can stop an input after a read error without `-xerror`, and the FFmpeg cancellation path can return zero. Cancellation should target the intended session, await its terminal callback/state, and allow the transport to drain its requests. The 1 MiB limit accounts only for accepted HTTP responses and their C copies, not total Wasm memory. Redirected URL-userinfo forwarding is unproven; the runtime also retains its SDL 2.32.8 private-state dependency.
 
 ## Headless contracts
 

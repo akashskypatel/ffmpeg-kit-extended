@@ -10,7 +10,7 @@ flowchart LR
   App[React Native Web API] --> TS[TypeScript Web backend]
   TS --> Bridge[Private JS bridge and shims]
   Bridge --> Runtime[ffmpegkit.mjs and ffmpegkit.wasm]
-  Runtime --> C[Frozen FFmpegKit C ABI]
+  Runtime --> C[FFmpegKit C ABI]
 ```
 
 ## Runtime boundary
@@ -32,7 +32,7 @@ Both private bridge modules export protocol version `1`; the heap, callback and 
 
 `initializeWasm` owns the shared initialization promise and resets it after load failure so callers can retry. `WebFFmpegKitBackend` converts strings and argument vectors with temporary Wasm allocations and releases them in `finally` paths. Created session handles are reconciled against the returned native session ID. The session registry retains a handle during asynchronous execution and releases it after terminal monitoring; temporary lookup handles and returned native strings are also released by their owner.
 
-The structured log callback uses the frozen `vjjipp` signature. Its callback slot remains owned for the module lifetime: disabling the C registration prevents new snapshots but does not drain a message already queued by native code. The callback frees each owned native message after copying it to JavaScript. Heap views are refreshed after shared-memory growth. The FFplay reader copies a changed RGBA frame into a JS-owned byte array, frees its temporary C buffer, and uses frame generation and playback epoch to reject stale frames.
+The structured log callback uses the `vjjipp` signature. Its callback slot remains owned for the module lifetime: disabling the C registration prevents new snapshots but does not drain a message already queued by native code. The callback frees each owned native message after copying it to JavaScript. Heap views are refreshed after shared-memory growth. The FFplay reader copies a changed RGBA frame into a JS-owned byte array, frees its temporary C buffer, and uses frame generation and playback epoch to reject stale frames.
 
 HTTP media input must use asynchronous FFmpeg/FFprobe C exports. The native pthread queues Emscripten Fetch work onto the browser's main runtime thread; synchronous main-thread network AVIO fails with `EPERM`. This phase preserves the public APIs and the native ABI. The package-level policy for synchronous Web operations, including removing synchronous FFplay and correcting the `ffplayHasVideoStream` error mapping, belongs to Phase 3.
 
