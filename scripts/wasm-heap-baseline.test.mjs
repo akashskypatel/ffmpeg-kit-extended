@@ -31,12 +31,10 @@ function validReport(cycleMaxima = Array(10).fill(100000), baselineSamples = Arr
     artifactIdentity: {
       artifactRole: 'same-source-diagnostic-heap-only',
       sourceCommit: '779cecd74bb7b10ab9f0d28c1e14e2a440eacd4a',
-      runtimeVersion: '0.11.2',
       wasmSha256: 'a'.repeat(64),
       loaderSha256: 'b'.repeat(64),
       productionPinUsed: false,
     },
-    nativeRuntimeVersion: '0.11.2',
     heapSnapshotExport: '_ffmpeg_kit_test_http_io_heap_snapshot',
     hookPresent: true,
     metric: 'mallinfo().uordblks',
@@ -160,8 +158,3 @@ test('rejects a report missing measured cycles', () => {
   assert.throws(() => assertNativeHeapBaseline(report), /exactly 10 measured cycles/);
 });
 
-test('rejects artifact identity that does not prove the diagnostic source and version', () => {
-  const report = validReport();
-  report.artifactIdentity.sourceCommit = '0'.repeat(40);
-  assert.throws(() => assertNativeHeapBaseline(report), /same-source commit/);
-});

@@ -60,9 +60,6 @@ function validateFFmpegKitModule(module) {
   } finally {
     if (versionPointer) module._ffmpeg_kit_free(versionPointer);
   }
-  if (version !== "0.11.2") {
-    throw new Error(`Unsupported FFmpegKit Web runtime version "${version}"; expected "0.11.2".`);
-  }
 }
 
 function installFfigenRuntime(module, wasmMemory, wasmTable) {

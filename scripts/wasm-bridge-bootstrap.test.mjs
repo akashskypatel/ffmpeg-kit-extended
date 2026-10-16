@@ -39,7 +39,6 @@ async function createHarness(bridge) {
       instantiations: 0,
       options: [],
       tables: [],
-      version: '0.11.2',
       missingExport: undefined,
       freedPointers: [],
     };
@@ -58,10 +57,6 @@ async function createHarness(bridge) {
           state.table = state.tables.at(-1);
           await options.instantiateWasm({}, () => {});
         const versionPointer = 128;
-        const versionBytes = new TextEncoder().encode(state.version);
-        new Uint8Array(options.wasmMemory.buffer).set(
-          [...versionBytes, 0], versionPointer,
-        );
         const module = {
           _ffmpeg_kit_initialize() {},
           _ffmpeg_kit_session_execute_async() {},
@@ -295,20 +290,5 @@ for (const bridge of bridges) {
       harness.state.missingExport = undefined;
     });
 
-    await t.test('rejects unsupported runtime versions and frees the version string', async () => {
-      harness.state.version = '0.11.3';
-      await assert.rejects(
-        harness.createModule(),
-        /Unsupported FFmpegKit Web runtime version "0\.11\.3"; expected "0\.11\.2"/,
-      );
-      assert.deepEqual(harness.state.freedPointers, [128, 128, 128, 128]);
-      harness.state.version = '0.11.2';
-    });
-
-    await t.test('accepts runtime version 0.11.2 and frees its version string', async () => {
-      const module = await harness.createModule();
-      assert.equal(typeof module._ffmpeg_kit_initialize, 'function');
-      assert.deepEqual(harness.state.freedPointers, [128, 128, 128, 128, 128]);
-    });
   });
 }

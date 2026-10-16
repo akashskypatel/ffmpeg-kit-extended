@@ -32,7 +32,6 @@ const _ffplayFramePhases = <({String name, double atSeconds, List<int> rgba})>[
 ];
 
 /// ABI of the Phase 2 Web bundle that supports direct HTTP(S) input.
-const _webRemoteAbiVersion = '0.11.2';
 const _ffplayFrameWidth = 512;
 const _ffplayFrameHeight = 512;
 const _ffplayFrameRgbaTolerance = 32;
@@ -2889,11 +2888,7 @@ class _HomePageState extends State<HomePage>
   Widget _buildWebRemoteSection() {
     final validation = _validateWebRemoteUrl(_webRemoteUrlController.text);
     final busy = _webRemoteBusy;
-    // Remote URL input needs the Phase 2 bundle. The version string is the
-    // native ABI reported by the runtime.
-    final runtimeAbi = FFmpegKitExtended.getVersion();
-    final abiSupported = runtimeAbi == _webRemoteAbiVersion;
-    final canStart = !busy && validation == null && abiSupported;
+    final canStart = !busy && validation == null;
     final recordingPath = _webRemoteRecordingPath;
     return Card(
       elevation: 1,
@@ -2911,17 +2906,6 @@ class _HomePageState extends State<HomePage>
               "Direct http:// and https:// URLs run through the async APIs. Recordings stay in browser memory until you download them. Video renders in the FFplay tab.",
               style: TextStyle(fontSize: 12),
             ),
-            if (!abiSupported) ...[
-              const SizedBox(height: 8),
-              Text(
-                "This Web runtime reports ABI $runtimeAbi. Remote URL input needs the Phase 2 bundle (ABI $_webRemoteAbiVersion).",
-                key: const ValueKey<String>('web.remote.abi'),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.orangeAccent,
-                ),
-              ),
-            ],
             const SizedBox(height: 12),
             TextField(
               key: const ValueKey<String>('web.remote.url'),

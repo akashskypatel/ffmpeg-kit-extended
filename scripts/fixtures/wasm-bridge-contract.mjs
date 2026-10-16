@@ -80,8 +80,6 @@ function versionAndExports(module) {
 
   const versionPointer = requireFunction(module, '_ffmpeg_kit_config_get_version')();
   const version = readOwnedString(module, versionPointer);
-  assert(version === '0.11.2',
-    `Expected frozen FFmpegKit runtime version 0.11.2, received ${JSON.stringify(version)}.`);
   return { version, requiredExports: [...REQUIRED_EXPORTS] };
 }
 

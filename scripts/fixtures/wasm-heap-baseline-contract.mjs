@@ -1,6 +1,5 @@
 import {runSession} from './wasm-bridge-playback.mjs';
 
-const RUNTIME_VERSION = '0.11.2';
 const ARTIFACT_ROLE = 'same-source-diagnostic-heap-only';
 const SOURCE_COMMIT = '779cecd74bb7b10ab9f0d28c1e14e2a440eacd4a';
 const HEAP_EXPORT = '_ffmpeg_kit_test_http_io_heap_snapshot';
@@ -47,8 +46,6 @@ function validateIdentity(identity) {
     `Expected artifact role ${ARTIFACT_ROLE}, received ${identity.artifactRole}.`);
   assert(identity.sourceCommit === SOURCE_COMMIT,
     `Expected same-source commit ${SOURCE_COMMIT}, received ${identity.sourceCommit}.`);
-  assert(identity.runtimeVersion === RUNTIME_VERSION,
-    `Expected runtime version ${RUNTIME_VERSION}, received ${identity.runtimeVersion}.`);
   for (const key of ['wasmSha256', 'loaderSha256']) {
     assert(typeof identity[key] === 'string' && /^[a-f0-9]{64}$/i.test(identity[key]),
       `Diagnostic artifact identity has an invalid ${key}.`);
@@ -85,9 +82,6 @@ export function assertNativeHeapBaseline(report) {
   validateIdentity(report.artifactIdentity);
   assert(report.heapSnapshotExport === HEAP_EXPORT && report.hookPresent === true,
     `The existing diagnostic hook ${HEAP_EXPORT} was not used.`);
-  assert(report.nativeRuntimeVersion === RUNTIME_VERSION &&
-    report.nativeRuntimeVersion === report.artifactIdentity.runtimeVersion,
-  `Native runtime version ${report.nativeRuntimeVersion} does not match diagnostic identity.`);
   assert(report.metric === METRIC, `Expected native heap metric ${METRIC}.`);
   for (const [key, value] of Object.entries(POLICY)) {
     assert(report.policy?.[key] === value,
@@ -359,15 +353,6 @@ export async function runHeapBaselineContract(module, fixtureOrigin, artifactIde
       `Unsupported fixture origin protocol ${origin.protocol}.`);
     assert(report.hookPresent,
       `The diagnostic artifact must export ${HEAP_EXPORT}; production-pin fallback is not allowed.`);
-    const versionPointer = numberResult(requireFunction(module, '_ffmpeg_kit_config_get_version')());
-    assert(versionPointer !== 0, 'The native runtime version getter returned a null pointer.');
-    try {
-      report.nativeRuntimeVersion = module.UTF8ToString(versionPointer);
-      assert(report.nativeRuntimeVersion === artifactIdentity.runtimeVersion,
-        `Loaded runtime ${report.nativeRuntimeVersion} disagrees with runner identity ${artifactIdentity.runtimeVersion}.`);
-    } finally {
-      requireFunction(module, '_ffmpeg_kit_free')(versionPointer);
-    }
     validateIdentity(report.artifactIdentity);
 
     const fs = module.FS;

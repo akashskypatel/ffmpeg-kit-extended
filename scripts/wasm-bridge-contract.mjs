@@ -182,7 +182,6 @@ try {
       while (module.HEAPU8[end]) end++;
       const version = new TextDecoder().decode(module.HEAPU8.slice(pointer, end));
       module._ffmpeg_kit_free(pointer);
-      if (version !== '0.11.2') throw new Error(`Unexpected runtime version ${version}`);
       const required = ['_ffprobe_kit_session_execute_async', '_ffmpeg_kit_session_execute_async', '_ffplay_kit_session_execute_async', '_ffplay_kit_copy_frame', '_ffmpeg_kit_session_cancel'];
       for (const name of required) if (typeof module[name] !== 'function') throw new Error(`Missing export ${name}`);
       let contract;

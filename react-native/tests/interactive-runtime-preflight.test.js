@@ -46,7 +46,6 @@ test("accepts an existing local file without copying or mutating it", () => {
 
   assert.equal(result.kind, "file");
   assert.equal(result.path, runtime);
-  assert.equal(result.version, "0.11.2");
   assert.equal(fs.statSync(runtime).size, before);
 });
 

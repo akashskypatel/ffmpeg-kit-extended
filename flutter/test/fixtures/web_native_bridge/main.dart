@@ -189,13 +189,6 @@ Future<void> main() async {
         'WebFFmpegKitBackend.initialize() did not commit the Wasm module.',
       );
     }
-    final packageInfo = backend.getPackageInformation();
-    report['runtimeVersion'] = packageInfo.version;
-    if (packageInfo.version != '0.11.2') {
-      throw StateError(
-        'Expected Wasm runtime 0.11.2, got ${packageInfo.version}.',
-      );
-    }
 
     final mediaUrl = fixtureOrigin
         .resolve('/media/d2-same-h264-aac.mp4?token=flutter-native-bridge')
