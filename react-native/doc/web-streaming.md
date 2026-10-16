@@ -71,17 +71,7 @@ need HTTPS media with a browser-trusted certificate. CORS denial, offline hosts,
 403/404 and malformed media must produce finite errors; inspect session output.
 TLS and Range behavior follows browser networking and the verified runtime.
 
-The ABI string `0.11.2` alone does not distinguish older builds with the same ABI.
-Use the exact Wasm and loader hashes in the bridge guide; the acceptance runners
-check both before launching a browser. A different ABI is rejected by the UI.
-
 The proven local fixture uses H.264/AAC MP4 and MPEG-TS HLS. Do not infer support
 for every codec, HLS encryption mode or authenticated redirect. Direct RTSP,
 RTMP, raw sockets and DRM are unsupported. The 1 MiB transport budget excludes
 decoder, XHR, log and recording memory. Bound recordings and delete old output.
-
-The earlier `Socket not connected` failure came from FFmpeg's POSIX socket path;
-the pinned runtime routes input through FFmpeg's public AVIO hooks and browser
-networking. The SDL `currentOutputBuffer` teardown correction and the separate
-FFplay imported-media audio-queue correction are both in the pinned runtime.
-Build success alone does not verify audible audio or subjective A/V sync.

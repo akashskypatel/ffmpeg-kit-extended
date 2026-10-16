@@ -1,26 +1,16 @@
 # Flutter Web/Wasm native bridge
 
-This page describes the private browser-to-C bridge used by the Flutter Web package. It covers module loading, C callback and memory ownership, and the pinned runtime boundary. The Phase 2 status and test results live in [the authoritative tracker](../../.agent/PHASE-2-STATUS.md).
+This page describes the private browser-to-C bridge used by the Flutter Web package. It covers module loading, C callback and memory ownership, and the runtime boundary.
 
 ```mermaid
 flowchart LR
   App[Flutter Web API] --> Dart[Web loader and Dart adapter]
   Dart --> Bridge[Private JS bridge and shims]
   Bridge --> Runtime[ffmpegkit.mjs and ffmpegkit.wasm]
-  Runtime --> C[Frozen FFmpegKit C ABI 0.11.2]
+  Runtime --> C[Frozen FFmpegKit C ABI]
 ```
 
 ## Runtime boundary
-
-Phase 2 pins the local small video/GPL Wasm bundle:
-
-| Artifact | SHA-256 |
-| --- | --- |
-| `bundle-video-wasm-wasm32-static-small-gpl.zip` | `fd51b8d749040529239fcf992c0f9f348ac07f3c102b4952e0133a42ab5d89fd` |
-| `ffmpegkit.wasm` | `7544659af661f4e716c98e28bb5545c9a8da28aba88012f7fd4ed9969ec99e7e` |
-| `ffmpegkit.mjs` | `fd21f1a1296790b18f284afa49d878ab730ad3bdd7f7e62dfeef6260ef0ec83b` |
-
-The expected runtime is FFmpegKit `0.11.2`: 527 Wasm exports and 22 verified public mappings. The C ABI, calling conventions, callbacks, session semantics, and public Dart/TypeScript APIs are frozen. The JS bridge checks the runtime version and required exports before handing the module to Dart. Other versions, missing exports, incompatible memory imports, and mismatched Wasm/loader pairs fail initialization.
 
 The bridge and its three private helper modules are maintained in `flutter/web/`, mirrored byte-for-byte in `flutter/assets/wasm/`, and staged by the build hook:
 
@@ -47,25 +37,6 @@ HTTP media input must use asynchronous FFmpeg/FFprobe execution. The native pthr
 
 Surface transport failures through native logs and the session result/state. Do not use a return code alone as proof of success: FFmpeg can stop an input after a read error without `-xerror`, and the frozen FFmpeg cancellation path can return zero. Cancellation should target the intended session, await its terminal callback/state, and allow the transport to drain its requests. The 1 MiB limit accounts only for accepted HTTP responses and their C copies, not total Wasm memory. Redirected URL-userinfo forwarding is unproven; the runtime also retains its SDL 2.32.8 private-state dependency.
 
-## Local staging
-
-Use the explicit local archive at `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\callback-accounting\bundle-video-wasm-wasm32-static-small-gpl.zip`. Set `wasm` (or `web`) under `hooks.user_defines.ffmpeg_kit_extended_flutter` to this path. The override alone selects the artifact and supersedes `type`, `gpl`, and `small`; no separate local-only flag is required. Missing or invalid overrides fail without falling back to a published bundle. A direct HTTP(S) download URL can be used in the same key for a hosted custom artifact.
-
-From the repository root, clean both package trees before staging or runtime verification:
-
-```bash
-bash flutter/build.sh web --clean
-bash react-native/clean.sh
-```
-
-Then build Flutter Web from `flutter/example` with the override configured:
-
-```bash
-flutter build web --wasm --release
-```
-
-Compare the staged `ffmpegkit.wasm` and `ffmpegkit.mjs` hashes with the table above before running browser cases. Record both clean exit statuses and any `pubspec.lock` diff; `flutter/build.sh --clean` runs `pub upgrade` and can change lockfiles. See [the Phase 2 tracker](../../.agent/PHASE-2-STATUS.md) for current verification status and evidence paths.
-
 ## Headless contracts
 
 After cleaning, staging and checking hashes, run `node scripts/wasm-bridge-contract.mjs --full --playback --record bridge-contract.json` from the repository root for direct JS/C contracts. `--rn-adapter` also exercises the TypeScript backend using the example's installed esbuild dependency.
@@ -79,13 +50,3 @@ MSYS2_ARG_CONV_EXCL='--base-href=' \
 ```
 
 Then run `node scripts/wasm-bridge-contract.mjs --rn-adapter --dart-adapter --record adapter-contract.json` from the repository root. Set `FFMPEG_KIT_BUILDERS_ROOT` to override the default local WSL builders path. The Dart fixture output is test build output; rebuild the normal example before using that output as an application. These fixtures do not measure live native allocator usage or verify public wrapper orchestration.
-
-## Scope
-
-The local `releases/callback-accounting/` pin fixes native Debug callback accounting by preserving balanced enqueue/drain counts throughout execution. `--debug-message-counter` checks FFmpeg, FFprobe and FFplay with live callbacks, nonnegative samples, successful completion, zero drain and handle release. The previous pin returned `-1`; its artifact and failure evidence are preserved. `--callback-order` checks applicable log/statistics/frame-readback/completion ordering. The `--callback-lifetime` contract swaps registrations inside a real running callback, verifies a distinct queued old callback enters after unregistration, then checks replacement delivery, owned-payload lifetime, completion ordering and zero drain before handle release. Event-array order establishes causality even when timer readings are equal; the active callback itself is never counted as the queued old arrival. Callback slots remain retained until module teardown.
-
-The bridge is a private implementation detail. Do not add exports or alter the C ABI, public Dart API, or non-Web native integrations as part of this work. Phase 3 owns public wrapper behavior, example UI, and package-level sync policy. Interactive audible playback is deferred to Phase 3's final manual verification.
-
-Native heap allocation checks use a separately authorized same-source diagnostic build with the existing `ffmpeg_kit_test_http_io_heap_snapshot` hook. After the normal clean/stage sequence, run `node scripts/wasm-bridge-contract.mjs --heap-diagnostic diagnostic-manifest.json --record heap-result.json`. The manifest identifies `same-source-diagnostic-heap-only`, native source commit, local module directory and both SHA-256 values; the runner verifies those files while separately checking that staged production hashes still match the pin. Diagnostic mode cannot be combined with production functional-gate flags.
-
-The heap fixture measures `mallinfo().uordblks`, never linear-memory capacity. It runs three identical warm-ups and ten play/stop cycles, releasing handles/tokens and clearing deliberate native session-history retention before settled samples. Its fixed limits are 64 KiB above baseline and 16 KiB of late-cycle drift; all cleanup and samples are recorded. The production pin has no heap test hook and stays unchanged. This finite native-allocation check does not measure browser/JavaScript heap or prove absence of every possible long-running leak.
