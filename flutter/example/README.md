@@ -97,9 +97,10 @@ Verify `window.crossOriginIsolated === true` in the browser.
 
 The repository's executable local Wasm smoke target uses the current local
 builder archive when the ABI is unpublished. Run it from this directory after
-setting the Web override in `pubspec.yaml` or the migration config JSON. For
-offline verification, set `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true`; this makes the
-hook reject default release resolution and HTTP(S) overrides:
+setting the `web`/`wasm` override to the local artifact path in `pubspec.yaml`.
+That override takes precedence over `type`, `gpl`, and `small` and fails if the
+artifact cannot be resolved, without falling back to a published bundle. A
+direct HTTP(S) artifact URL is also supported when a hosted override is wanted:
 
 ```bash
 flutter build web --wasm --release --target lib/web_runtime_smoke.dart

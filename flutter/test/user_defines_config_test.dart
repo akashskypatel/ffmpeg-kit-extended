@@ -8,25 +8,45 @@ import 'package:test/test.dart';
 import '../hook/config.dart';
 
 void main() {
-  test('passes local-only policy through the hermetic hook input', () {
-    final result = resolveUserDefines(
-      read: (key) => key == 'local_only' ? true : null,
-      readPath: (_) => null,
-      readBase: (_) => null,
-      packageRoot: Directory.current.path,
-      addDependency: (_) {},
-      log: (_) {},
-    );
-    expect(result!.config['local_only'], isTrue);
+  test('target overrides supersede type/gpl/small without an opt-in flag', () {
+    for (final platform in [
+      'android',
+      'ios',
+      'macos',
+      'linux',
+      'windows',
+      'web',
+      'wasm',
+    ]) {
+      for (final override in [
+        '/local/runtime.zip',
+        'https://example.test/custom.zip?download=1',
+      ]) {
+        final target = platform == 'wasm' ? 'web' : platform;
+        final values = <String, Object?>{
+          platform: override,
+          'type': 123,
+          'gpl': 'ignored',
+          'small': 'ignored',
+        };
+        final result = resolveUserDefines(
+          read: (key) => values[key],
+          readPath: (_) => null,
+          readBase: (_) => null,
+          packageRoot: Directory.current.path,
+          addDependency: (_) {},
+          log: (_) {},
+          targetPlatform: target,
+        );
+        expect(artifactOverrideFor(result!.config, target), override);
+      }
+    }
+  });
+
+  test('Web alias selection rejects an empty explicit override', () {
+    expect(artifactOverrideFor({'wasm': 'runtime.zip'}, 'web'), 'runtime.zip');
     expect(
-      () => resolveUserDefines(
-        read: (key) => key == 'local_only' ? 'true' : null,
-        readPath: (_) => null,
-        readBase: (_) => null,
-        packageRoot: Directory.current.path,
-        addDependency: (_) {},
-        log: (_) {},
-      ),
+      () => artifactOverrideFor({'web': '', 'wasm': 'runtime.zip'}, 'web'),
       throwsA(isA<ConfigResolutionException>()),
     );
   });

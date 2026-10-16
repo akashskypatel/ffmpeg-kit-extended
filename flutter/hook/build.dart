@@ -21,23 +21,12 @@ const String version = "0.11.2";
 const String _extractMarkerFileName = '.extract_complete';
 const String _wasmPlatformName = 'wasm';
 const String _wasmArchitectureName = 'wasm32';
-const String localArtifactOnlyEnvironmentVariable =
-    'FFMPEG_KIT_EXTENDED_LOCAL_ONLY';
 const Duration _cacheLockPollInterval = Duration(milliseconds: 25);
 const Duration _cacheLockStaleAfter = Duration(minutes: 30);
 final Random _cacheTempRandom = Random();
 
 void _log(String message) => stderr.writeln('FFmpegKit [Build Hook]: $message');
 Exception _exception(Object e) => Exception('FFmpegKit [Build Hook]: $e');
-
-@visibleForTesting
-bool isLocalArtifactOnlyEnabled([Map<String, String>? environment]) =>
-    const {'true', '1'}.contains(
-      (environment ??
-              Platform.environment)[localArtifactOnlyEnvironmentVariable]
-          ?.trim()
-          .toLowerCase(),
-    );
 
 late final OS targetOS;
 late final Architecture targetArch;
@@ -217,8 +206,8 @@ Future<void> _buildWasmAssets(
   );
 
   _log(
-    'Staged selected Flutter Web runtime '
-    '(${configDiagnosticSummary(configResult.config)}) for ${input.packageName} '
+    'Staged selected Flutter Web runtime from ${source.searchRoot.path} '
+    'for ${input.packageName} '
     'under assets/packages/${input.packageName}/wasm/ in '
     '${stagingBaseDirs.join(', ')}. Dart DataAssets are not required.',
   );
@@ -284,9 +273,9 @@ Future<void> stageWebRuntimeFiles({
 /// download, cache, extraction, or staging work can begin.
 @visibleForTesting
 void validateWebBundleSelection(dynamic config) {
+  if (artifactOverrideFor(config, 'web') != null) return;
   final type = config['type']?.toString() ?? 'base';
-  final override = config['web']?.toString() ?? config['wasm']?.toString();
-  if (type == 'debug' && (override == null || override.trim().isEmpty)) {
+  if (type == 'debug') {
     throw _exception(
       'The automatic prebuilt Flutter Web debug artifact is unsupported '
       'because the published artifact is browser-incompatible. For Web '
@@ -401,28 +390,15 @@ Future<WebRuntimeSource> _resolveWebArtifact(
   void Function(Uri uri) addDependency,
 ) async {
   final config = configResult.config;
-  var type = config['type']?.toString() ?? 'base';
-  if (type == 'streaming') type = 'video';
-  if (type == 'debug') type = 'debug';
-  if (!_validTypes.contains(type)) {
-    throw _exception('Invalid bundle type: $type');
-  }
-
-  final gpl = config['gpl'] == true;
-  final small = config['small'] == true;
+  final overrideUrl = artifactOverrideFor(config, 'web');
   final cacheDir = Directory(
     p.fromUri(input.outputDirectoryShared.resolve('ffmpeg_kit_cache/wasm/')),
   )..createSync(recursive: true);
-  final overrideUrl = config['web']?.toString() ?? config['wasm']?.toString();
-  validateLocalArtifactSelection(
-    platformName: 'Web',
-    overrideValue: overrideUrl,
-    localOnly: config['local_only'] == true || isLocalArtifactOnlyEnabled(),
-  );
 
   String filename;
   String url;
   if (overrideUrl != null) {
+    _log('Artifact: override $overrideUrl');
     final overrideUri = parseRemoteOverride(overrideUrl);
     if (overrideUri == null) {
       final localPath = resolveLocalOverridePath(
@@ -470,6 +446,13 @@ Future<WebRuntimeSource> _resolveWebArtifact(
     );
     return _webRuntimeSourceFromArtifact(artifact);
   } else {
+    var type = config['type']?.toString() ?? 'base';
+    if (type == 'streaming') type = 'video';
+    if (!_validTypes.contains(type)) {
+      throw _exception('Invalid bundle type: $type');
+    }
+    final gpl = config['gpl'] == true;
+    final small = config['small'] == true;
     final currentType = type == 'debug' ? 'base' : type;
     final parts = [
       'bundle',
@@ -546,6 +529,9 @@ ConfigResult _loadConfig(BuildInput input, BuildOutputBuilder output) {
     packageRoot: packageRoot,
     addDependency: output.dependencies.add,
     log: _log,
+    targetPlatform: input.config.buildCodeAssets
+        ? input.config.code.targetOS.name
+        : 'web',
   );
   final result = selectConfigSource(
     userDefines: userDefinesResult,
@@ -775,33 +761,8 @@ Future<FFmpegArtifact?> _resolveArtifact(
   void Function(Uri uri) addDependency,
 ) async {
   final config = configResult.config;
-  String type = config['type']?.toString() ?? "base";
-  if (type == "streaming") type = "video";
-  if (type == "full") {
-    _log(
-      "Full bundle is a heavyweight package and may increase your app size significantly. "
-      "Please review all included libraries to make sure you need all bundled features. "
-      "Bundle content: https://github.com/akashskypatel/ffmpeg-kit-extended#supported-external-libraries "
-      "If you don't need all the libraries included in full bundle, consider using other bundles for smaller app sizes.",
-    );
-  }
-  if (!_validTypes.contains(type)) {
-    _log(
-      'Invalid bundle type: $type. Valid types are: ${_validTypes.join(', ')}',
-    );
-    exit(1);
-  }
-
-  final bool gpl = config['gpl'] == true;
-  final bool small = config['small'] == true;
-  _log('Bundle: ${configDiagnosticSummary(config)}');
   final platformName = targetOS.name; // Use .name for stable keys
-  final overrideUrl = config[platformName]?.toString();
-  validateLocalArtifactSelection(
-    platformName: platformName,
-    overrideValue: overrideUrl,
-    localOnly: config['local_only'] == true || isLocalArtifactOnlyEnabled(),
-  );
+  final overrideUrl = artifactOverrideFor(config, platformName);
 
   final cacheDir = Directory(
     p.fromUri(
@@ -844,6 +805,25 @@ Future<FFmpegArtifact?> _resolveArtifact(
       );
     }
   } else {
+    String type = config['type']?.toString() ?? 'base';
+    if (type == 'streaming') type = 'video';
+    if (!_validTypes.contains(type)) {
+      _log(
+        'Invalid bundle type: $type. Valid types are: ${_validTypes.join(', ')}',
+      );
+      exit(1);
+    }
+    if (type == 'full') {
+      _log(
+        'Full bundle is a heavyweight package and may increase your app size significantly. '
+        'Please review all included libraries to make sure you need all bundled features. '
+        'Bundle content: https://github.com/akashskypatel/ffmpeg-kit-extended#supported-external-libraries '
+        "If you don't need all the libraries included in full bundle, consider using other bundles for smaller app sizes.",
+      );
+    }
+    final gpl = config['gpl'] == true;
+    final small = config['small'] == true;
+    _log('Bundle: ${configDiagnosticSummary(config)}');
     final license = gpl ? 'gpl' : 'lgpl';
     final currentType = type == 'debug' ? 'base' : type;
 
@@ -1557,29 +1537,6 @@ Uri? parseRemoteOverride(String value) {
     throw _exception('Remote override URI must include a host: $value');
   }
   return uri;
-}
-
-@visibleForTesting
-void validateLocalArtifactSelection({
-  required String platformName,
-  required String? overrideValue,
-  required bool localOnly,
-}) {
-  if (!localOnly) return;
-  if (overrideValue == null || overrideValue.trim().isEmpty) {
-    throw _exception(
-      'Local-only artifact validation for $platformName requires an explicit '
-      'local bundle override; default and remote resolution are disabled.',
-    );
-  }
-  final remote = parseRemoteOverride(overrideValue);
-  if (remote != null) {
-    throw _exception(
-      'Local-only artifact validation for $platformName rejects remote '
-      'bundle overrides (${remote.scheme}); configure a local filesystem '
-      'bundle instead.',
-    );
-  }
 }
 
 String _remoteCacheIdentity(Uri uri) =>

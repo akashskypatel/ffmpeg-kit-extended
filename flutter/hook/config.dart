@@ -37,7 +37,6 @@ const _userDefineKeys = <String>[
   'type',
   'gpl',
   'small',
-  'local_only',
   'android',
   'ios',
   'macos',
@@ -54,8 +53,15 @@ ConfigResult? resolveUserDefines({
   required String packageRoot,
   required void Function(Uri uri) addDependency,
   required void Function(String message) log,
+  String? targetPlatform,
 }) {
   final nested = read('config');
+  Object? valueFor(String key) =>
+      read(key) ?? (nested is Map ? nested[key] : null);
+  final targetOverride = targetPlatform == null
+      ? null
+      : valueFor(targetPlatform) ??
+            (targetPlatform == 'web' ? valueFor('wasm') : null);
   final config = <String, Object?>{};
   Uri? configBaseUri;
 
@@ -67,7 +73,11 @@ ConfigResult? resolveUserDefines({
 
     final value = hasDirectValue ? directValue : (nested as Map)[key];
     if (value == null) continue;
-    _validateUserDefine(key, value);
+    // Bundle selectors do not constrain an explicitly supplied artifact.
+    if (targetOverride == null ||
+        !const {'type', 'gpl', 'small'}.contains(key)) {
+      _validateUserDefine(key, value);
+    }
     config[key] = value;
     configBaseUri ??= readBase(key);
 
@@ -112,8 +122,7 @@ void _validateUserDefine(String key, Object value) {
       'hooks.user_defines.$key must be a string, got ${value.runtimeType}',
     );
   }
-  if ((key == 'gpl' || key == 'small' || key == 'local_only') &&
-      value is! bool) {
+  if ((key == 'gpl' || key == 'small') && value is! bool) {
     throw ConfigResolutionException(
       'hooks.user_defines.$key must be a boolean, got ${value.runtimeType}',
     );
@@ -135,6 +144,21 @@ bool _isPlatformOverrideKey(String key) => const {
   'web',
   'wasm',
 }.contains(key);
+
+/// Selects the target's explicit source before automatic bundle selection.
+/// Web keeps `web` ahead of its `wasm` alias, including invalid empty values.
+String? artifactOverrideFor(dynamic config, String platformName) {
+  final value = platformName.contains(RegExp(r'web|wasm'))
+      ? config['web'] ?? config['wasm']
+      : config[platformName];
+  if (value == null) return null;
+  if (value is! String || value.trim().isEmpty) {
+    throw ConfigResolutionException(
+      '$platformName artifact override must be a non-empty string path or URL.',
+    );
+  }
+  return value;
+}
 
 /// Converts a resolved file URI only when it names a file on this host.
 ///

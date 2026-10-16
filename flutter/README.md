@@ -104,6 +104,12 @@ Flutter Web uses the same public API and shared session implementation as native
    present, `hooks.user_defines` wins and the legacy resolver is not consulted;
    this precedence is the same for every supported platform.
 
+   A platform override selects the artifact directly and takes precedence over
+   `type`, `gpl`, and `small`; those selectors apply only when the current
+   target has no override. Web uses `web` first, then its `wasm` alias.
+   No additional flag or environment variable is required. An invalid override
+   fails the build instead of falling back to a generated release URL.
+
    Platform overrides may be local paths or HTTP(S) URLs. Only `http://` and
    `https://` are accepted for remote overrides; URL-like schemes such as
    `ftp://` fail explicitly instead of being treated as local files. When the
@@ -187,12 +193,10 @@ Flutter Web uses the same public API and shared session implementation as native
    are HTTP(S) archive URLs. Native overrides keep their documented
    platform-specific archive formats.
 
-   For offline validation against a locally built native ABI, set
-   `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=true` in the Flutter process environment.
-   With that switch enabled, an explicit local override is required and the
-   hook rejects both default release resolution and HTTP(S) overrides. This is
-   useful for validating a frozen local bundle without accidentally restoring a
-   historical published runtime.
+   For offline validation against a locally built native ABI, configure the
+   target platform key with its local artifact path. The hook resolves only
+   that path. To use a hosted custom artifact, set the same key to its direct
+   HTTP(S) download URL; only that configured source is resolved.
 
    ### Hooks runner lock recovery
 

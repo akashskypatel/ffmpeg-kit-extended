@@ -45,7 +45,6 @@ flutter:
 hooks:
   user_defines:
     ffmpeg_kit_extended_flutter:
-      local_only: true
       type: "base"
       gpl: false
       small: true

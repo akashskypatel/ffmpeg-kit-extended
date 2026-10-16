@@ -49,7 +49,7 @@ Surface transport failures through native logs and the session result/state. Do 
 
 ## Local staging
 
-Use the explicit local archive at `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\bundle-video-wasm-wasm32-static-small-gpl.zip`. Flutter package configuration selects `video`, GPL, `small`, and this `wasm` override. Set `local_only: true` in both `flutter/pubspec.yaml` configuration and the example's `hooks.user_defines.ffmpeg_kit_extended_flutter` entry: Dart Hooks filters arbitrary environment variables, so the typed hook input carries the download prohibition. The hook also accepts `FFMPEG_KIT_EXTENDED_LOCAL_ONLY=1` (or `true`) as a fail-closed guard.
+Use the explicit local archive at `\\wsl.localhost\ManyLinux\home\vscode\ffmpeg-kit-builders\prebuilt\wasm-wasm32\releases\callback-accounting\bundle-video-wasm-wasm32-static-small-gpl.zip`. Set `wasm` (or `web`) under `hooks.user_defines.ffmpeg_kit_extended_flutter` to this path. The override alone selects the artifact and supersedes `type`, `gpl`, and `small`; no separate local-only flag is required. Missing or invalid overrides fail without falling back to a published bundle. A direct HTTP(S) download URL can be used in the same key for a hosted custom artifact.
 
 From the repository root, clean both package trees before staging or runtime verification:
 
@@ -58,10 +58,10 @@ bash flutter/build.sh web --clean
 bash react-native/clean.sh
 ```
 
-Then build Flutter Web from `flutter/example` with the policy set:
+Then build Flutter Web from `flutter/example` with the override configured:
 
 ```bash
-FFMPEG_KIT_EXTENDED_LOCAL_ONLY=1 flutter build web --wasm --release
+flutter build web --wasm --release
 ```
 
 Compare the staged `ffmpegkit.wasm` and `ffmpegkit.mjs` hashes with the table above before running browser cases. Record both clean exit statuses and any `pubspec.lock` diff; `flutter/build.sh --clean` runs `pub upgrade` and can change lockfiles. See [the Phase 2 tracker](../../.agent/PHASE-2-STATUS.md) for current verification status and evidence paths.
@@ -73,7 +73,7 @@ After cleaning, staging and checking hashes, run `node scripts/wasm-bridge-contr
 For `--dart-adapter`, build the test entry from `flutter/example`:
 
 ```bash
-MSYS2_ARG_CONV_EXCL='--base-href=' FFMPEG_KIT_EXTENDED_LOCAL_ONLY=1 \
+MSYS2_ARG_CONV_EXCL='--base-href=' \
   flutter build web --wasm --release --no-web-resources-cdn \
   --base-href=/dart/ -t ../test/fixtures/web_native_bridge/main.dart
 ```
