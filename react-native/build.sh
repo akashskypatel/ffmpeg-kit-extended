@@ -8,10 +8,11 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+example_dir="${FFMPEG_KIT_EXAMPLE_DIR:-$script_dir/example}"
 if command -v cygpath >/dev/null 2>&1; then
   script_dir="$(cygpath -u "$script_dir")"
+  example_dir="$(cygpath -u "$example_dir")"
 fi
-example_dir="$script_dir/example"
 macos_runtime_dir="$example_dir/.macos-runtime"
 appletvos_runtime_dir="$example_dir/.appletvos-runtime"
 windows_runtime_dir="$example_dir/.windows-runtime"
@@ -823,6 +824,8 @@ build_windows() {
   local dotnet_sdk_dir_windows
   local msbuild_sdks_path_windows
   local windows_path
+  local npm_prefix_windows=""
+  local npm_prefix
   local solution_path_windows
   local solution_dir_windows
   msbuild="$(cygpath -u "$msbuild_windows")"
@@ -871,7 +874,35 @@ EOF
   fi
   dotnet_sdk_dir_windows="$(cygpath -w "$dotnet_sdk_dir")"
   msbuild_sdks_path_windows="${dotnet_sdk_dir_windows}\\Sdks"
-  windows_path="$(cygpath -pw "$PATH");$dotnet_root_windows;$mdmerge_dir_windows"
+  npm_prefix="$(npm config get prefix 2>/dev/null | tr -d '\r' | tail -n 1 || true)"
+  if [[ -n "$npm_prefix" ]]; then
+    npm_prefix_windows="$(cygpath -w "$(cygpath -u "$npm_prefix")")"
+  fi
+  local npm_global_dir_windows=""
+  if [[ -n "${APPDATA:-}" ]]; then
+    npm_global_dir_windows="$(cygpath -w "$(cygpath -u "$APPDATA")")\\npm"
+  fi
+  # MSBuild invokes Metro through cmd.exe, so expose Node and npm's Windows shims.
+  windows_path="$node_dir_windows"
+  if [[ -n "$npm_prefix_windows" ]]; then
+    windows_path+=";$npm_prefix_windows"
+  fi
+  if [[ -n "$npm_global_dir_windows" ]]; then
+    windows_path+=";$npm_global_dir_windows"
+  fi
+  windows_path+=";$(cygpath -pw "$PATH");$dotnet_root_windows;$mdmerge_dir_windows"
+  export MSYS2_ARG_CONV_EXCL='*'
+  case ";${MSYS2_ENV_CONV_EXCL:-};" in
+    *";PATH;"*) ;;
+    *) export MSYS2_ENV_CONV_EXCL="${MSYS2_ENV_CONV_EXCL:+$MSYS2_ENV_CONV_EXCL;}PATH" ;;
+  esac
+  if ! PATH="$windows_path" cmd.exe /d /c where.exe npx.cmd >/dev/null 2>&1; then
+    echo "npx.cmd was not found on the Windows PATH passed to MSBuild." >&2
+    echo "Node directory: $node_dir_windows" >&2
+    echo "npm prefix: ${npm_prefix_windows:-unavailable}" >&2
+    echo "npm user bin: ${npm_global_dir_windows:-unavailable}" >&2
+    exit 1
+  fi
   solution_path_windows="$(cygpath -w "$example_dir/windows/FFmpegKitExtendedExample.sln")"
   solution_dir_windows="$(cygpath -w "$example_dir/windows")\\"
 
@@ -891,7 +922,7 @@ EOF
   DOTNET_ROOT_X64="$dotnet_root_windows" \
   DOTNET_MULTILEVEL_LOOKUP=1 \
   MSBuildSDKsPath="$msbuild_sdks_path_windows" \
-  MSYS2_ARG_CONV_EXCL='*' PATH="$windows_path" "$msbuild" \
+  PATH="$windows_path" "$msbuild" \
     "$solution_path_windows" \
     /restore \
     /m \
@@ -962,11 +993,15 @@ build_ios() {
     echo "Installing CocoaPods dependencies..."
     bundle exec pod install 2>/dev/null || pod install
     local configuration="Debug"
+    local -a derived_data_args=()
     [[ "$build_type" == "release" ]] && configuration="Release"
+    [[ -n "${FFMPEG_KIT_IOS_DERIVED_DATA_PATH:-}" ]] && \
+      derived_data_args=(-derivedDataPath "$FFMPEG_KIT_IOS_DERIVED_DATA_PATH")
     xcodebuild \
       -workspace FFmpegKitExtendedExample.xcworkspace \
       -scheme FFmpegKitExtendedExample \
       -configuration "$configuration" \
+      "${derived_data_args[@]}" \
       -sdk iphonesimulator \
       -destination 'generic/platform=iOS Simulator' \
       ARCHS=arm64 \
