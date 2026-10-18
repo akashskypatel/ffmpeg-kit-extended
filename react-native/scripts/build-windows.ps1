@@ -271,4 +271,8 @@ $msbuildArgs = @(
 )
 Write-Host "Building Windows application project with MSBuild ($configuration)..."
 # React Native Windows invokes Metro's npx command from the build process cwd.
-Invoke-External -FilePath $msbuild -ArgumentList $msbuildArgs -WorkingDirectory $runtimeRoot
+try {
+  Invoke-External -FilePath $msbuild -ArgumentList $msbuildArgs -WorkingDirectory $runtimeRoot
+} finally {
+  Remove-Item -LiteralPath $exampleNodeModules -Force
+}
