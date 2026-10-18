@@ -206,7 +206,7 @@ jobs:
 
       - name: Set up Android SDK
         if: matrix.platform == 'android'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Set up Java
         if: matrix.platform == 'android'
