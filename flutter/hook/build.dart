@@ -1252,6 +1252,15 @@ Future<AppleRuntimeLayout> _buildAppleRuntimeFramework({
   final companionLibraries = <File>[];
   for (final dylib in sourceDylibs) {
     if (dylib.path == sourceMainDylib.path) continue;
+    // Companion libraries may support fewer architectures than libffmpegkit.
+    final architectures = await inspectAppleBinaryArchitectures(dylib);
+    if (!architectures.contains(archStr)) {
+      _log(
+        'Skipping companion ${p.basename(dylib.path)} for $archStr '
+        '(available architectures: ${architectures.toList()..sort()})',
+      );
+      continue;
+    }
     final destination = File(p.join(companionDir.path, p.basename(dylib.path)));
     final companionVerification = await _thinOrCopyAppleBinary(
       source: dylib,
