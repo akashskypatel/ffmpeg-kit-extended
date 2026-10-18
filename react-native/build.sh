@@ -1066,6 +1066,11 @@ build_macos() {
   prepare_macos_example
 
   (
+    if [[ ! -e "$example_dir/node_modules" && ! -L "$example_dir/node_modules" ]]; then
+      ln -s "$macos_runtime_dir/node_modules" "$example_dir/node_modules"
+      trap 'rm -f "$example_dir/node_modules"' EXIT
+    fi
+
     cd "$example_dir/macos"
     echo "Installing CocoaPods dependencies..."
     NODE_PATH="$macos_runtime_dir/node_modules" \

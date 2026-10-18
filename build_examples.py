@@ -253,6 +253,11 @@ def stage_example(framework: str, staging_root: Path) -> Path:
     return staged
 
 
+def write_text_file(path: Path, content: str) -> None:
+    with path.open("w", encoding="utf-8", newline="") as output:
+        output.write(content)
+
+
 def update_flutter_pubspec(path: Path, package_path: str) -> None:
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines(keepends=True)
@@ -278,7 +283,7 @@ def update_flutter_pubspec(path: Path, package_path: str) -> None:
     for key in ("type", "gpl", "small"):
         if len([i for i in range(package + 1, end) if re.match(rf"\s{{6}}{key}:\s*", lines[i])]) != 1:
             raise RuntimeError(f"Expected one hooks.user_defines.ffmpeg_kit_extended_flutter.{key} setting in {path}")
-    path.write_text("".join(lines), encoding="utf-8", newline="")
+    write_text_file(path, "".join(lines))
 
 
 def replace_yaml_line(lines: list[str], index: int, key: str, value: str) -> None:
@@ -305,7 +310,7 @@ def configure_staged_example(build: Build, staged: Path) -> None:
             if len(matches) != 1:
                 raise RuntimeError(f"Expected one hooks.user_defines.ffmpeg_kit_extended_flutter.{key} setting in {path}")
             replace_yaml_line(lines, matches[0], key, value)
-        path.write_text("".join(lines), encoding="utf-8", newline="")
+        write_text_file(path, "".join(lines))
     else:
         path = staged / "ffmpeg-kit-extended.config.json"
         config = json.loads(path.read_text(encoding="utf-8"))
@@ -352,7 +357,7 @@ def update_react_native_metro_config(path: Path, package_path: str) -> None:
         "  extraNodeModules: {\n    'ffmpeg-kit-extended': libraryRoot,\n    react:",
         1,
     )
-    path.write_text(text, encoding="utf-8", newline="")
+    write_text_file(path, text)
 
 
 def tagged_environment(run_id: str) -> dict[str, str]:
