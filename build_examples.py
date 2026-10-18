@@ -423,7 +423,7 @@ def flutter_command(build: Build) -> list[str]:
     if executable is None:
         raise RuntimeError("Flutter was not found on PATH. Add the Flutter SDK bin directory to PATH and rerun this script.")
     target = {"android": "apk"}.get(build.platform, build.platform)
-    command = [executable, "build", target, f"--{build.release_type}"]
+    command = [executable, "build", target, f"--{build.release_type}", "--verbose"]
     if build.platform == "web":
         command.append("--wasm")
     if sys.platform == "win32" and Path(executable).suffix.lower() in {".bat", ".cmd"}:
