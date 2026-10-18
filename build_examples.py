@@ -430,6 +430,8 @@ def flutter_command(build: Build) -> list[str]:
         command = [os.environ.get("COMSPEC", "cmd.exe"), "/d", "/c", "call", *command]
     if build.platform == "ios":
         command.append("--simulator")
+        command.remove(f"--{build.release_type}")
+        command.append("--debug")
     return command
 
 
