@@ -1,0 +1,264 @@
+name: Example CI build matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      framework:
+        description: "CSV: flutter,react-native (blank selects both)"
+        required: false
+        type: string
+        default: ""
+      platform:
+        description: "CSV: windows,linux,ios,android,macos,appletvos,web/wasm (blank selects all)"
+        required: false
+        type: string
+        default: ""
+      bundle:
+        description: "CSV: audio,video,video_hw,debug,base,full (blank selects all)"
+        required: false
+        type: string
+        default: ""
+      license:
+        description: "CSV: gpl,lgpl (blank selects both)"
+        required: false
+        type: string
+        default: ""
+      size:
+        description: "CSV: small,standard (blank selects both)"
+        required: false
+        type: string
+        default: ""
+      release_type:
+        description: "CSV: release,debug (blank selects release)"
+        required: false
+        type: string
+        default: ""
+      shortcut_flags:
+        description: "CSV selector shortcut names without --, such as flutter,windows,full,small,gpl,release; debug selects the debug bundle and app mode"
+        required: false
+        type: string
+        default: ""
+      output_dir:
+        description: "Build output directory, relative to the repository root or absolute"
+        required: false
+        type: string
+        default: build/examples
+      zip:
+        description: "Package each build output as a ZIP instead of a directory"
+        required: false
+        type: boolean
+        default: false
+      dry_run:
+        description: "Print compatible build commands without building"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Plan compatible framework and platform builds
+        id: plan
+        env:
+          INPUT_FRAMEWORK: ${{ inputs.framework }}
+          INPUT_PLATFORM: ${{ inputs.platform }}
+          INPUT_BUNDLE: ${{ inputs.bundle }}
+          INPUT_LICENSE: ${{ inputs.license }}
+          INPUT_SIZE: ${{ inputs.size }}
+          INPUT_RELEASE_TYPE: ${{ inputs.release_type }}
+          INPUT_SHORTCUT_FLAGS: ${{ inputs.shortcut_flags }}
+          INPUT_OUTPUT_DIR: ${{ inputs.output_dir }}
+        run: |
+          python - <<'PY'
+          import itertools
+          import json
+          import os
+          import sys
+
+          import build_examples
+
+          arguments = []
+          for environment_name, option in (
+              ("INPUT_FRAMEWORK", "--framework"),
+              ("INPUT_PLATFORM", "--platform"),
+              ("INPUT_BUNDLE", "--bundle"),
+              ("INPUT_LICENSE", "--license"),
+              ("INPUT_SIZE", "--size"),
+              ("INPUT_RELEASE_TYPE", "--release_type"),
+          ):
+              value = os.environ[environment_name].strip()
+              if value:
+                  arguments.append(f"{option}={value}")
+
+          shortcut_flags = {
+              "flutter", "react-native", "windows", "linux", "ios", "android",
+              "macos", "appletvos", "web", "wasm", "audio", "video",
+              "video_hw", "video-hw", "debug", "base", "full", "gpl", "lgpl",
+              "small", "standard", "release",
+          }
+          for flag in os.environ["INPUT_SHORTCUT_FLAGS"].split(","):
+              flag = flag.strip().lstrip("-")
+              if flag:
+                  if flag not in shortcut_flags:
+                      raise SystemExit(f"Unsupported selector shortcut {flag!r}.")
+                  arguments.append("--" + flag)
+
+          if not os.environ["INPUT_OUTPUT_DIR"].strip():
+              raise SystemExit("output_dir must not be empty")
+
+          sys.argv = ["build_examples.py", *arguments]
+          selected = build_examples.parse_args()
+          runner_for = {
+              "windows": "windows-latest",
+              "linux": "ubuntu-latest",
+              "android": "ubuntu-latest",
+              "web": "ubuntu-latest",
+              "ios": "macos-latest",
+              "macos": "macos-latest",
+              "appletvos": "macos-latest",
+          }
+
+          include = []
+          for framework, platform in itertools.product(selected.frameworks, selected.platforms):
+              if platform not in build_examples.FRAMEWORK_PLATFORMS[framework]:
+                  continue
+              supported_variant = any(
+                  (bundle, size) not in build_examples.BUNDLE_SIZE_EXCLUSIONS
+                  and (platform, bundle) not in build_examples.PLATFORM_BUNDLE_EXCLUSIONS
+                  for bundle, size in itertools.product(selected.bundles, selected.sizes)
+              )
+              if not supported_variant:
+                  continue
+              include.append({
+                  "framework": framework,
+                  "platform": platform,
+                  "runner": runner_for[platform],
+                  "bundles": ",".join(selected.bundles),
+                  "sizes": ",".join(selected.sizes),
+                  "licenses": ",".join(selected.licenses),
+                  "release_types": ",".join(selected.release_types),
+              })
+
+          if not include:
+              raise SystemExit("No selected build variants remain after framework/platform and bundle exclusions.")
+
+          matrix = json.dumps({"include": include}, separators=(",", ":"))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"matrix={matrix}\n")
+          print(f"Planned {len(include)} compatible framework/platform builds.")
+          PY
+
+  build:
+    needs: plan
+    name: ${{ matrix.framework }} / ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        if: matrix.framework == 'react-native'
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24.x"
+          cache: npm
+          cache-dependency-path: |
+            react-native/package-lock.json
+            react-native/example/package-lock.json
+
+      - name: Set up Flutter
+        if: matrix.framework == 'flutter'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
+
+      - name: Install Linux desktop dependencies
+        if: matrix.framework == 'flutter' && matrix.platform == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libgtk-3-dev pkg-config cmake ninja-build liblzma-dev libstdc++-12-dev
+
+      - name: Set up Android SDK
+        if: matrix.platform == 'android'
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Java
+        if: matrix.platform == 'android'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        if: matrix.framework == 'react-native' && matrix.platform == 'android'
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.13"
+          cache-provider: basic
+
+      - name: Configure Flutter
+        if: matrix.framework == 'flutter'
+        run: flutter config --no-analytics
+
+      - name: Enable Flutter Swift Package Manager
+        if: matrix.framework == 'flutter' && (matrix.platform == 'ios' || matrix.platform == 'macos')
+        run: flutter config --enable-swift-package-manager
+
+      - name: Accept Android SDK licenses
+        if: matrix.framework == 'flutter' && matrix.platform == 'android'
+        run: yes | flutter doctor --android-licenses >/dev/null
+
+      - name: Build and stage selected variants
+        env:
+          BUILD_FRAMEWORK: ${{ matrix.framework }}
+          BUILD_PLATFORM: ${{ matrix.platform }}
+          BUILD_BUNDLES: ${{ matrix.bundles }}
+          BUILD_SIZES: ${{ matrix.sizes }}
+          BUILD_LICENSES: ${{ matrix.licenses }}
+          BUILD_RELEASE_TYPES: ${{ matrix.release_types }}
+          BUILD_OUTPUT_DIR: ${{ inputs.output_dir }}
+          BUILD_ZIP: ${{ inputs.zip }}
+          BUILD_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          python -c '
+          import os, subprocess, sys
+          arguments = [sys.executable, "build_examples.py", "--framework=" + os.environ["BUILD_FRAMEWORK"], "--platform=" + os.environ["BUILD_PLATFORM"], "--bundle=" + os.environ["BUILD_BUNDLES"], "--size=" + os.environ["BUILD_SIZES"], "--license=" + os.environ["BUILD_LICENSES"], "--release_type=" + os.environ["BUILD_RELEASE_TYPES"], "--output-dir", os.environ["BUILD_OUTPUT_DIR"]]
+          if os.environ["BUILD_ZIP"].lower() == "true": arguments.append("--zip")
+          if os.environ["BUILD_DRY_RUN"].lower() == "true": arguments.append("--dry-run")
+          raise SystemExit(subprocess.call(arguments))
+          '
+
+      - name: Upload build outputs
+        if: ${{ !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: examples-${{ matrix.framework }}-${{ matrix.platform }}-${{ github.run_id }}
+          path: ${{ inputs.output_dir }}/**
+          if-no-files-found: error
+          include-hidden-files: true
