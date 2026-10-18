@@ -708,7 +708,11 @@ def main() -> int:
         framework_builds = [build for build in builds if build.framework == framework]
         if not framework_builds:
             continue
-        with tempfile.TemporaryDirectory(prefix=".FKE_example_build_", dir=ROOT / framework) as directory:
+        # Keep nested Flutter native-asset cache paths below Windows MAX_PATH.
+        temporary_parent = Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir())
+        if not temporary_parent.is_dir():
+            temporary_parent = Path(tempfile.gettempdir())
+        with tempfile.TemporaryDirectory(prefix="FKE_", dir=temporary_parent) as directory:
             staged = stage_example(framework, Path(directory))
             rn_web_library_built = False
             rn_web_dependencies_installed = (staged / "node_modules").is_dir()
