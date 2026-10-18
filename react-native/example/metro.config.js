@@ -6,11 +6,15 @@ const {
 
 const libraryRoot = path.resolve(__dirname, '..');
 const exampleNodeModules = path.resolve(__dirname, 'node_modules');
+const reactNativePlatform = process.env.REACT_NATIVE_PLATFORM;
+const reactNativeNodeModules =
+  reactNativePlatform === 'appletvos'
+    ? path.resolve(__dirname, '.appletvos-runtime', 'node_modules')
+    : exampleNodeModules;
+const defaultConfig = getDefaultConfig(__dirname);
 
 const reactNativePackage =
-  process.env.REACT_NATIVE_PLATFORM === 'macos'
-    ? 'react-native-macos'
-    : 'react-native';
+  reactNativePlatform === 'macos' ? 'react-native-macos' : 'react-native';
 
 /**
  * The example consumes the plugin source from the parent directory while
@@ -21,19 +25,25 @@ const reactNativePackage =
 const resolver = {
   disableHierarchicalLookup: true,
 
-  nodeModulesPaths: [exampleNodeModules],
+  nodeModulesPaths: [reactNativeNodeModules],
 
   extraNodeModules: {
-    react: path.resolve(exampleNodeModules, 'react'),
+    react: path.resolve(reactNativeNodeModules, 'react'),
     'react-native': path.resolve(
-      exampleNodeModules,
+      reactNativeNodeModules,
       reactNativePackage,
     ),
   },
 };
 
-if (process.env.REACT_NATIVE_PLATFORM === 'macos') {
+if (reactNativePlatform === 'macos') {
   resolver.platforms = ['android', 'ios', 'macos'];
+}
+if (reactNativePlatform === 'appletvos') {
+  resolver.sourceExts = defaultConfig.resolver.sourceExts.flatMap(ext => [
+    `tv.${ext}`,
+    ext,
+  ]);
 }
 
 const config = {
@@ -42,6 +52,6 @@ const config = {
 };
 
 module.exports = mergeConfig(
-  getDefaultConfig(__dirname),
+  defaultConfig,
   config,
 );

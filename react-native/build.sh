@@ -1035,6 +1035,7 @@ build_appletvos() {
     [[ "$build_type" == "release" ]] && configuration="Release"
 
     echo "Building Apple tvOS app..."
+    REACT_NATIVE_PLATFORM=appletvos \
     NODE_PATH="$appletvos_runtime_dir/node_modules" \
     RCT_NEW_ARCH_ENABLED=1 xcodebuild \
       -workspace FFmpegKitExtendedExample.xcworkspace \
