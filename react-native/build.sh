@@ -1024,6 +1024,11 @@ build_appletvos() {
   prepare_appletvos_example
 
   (
+    if [[ ! -e "$example_dir/node_modules" && ! -L "$example_dir/node_modules" ]]; then
+      ln -s "$appletvos_runtime_dir/node_modules" "$example_dir/node_modules"
+      trap 'rm -f "$example_dir/node_modules"' EXIT
+    fi
+
     cd "$example_dir/appletvos"
     echo "Installing CocoaPods dependencies..."
     NODE_PATH="$appletvos_runtime_dir/node_modules" \
