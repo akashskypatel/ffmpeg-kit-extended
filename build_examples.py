@@ -77,10 +77,10 @@ def selections(values: list[str], flags: list[str], allowed: tuple[str, ...], na
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        usage="%(prog)s [selectors] [--output-dir DIR] [--dry-run]",
+        usage="%(prog)s [selectors] [--output-dir DIR] [--zip] [--dry-run]",
         description=(
             "Build Flutter and React Native example apps from temporary copies.\n"
-            "Each successful combination is packaged as one ZIP."
+            "Each successful combination is staged as an output directory; use --zip to archive it."
         ),
         formatter_class=BuildHelpFormatter,
         epilog="""\
@@ -102,11 +102,12 @@ The prebuilt debug bundle is not browser-compatible and is skipped for Web/WASM 
 --debug selects both the debug bundle and debug app mode. Use --bundle=debug or
 --release_type=debug when only one should be selected.
 
-Each ZIP is named:
+With --zip, each archive is named:
   <framework>-<platform>-<bundle>-<size>-<license>-<release_type>.zip
+Without --zip, each staged output directory uses the same name without the .zip suffix.
 
 Examples:
-  python build_examples.py --flutter --android --bundle=base --lgpl --small
+  python build_examples.py --flutter --android --bundle=base --lgpl --small --zip
   python build_examples.py --framework=flutter,react-native --platform=android,web --dry-run
 """,
     )
@@ -155,7 +156,8 @@ Examples:
     )
 
     output_group = parser.add_argument_group("Output")
-    output_group.add_argument("--output-dir", type=Path, default=ROOT / "builds", metavar="DIR", help="Directory for ZIP files (default: builds/ beside this script).")
+    output_group.add_argument("--output-dir", type=Path, default=ROOT / "builds", metavar="DIR", help="Directory for staged outputs (default: builds/ beside this script).")
+    output_group.add_argument("--zip", dest="zip_output", action="store_true", help="Package each build output as a ZIP archive instead of a directory.")
     output_group.add_argument("--dry-run", action="store_true", help="List compatible build commands without running them.")
     args = parser.parse_args()
     try:
@@ -186,6 +188,10 @@ class Build:
             f"{self.framework}-{self.platform}-{self.bundle}-{self.size}-"
             f"{self.license}-{self.release_type}.zip"
         )
+
+
+def output_name(build: Build, zip_output: bool) -> str:
+    return build.filename if zip_output else build.filename.removesuffix(".zip")
 
 
 @dataclass(frozen=True)
@@ -583,6 +589,60 @@ def write_zip(destination: Path, artifacts: list[Artifact]) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def copy_artifact(destination: Path, artifact: Artifact) -> None:
+    source = artifact.path
+    target = destination / artifact.archive_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_symlink():
+        if os.name != "nt":
+            target.symlink_to(os.readlink(source), target_is_directory=source.is_dir())
+            return
+        source = source.resolve()
+    if source.is_file():
+        shutil.copy2(source, target)
+    elif source.is_dir():
+        shutil.copytree(source, target, symlinks=os.name != "nt")
+    else:
+        raise FileNotFoundError(f"Build artifact does not exist: {source}")
+
+
+def remove_output_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def write_directory(destination: Path, artifacts: list[Artifact]) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = Path(tempfile.mkdtemp(prefix="FKE_", dir=destination.parent))
+    backup: Path | None = None
+    installed = False
+    try:
+        for artifact in artifacts:
+            copy_artifact(temporary, artifact)
+        if destination.exists() or destination.is_symlink():
+            backup = Path(tempfile.mkdtemp(prefix="FKE_", dir=destination.parent))
+            backup.rmdir()
+            os.replace(destination, backup)
+        try:
+            os.replace(temporary, destination)
+            installed = True
+        except BaseException:
+            if backup is not None:
+                os.replace(backup, destination)
+                backup = None
+            raise
+        if backup is not None:
+            remove_output_path(backup)
+            backup = None
+    finally:
+        if temporary.exists():
+            shutil.rmtree(temporary)
+        if installed and backup is not None and (backup.exists() or backup.is_symlink()):
+            remove_output_path(backup)
+
+
 def add_file(archive: zipfile.ZipFile, path: Path, archive_path: str) -> None:
     if path.is_symlink():
         info = zipfile.ZipInfo(archive_path)
@@ -613,7 +673,8 @@ def main() -> int:
 
     for reason, count in skipped.items():
         print(f"Skipped {count} variants: {reason}")
-    print(f"Selected {len(builds)} build variants; ZIP output: {args.output_dir}")
+    output_kind = "ZIP output" if args.zip_output else "staged output"
+    print(f"Selected {len(builds)} build variants; {output_kind}: {args.output_dir}")
     if args.dry_run:
         for build in builds:
             if build.framework == "react-native" and build.platform == "web":
@@ -622,14 +683,14 @@ def main() -> int:
                     ("<temporary React Native example>", npm_command(["install", "--no-audit", "--no-fund"])),
                     ("<temporary React Native example>", rn_command(build)),
                 ]
-                print(f"{build.filename}:")
+                print(f"{output_name(build, args.zip_output)}:")
                 for cwd, command in commands:
                     display = subprocess.list2cmdline(command) if os.name == "nt" else " ".join(shlex_quote(arg) for arg in command)
                     print(f"  [{cwd}] {display}")
                 continue
             command = flutter_command(build) if build.framework == "flutter" else rn_command(build)
             display = subprocess.list2cmdline(command) if os.name == "nt" else " ".join(shlex_quote(arg) for arg in command)
-            print(f"{build.filename}: {display}")
+            print(f"{output_name(build, args.zip_output)}: {display}")
         return 0
 
     install_signal_handlers()
@@ -671,10 +732,14 @@ def main() -> int:
                 artifacts = flutter_artifacts(build, staged) if framework == "flutter" else rn_artifacts(build, staged)
                 if not artifacts:
                     raise RuntimeError(f"{framework} build succeeded but no {build.platform} output was found.")
-                destination = args.output_dir / build.filename
-                write_zip(destination, artifacts)
+                filename = output_name(build, args.zip_output)
+                destination = args.output_dir / filename
+                if args.zip_output:
+                    write_zip(destination, artifacts)
+                else:
+                    write_directory(destination, artifacts)
                 completed += 1
-                print(f"Packaged {destination}")
+                print(f"{'Packaged' if args.zip_output else 'Staged'} {destination}")
 
     print(f"Completed {completed} builds; skipped {sum(skipped.values())} unsupported variants.")
     return 0
