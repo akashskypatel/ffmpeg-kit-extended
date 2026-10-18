@@ -962,15 +962,23 @@ build_android() {
   echo "========================================"
   ensure_dependencies "$example_dir"
   local android_arch="${REACT_NATIVE_ARCH:-x86_64}"
+  local gradle_command=(bash ./gradlew)
+  if [[ ! -f "$example_dir/android/gradlew" ]]; then
+    if ! command -v gradle >/dev/null 2>&1; then
+      echo "Gradle wrapper is missing from $example_dir/android and Gradle was not found on PATH." >&2
+      return 127
+    fi
+    gradle_command=(gradle)
+  fi
 
   (
     cd "$example_dir/android"
     echo "Generating React Native Codegen artifacts..."
-    bash ./gradlew generateCodegenArtifactsFromSchema
+    "${gradle_command[@]}" generateCodegenArtifactsFromSchema
     if [[ "$build_type" == "release" ]]; then
-      bash ./gradlew app:assembleRelease "-PreactNativeArchitectures=$android_arch"
+      "${gradle_command[@]}" app:assembleRelease "-PreactNativeArchitectures=$android_arch"
     else
-      bash ./gradlew app:assembleDebug "-PreactNativeArchitectures=$android_arch"
+      "${gradle_command[@]}" app:assembleDebug "-PreactNativeArchitectures=$android_arch"
     fi
   )
 }
