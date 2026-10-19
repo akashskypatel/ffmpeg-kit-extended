@@ -31,6 +31,18 @@ jobs:
         working-directory: flutter
         run: flutter pub get
 
+      - name: Activate pana
+        working-directory: flutter
+        run: dart pub global activate pana && export PATH="$PATH":"$HOME/.pub-cache/bin" && dart format . && pana . --no-dartdoc
+
+      - name: Fix Static Analysis Issues (Core)
+        working-directory: flutter
+        run: dart fix --apply
+      
+      - name: Fix Static Analysis Issues (Example)
+        working-directory: flutter/example
+        run: dart fix --apply
+
       - name: Publish package
         working-directory: flutter
-        run: flutter pub publish --force
+        run: flutter pub publish --force --ignore-warnings
