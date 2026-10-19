@@ -2,56 +2,29 @@
 
 ## Version 1.0.0
 
-- Remove the Dart DataAssets requirement from Flutter Web runtime delivery. The
-  build hook again stages the selected default or custom runtime directly into
-  the consuming Web app at the canonical package asset URL, including workspace
-  app resolution, local archive/directory overrides, HTTP(S) overrides, cache
-  freshness, and coherent runtime-pair validation on stable Flutter 3.47.
-- Document ABI-v2 direct log events, demand-driven callback activation,
-  completion independence, authoritative redirection control, bounded terminal
-  history reconciliation, and owned message lifetime. The
-  `ffigen_js: ^0.0.16-pre` dependency remains intentional because no stable
-  release exists.
-- Added WebAssembly wasm32 support
-- Make synchronous FFmpeg, FFprobe, FFplay, and media-information execution
-  return only after native work, terminal callbacks, and cleanup complete;
-  asynchronous execution remains Future-based and queue-managed.
-- Make session lifecycle failure-safe: one execution submission, pre-start and
-  startup cancellation delivery, failure-atomic disposal, settle-safe FFplay
-  ownership, media-information async error propagation, and deterministic
-  callback routing for created sessions.
-- Preserve the Web debug/default-runtime contract and reject unsupported target
-  architectures instead of silently substituting a different artifact.
-- Make Windows archive extraction pass paths through environment variables so
-  legal path characters cannot become PowerShell source code.
-- Reconcile queue admission, duplicate-session, and cancellation behavior so
-  completed or cancelled work cannot be submitted or retained twice.
-- Make Dart Hooks `userDefines` the primary Flutter build configuration with a bounded legacy fallback; track relative override files as dependencies and document workspace-root setup.
-- Keep callback routing alive through queued/running execution while removing
-  idle log-stream listeners, reject null/unknown session handles instead of
-  guessing a wrapper type, and add a Web garbage-collection release safety net.
-- Make `FFplayKit.executeAsync` resolve at native startup handoff while keeping
-  global ownership until playback settles; unsupported build-hook target OSes
-  now fail closed with an explicit diagnostic.
-- Make Created-session callback sinks retain values without creating callback
-  manager roots; register pending executions and restored-running sessions only
-  after the relevant lifecycle evidence is available, with rollback on state
-  read failure.
-- Validate typed history handles before Dart ownership transfer, distinguish
-  plain FFprobe from MediaInformation, and release mismatched tokens exactly
-  once while preserving existing live wrappers.
-- Make FFplay startup and terminal failures share one Future observer, and make
-  position/video-size polling listener-owned and reusable across subscriptions.
-- Document direct versus high-level FFplay Future semantics, cancellation and
-  disposal boundaries, local Wasm browser validation, and conditional Apple
-  simulator architecture guidance.
-- Select Apple XCFramework slices by platform, simulator/device variant, and requested architecture; verify framework and companion binary architectures before emission and fail clearly when a simulator slice is unavailable.
-- Surface build-hook configuration, artifact, cache, slice, and architecture decisions in diagnostics; document Hooks runner lock ownership and recovery guidance.
-- Fix Dart Hook configuration resolution in Pub Workspaces with root precedence, normal dependency-graph filtering, deterministic ambiguity handling, and explicit default fallback.
-- Track inspected Pub metadata and local native/Web overrides as hook dependencies; detect same-size content changes and invalidate stale extracted artifacts.
-- Separate configuration and Web staging roots, and add regression coverage and documentation for workspace resolution and local override behavior.
-- Require HTTP(S)-only remote override refreshes with URL-derived cache identity, reject incoherent Web runtime pairs, and reconcile Hooks configuration and platform diagnostics across the Flutter documentation.
-- Reject the known-incompatible automatic Flutter Web debug artifact while preserving explicit Web debug runtime overrides; document the canonical `assets/packages/ffmpeg_kit_extended_flutter/assets/wasm/` asset root.
+### Added
+- **Flutter Web / WebAssembly support:** Added a browser backend for executing FFmpeg, FFprobe, and FFplay commands using the Emscripten/Wasm runtime, with session management, callbacks, logging, and playback controls.
+- **Web filesystem API:** Added `FFmpegKitWebFiles` with `writeFile()`, `readFile()`, `deleteFile()`, and `exists()` for managing temporary binary files in the browser's WebAssembly filesystem.
+- **Web video playback:** Added canvas-based FFplay video rendering, including decoded RGBA frame delivery, playback lifecycle handling, and frame resource management.
+- **Web media streaming:** Added asynchronous Web execution support for direct HTTP(S) and HLS inputs when using compatible WebAssembly runtime bundles.
+- **Platform-specific bundle configuration:** Expanded build-hook support for selecting native and WebAssembly bundles, including platform-specific local or remote artifact overrides.
+
+### Improved
+- **Session lifecycle management:** Improved execution, cancellation, completion, disposal, and native handle ownership across FFmpeg, FFprobe, and FFplay sessions.
+- **Session queue management:** Improved cancellation of queued, starting, and running sessions, including cancellation propagation and error handling.
+- **Callback reliability:** Improved session completion, log, and statistics callback registration, delivery ordering, cleanup, and resource ownership.
+- **Session history:** Improved retained-session lookup, reconciliation, history cleanup, and native handle management.
+- **FFplay playback lifecycle:** Improved asynchronous startup, playback controls, session tracking, cancellation, and completion handling.
+- **Cross-platform FFplay rendering:** Improved native video frame delivery and texture lifecycle management across Android, iOS, macOS, Linux, and Windows.
+- **FFplayView:** Improved fullscreen transitions, cleanup, aspect-ratio handling, and video sizing.
+- **Native artifact handling:** Improved bundle extraction, caching, architecture validation, and Apple framework preparation.
+- **Documentation and examples:** Expanded API references, platform installation instructions, WebAssembly integration guidance, and FFmpeg/FFprobe/FFplay usage examples.
+
+### Breaking Changes
+- **Minimum SDK requirements:** Requires Dart `>=3.12.0` and Flutter `>=3.47.0`.
+- **Synchronous FFplay execution:** `FFplaySession.execute()` is no longer supported and throws `UnsupportedError`. Use `FFplaySession.executeAsync()` or `FFplayKit.executeAsync()` instead.
+- **Web execution constraints:** Synchronous FFmpeg and FFprobe operations cannot open network inputs on Web. Use asynchronous execution for remote media.
+- **Web runtime requirements:** WebAssembly execution requires compatible runtime assets and browser cross-origin isolation with `SharedArrayBuffer` support.
 
 ## Version 0.6.2
 
