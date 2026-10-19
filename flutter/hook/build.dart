@@ -12,6 +12,10 @@ import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
+import 'apple.dart';
+import 'config.dart';
+import 'native_artifact.dart';
+
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";
 const _validTypes = ['debug', 'base', 'full', 'audio', 'video', 'video_hw'];
