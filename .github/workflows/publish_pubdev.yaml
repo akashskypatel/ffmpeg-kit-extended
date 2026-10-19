@@ -46,3 +46,4 @@ jobs:
       - name: Publish package
         working-directory: flutter
         run: flutter pub publish --force --ignore-warnings
+        run: flutter pub publish --force --ignore-warnings
