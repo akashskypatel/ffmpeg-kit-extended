@@ -1,8 +1,7 @@
 import 'dart:io';
 
+import 'package:ffmpeg_kit_extended_flutter/build_hook/apple.dart';
 import 'package:test/test.dart';
-
-import '../hook/apple.dart';
 
 void main() {
   late Directory tempRoot;

@@ -4,14 +4,13 @@ import 'dart:math';
 
 import 'package:code_assets/code_assets.dart';
 import 'package:crypto/crypto.dart';
+import 'package:ffmpeg_kit_extended_flutter/build_hook/apple.dart';
+import 'package:ffmpeg_kit_extended_flutter/build_hook/config.dart';
+import 'package:ffmpeg_kit_extended_flutter/build_hook/native_artifact.dart';
 import 'package:hooks/hooks.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
-
-import 'apple.dart';
-import 'config.dart';
-import 'native_artifact.dart';
 
 const String _baseUrlTemplate =
     "https://github.com/akashskypatel/ffmpeg-kit-builders/releases/download";

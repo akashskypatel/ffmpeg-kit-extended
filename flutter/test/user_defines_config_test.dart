@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:ffmpeg_kit_extended_flutter/build_hook/config.dart';
 import 'package:hooks/hooks.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-
-import '../hook/config.dart';
 
 void main() {
   test('target overrides supersede type/gpl/small without an opt-in flag', () {

@@ -1,9 +1,8 @@
 import 'dart:io';
 
+import 'package:ffmpeg_kit_extended_flutter/build_hook/native_artifact.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-
-import '../hook/native_artifact.dart';
 
 void main() {
   late Directory tempRoot;

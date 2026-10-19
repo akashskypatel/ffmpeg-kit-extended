@@ -1,8 +1,8 @@
 import 'package:code_assets/code_assets.dart';
+import 'package:ffmpeg_kit_extended_flutter/build_hook/native_artifact.dart';
 import 'package:test/test.dart';
 
 import '../hook/build.dart';
-import '../hook/native_artifact.dart';
 
 void main() {
   test('maps supported Android architectures explicitly', () {
