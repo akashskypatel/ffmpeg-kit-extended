@@ -48,7 +48,7 @@ jobs:
             os: macos-latest
           - platform: windows
             os: windows-latest
-          - platform: wasm
+          - platform: web
             os: ubuntu-latest
 
     steps:
