@@ -8,7 +8,8 @@ abstract class FfmpegKitExtendedFlutterPlatform extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static FfmpegKitExtendedFlutterPlatform _instance = MethodChannelFfmpegKitExtendedFlutter();
+  static FfmpegKitExtendedFlutterPlatform _instance =
+      MethodChannelFfmpegKitExtendedFlutter();
 
   /// The default instance of [FfmpegKitExtendedFlutterPlatform] to use.
   ///

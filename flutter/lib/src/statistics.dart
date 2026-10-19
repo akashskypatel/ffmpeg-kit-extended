@@ -82,10 +82,9 @@ class Statistics {
       'Statistics($sessionId, timeElapsed: $timeElapsed, time: $time, size: $size, bitrate: $bitrate, speed: $speed, frame: $videoFrameNumber, fps: $videoFps, quality: $videoQuality, dupFrames: $dupFrames, dropFrames: $dropFrames, transcodingProgress: $transcodingProgress)';
 
   /// Returns the transcoding progress as an integer percentage when available.
-  int? get transcodingProgressPercent =>
-      transcodingProgress == null
-          ? null
-          : (transcodingProgress! * 100).round().clamp(0, 100);
+  int? get transcodingProgressPercent => transcodingProgress == null
+      ? null
+      : (transcodingProgress! * 100).round().clamp(0, 100);
 
   /// Converts this statistics to a JSON map.
   Map<String, dynamic> toJson() => {

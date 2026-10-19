@@ -65,7 +65,8 @@ void main() {
         expect(
           failureGuard,
           greaterThan(registration),
-          reason: '${entry.key} does not check the negative Darwin failure sentinel',
+          reason:
+              '${entry.key} does not check the negative Darwin failure sentinel',
         );
         expect(failureCode, greaterThan(failureGuard));
         expect(failureMessage, greaterThan(failureGuard));

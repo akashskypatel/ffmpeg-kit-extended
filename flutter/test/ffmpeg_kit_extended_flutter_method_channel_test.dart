@@ -5,12 +5,16 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  final MethodChannelFfmpegKitExtendedFlutter platform = MethodChannelFfmpegKitExtendedFlutter();
+  final MethodChannelFfmpegKitExtendedFlutter platform =
+      MethodChannelFfmpegKitExtendedFlutter();
   const MethodChannel channel = MethodChannel('ffmpeg_kit_extended_flutter');
 
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (MethodCall methodCall) async => '42');
+        .setMockMethodCallHandler(
+          channel,
+          (MethodCall methodCall) async => '42',
+        );
   });
 
   tearDown(() {

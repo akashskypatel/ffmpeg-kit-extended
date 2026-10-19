@@ -209,9 +209,9 @@ Future<String> _runCallbackProbe() async {
         ),
       );
     }
-    final concurrentSessions = await Future.wait(concurrentFutures).timeout(
-      const Duration(seconds: 30),
-    );
+    final concurrentSessions = await Future.wait(
+      concurrentFutures,
+    ).timeout(const Duration(seconds: 30));
     if (concurrentSessions.length != concurrentSessionCount ||
         concurrentCompletionCounts.length != concurrentSessionCount ||
         concurrentCompletionCounts.values.any((count) => count != 1) ||

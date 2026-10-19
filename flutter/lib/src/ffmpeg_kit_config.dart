@@ -74,37 +74,37 @@ class FFmpegKitConfig {
   static void clearSessions() => FFmpegKitExtended.clearSessions();
 
   /// Enables global log callback.
-  static void enableLogCallback(
-          [callback_manager.FFmpegLogCallback? logCallback]) =>
-      FFmpegKitExtended.enableLogCallback(logCallback);
+  static void enableLogCallback([
+    callback_manager.FFmpegLogCallback? logCallback,
+  ]) => FFmpegKitExtended.enableLogCallback(logCallback);
 
   /// Enables global statistics callback.
-  static void enableStatisticsCallback(
-          [callback_manager.FFmpegStatisticsCallback? statisticsCallback]) =>
-      FFmpegKitExtended.enableStatisticsCallback(statisticsCallback);
+  static void enableStatisticsCallback([
+    callback_manager.FFmpegStatisticsCallback? statisticsCallback,
+  ]) => FFmpegKitExtended.enableStatisticsCallback(statisticsCallback);
 
   /// Enables global FFmpeg session complete callback.
-  static void enableFFmpegSessionCompleteCallback(
-          [callback_manager.FFmpegSessionCompleteCallback? completeCallback]) =>
-      FFmpegKitExtended.enableFFmpegSessionCompleteCallback(completeCallback);
+  static void enableFFmpegSessionCompleteCallback([
+    callback_manager.FFmpegSessionCompleteCallback? completeCallback,
+  ]) => FFmpegKitExtended.enableFFmpegSessionCompleteCallback(completeCallback);
 
   /// Enables global FFprobe session complete callback.
-  static void enableFFprobeSessionCompleteCallback(
-          [callback_manager.FFprobeSessionCompleteCallback?
-              completeCallback]) =>
+  static void enableFFprobeSessionCompleteCallback([
+    callback_manager.FFprobeSessionCompleteCallback? completeCallback,
+  ]) =>
       FFmpegKitExtended.enableFFprobeSessionCompleteCallback(completeCallback);
 
   /// Enables global FFplay session complete callback.
-  static void enableFFplaySessionCompleteCallback(
-          [callback_manager.FFplaySessionCompleteCallback? completeCallback]) =>
-      FFmpegKitExtended.enableFFplaySessionCompleteCallback(completeCallback);
+  static void enableFFplaySessionCompleteCallback([
+    callback_manager.FFplaySessionCompleteCallback? completeCallback,
+  ]) => FFmpegKitExtended.enableFFplaySessionCompleteCallback(completeCallback);
 
   /// Enables global MediaInformation session complete callback.
-  static void enableMediaInformationSessionCompleteCallback(
-          [callback_manager.MediaInformationSessionCompleteCallback?
-              completeCallback]) =>
-      FFmpegKitExtended.enableMediaInformationSessionCompleteCallback(
-          completeCallback);
+  static void enableMediaInformationSessionCompleteCallback([
+    callback_manager.MediaInformationSessionCompleteCallback? completeCallback,
+  ]) => FFmpegKitExtended.enableMediaInformationSessionCompleteCallback(
+    completeCallback,
+  );
 
   /// Registers a new FFmpeg pipe.
   static String? registerNewFFmpegPipe() =>
@@ -115,9 +115,10 @@ class FFmpegKitConfig {
       FFmpegKitExtended.closeFFmpegPipe(pipePath);
 
   /// Sets the list of font directories.
-  static void setFontDirectoryList(List<String> fontDirectoryList,
-          [Map<String, String>? fontMappings]) =>
-      FFmpegKitExtended.setFontDirectoryList(fontDirectoryList, fontMappings);
+  static void setFontDirectoryList(
+    List<String> fontDirectoryList, [
+    Map<String, String>? fontMappings,
+  ]) => FFmpegKitExtended.setFontDirectoryList(fontDirectoryList, fontMappings);
 
   /// Returns the build date.
   static String getBuildDate() => FFmpegKitExtended.getBuildDate();
