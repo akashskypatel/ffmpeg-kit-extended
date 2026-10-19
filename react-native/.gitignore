@@ -167,3 +167,5 @@ example/windows/**/Generated Files/
 **/bin/*
 **/x64/*
 **/x86/*
+.cxx/
+build/
