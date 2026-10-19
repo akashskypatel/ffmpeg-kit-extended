@@ -1,6 +1,5 @@
 {
-  "type": "video",
-  "gpl": true,
-  "small": true,
-  "wasm": "\\\\wsl.localhost\\ManyLinux\\home\\vscode\\ffmpeg-kit-builders\\prebuilt\\wasm-wasm32\\releases\\callback-accounting\\bundle-video-wasm-wasm32-static-small-gpl.zip"
+  "type": "base",
+  "gpl": false,
+  "small": true
 }

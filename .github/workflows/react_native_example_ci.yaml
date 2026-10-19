@@ -48,6 +48,8 @@ jobs:
             os: macos-latest
           - platform: windows
             os: windows-latest
+          - platform: wasm
+            os: ubuntu-latest
 
     steps:
       - name: Check out repository

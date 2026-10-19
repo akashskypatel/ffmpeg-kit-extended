@@ -2,26 +2,6 @@ name: Wasm Callback CI
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - ".github/workflows/wasm_callback_ci.yaml"
-      - ".github/workflows/react_native_web_ci.yaml"
-      - "flutter/**"
-      - "react-native/**"
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-    paths:
-      - ".github/workflows/wasm_callback_ci.yaml"
-      - ".github/workflows/react_native_web_ci.yaml"
-      - "flutter/**"
-      - "react-native/**"
 
 permissions:
   contents: read

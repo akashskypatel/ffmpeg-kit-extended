@@ -2,22 +2,6 @@ name: React Native Web checks
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - master
-    paths:
-      - "react-native/**"
-      - ".github/workflows/react_native_web_ci.yaml"
-  pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-    paths:
-      - "react-native/**"
-      - ".github/workflows/react_native_web_ci.yaml"
 
 permissions:
   contents: read

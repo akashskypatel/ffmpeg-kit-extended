@@ -13,7 +13,7 @@
     "windows": "powershell -NoProfile -ExecutionPolicy Bypass -File ../scripts/launch-windows.ps1",
     "prepare-web": "node ../scripts/prepare-web.js --app-root .",
     "web": "npm run prepare-web && vite --config web/vite.config.js",
-    "web:build": "npm run prepare-web && vite build --config web/vite.config.js",
+    "build:web": "npm run prepare-web && vite build --config web/vite.config.js",
     "build:android": "bash ../build.sh android",
     "build:ios": "bash ../build.sh ios",
     "build:appletvos": "bash ../build.sh appletvos",

@@ -57,7 +57,8 @@
     "example:start": "npm --prefix example run start",
     "example:macos": "bash ./launch.sh macos",
     "example:appletvos": "bash ./launch.sh appletvos",
-    "example:windows": "bash ./launch.sh windows"
+    "example:windows": "bash ./launch.sh windows",
+    "example:web": "npm --prefix example run web"
   },
   "keywords": [
     "react-native",
