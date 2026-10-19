@@ -118,9 +118,10 @@ class SessionQueueManager {
     return completer.future;
   }
 
-  bool _containsSession(Session session) => _reservedSessionIds.contains(session.sessionId) ||
-        _activeSessions.any((active) => identical(active, session)) ||
-        _queue.any((queued) => identical(queued.session, session));
+  bool _containsSession(Session session) =>
+      _reservedSessionIds.contains(session.sessionId) ||
+      _activeSessions.any((active) => identical(active, session)) ||
+      _queue.any((queued) => identical(queued.session, session));
 
   /// Processes the session queue, starting as many sessions as allowed.
   void _processQueue() {

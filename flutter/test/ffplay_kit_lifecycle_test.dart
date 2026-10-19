@@ -105,20 +105,23 @@ void main() {
     expect(FFplayKit.currentSession, isNull);
   });
 
-  test('settling the newer execution restores the older tracked owner', () async {
-    final older = _FakeFFplaySession(SessionState.created);
-    final newer = _FakeFFplaySession(SessionState.created);
-    FFplayKit.trackExecutionForTest(older, older.executeAsync);
-    FFplayKit.trackExecutionForTest(newer, newer.executeAsync);
+  test(
+    'settling the newer execution restores the older tracked owner',
+    () async {
+      final older = _FakeFFplaySession(SessionState.created);
+      final newer = _FakeFFplaySession(SessionState.created);
+      FFplayKit.trackExecutionForTest(older, older.executeAsync);
+      FFplayKit.trackExecutionForTest(newer, newer.executeAsync);
 
-    newer.execution.complete();
-    await Future<void>.delayed(Duration.zero);
-    expect(FFplayKit.currentSession, same(older));
+      newer.execution.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(FFplayKit.currentSession, same(older));
 
-    older.execution.complete();
-    await Future<void>.delayed(Duration.zero);
-    expect(FFplayKit.currentSession, isNull);
-  });
+      older.execution.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(FFplayKit.currentSession, isNull);
+    },
+  );
 
   test('execution errors still settle active ownership', () async {
     final session = _FakeFFplaySession(SessionState.created);
@@ -147,18 +150,21 @@ void main() {
     expect(FFplayKit.currentSession, isNull);
   });
 
-  test('telemetry stream controllers remain reusable after last listener ends', () async {
-    final session = _FakeFFplaySession(SessionState.created);
-    final firstPosition = session.positionStream.listen((_) {});
-    final firstVideoSize = session.videoSizeStream.listen((_) {});
-    await firstPosition.cancel();
-    await firstVideoSize.cancel();
+  test(
+    'telemetry stream controllers remain reusable after last listener ends',
+    () async {
+      final session = _FakeFFplaySession(SessionState.created);
+      final firstPosition = session.positionStream.listen((_) {});
+      final firstVideoSize = session.videoSizeStream.listen((_) {});
+      await firstPosition.cancel();
+      await firstVideoSize.cancel();
 
-    final secondPosition = session.positionStream.listen((_) {});
-    final secondVideoSize = session.videoSizeStream.listen((_) {});
-    await secondPosition.cancel();
-    await secondVideoSize.cancel();
-  });
+      final secondPosition = session.positionStream.listen((_) {});
+      final secondVideoSize = session.videoSizeStream.listen((_) {});
+      await secondPosition.cancel();
+      await secondVideoSize.cancel();
+    },
+  );
 
   test(
     'start submits Created once, resumes paused Running, and ignores terminal',

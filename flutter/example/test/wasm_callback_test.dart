@@ -217,9 +217,9 @@ void main() {
       );
     }
 
-    final sessions = await Future.wait(futures).timeout(
-      const Duration(seconds: 30),
-    );
+    final sessions = await Future.wait(
+      futures,
+    ).timeout(const Duration(seconds: 30));
     expect(sessions, hasLength(sessionCount));
     expect(callbackCounts, hasLength(sessionCount));
     expect(callbackCounts.values, everyElement(1));
