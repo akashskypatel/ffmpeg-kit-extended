@@ -83,7 +83,7 @@ jobs:
         run: npm ci
 
       - name: Install shared example dependencies
-        if: matrix.platform == 'android' || matrix.platform == 'ios'
+        if: matrix.platform == 'android' || matrix.platform == 'ios' || matrix.platform == 'web'
         working-directory: react-native/example
         run: npm ci
 

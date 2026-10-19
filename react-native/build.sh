@@ -896,8 +896,9 @@ EOF
     *";PATH;"*) ;;
     *) export MSYS2_ENV_CONV_EXCL="${MSYS2_ENV_CONV_EXCL:+$MSYS2_ENV_CONV_EXCL;}PATH" ;;
   esac
-  if ! PATH="$windows_path" cmd.exe /d /c where.exe npx.cmd >/dev/null 2>&1; then
-    echo "npx.cmd was not found on the Windows PATH passed to MSBuild." >&2
+  # Avoid Git Bash native-process PATH conversion when checking the Node shim.
+  if [[ ! -f "$(cygpath -u "$node_dir_windows")/npx.cmd" ]]; then
+    echo "npx.cmd was not found alongside node.exe." >&2
     echo "Node directory: $node_dir_windows" >&2
     echo "npm prefix: ${npm_prefix_windows:-unavailable}" >&2
     echo "npm user bin: ${npm_global_dir_windows:-unavailable}" >&2
@@ -1001,15 +1002,14 @@ build_ios() {
     echo "Installing CocoaPods dependencies..."
     bundle exec pod install 2>/dev/null || pod install
     local configuration="Debug"
-    local -a derived_data_args=()
+    local -a xcodebuild_args=(-workspace FFmpegKitExtendedExample.xcworkspace)
     [[ "$build_type" == "release" ]] && configuration="Release"
-    [[ -n "${FFMPEG_KIT_IOS_DERIVED_DATA_PATH:-}" ]] && \
-      derived_data_args=(-derivedDataPath "$FFMPEG_KIT_IOS_DERIVED_DATA_PATH")
-    xcodebuild \
-      -workspace FFmpegKitExtendedExample.xcworkspace \
+    if [[ -n "${FFMPEG_KIT_IOS_DERIVED_DATA_PATH:-}" ]]; then
+      xcodebuild_args+=(-derivedDataPath "$FFMPEG_KIT_IOS_DERIVED_DATA_PATH")
+    fi
+    xcodebuild "${xcodebuild_args[@]}" \
       -scheme FFmpegKitExtendedExample \
       -configuration "$configuration" \
-      "${derived_data_args[@]}" \
       -sdk iphonesimulator \
       -destination 'generic/platform=iOS Simulator' \
       ARCHS=arm64 \
