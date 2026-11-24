@@ -661,8 +661,17 @@ Future<T> _withCacheLock<T>(
       try {
         // Directory.create is idempotent. Publishing a nonempty claim by
         // rename instead provides exclusive acquisition across processes.
-        claim.renameSync(lock.path);
-        acquired = true;
+        const maxAttemptCount = 10;
+        for (var i = 0; i < maxAttemptCount; i++) {
+          try {
+            claim.renameSync(lock.path);
+            acquired = true;
+            break;
+          } on FileSystemException {
+            // Continue to next attempt
+          }
+          await Future<void>.delayed(Duration(milliseconds: i * 10));
+        }
       } on FileSystemException {
         if (!claim.existsSync()) rethrow;
         if (!lock.existsSync()) continue;
@@ -702,7 +711,16 @@ Future<void> _publishFile(File temporary, File destination) async {
     // another hook invocation that participates in the cache protocol.
     if (destination.existsSync()) {
       destination.deleteSync();
-      temporary.renameSync(destination.path);
+      const maxAttemptCount = 10;
+      for (var i = 0; i < maxAttemptCount; i++) {
+        try {
+          temporary.renameSync(destination.path);
+          break;
+        } on FileSystemException {
+          // Continue to next attempt
+        }
+        await Future<void>.delayed(Duration(milliseconds: i * 10));
+      }
     } else {
       rethrow;
     }
