@@ -12,3 +12,4 @@ dependencies:
   flutter:
     sdk: flutter
   web: ^1.1.1
+  material_ui: any

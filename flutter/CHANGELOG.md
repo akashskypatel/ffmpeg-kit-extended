@@ -1,5 +1,9 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 1.0.2
+
+- Add material_ui dependency, remove deprecated flutter/material.dart imports
+
 ## Version 1.0.1
 
 - Fix #48 - WebAssembly being built by build hook when no web directory in app

@@ -1,6 +1,6 @@
 {
   "name": "ffmpeg-kit-extended",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Ffmpeg-kit-extended is a comprehensive cross-platform React-Native plugin for executing FFmpeg, FFprobe, and FFplay commands",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

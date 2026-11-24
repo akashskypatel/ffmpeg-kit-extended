@@ -1,5 +1,9 @@
 # FFmpegKit Extended React Native Changelog
 
+## Version 1.0.2
+
+- Fix FFmpeg version in docs to 9.0.2
+
 ## Version 1.0.0
 
 ### Added

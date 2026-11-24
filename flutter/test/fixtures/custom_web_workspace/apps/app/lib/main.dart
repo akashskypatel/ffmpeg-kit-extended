@@ -1,5 +1,5 @@
 import 'package:ffmpeg_kit_extended_flutter/ffmpeg_kit_extended_flutter.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:web/web.dart' as web;
 
 const _smokeMediaPath = '/custom-runtime-smoke.mp4';
