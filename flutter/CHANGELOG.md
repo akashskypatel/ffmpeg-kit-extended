@@ -1,5 +1,10 @@
 # FFmpegKit Extended Flutter Plugin CHANGELOG
 
+## Version 1.0.1
+
+- Fix #48 - WebAssembly being built by build hook when no web directory in app
+- Fix #47 - Add backoff delay to rename operations to prevent FileSystemException on Windows due to Windows Defender or anti-virus holding lock on file
+
 ## Version 1.0.0
 
 ### Added
