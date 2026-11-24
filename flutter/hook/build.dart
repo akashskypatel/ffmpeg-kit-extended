@@ -76,8 +76,10 @@ void main(List<String> args) async {
         'FFmpegKitExtended User Defines (small): ${input.userDefines['small']}',
       );
     }
-    if (!input.config.buildCodeAssets && input.config.buildAssetTypes.isEmpty) {
-      _log('Target: Web/WASM');
+    if (!input.config.buildCodeAssets &&
+        input.config.buildAssetTypes.isEmpty &&
+        _checkAppPlatformDirectory(input, 'web')) {
+      _log('Web/WASM application directory detected. Building WASM assets...');
       await _buildWasmAssets(input, output);
       return;
     }
@@ -118,6 +120,36 @@ void main(List<String> args) async {
   });
 }
 
+bool _checkAppPlatformDirectory(BuildInput input, String platform) {
+  try {
+    final webDir = Directory(
+      p.join(
+        p.dirname(
+          p.normalize(
+            Map.from(
+                  Map.from(
+                        input.json['user_defines'] as Map,
+                      )['workspace_pubspec']
+                      as Map,
+                )['base_path']
+                as String,
+          ),
+        ),
+        platform,
+      ),
+    );
+    final exists = webDir.existsSync();
+    if (exists) {
+      _log('$platform directory exists: ${webDir.path}');
+      return true;
+    }
+  } catch (e) {
+    _log('No web directory found');
+    return false;
+  }
+  return false;
+}
+
 @visibleForTesting
 Future<T> resolveAfterTargetArchitectureValidation<T>({
   required OS targetOS,
@@ -141,6 +173,7 @@ Future<void> _buildWasmAssets(
     output.dependencies.add,
   );
   final runtimeDir = selectWebRuntimeDirectory(source.searchRoot);
+  _log('runtimeDir: $runtimeDir');
   if (runtimeDir == null) {
     throw _exception(
       'WASM bundle must contain exactly one directory with both '
